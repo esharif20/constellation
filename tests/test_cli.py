@@ -47,7 +47,7 @@ def test_scan_writes_redacted_private_json(config, tmp_path):
     assert code == 0
     assert [i["name"] for i in data["items"]] == ["leaky"]
     assert list(data["labels"].values()) == ["ships code"]
-    assert {"warnings", "clusters"} <= data.keys()
+    assert {"warnings", "clusters", "overlaps"} <= data.keys()
     assert SECRET not in out.read_text()
     assert stat.S_IMODE(out.stat().st_mode) == 0o600
 

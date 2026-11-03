@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Literal
 
 LLM = Callable[[str], str]  # prompt in, reply out
 Embedder = Callable[[list[str]], list[list[float]]]  # texts in, one vector per text out
@@ -34,6 +35,17 @@ class Cost:
     on_use: int | None  # tokens paid only when invoked; None = unknown
 
 
+Verdict = Literal["duplicate", "wrapper", "overlap", "distinct"]
+
+
+@dataclass(frozen=True)
+class Overlap:
+    a_id: str  # Item ids; a_id < b_id, except for a wrapper, where a_id is the wrapper and b_id is what it calls
+    b_id: str
+    verdict: Verdict
+    reason: str  # one plain-English line
+
+
 @dataclass
 class Constellation:
     items: list[Item] = field(default_factory=list)
@@ -42,3 +54,4 @@ class Constellation:
     labels: dict[str, str] = field(default_factory=dict)  # Item id -> free-text purpose label, set when scan() gets an llm
     clusters: list[Cluster] = field(default_factory=list)
     costs: dict[str, Cost] = field(default_factory=dict)  # Item id -> Context cost, set when scan() gets a token counter
+    overlaps: list[Overlap] = field(default_factory=list)  # sorted by (a_id, b_id)
