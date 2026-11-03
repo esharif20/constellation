@@ -31,4 +31,13 @@ def read_items(config_dir: Path) -> tuple[list[Item], list[str]]:
             kind = "connector" if "url" in server else "mcp_server"
             description = server.get("url") or " ".join([server["command"], *server.get("args", [])])
             items.append(Item(f"{SOURCE}:{kind}:{name}", kind, name, description, SOURCE))
+    settings_file = config_dir / "settings.json"
+    if settings_file.exists():
+        for event, groups in json.loads(settings_file.read_text()).get("hooks", {}).items():
+            for group in groups:
+                name = ":".join(filter(None, [event, group.get("matcher")]))
+                for handler in group["hooks"]:
+                    # Index keeps ids unique when several handlers share an event and matcher.
+                    id_ = f"{SOURCE}:hook:{name}:{len(items)}"
+                    items.append(Item(id_, "hook", name, handler["command"], SOURCE))
     return items, warnings

@@ -41,6 +41,18 @@ def test_scan_lists_hosted_connectors_as_one_item_each():
     assert connectors["docs"].description == "https://mcp.example.com/docs"
 
 
+def test_scan_lists_a_hook_per_handler_across_all_five_lifecycle_events():
+    hooks = by_kind(scan(FIXTURE), "hook")
+
+    assert {n: h.description for n, h in hooks.items()} == {
+        "SessionStart": "echo session started",
+        "UserPromptSubmit": "echo prompt",
+        "PreToolUse:Bash": "./block-rm.sh",
+        "PostToolUse:Edit|Write": "./lint.sh",
+        "Stop": "echo done",
+    }
+
+
 def test_skill_without_description_is_skipped_with_a_warning():
     constellation = scan(FIXTURE)
 
