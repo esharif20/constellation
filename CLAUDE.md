@@ -48,3 +48,13 @@ The approved plan is `~/.claude/plans/pasted-content-id-d61b-i-think-modular-fog
 - If the right choice differs from the plan, stop and say so: record it as a **deviation** in the tracker with the reason, and get the user's approval before building on it.
 - At the end of every ticket, update `docs/plan-tracker.md` (status, deviations, new decisions) in the same commit, and reflect it in the ticket's closing comment.
 - A reviewer checks the diff against the tracker: wrong stack or silent drift is a finding.
+
+## Cost rule
+
+Free by default, paid only for new or changed Items. A scan of an unchanged setup should make zero paid calls.
+
+- Every paid provider call (labels, verifier, token counts) is cached by the content hash of the redacted text it would send, in a private (0600) file; an unwritable cache is a warning, never a crash.
+- Local work (hashing, wrapper checks, embeddings, clustering) always runs first and is always free; a model is called only for what local work cannot decide.
+- Every real run prints a call-count and cost estimate first; dry runs show exactly what would be sent.
+- Offline mode (no key, or `--offline`) must still produce a useful Constellation.
+- Plan for at most a few hundred Items per user, not thousands; do not add complexity for scale beyond that.
