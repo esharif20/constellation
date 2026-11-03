@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from .models import LLM
+from .models import LLM, TokenCounter
 
 MODEL = "claude-haiku-5-5"
 
@@ -20,3 +20,16 @@ def anthropic_llm(client: Any = None) -> LLM:
         return next((b.text for b in response.content if b.type == "text"), "")  # skip thinking blocks
 
     return call
+
+
+def anthropic_counter(client: Any = None) -> TokenCounter:
+    """Exact counts from Anthropic's counting endpoint. shortcut: each text is counted as a lone user message, so it includes a few
+    tokens of message framing; upgrade if the absolute figure must match the live prompt."""
+    if client is None:
+        from anthropic import Anthropic
+
+        client = Anthropic()
+
+    return lambda texts: [
+        client.messages.count_tokens(model=MODEL, messages=[{"role": "user", "content": text}]).input_tokens for text in texts
+    ]

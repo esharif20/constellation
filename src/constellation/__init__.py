@@ -3,8 +3,9 @@ from pathlib import Path
 from .classify import classify
 from .claude_code import read_items, read_secrets
 from .cluster import cluster
-from .models import LLM, Cluster, Constellation, Embedder, Item
-from .redact import ProviderError, guarded, guarded_embed
+from .costs import measure
+from .models import LLM, Cluster, Constellation, Cost, Embedder, TokenCounter
+from .redact import ProviderError, guarded, guarded_count, guarded_embed
 
 
 def scan(
@@ -12,12 +13,14 @@ def scan(
     llm: LLM | None = None,
     embedder: Embedder | None = None,
     cluster_threshold: float | None = None,
+    counter: TokenCounter | None = None,
+    cost_cache: Path | None = None,
 ) -> Constellation:
-    items, warnings, relations = read_items(config_dir)
+    items, warnings, relations, bodies = read_items(config_dir)
     labels: dict[str, str] = {}
     clusters: list[Cluster] = []
     # The only place providers are called from: both are wrapped here, so everything they receive is redacted first.
-    secrets = read_secrets(config_dir) if llm or embedder else set()
+    secrets = read_secrets(config_dir) if llm or embedder or counter else set()
     if llm:
         labels, label_warnings = classify(items, guarded(llm, secrets))
         warnings += sorted(label_warnings)  # branches finish in any order; sorted keeps the output repeatable
@@ -26,7 +29,11 @@ def scan(
             clusters = cluster(items, labels, guarded_embed(embedder, secrets), cluster_threshold)
         except ProviderError as error:
             warnings.append(f"could not cluster items: {error}")
-    return Constellation(items, warnings, relations, labels, clusters)
+    costs: dict[str, Cost] = {}
+    if counter:
+        costs, cost_warnings = measure(items, bodies, guarded_count(counter, secrets), secrets, cost_cache)
+        warnings += cost_warnings
+    return Constellation(items, warnings, relations, labels, clusters, costs)
 
 
 __all__ = ["scan", "Cluster", "Constellation", "Item"]
