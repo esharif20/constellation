@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 from collections.abc import Sequence
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -10,11 +11,13 @@ from . import scan
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
 from .env import load_env
-from .models import LLM, Constellation, Embedder
+from .models import LLM, Constellation, Embedder, TokenCounter
 from .redact import redact
 
 
-def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Embedder | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Embedder | None = None, counter: TokenCounter | None = None
+) -> int:
     parser = argparse.ArgumentParser(prog="constellation")
     commands = parser.add_subparsers(dest="command", required=True)
     scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
@@ -31,16 +34,16 @@ def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Em
     sent: list[str] = []
     if args.dry_run:
         # These sit behind scan()'s redaction, so what is printed is exactly what a real run would send.
-        llm, embedder = _record_prompt(sent), _record_texts(sent)
+        llm, embedder, counter = _record_prompt(sent), _record_texts(sent), _record_counts(sent)
     else:
         if llm is None:
             if not os.environ.get("ANTHROPIC_API_KEY"):
                 print("ANTHROPIC_API_KEY is not set; export it or use --dry-run.", file=sys.stderr)
                 return 2
             try:
-                from .anthropic_llm import anthropic_llm
+                from .anthropic_llm import anthropic_counter, anthropic_llm
 
-                llm = anthropic_llm()
+                llm, counter = anthropic_llm(), counter or anthropic_counter()
             except ImportError:
                 print("The anthropic package is not installed; run `uv sync --extra llm`.", file=sys.stderr)
                 return 2
@@ -49,7 +52,9 @@ def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Em
 
             embedder = fastembed_embedder()
 
-    result = scan(args.config_dir, llm=llm, embedder=embedder)
+    with tempfile.TemporaryDirectory() as scratch:  # a dry run must not write the real token-count cache
+        cache = Path(scratch) / "counts.json" if args.dry_run else None
+        result = scan(args.config_dir, llm=llm, embedder=embedder, counter=counter, cost_cache=cache)
     if args.dry_run:
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
         return 0
@@ -68,6 +73,14 @@ def _write(result: Constellation, path: Path, secrets: set[str]) -> None:
     os.chmod(path, 0o600)  # open() keeps the mode of a file that already existed
     with os.fdopen(fd, "w") as f:
         f.write(text)
+
+
+def _record_counts(sent: list[str]) -> TokenCounter:
+    def count(texts: list[str]) -> list[int]:
+        sent.extend(f"--- COUNT ---\n{text}" for text in texts)
+        return [0] * len(texts)
+
+    return count
 
 
 def _record_prompt(sent: list[str]) -> LLM:

@@ -51,8 +51,12 @@ def measure(
     if missing:
         try:
             cache |= dict(zip(missing, counter(list(missing.values())), strict=True))
-            _save(path, cache)
         except ProviderError as error:
             warnings.append(f"could not count context cost: {error}")
+        else:
+            try:
+                _save(path, cache)
+            except OSError as error:  # the counts are paid for and kept in memory; only the next scan loses them
+                warnings.append(f"could not save the token-count cache: {error}")
     counted = {id_: [None if t is None else cache.get(_key(t, known)) for t in pair] for id_, pair in pairs.items()}
     return {id_: Cost(always_on, on_use) for id_, (always_on, on_use) in counted.items()}, warnings

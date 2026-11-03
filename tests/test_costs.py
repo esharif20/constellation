@@ -121,3 +121,13 @@ def test_the_anthropic_counter_asks_the_counting_endpoint_once_per_text():
     assert anthropic_counter(client=client)(["a", "b"]) == [10, 20]
     assert calls[0]["model"] == "claude-haiku-5-5"
     assert calls[0]["messages"] == [{"role": "user", "content": "a"}]
+
+
+def test_an_unwritable_cache_is_a_warning_and_the_counts_are_kept(tmp_path):
+    blocker = tmp_path / "file"
+    blocker.write_text("not a directory")
+
+    result = scan(FIXTURE, counter=FakeCounter(), cost_cache=blocker / "c.json")
+
+    assert cost_of(result, "skill", "alpha").always_on is not None
+    assert any("could not save the token-count cache" in w for w in result.warnings)

@@ -100,3 +100,25 @@ def test_dry_run_prints_every_prompt_whole_and_in_a_repeatable_order(tmp_path, c
     assert lines.count("--- PROMPT ---") == 300 == sum("--- PROMPT ---" in line for line in lines)  # none glued onto another line
     names = [line for line in lines if line.startswith("Name: ")]
     assert names == sorted(names)
+
+
+def test_dry_run_also_prints_the_texts_that_would_be_counted_and_leaves_the_cache_alone(config, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+    assert main(["scan", str(config), "--dry-run"]) == 0
+
+    printed = capsys.readouterr().out
+    assert "--- COUNT ---\nleaky: Deploys using" in printed and SECRET not in printed
+    assert not (tmp_path / "home").exists()
+
+
+def test_a_real_run_passes_the_counter_to_the_scan_and_writes_the_costs(config, tmp_path):
+    out = tmp_path / "out.json"
+    cache = tmp_path / "counts.json"
+    from fakes import FakeCounter
+
+    code = main(
+        ["scan", str(config), "--out", str(out)], llm=FakeLLM({"leaky": "ships code"}), embedder=FakeEmbedder({}), counter=FakeCounter()
+    )
+
+    assert code == 0 and json.loads(out.read_text())["costs"] and not cache.exists()
