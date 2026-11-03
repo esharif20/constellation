@@ -16,6 +16,12 @@ dependencies = [
 local = [
     "fastembed>=0.9.1",
 ]
+llm = [
+    "anthropic>=2.4.0",
+]
+
+[project.scripts]
+constellation = "constellation.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
@@ -51,5 +57,5 @@ files = ["src"]
 strict = true
 
 [[tool.mypy.overrides]]
-module = "fastembed"
+module = ["fastembed", "anthropic"]
 ignore_missing_imports = true
