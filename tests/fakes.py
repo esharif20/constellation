@@ -46,3 +46,16 @@ class SlowLLM:
         with self.lock:
             self.now -= 1
         return "label"
+
+
+class FakeCounter:
+    """Stand-in for the counting endpoint: a text's count is its word count; records every text it receives."""
+
+    def __init__(self, fail_with: str | None = None):
+        self.fail_with, self.texts = fail_with, []
+
+    def __call__(self, texts: list[str]) -> list[int]:
+        self.texts.extend(texts)
+        if self.fail_with:
+            raise ConnectionError(self.fail_with)
+        return [len(t.split()) for t in texts]

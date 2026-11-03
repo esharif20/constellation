@@ -27,7 +27,7 @@ def _frontmatter(path: Path) -> tuple[dict[str, Any], str | None]:
     return (meta if isinstance(meta, dict) else {}), None
 
 
-def _read_root(root: Path, scope: str, items: list[Item], warnings: list[str], relations: list[Relation]) -> None:
+def _read_root(root: Path, scope: str, items: list[Item], warnings: list[str], relations: list[Relation], bodies: dict[str, str]) -> None:
     """Read the Items under one root: the config dir itself, or one plugin dir. `scope` keeps ids unique."""
     for kind, pattern in (("skill", "skills/*/SKILL.md"), ("agent", "agents/*.md")):
         for path in sorted(root.glob(pattern)):
@@ -42,6 +42,7 @@ def _read_root(root: Path, scope: str, items: list[Item], warnings: list[str], r
                 warnings.append(f"skipped {kind} '{name}': no description ({path})")
                 continue
             items.append(Item(f"{SOURCE}:{kind}:{scope}{name}", kind, name, description, SOURCE))
+            bodies[items[-1].id] = path.read_text().split("---", 2)[2].strip()  # loaded only when invoked: the on-use text
     mcp_file = root / ".mcp.json"
     if mcp_file.exists():
         for name, server in json.loads(mcp_file.read_text())["mcpServers"].items():
@@ -81,20 +82,21 @@ def _plugin_manifests(config_dir: Path) -> list[Path]:
     return list(newest.values())
 
 
-def read_items(config_dir: Path) -> tuple[list[Item], list[str], list[Relation]]:
+def read_items(config_dir: Path) -> tuple[list[Item], list[str], list[Relation], dict[str, str]]:
     items: list[Item] = []
     warnings: list[str] = []
     relations: list[Relation] = []
+    bodies: dict[str, str] = {}  # skill/agent Item id -> file text after the frontmatter
     config_dir = Path(config_dir)
-    _read_root(config_dir, "", items, warnings, relations)
+    _read_root(config_dir, "", items, warnings, relations, bodies)
     for manifest in _plugin_manifests(config_dir):
         meta = json.loads(manifest.read_text())
         plugin = Item(f"{SOURCE}:plugin:{meta['name']}", "plugin", meta["name"], meta.get("description", ""), SOURCE)
         items.append(plugin)
         first = len(items)
-        _read_root(manifest.parent.parent, f"{meta['name']}/", items, warnings, relations)
+        _read_root(manifest.parent.parent, f"{meta['name']}/", items, warnings, relations, bodies)
         relations += [Relation(plugin.id, item.id, "contains") for item in items[first:]]
-    return items, warnings, relations
+    return items, warnings, relations, bodies
 
 
 def _strings(node: object) -> Iterator[str]:

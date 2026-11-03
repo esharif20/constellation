@@ -45,7 +45,7 @@ markers = ["eval: slow quality check with the real local embedder; run with `pyt
 
 [tool.mutmut]
 source_paths = ["src"]
-only_mutate = ["src/constellation/redact.py", "src/constellation/cluster.py", "src/constellation/classify.py", "src/constellation/env.py"]
+only_mutate = ["src/constellation/redact.py", "src/constellation/cluster.py", "src/constellation/classify.py", "src/constellation/env.py", "src/constellation/costs.py"]
 pytest_add_cli_args_test_selection = ["tests"]
 
 [tool.ruff]

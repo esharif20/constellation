@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable
 from itertools import pairwise
 from urllib.parse import quote, quote_plus
 
-from .models import LLM, Embedder
+from .models import LLM, Embedder, TokenCounter
 
 REDACTED = "[REDACTED]"
 
@@ -94,3 +94,9 @@ def guarded_embed(embed: Embedder, known: Iterable[str] = ()) -> Embedder:
     """Same rule for the embedder: a hosted one would receive Item text, so every text is redacted first."""
     known = tuple(known)
     return lambda texts: _safely(embed, known, [redact(text, known) for text in texts])
+
+
+def guarded_count(count: TokenCounter, known: Iterable[str] = ()) -> TokenCounter:
+    """Same rule for the token counter: the counting endpoint is a hosted provider, so every text is redacted first."""
+    known = tuple(known)
+    return lambda texts: _safely(count, known, [redact(text, known) for text in texts])
