@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from constellation import scan
 
 FIXTURE = Path(__file__).parent / "fixtures" / "claude_config"
@@ -81,3 +83,29 @@ def test_skill_without_description_is_skipped_with_a_warning():
     assert "nodesc" not in {i.name for i in constellation.items}
     assert len(constellation.warnings) == 1
     assert "nodesc" in constellation.warnings[0]
+
+
+def _skill_file(root, name, text):
+    (root / "skills" / name).mkdir(parents=True)
+    (root / "skills" / name / "SKILL.md").write_text(text)
+
+
+def test_a_description_with_an_unquoted_colon_is_read_leniently_with_a_warning(tmp_path):
+    # Real skill files are not always valid YAML, and Claude Code still loads them.
+    _skill_file(tmp_path, "tikz", "---\nname: tikz\ndescription: Use when asked: draw a diagram. Triggers: plot, figure\n---\nbody\n")
+
+    constellation = scan(tmp_path)
+
+    [item] = constellation.items
+    assert item.description == "Use when asked: draw a diagram. Triggers: plot, figure"
+    assert any("tikz" in w and "leniently" in w for w in constellation.warnings)
+
+
+@pytest.mark.parametrize("text", ["just markdown, no frontmatter\n", "---\n---\nbody\n"], ids=["no-frontmatter", "empty-frontmatter"])
+def test_a_skill_file_with_no_usable_frontmatter_is_skipped_with_a_warning_not_a_crash(tmp_path, text):
+    _skill_file(tmp_path, "broken", text)
+
+    constellation = scan(tmp_path)
+
+    assert constellation.items == []
+    assert any("broken" in w for w in constellation.warnings)

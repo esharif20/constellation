@@ -12,3 +12,12 @@ uv run mutmut run && uv run mutmut results   # mutation tests for the redaction 
 ```
 
 Tests never read a real Claude config: they use `tests/fixtures/` or a temporary directory.
+
+## Using it
+
+```
+uv sync --extra llm --extra local              # the model and the local embedder are optional extras
+constellation scan ~/.claude --dry-run > prompts.txt   # read-only; prints exactly what would be sent, sends nothing
+ANTHROPIC_API_KEY=... constellation scan ~/.claude     # writes constellation.json (mode 0600, descriptions redacted)
+uv run --extra local pytest -m eval -s         # slow clustering quality check with the real embedder
+```

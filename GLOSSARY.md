@@ -12,6 +12,10 @@ _Avoid_: Component, extension, asset, entry
 The part that reads one agent harness's setup (Claude Code first, Codex later) and reports its Items in a harness-neutral shape.
 _Avoid_: Scanner, parser, loader, provider
 
+**Provider**:
+The model or embedder a scan calls out to. Every call goes through the redaction guard, and a failed call becomes a warning, not an aborted scan. Not a Source adapter.
+_Avoid_: Backend, client, service
+
 **Constellation**:
 The full map of one setup: its Items, the relations between them, their groupings, and their context costs.
 _Avoid_: Graph (when meaning the whole map), report, inventory

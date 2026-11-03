@@ -27,6 +27,7 @@ def _prompt(item: Item) -> str:
 
 
 MAX_LABEL = 60
+FAILED_PREFIX = "could not label"  # the CLI looks for this prefix to report the first failure
 # shortcut: a fixed cap of 4 simultaneous model calls keeps a 77-Item scan under typical rate limits; raise it when throughput matters.
 MAX_CONCURRENCY = 4
 
@@ -47,9 +48,9 @@ def classify(items: list[Item], llm: LLM) -> tuple[dict[str, str], list[str]]:
         try:
             text = _clean(llm(_prompt(item)))
         except ProviderError as error:
-            return {"warnings": [f"could not label '{item.name}': {error}"]}
+            return {"warnings": [f"{FAILED_PREFIX} '{item.name}': {error}"]}
         if not text:
-            return {"warnings": [f"could not label '{item.name}': empty reply"]}
+            return {"warnings": [f"{FAILED_PREFIX} '{item.name}': empty reply"]}
         return {"labels": {item.id: text}}
 
     graph = StateGraph(_State)

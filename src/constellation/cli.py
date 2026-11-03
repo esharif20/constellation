@@ -7,36 +7,41 @@ from dataclasses import asdict, replace
 from pathlib import Path
 
 from . import scan
+from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
-from .models import LLM, Embedder
+from .models import LLM, Constellation, Embedder
 from .redact import redact
 
 
 def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Embedder | None = None) -> int:
     parser = argparse.ArgumentParser(prog="constellation")
-    sub = parser.add_subparsers(dest="command", required=True)
-    cmd = sub.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
-    cmd.add_argument("config_dir", type=Path)
-    cmd.add_argument("--out", type=Path, default=Path("constellation.json"))
-    cmd.add_argument("--dry-run", action="store_true", help="print what would be sent to the providers; send nothing")
+    commands = parser.add_subparsers(dest="command", required=True)
+    scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
+    scan_command.add_argument("config_dir", type=Path)
+    scan_command.add_argument("--out", type=Path, default=Path("constellation.json"))
+    scan_command.add_argument("--dry-run", action="store_true", help="print what would be sent to the providers; send nothing")
     args = parser.parse_args(argv)
 
     if not args.config_dir.is_dir():
         print(f"{args.config_dir} is not a directory.", file=sys.stderr)
         return 2
 
+    sent: list[str] = []
     if args.dry_run:
-        # Recording providers sit behind scan()'s redaction, so what is printed is exactly what a real run would send.
-        llm = _record("PROMPT", lambda p: "dry-run")
-        embedder = _record_texts()
+        # These sit behind scan()'s redaction, so what is printed is exactly what a real run would send.
+        llm, embedder = _record_prompt(sent), _record_texts(sent)
     else:
         if llm is None:
             if not os.environ.get("ANTHROPIC_API_KEY"):
                 print("ANTHROPIC_API_KEY is not set; export it or use --dry-run.", file=sys.stderr)
                 return 2
-            from .anthropic_llm import anthropic_llm
+            try:
+                from .anthropic_llm import anthropic_llm
 
-            llm = anthropic_llm()
+                llm = anthropic_llm()
+            except ImportError:
+                print("The anthropic package is not installed; run `uv sync --extra llm`.", file=sys.stderr)
+                return 2
         if embedder is None:
             from .embeddings import fastembed_embedder
 
@@ -44,35 +49,36 @@ def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Em
 
     result = scan(args.config_dir, llm=llm, embedder=embedder)
     if args.dry_run:
+        print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
         return 0
     if result.items and not result.labels:  # every model call failed: report why instead of writing a half-empty file
-        print(
-            "No Item could be labelled. First problem: " + next((w for w in result.warnings if "could not label" in w), "unknown"),
-            file=sys.stderr,
-        )
+        first = next((w for w in result.warnings if FAILED_PREFIX in w), "unknown")
+        print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1
-
-    secrets = read_secrets(args.config_dir)
-    result.items = [replace(i, description=redact(i.description, secrets)) for i in result.items]  # the Items hold raw text
-    fd = os.open(args.out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.chmod(args.out, 0o600)  # open() keeps the mode of a file that already existed
-    with os.fdopen(fd, "w") as f:
-        json.dump(asdict(result), f, indent=2)
+    _write(result, args.out, read_secrets(args.config_dir))
     return 0
 
 
-def _record(label: str, reply: LLM) -> LLM:
+def _write(result: Constellation, path: Path, secrets: set[str]) -> None:
+    result.items = [replace(i, description=redact(i.description, secrets)) for i in result.items]  # the Items hold raw text
+    text = json.dumps(asdict(result), indent=2)  # serialise first: a failure must not leave an empty file behind
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.chmod(path, 0o600)  # open() keeps the mode of a file that already existed
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+
+
+def _record_prompt(sent: list[str]) -> LLM:
     def call(prompt: str) -> str:
-        print(f"--- {label} ---\n{prompt}")
-        return reply(prompt)
+        sent.append(f"--- PROMPT ---\n{prompt}")
+        return "dry-run"
 
     return call
 
 
-def _record_texts() -> Embedder:
+def _record_texts(sent: list[str]) -> Embedder:
     def call(texts: list[str]) -> list[list[float]]:
-        for text in texts:
-            print(f"--- EMBED TEXT ---\n{text}")
+        sent.extend(f"--- EMBED TEXT ---\n{text}" for text in texts)
         return [[0.0] for _ in texts]
 
     return call

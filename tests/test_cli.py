@@ -1,5 +1,6 @@
 import json
 import stat
+import sys
 
 import pytest
 from fakes import FakeEmbedder, FakeLLM
@@ -74,3 +75,27 @@ def test_when_every_model_call_fails_the_command_fails_clearly_and_writes_nothin
     assert code == 1
     assert "network blocked" in capsys.readouterr().err
     assert not out.exists()
+
+
+def test_a_key_without_the_llm_extra_says_how_to_install_it_instead_of_crashing(config, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "not-a-real-key")  # the provider is never built, so it is never used
+    monkeypatch.setitem(sys.modules, "anthropic", None)  # as if the optional extra were not installed
+
+    code = main(["scan", str(config), "--out", str(tmp_path / "out.json")], embedder=FakeEmbedder({}))
+
+    assert code == 2
+    assert "uv sync --extra llm" in capsys.readouterr().err
+
+
+def test_dry_run_prints_every_prompt_whole_and_in_a_repeatable_order(tmp_path, capsys):
+    root = tmp_path / "claude"
+    for n in range(300):  # many Items, so interleaved printing from parallel model calls would show up
+        (root / "skills" / f"s{n:03d}").mkdir(parents=True)
+        (root / "skills" / f"s{n:03d}" / "SKILL.md").write_text(f"---\nname: s{n:03d}\ndescription: Does thing {n}\n---\n")
+
+    assert main(["scan", str(root), "--dry-run"]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines.count("--- PROMPT ---") == 300 == sum("--- PROMPT ---" in line for line in lines)  # none glued onto another line
+    names = [line for line in lines if line.startswith("Name: ")]
+    assert names == sorted(names)

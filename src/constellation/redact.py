@@ -4,7 +4,7 @@ import base64
 import math
 import re
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from itertools import pairwise
 from urllib.parse import quote, quote_plus
 
@@ -76,30 +76,21 @@ class ProviderError(Exception):
     """A model or embedder call failed. The message is already redacted, so it is safe to store and show."""
 
 
+def _safely[T, R](call: Callable[[T], R], known: tuple[str, ...], argument: T) -> R:
+    try:
+        return call(argument)
+    except Exception as error:
+        # `from None`: the original error may echo a secret, and a traceback would print it.
+        raise ProviderError(redact(f"{type(error).__name__}: {error}", known)) from None
+
+
 def guarded(llm: LLM, known: Iterable[str] = ()) -> LLM:
     """The only way the app calls a model: every prompt is redacted first, and a provider failure becomes a ProviderError."""
     known = tuple(known)
-
-    def call(prompt: str) -> str:
-        safe = redact(prompt, known)  # a bug here must raise, not be reported as a provider failure
-        try:
-            return llm(safe)
-        except Exception as error:
-            # `from None`: the original error may echo a secret, and a traceback would print it.
-            raise ProviderError(redact(f"{type(error).__name__}: {error}", known)) from None
-
-    return call
+    return lambda prompt: _safely(llm, known, redact(prompt, known))  # a bug in redact() must raise, not look like a provider failure
 
 
 def guarded_embed(embed: Embedder, known: Iterable[str] = ()) -> Embedder:
     """Same rule for the embedder: a hosted one would receive Item text, so every text is redacted first."""
     known = tuple(known)
-
-    def call(texts: list[str]) -> list[list[float]]:
-        safe = [redact(text, known) for text in texts]
-        try:
-            return embed(safe)
-        except Exception as error:
-            raise ProviderError(redact(f"{type(error).__name__}: {error}", known)) from None
-
-    return call
+    return lambda texts: _safely(embed, known, [redact(text, known) for text in texts])

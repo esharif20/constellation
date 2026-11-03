@@ -4,7 +4,6 @@ from pathlib import Path
 from fakes import FakeEmbedder, FakeLLM, SlowLLM
 
 from constellation import scan
-from constellation.classify import MAX_CONCURRENCY
 
 FIXTURE = Path(__file__).parent / "fixtures" / "claude_config"
 
@@ -86,7 +85,7 @@ def test_model_calls_run_in_parallel_but_never_more_than_the_cap(tmp_path):
 
     scan(tmp_path, llm=llm)
 
-    assert 1 < llm.peak <= MAX_CONCURRENCY
+    assert 1 < llm.peak <= 4  # the documented cap
 
 
 def test_an_empty_config_scans_to_nothing_without_error(tmp_path):
