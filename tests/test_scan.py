@@ -72,9 +72,7 @@ def test_hook_that_calls_an_mcp_tool_triggers_that_server():
     hook = by_kind(constellation, "hook")["PostToolUse:Write"]
     server = by_kind(constellation, "mcp_server")["localdb"]
     assert hook.description == "localdb.scan"
-    assert [(r.source, r.target, r.kind) for r in constellation.relations if r.kind == "triggers"] == [
-        (hook.id, server.id, "triggers")
-    ]
+    assert [(r.source, r.target, r.kind) for r in constellation.relations if r.kind == "triggers"] == [(hook.id, server.id, "triggers")]
 
 
 def test_skill_without_description_is_skipped_with_a_warning():

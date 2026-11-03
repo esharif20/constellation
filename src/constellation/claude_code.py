@@ -1,6 +1,9 @@
 """Claude Code Source adapter: reads a config dir, emits harness-neutral Items (ADR 0001)."""
+
 import json
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -9,8 +12,9 @@ from .models import Item, Relation
 SOURCE = "claude-code"
 
 
-def _frontmatter(path: Path) -> dict:
-    return yaml.safe_load(path.read_text().split("---", 2)[1])
+def _frontmatter(path: Path) -> dict[str, Any]:
+    meta: dict[str, Any] = yaml.safe_load(path.read_text().split("---", 2)[1])
+    return meta
 
 
 def _read_root(root: Path, scope: str, items: list[Item], warnings: list[str], relations: list[Relation]) -> None:
@@ -51,7 +55,9 @@ def _read_root(root: Path, scope: str, items: list[Item], warnings: list[str], r
 
 
 def read_items(config_dir: Path) -> tuple[list[Item], list[str], list[Relation]]:
-    items, warnings, relations = [], [], []
+    items: list[Item] = []
+    warnings: list[str] = []
+    relations: list[Relation] = []
     config_dir = Path(config_dir)
     _read_root(config_dir, "", items, warnings, relations)
     # shortcut: only the plugin cache layout (plugins/cache/<marketplace>/<plugin>/<version>), not installed_plugins.json.
@@ -63,3 +69,36 @@ def read_items(config_dir: Path) -> tuple[list[Item], list[str], list[Relation]]
         _read_root(manifest.parent.parent, f"{meta['name']}/", items, warnings, relations)
         relations += [Relation(plugin.id, item.id, "contains") for item in items[first:]]
     return items, warnings, relations
+
+
+def _strings(node: object) -> Iterator[str]:
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for value in node.values():
+            yield from _strings(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _strings(value)
+
+
+def _json_or_empty(path: Path) -> Any:
+    return json.loads(path.read_text()) if path.exists() else {}
+
+
+def read_secrets(config_dir: Path) -> set[str]:
+    """Secret values held in the config's own secret-bearing files. Never reads the process environment or anything outside config_dir."""
+    config_dir = Path(config_dir)
+    plugin_roots = [m.parent.parent for m in config_dir.glob("plugins/cache/*/*/*/.claude-plugin/plugin.json")]
+    values = list(_strings(_json_or_empty(config_dir / ".credentials.json")))  # an auth file: every value is secret
+    for root in [config_dir, *plugin_roots]:
+        values += _strings(_json_or_empty(root / "settings.json").get("env", {}))
+        for server in _json_or_empty(root / ".mcp.json").get("mcpServers", {}).values():
+            values += _strings(server.get("env", {}))
+    dotenv = config_dir / ".env"
+    if dotenv.exists():
+        for line in dotenv.read_text().splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                values.append(line.split("=", 1)[1].strip().strip("\"'"))
+    # shortcut: values under 8 chars are skipped so "1" or "true" doesn't get redacted everywhere; a short real secret would leak.
+    return {v for v in values if len(v) >= 8}

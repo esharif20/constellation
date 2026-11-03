@@ -1,0 +1,84 @@
+"""Redaction guard: nothing reaches the LLM without passing through redact()."""
+
+import base64
+import math
+import re
+from collections import Counter
+from collections.abc import Iterable
+from itertools import pairwise
+from urllib.parse import quote, quote_plus
+
+from .models import LLM, Embedder
+
+REDACTED = "[REDACTED]"
+
+# Known key formats. Fail closed: a false positive only costs a slightly worse label.
+_FORMATS = [
+    re.compile(r"ghp_[A-Za-z0-9]{36}"),
+    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"AKIA[0-9A-Z]{16}"),
+    re.compile(r"xox[abprs]-[A-Za-z0-9-]{10,}"),
+    re.compile(r"(?<=Bearer )[A-Za-z0-9._~+/=-]{16,}", re.IGNORECASE),
+]
+
+# Value under a secret-sounding name, whatever the value looks like. Names match as a substring (GH_TOKEN, --api-key, client_secret).
+_NAME = r"[\w.-]*(?:token|key|secret|passw(?:or)?d|auth|credential|bearer)[\w.-]*"
+_VALUE = r"""(?:"[^"\n]*"|'[^'\n]*'|[^\s"'&,;]+)"""
+_FLAG = re.compile(rf"(?P<k>--?{_NAME}\s+)(?!--|[=:])(?P<v>{_VALUE})", re.IGNORECASE)  # --token VALUE (the = and : forms are _ASSIGNMENT)
+_ASSIGNMENT = re.compile(
+    rf"""(?P<k>{_NAME}["']?\s*[=:]\s*)(?P<v>{_VALUE})""", re.IGNORECASE
+)  # KEY=VALUE, key: VALUE, "key": "VALUE", ?key=VALUE
+
+# Backstop for secrets with no known format, name or value: long, digit-and-letter, random-looking runs.
+_CANDIDATE = re.compile(r"[A-Za-z0-9+/_=-]{32,}")
+_HEX = re.compile(r"[0-9a-fA-F]+")
+
+
+def _entropy(s: str) -> float:
+    """Shannon entropy in bits per character."""
+    return -sum(n / len(s) * math.log2(n / len(s)) for n in Counter(s).values())
+
+
+def _looks_random(s: str) -> bool:
+    # shortcut: letters-only or digits-only runs are never judged random (paths look the same); other layers must catch them.
+    if not (any(c.isdigit() for c in s) and any(c.isalpha() for c in s)):
+        return False
+    if sum(c.islower() or c in {"-", "_"} for c in s) / len(s) > 0.8:  # identifier-like: kebab, snake or camel case
+        return False
+    if sum(abs(ord(a) - ord(b)) == 1 for a, b in pairwise(s)) / len(s) > 0.3:  # abc..., 321...: varied but not random
+        return False
+    # Starting bars: hex 3.0 and base64-ish 4.0 bits/char (detect-secrets defaults to 3.0 and 4.5; lower here to fail closed).
+    return _entropy(s) >= (3.0 if _HEX.fullmatch(s) else 4.0)
+
+
+def _variants(value: str) -> set[str]:
+    """A known value as it may appear after URL-encoding or base64."""
+    return {
+        value,
+        quote_plus(value),
+        quote(value, safe=""),  # pragma: no mutate  (any safe="<letters>" is equivalent: letters are never encoded)
+        base64.b64encode(value.encode()).decode(),
+    }
+
+
+def redact(text: str, known: Iterable[str] = ()) -> str:
+    variants = {v for value in known for v in _variants(value)}
+    for value in sorted(variants, key=len, reverse=True):  # longest first so a secret containing another is fully removed
+        text = text.replace(value, REDACTED)
+    for pattern in _FORMATS:
+        text = pattern.sub(REDACTED, text)
+    for pattern in (_FLAG, _ASSIGNMENT):
+        text = pattern.sub(lambda m: m["k"] + REDACTED, text)
+    return _CANDIDATE.sub(lambda m: REDACTED if _looks_random(m[0]) else m[0], text)
+
+
+def guarded(llm: LLM, known: Iterable[str] = ()) -> LLM:
+    """The only way the app calls a model: every prompt is redacted first."""
+    known = tuple(known)
+    return lambda prompt: llm(redact(prompt, known))
+
+
+def guarded_embed(embed: Embedder, known: Iterable[str] = ()) -> Embedder:
+    """Same rule for the embedder: a hosted one would receive Item text, so every text is redacted first."""
+    known = tuple(known)
+    return lambda texts: embed([redact(text, known) for text in texts])
