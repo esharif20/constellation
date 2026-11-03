@@ -1,7 +1,7 @@
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from constellation.cluster import cluster
+from constellation.cluster import cluster, item_vectors
 from constellation.models import Item
 
 VECTORS = st.lists(st.floats(-1, 1, allow_nan=False, allow_infinity=False), min_size=3, max_size=3)
@@ -19,6 +19,6 @@ def test_clusters_do_not_depend_on_the_order_items_arrive_in(vectors, data):
     shuffled = data.draw(st.permutations(items))
 
     def shape(order):
-        return {frozenset(c.item_ids): c.name for c in cluster(order, {}, embed, 0.6)}
+        return {frozenset(c.item_ids): c.name for c in cluster(order, {}, *item_vectors(order, embed), 0.6)}
 
     assert shape(items) == shape(list(shuffled))

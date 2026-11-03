@@ -2,7 +2,7 @@ from pathlib import Path
 
 from .classify import classify
 from .claude_code import read_items, read_secrets
-from .cluster import cluster
+from .cluster import cluster, item_vectors
 from .costs import measure
 from .models import LLM, Cluster, Constellation, Cost, Embedder, TokenCounter
 from .overlaps import exact_duplicates, wrappers
@@ -27,7 +27,8 @@ def scan(
         warnings += sorted(label_warnings)  # branches finish in any order; sorted keeps the output repeatable
     if embedder:  # clusters are built from name and description alone, so they need no model
         try:
-            clusters = cluster(items, labels, guarded_embed(embedder, secrets), cluster_threshold)
+            vectors, centred = item_vectors(items, guarded_embed(embedder, secrets))
+            clusters = cluster(items, labels, vectors, centred, cluster_threshold)
         except ProviderError as error:
             warnings.append(f"could not cluster items: {error}")
     costs: dict[str, Cost] = {}
