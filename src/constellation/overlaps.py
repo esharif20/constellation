@@ -7,7 +7,7 @@ import json
 import operator
 import re
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from itertools import combinations
 from pathlib import Path
 from typing import Annotated, Any, TypedDict
@@ -174,6 +174,17 @@ class _State(TypedDict, total=False):
     replies: Annotated[dict[str, str], operator.or_]
 
 
+# Sonnet 5.5 list prices per million tokens. shortcut: the output is assumed to be about 300 tokens a call (a short JSON reply plus
+# some thinking at low effort); retune if the bill disagrees.
+INPUT_USD_PER_MTOK = 2.0
+OUTPUT_USD_PER_MTOK = 10.0
+OUTPUT_TOKENS_PER_CALL = 300
+
+
+def estimate_cost(calls: int, input_tokens: int) -> float:
+    return (input_tokens * INPUT_USD_PER_MTOK + calls * OUTPUT_TOKENS_PER_CALL * OUTPUT_USD_PER_MTOK) / 1_000_000
+
+
 def verify(
     pairs: list[tuple[str, str]],
     items: list[Item],
@@ -181,6 +192,7 @@ def verify(
     llm: LLM,
     known: Iterable[str] = (),
     cache_path: Path | None = None,
+    announce: Callable[[int, int], None] | None = None,
 ) -> tuple[list[Overlap], list[str]]:
     """Layer 4: the stronger model labels each pair. `llm` must be the guarded one: it redacts and turns failures into ProviderError.
     `known` are the secrets, used so the cache key is the hash of the redacted prompt and no secret reaches the file."""
@@ -200,6 +212,8 @@ def verify(
             jobs.append({"a": a, "b": b, "prompt": prompt, "key": key})
     if not jobs:
         return overlaps, []
+    if announce:  # (calls to make, rough input tokens), before the first call; cached pairs are not counted
+        announce(len(jobs), sum(len(job["prompt"]) // 4 for job in jobs))
 
     def fan_out(state: _State) -> list[Send]:  # map: one branch per pair
         return [Send("check", job) for job in state["jobs"]]

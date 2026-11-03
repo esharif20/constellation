@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from .classify import classify
@@ -18,6 +19,7 @@ def scan(
     cost_cache: Path | None = None,
     verifier: LLM | None = None,
     verdict_cache: Path | None = None,
+    on_verify: Callable[[int, int], None] | None = None,
 ) -> Constellation:
     items, warnings, relations, bodies = read_items(config_dir)
     labels: dict[str, str] = {}
@@ -42,7 +44,7 @@ def scan(
     if verifier:
         decided = {frozenset((o.a_id, o.b_id)) for o in overlaps}
         pairs, cap_warnings = candidates(items, vectors, decided)
-        verdicts, verify_warnings = verify(pairs, items, bodies, guarded(verifier, secrets), secrets, verdict_cache)
+        verdicts, verify_warnings = verify(pairs, items, bodies, guarded(verifier, secrets), secrets, verdict_cache, on_verify)
         overlaps += verdicts
         warnings += sorted(cap_warnings + verify_warnings)  # branches finish in any order; sorted keeps the output repeatable
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))
