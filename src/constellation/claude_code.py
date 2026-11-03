@@ -8,14 +8,19 @@ from .models import Item
 SOURCE = "claude-code"
 
 
+def _frontmatter(path: Path) -> dict:
+    return yaml.safe_load(path.read_text().split("---", 2)[1])
+
+
 def read_items(config_dir: Path) -> tuple[list[Item], list[str]]:
     items, warnings = [], []
-    for skill_file in sorted(Path(config_dir).glob("skills/*/SKILL.md")):
-        _, front, _ = skill_file.read_text().split("---", 2)
-        meta = yaml.safe_load(front)
-        name, description = meta["name"], meta.get("description")
-        if not description:
-            warnings.append(f"skipped skill '{name}': no description ({skill_file})")
-            continue
-        items.append(Item(f"{SOURCE}:skill:{name}", "skill", name, description, SOURCE))
+    config_dir = Path(config_dir)
+    for kind, pattern in (("skill", "skills/*/SKILL.md"), ("agent", "agents/*.md")):
+        for path in sorted(config_dir.glob(pattern)):
+            meta = _frontmatter(path)
+            name, description = meta["name"], meta.get("description")
+            if not description:
+                warnings.append(f"skipped {kind} '{name}': no description ({path})")
+                continue
+            items.append(Item(f"{SOURCE}:{kind}:{name}", kind, name, description, SOURCE))
     return items, warnings
