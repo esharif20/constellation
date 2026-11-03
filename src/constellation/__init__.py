@@ -42,7 +42,7 @@ def scan(
     if verifier:
         decided = {frozenset((o.a_id, o.b_id)) for o in overlaps}
         pairs, cap_warnings = candidates(items, vectors, decided)
-        verdicts, verify_warnings = verify(pairs, items, bodies, guarded(verifier, secrets))
+        verdicts, verify_warnings = verify(pairs, items, bodies, guarded(verifier, secrets), secrets, verdict_cache)
         overlaps += verdicts
         warnings += sorted(cap_warnings + verify_warnings)  # branches finish in any order; sorted keeps the output repeatable
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))

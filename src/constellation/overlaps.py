@@ -7,15 +7,18 @@ import json
 import operator
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from itertools import combinations
+from pathlib import Path
 from typing import Annotated, Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
 from .cluster import dot
+from .costs import load_cache, save_cache
 from .models import LLM, Item, Overlap
-from .redact import ProviderError
+from .redact import ProviderError, redact
 
 
 def _normalise(body: str) -> str:
@@ -152,10 +155,14 @@ def _overlap(a: Item, b: Item, parsed: tuple[str, str, bool]) -> Overlap:
     return Overlap(first.id, second.id, verdict, reason)  # type: ignore[arg-type]  # _parse checked the verdict is one of VERDICTS
 
 
+DEFAULT_CACHE = Path.home() / ".cache" / "constellation" / "overlap-verdicts.json"
+
+
 class _Job(TypedDict):
     a: Item
     b: Item
     prompt: str
+    key: str  # cache key: the hash of the prompt as a provider would see it
 
 
 class _State(TypedDict, total=False):
@@ -163,14 +170,36 @@ class _State(TypedDict, total=False):
     # Reducers: every parallel branch returns a one-element list, and operator.add concatenates them.
     overlaps: Annotated[list[Overlap], operator.add]
     warnings: Annotated[list[str], operator.add]
+    # A third reducer: dicts of {cache key: reply} from the branches are merged with operator.or_.
+    replies: Annotated[dict[str, str], operator.or_]
 
 
-def verify(pairs: list[tuple[str, str]], items: list[Item], bodies: dict[str, str], llm: LLM) -> tuple[list[Overlap], list[str]]:
-    """Layer 4: the stronger model labels each pair. `llm` must be the guarded one: it redacts and turns failures into ProviderError."""
+def verify(
+    pairs: list[tuple[str, str]],
+    items: list[Item],
+    bodies: dict[str, str],
+    llm: LLM,
+    known: Iterable[str] = (),
+    cache_path: Path | None = None,
+) -> tuple[list[Overlap], list[str]]:
+    """Layer 4: the stronger model labels each pair. `llm` must be the guarded one: it redacts and turns failures into ProviderError.
+    `known` are the secrets, used so the cache key is the hash of the redacted prompt and no secret reaches the file."""
+    known = tuple(known)
+    path = cache_path or DEFAULT_CACHE
+    cache = load_cache(path)
     by_id = {i.id: i for i in items}
-    jobs: list[_Job] = [{"a": by_id[a], "b": by_id[b], "prompt": _prompt(by_id[a], by_id[b], bodies)} for a, b in pairs]
+    overlaps: list[Overlap] = []
+    jobs: list[_Job] = []
+    for a_id, b_id in pairs:
+        a, b = by_id[a_id], by_id[b_id]
+        prompt = _prompt(a, b, bodies)
+        key = hashlib.sha256(redact(prompt, known).encode()).hexdigest()
+        if cached := _parse(str(cache.get(key, ""))):
+            overlaps.append(_overlap(a, b, cached))
+        else:
+            jobs.append({"a": a, "b": b, "prompt": prompt, "key": key})
     if not jobs:
-        return [], []
+        return overlaps, []
 
     def fan_out(state: _State) -> list[Send]:  # map: one branch per pair
         return [Send("check", job) for job in state["jobs"]]
@@ -178,18 +207,22 @@ def verify(pairs: list[tuple[str, str]], items: list[Item], bodies: dict[str, st
     def check(state: _Job) -> dict[str, Any]:
         a, b = state["a"], state["b"]
         try:
-            parsed = _parse(llm(state["prompt"]))
+            reply = llm(state["prompt"])
         except ProviderError as error:
             return {"warnings": [f"could not verify '{a.name}' / '{b.name}': {error}"]}
-        if parsed is None:
+        if (parsed := _parse(reply)) is None:
             return {"warnings": [f"could not verify '{a.name}' / '{b.name}': unreadable reply"]}
-        return {"overlaps": [_overlap(a, b, parsed)]}
+        return {"overlaps": [_overlap(a, b, parsed)], "replies": {state["key"]: reply}}
 
     graph = StateGraph(_State)
     graph.add_node(check)
     graph.add_conditional_edges(START, fan_out)
     graph.add_edge("check", END)  # reduce: the branches' outputs are merged by the reducers above
     result = graph.compile().invoke({"jobs": jobs}, config={"max_concurrency": MAX_CONCURRENCY})
-    overlaps: list[Overlap] = result["overlaps"]
     warnings: list[str] = result["warnings"]
-    return overlaps, warnings
+    if result["replies"]:
+        try:
+            save_cache(path, cache | result["replies"])
+        except OSError as error:  # the verdicts are paid for and returned; only the next scan loses them
+            warnings.append(f"could not save the verdict cache: {error}")
+    return overlaps + result["overlaps"], warnings
