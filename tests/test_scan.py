@@ -34,6 +34,13 @@ def test_scan_lists_locally_configured_mcp_servers_as_items():
     assert servers["localdb"].description == "npx -y @example/db-mcp"
 
 
+def test_scan_lists_hosted_connectors_as_one_item_each():
+    connectors = by_kind(scan(FIXTURE), "connector")
+
+    assert set(connectors) == {"docs"}
+    assert connectors["docs"].description == "https://mcp.example.com/docs"
+
+
 def test_skill_without_description_is_skipped_with_a_warning():
     constellation = scan(FIXTURE)
 

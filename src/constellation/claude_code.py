@@ -27,6 +27,8 @@ def read_items(config_dir: Path) -> tuple[list[Item], list[str]]:
     mcp_file = config_dir / ".mcp.json"
     if mcp_file.exists():
         for name, server in json.loads(mcp_file.read_text())["mcpServers"].items():
-            description = " ".join([server["command"], *server.get("args", [])])
-            items.append(Item(f"{SOURCE}:mcp_server:{name}", "mcp_server", name, description, SOURCE))
+            # Connectors live in the user's claude.ai account, not on disk; a remote (url) server is the closest local signal.
+            kind = "connector" if "url" in server else "mcp_server"
+            description = server.get("url") or " ".join([server["command"], *server.get("args", [])])
+            items.append(Item(f"{SOURCE}:{kind}:{name}", kind, name, description, SOURCE))
     return items, warnings
