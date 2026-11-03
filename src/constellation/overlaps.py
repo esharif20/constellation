@@ -5,7 +5,9 @@ Privacy: bodies are read here, on the user's machine, but only names, descriptio
 import hashlib
 import re
 from collections import defaultdict
+from itertools import combinations
 
+from .cluster import dot
 from .models import Item, Overlap
 
 
@@ -51,3 +53,30 @@ def wrappers(items: list[Item], bodies: dict[str, str]) -> list[Overlap]:
             reason = f"'{wrapper.name}' is {words} words and only hands off to '{targets[0].name}'"
             overlaps.append(Overlap(wrapper.id, targets[0].id, "wrapper", reason))
     return overlaps
+
+
+TOP_K = 3
+CANDIDATE_THRESHOLD = 0.5  # on centred cosines, which spread from -1 to 1
+MAX_PAIRS = 150  # keeps one scan's verifier bill bounded
+
+
+def candidates(items: list[Item], vectors: dict[str, list[float]], decided: set[frozenset[str]]) -> tuple[list[tuple[str, str]], list[str]]:
+    """Layer 3: embeddings only propose pairs; the verifier decides. Each skill or agent proposes its nearest neighbours, and
+    same-name copies are always proposed, which finds cross-plugin copies whose bodies drifted."""
+    eligible = sorted((i for i in items if i.kind in ("skill", "agent")), key=lambda i: i.id)
+    scores: dict[tuple[str, str], float] = {}
+    for item in eligible:
+        if item.id not in vectors:
+            continue
+        near = sorted(
+            ((dot(vectors[item.id], vectors[o.id]), o.id) for o in eligible if o is not item and o.id in vectors), key=lambda t: (-t[0], t[1])
+        )
+        for similarity, other in near[:TOP_K]:
+            if similarity >= CANDIDATE_THRESHOLD:
+                scores[min(item.id, other), max(item.id, other)] = similarity
+    for a, b in combinations(eligible, 2):
+        if a.name == b.name:
+            scores[a.id, b.id] = 1.0  # shortcut: ranks with the closest vectors; they are rare
+    ranked = sorted((k for k in scores if frozenset(k) not in decided), key=lambda k: (-scores[k], k))
+    warnings = [f"checked the {MAX_PAIRS} most similar pairs; {len(ranked) - MAX_PAIRS} more were not checked"] if len(ranked) > MAX_PAIRS else []
+    return ranked[:MAX_PAIRS], warnings

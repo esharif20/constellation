@@ -24,7 +24,7 @@ def _centre(vectors: list[list[float]]) -> list[list[float]]:
     return [_unit([x - mean[k] for k, x in enumerate(v)]) for v in vectors]
 
 
-def _dot(a: list[float], b: list[float]) -> float:
+def dot(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b, strict=True))  # strict: embeddings of mixed dimensions are an error, not a silent truncation
 
 
@@ -57,8 +57,8 @@ def cluster(
         threshold = CENTRED_THRESHOLD if centred else RAW_THRESHOLD
     groups: list[_Group] = []
     for index, vector in enumerate(vectors):
-        best = max(groups, key=lambda g: _dot(_unit(g.total), vector), default=None)
-        if best is not None and _dot(_unit(best.total), vector) >= threshold:
+        best = max(groups, key=lambda g: dot(_unit(g.total), vector), default=None)
+        if best is not None and dot(_unit(best.total), vector) >= threshold:
             best.total = list(map(add, best.total, vector))
             best.members.append(index)
         else:
@@ -66,7 +66,7 @@ def cluster(
     clusters = []
     for group in groups:
         centre = _unit(group.total)
-        by_closeness = sorted(group.members, key=lambda i: -_dot(centre, vectors[i]))  # sorted is stable, so ties keep item order
+        by_closeness = sorted(group.members, key=lambda i: -dot(centre, vectors[i]))  # sorted is stable, so ties keep item order
         labelled = next((i for i in by_closeness if items[i].id in labels), None)
         name = labels[items[labelled].id] if labelled is not None else items[by_closeness[0]].name
         clusters.append(Cluster(name, tuple(items[i].id for i in group.members)))
