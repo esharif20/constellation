@@ -40,6 +40,8 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "-m 'not eval'"
+markers = ["eval: slow quality check with the real local embedder; run with `pytest -m eval -s`"]
 
 [tool.mutmut]
 source_paths = ["src"]

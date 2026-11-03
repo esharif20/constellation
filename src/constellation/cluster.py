@@ -6,8 +6,10 @@ from operator import add
 
 from .models import Cluster, Embedder, Item
 
-# shortcut: 0.68 cosine was tuned on six sample sentences with bge-small; re-tune on real data. Result depends on item order.
-DEFAULT_THRESHOLD = 0.68
+# shortcut: raw bge-small cosines are squeezed (about 0.70 inside a group, 0.61 across), so no threshold clusters well: on the 30-item
+# eval set 0.75 gives F1 0.33 (over-splits) and 0.68 merges everything. Subtracting the mean vector first reached F1 0.67 at threshold
+# 0.0; adopt that once it is checked on real data (it needs a minimum number of items to be meaningful). See tests/eval.
+DEFAULT_THRESHOLD = 0.75
 
 
 def _unit(vector: list[float]) -> list[float]:

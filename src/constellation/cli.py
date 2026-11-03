@@ -21,6 +21,10 @@ def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Em
     cmd.add_argument("--dry-run", action="store_true", help="print what would be sent to the providers; send nothing")
     args = parser.parse_args(argv)
 
+    if not args.config_dir.is_dir():
+        print(f"{args.config_dir} is not a directory.", file=sys.stderr)
+        return 2
+
     if args.dry_run:
         # Recording providers sit behind scan()'s redaction, so what is printed is exactly what a real run would send.
         llm = _record("PROMPT", lambda p: "dry-run")
@@ -41,6 +45,12 @@ def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Em
     result = scan(args.config_dir, llm=llm, embedder=embedder)
     if args.dry_run:
         return 0
+    if result.items and not result.labels:  # every model call failed: report why instead of writing a half-empty file
+        print(
+            "No Item could be labelled. First problem: " + next((w for w in result.warnings if "could not label" in w), "unknown"),
+            file=sys.stderr,
+        )
+        return 1
 
     secrets = read_secrets(args.config_dir)
     result.items = [replace(i, description=redact(i.description, secrets)) for i in result.items]  # the Items hold raw text

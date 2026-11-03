@@ -56,3 +56,21 @@ def test_missing_api_key_exits_2_and_writes_nothing(config, tmp_path, capsys):
     assert main(["scan", str(config), "--out", str(out)]) == 2
     assert "ANTHROPIC_API_KEY" in capsys.readouterr().err
     assert not out.exists()
+
+
+def test_a_folder_that_does_not_exist_is_an_error_not_an_empty_scan(tmp_path, capsys):
+    code = main(["scan", str(tmp_path / "nope"), "--dry-run"])
+
+    assert code == 2
+    assert "not a directory" in capsys.readouterr().err
+
+
+def test_when_every_model_call_fails_the_command_fails_clearly_and_writes_nothing(config, tmp_path, capsys):
+    out = tmp_path / "out.json"
+    llm = FakeLLM({}, fail_for={"leaky": "network blocked"})
+
+    code = main(["scan", str(config), "--out", str(out)], llm=llm, embedder=FakeEmbedder({}))
+
+    assert code == 1
+    assert "network blocked" in capsys.readouterr().err
+    assert not out.exists()
