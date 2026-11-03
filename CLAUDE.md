@@ -33,3 +33,9 @@ Main session stays on Sonnet. Switching the session model with `/model` re-sends
 Send high-priority thinking to an Opus 5.5 subagent (`Agent` with `model: "opus"`) instead: planning, architecture decisions, debugging a hard failure, and diagnosing a fix that is not obvious. Give it a short self-contained brief (goal, relevant file paths, what was already tried, the seams from this file), not the conversation. It returns a written plan or diagnosis; save a plan to `docs/plans/` when it will be executed later.
 
 Sonnet then executes a defined plan: writing the code, tests and routine fixes. Haiku is fine for mechanical lookups. Opus reviews (`/code-review`) at ticket end when the change touches redaction or other security-sensitive code.
+
+### UI work: skills and model split
+
+Every UI task loads the full set above before writing code, not just one: `/prototype` for feel, `frontend-design:frontend-design`, `ui-ux-pro-max`, `dataviz`, plus `shadcn` and `vercel-plugin:react-best-practices` if React is used, and `vercel-plugin:agent-browser` to screenshot and look at the result. For graph and motion, prefer well-known libraries (d3-force / d3-zoom / d3-drag, or sigma.js / react-force-graph for large graphs; Motion or CSS transitions for UI motion) over hand-rolled physics. `scroll-craft` stays landing-page only (#15).
+
+Split by model: an Opus 5.5 subagent makes the first design (layout, palette, typography, motion language, a written design note under `docs/design/`), then a Sonnet agent refines it: spacing, states, polish, responsiveness, bug fixes, checked with screenshots. Brief each with the design note and the screenshots, not the conversation.
