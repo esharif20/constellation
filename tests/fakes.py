@@ -2,6 +2,17 @@ import threading
 import time
 
 
+def write_skill(root, name, body, description="Does a thing"):
+    """A skill file under `root` (a config dir or a plugin dir) with the given body."""
+    (root / "skills" / name).mkdir(parents=True, exist_ok=True)
+    (root / "skills" / name / "SKILL.md").write_text(f"---\nname: {name}\ndescription: {description}\n---\n{body}\n")
+
+
+def pairs(constellation):
+    """(a name, b name, verdict) per Overlap, in the Constellation's order."""
+    return [(o.a_id.rsplit(":", 1)[-1], o.b_id.rsplit(":", 1)[-1], o.verdict) for o in constellation.overlaps]
+
+
 class FakeLLM:
     """Stand-in for the real model: returns a canned label per item name and records every prompt it receives."""
 
