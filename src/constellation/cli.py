@@ -2,9 +2,10 @@ import argparse
 import json
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, replace
 from pathlib import Path
+from typing import Any
 
 from . import scan
 from .classify import FAILED_PREFIX
@@ -13,15 +14,23 @@ from .env import load_env
 from .models import LLM, Constellation, Embedder
 from .redact import redact
 
+Serve = Callable[[Any, int, bool], None]  # app, port, open the browser
 
-def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Embedder | None = None) -> int:
+
+def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Embedder | None = None, serve: Serve | None = None) -> int:
     parser = argparse.ArgumentParser(prog="constellation")
     commands = parser.add_subparsers(dest="command", required=True)
     scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
     scan_command.add_argument("config_dir", type=Path)
     scan_command.add_argument("--out", type=Path, default=Path("constellation.json"))
     scan_command.add_argument("--dry-run", action="store_true", help="print what would be sent to the providers; send nothing")
+    open_command = commands.add_parser("open", help="serve a constellation JSON file as a graph in the browser")
+    open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    open_command.add_argument("--port", type=int, default=8765)
+    open_command.add_argument("--no-browser", action="store_true")
     args = parser.parse_args(argv)
+    if args.command == "open":
+        return _open(args, serve)  # serving never needs the API key, so it skips load_env
     load_env()  # a .env file in the working directory may hold ANTHROPIC_API_KEY
 
     if not args.config_dir.is_dir():
@@ -58,6 +67,19 @@ def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Em
         print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1
     _write(result, args.out, read_secrets(args.config_dir))
+    return 0
+
+
+def _open(args: argparse.Namespace, serve: Serve | None) -> int:
+    if not args.file.is_file():
+        print(f"{args.file} not found; run `constellation scan` first.", file=sys.stderr)
+        return 2
+    try:
+        from . import server
+    except ImportError:
+        print("fastapi and uvicorn are not installed; run `uv sync --extra app`.", file=sys.stderr)
+        return 2
+    (serve or server.serve)(server.create_app(args.file), args.port, not args.no_browser)
     return 0
 
 
