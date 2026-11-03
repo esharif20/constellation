@@ -21,3 +21,13 @@ recorded as a **deviation** with the reason, and the user approves it, instead o
 | D14 Frontend | Vite + React + TS + Tailwind + shadcn/ui, served by FastAPI, static export | **Deviation, being corrected** | #8 first shipped vanilla JS with no build step; Opus design agent rebuilding on branch `ticket-8-design` |
 | D15 Models | Haiku 5.5 for volume, Sonnet 5.5 verifier, via `langchain-anthropic` | **Deviation, approved by the user (2026-11-03)**: Anthropic SDK called directly | keep; switch only if a LangChain feature is needed |
 | D16 Working mode | AI writes code, user stays in the loop, `/tdd` | Active | |
+
+## Ideas added after the plan (2026-11-03)
+
+Filed as tickets, all local-first and free by default (see the Cost rule in CLAUDE.md):
+
+- #16 label cache, #17 offline mode, #18 ambiguity ranking plus trigger collisions
+- #19 `constellation report` (terminal-first use; the `/constellation` plugin #12 wraps it)
+- transcript usage ("never used" Items), session-start weight, and the whole scan as one LangGraph graph with a checkpointer (tickets below)
+
+Not filed yet: reachability (which MCP servers a session can really reach), security hygiene (risky hooks), drift over time (comes with the checkpointer).
