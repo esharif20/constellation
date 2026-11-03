@@ -9,7 +9,7 @@ from itertools import combinations
 
 import pytest
 
-from constellation.cluster import DEFAULT_THRESHOLD, cluster
+from constellation.cluster import cluster
 from constellation.models import Item
 
 GROUPS = {
@@ -77,8 +77,8 @@ def test_real_embeddings_group_a_setup_well_at_the_default_threshold():
 
     embed = fastembed_embedder()
     print("\nthreshold  precision  recall   f1")
-    for threshold in (0.68, 0.72, 0.74, 0.75, 0.76, 0.78, 0.80):
+    for threshold in (0.0, 0.1, 0.2, 0.25, 0.3, 0.4, 0.5):
         p, r, f = _scores(embed, threshold)
         print(f"  {threshold:.2f}      {p:.2f}      {r:.2f}   {f:.2f}")
-    _, _, f1 = _scores(embed, DEFAULT_THRESHOLD)
-    assert f1 >= 0.3  # a regression guard at today's measured 0.33, not a target: see the shortcut note in cluster.py
+    _, _, f1 = _scores(embed, None)
+    assert f1 >= 0.3  # a regression guard under the measured score at the default (0.37), not a target: see the shortcut note in cluster.py

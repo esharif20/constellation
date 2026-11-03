@@ -69,14 +69,25 @@ def _read_root(root: Path, scope: str, items: list[Item], warnings: list[str], r
                     items.append(Item(id_, "hook", name, description, SOURCE))
 
 
+def _plugin_manifests(config_dir: Path) -> list[Path]:
+    """One manifest per plugin: the version installed_plugins.json names, else the newest cached one (stale versions duplicate ids)."""
+    installed = _json_or_empty(config_dir / "plugins" / "installed_plugins.json").get("plugins", {})
+    named = {Path(e["installPath"]) for entries in installed.values() for e in entries if "installPath" in e}
+    newest: dict[Path, Path] = {}
+    for manifest in sorted(config_dir.glob("plugins/cache/*/*/*/.claude-plugin/plugin.json")):
+        root = manifest.parent.parent
+        if not named or root in named:
+            newest[root.parent] = manifest  # sorted, so the last version of a plugin wins when nothing names one
+    return list(newest.values())
+
+
 def read_items(config_dir: Path) -> tuple[list[Item], list[str], list[Relation]]:
     items: list[Item] = []
     warnings: list[str] = []
     relations: list[Relation] = []
     config_dir = Path(config_dir)
     _read_root(config_dir, "", items, warnings, relations)
-    # shortcut: only the plugin cache layout (plugins/cache/<marketplace>/<plugin>/<version>), not installed_plugins.json.
-    for manifest in sorted(config_dir.glob("plugins/cache/*/*/*/.claude-plugin/plugin.json")):
+    for manifest in _plugin_manifests(config_dir):
         meta = json.loads(manifest.read_text())
         plugin = Item(f"{SOURCE}:plugin:{meta['name']}", "plugin", meta["name"], meta.get("description", ""), SOURCE)
         items.append(plugin)
@@ -104,7 +115,7 @@ def _json_or_empty(path: Path) -> Any:
 def read_secrets(config_dir: Path) -> set[str]:
     """Secret values held in the config's own secret-bearing files. Never reads the process environment or anything outside config_dir."""
     config_dir = Path(config_dir)
-    plugin_roots = [m.parent.parent for m in config_dir.glob("plugins/cache/*/*/*/.claude-plugin/plugin.json")]
+    plugin_roots = [m.parent.parent for m in _plugin_manifests(config_dir)]
     values = list(_strings(_json_or_empty(config_dir / ".credentials.json")))  # an auth file: every value is secret
     for root in [config_dir, *plugin_roots]:
         values += _strings(_json_or_empty(root / "settings.json").get("env", {}))

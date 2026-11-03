@@ -17,6 +17,7 @@ SECRET = _t("ghp_", "aB3dE5gH" * 4, "7jK9")
 
 @pytest.fixture
 def config(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # so load_env never finds the real project .env
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)  # tests never see a real key
     root = tmp_path / "claude"
     (root / "skills" / "leaky").mkdir(parents=True)

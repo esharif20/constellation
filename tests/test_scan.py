@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -109,3 +110,33 @@ def test_a_skill_file_with_no_usable_frontmatter_is_skipped_with_a_warning_not_a
 
     assert constellation.items == []
     assert any("broken" in w for w in constellation.warnings)
+
+
+def _plugin_version(config, version, skill_text):
+    root = config / "plugins" / "cache" / "mkt" / "tool" / version
+    (root / ".claude-plugin").mkdir(parents=True)
+    (root / ".claude-plugin" / "plugin.json").write_text('{"name": "tool", "description": "A tool plugin."}')
+    (root / "skills" / "helper").mkdir(parents=True)
+    (root / "skills" / "helper" / "SKILL.md").write_text(f"---\nname: helper\ndescription: {skill_text}\n---\n")
+    return root
+
+
+def test_only_the_installed_plugin_version_is_read(tmp_path):
+    old, new = _plugin_version(tmp_path, "1.0.0", "Old text."), _plugin_version(tmp_path, "2.0.0", "New text.")
+    installed = {"version": 2, "plugins": {"tool@mkt": [{"installPath": str(old)}]}}
+    (tmp_path / "plugins" / "installed_plugins.json").write_text(json.dumps(installed))
+
+    constellation = scan(tmp_path)
+
+    assert [i.description for i in constellation.items if i.name == "helper"] == ["Old text."]
+    assert len({i.id for i in constellation.items}) == len(constellation.items)
+    assert new.exists()
+
+
+def test_without_installed_plugins_json_the_newest_cached_version_wins_and_ids_stay_unique(tmp_path):
+    _plugin_version(tmp_path, "1.0.0", "Old text."), _plugin_version(tmp_path, "2.0.0", "New text.")
+
+    constellation = scan(tmp_path)
+
+    assert [i.description for i in constellation.items if i.name == "helper"] == ["New text."]
+    assert len({i.id for i in constellation.items}) == len(constellation.items)

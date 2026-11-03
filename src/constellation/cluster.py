@@ -6,13 +6,22 @@ from operator import add
 
 from .models import Cluster, Embedder, Item
 
-# shortcut: 0.75 over-splits (eval F1 0.33) and 0.68 merges everything; mean-centring reached F1 0.67. See docs/ideas/clustering-quality.md.
-DEFAULT_THRESHOLD = 0.75
+# Raw embedding cosines are squeezed together (eval F1 0.33 at best), so with enough Items the mean vector is subtracted first
+# (eval F1 0.67). Centred cosines spread from -1 to 1, so they need a different threshold. See docs/ideas/clustering-quality.md.
+# shortcut: both defaults come from the 30-item synthetic eval and one real scan (255 Items); retune on more setups.
+MIN_ITEMS_TO_CENTRE = 10  # the mean of two or three vectors is mostly noise
+RAW_THRESHOLD = 0.75
+CENTRED_THRESHOLD = 0.2
 
 
 def _unit(vector: list[float]) -> list[float]:
     norm = math.sqrt(sum(x * x for x in vector))
     return [x / norm for x in vector] if norm else vector  # a zero vector stays zero and matches nothing
+
+
+def _centre(vectors: list[list[float]]) -> list[list[float]]:
+    mean = [sum(column) / len(vectors) for column in zip(*vectors, strict=True)]
+    return [_unit([x - mean[k] for k, x in enumerate(v)]) for v in vectors]
 
 
 def _dot(a: list[float], b: list[float]) -> float:
@@ -25,11 +34,16 @@ class _Group:
     members: list[int] = field(default_factory=list)
 
 
-def cluster(items: list[Item], labels: dict[str, str], embed: Embedder, threshold: float = DEFAULT_THRESHOLD) -> list[Cluster]:
+def cluster(items: list[Item], labels: dict[str, str], embed: Embedder, threshold: float | None = None) -> list[Cluster]:
     """Greedy leader clustering on name and description only (labels just name the clusters): each Item joins the closest
-    cluster centre at or above `threshold`, else starts a new cluster."""
+    cluster centre at or above `threshold`, else starts a new cluster. The default threshold depends on whether the vectors were centred."""
     items = sorted(items, key=lambda i: i.id)  # greedy clustering depends on order, so fix the order
     vectors = [_unit(v) for v in embed([f"{i.name}: {i.description}" for i in items])]
+    centred = len(vectors) >= MIN_ITEMS_TO_CENTRE
+    if centred:
+        vectors = _centre(vectors)
+    if threshold is None:
+        threshold = CENTRED_THRESHOLD if centred else RAW_THRESHOLD
     groups: list[_Group] = []
     for index, vector in enumerate(vectors):
         best = max(groups, key=lambda g: _dot(_unit(g.total), vector), default=None)

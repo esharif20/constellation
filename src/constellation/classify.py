@@ -23,7 +23,8 @@ class _Branch(TypedDict):
 
 
 def _prompt(item: Item) -> str:
-    return f"Name: {item.name}\nDescription: {item.description}\n\nReply with a short free-text label for this item's purpose."
+    ask = "Reply with only a 2 to 4 word topic for what this item is for, like 'code review' or 'web research'."
+    return f"Name: {item.name}\nDescription: {item.description}\n\n{ask}"
 
 
 MAX_LABEL = 60

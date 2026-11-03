@@ -2,7 +2,7 @@ from pathlib import Path
 
 from .classify import classify
 from .claude_code import read_items, read_secrets
-from .cluster import DEFAULT_THRESHOLD, cluster
+from .cluster import cluster
 from .models import LLM, Cluster, Constellation, Embedder, Item
 from .redact import ProviderError, guarded, guarded_embed
 
@@ -11,7 +11,7 @@ def scan(
     config_dir: Path,
     llm: LLM | None = None,
     embedder: Embedder | None = None,
-    cluster_threshold: float = DEFAULT_THRESHOLD,
+    cluster_threshold: float | None = None,
 ) -> Constellation:
     items, warnings, relations = read_items(config_dir)
     labels: dict[str, str] = {}

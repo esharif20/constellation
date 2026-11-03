@@ -140,3 +140,45 @@ def test_a_cluster_is_named_by_the_nearest_member_that_has_a_label(tmp_path):
     constellation = scan(tmp_path, llm=llm, embedder=FakeEmbedder(MID))
 
     assert [c.name for c in constellation.clusters] == ["A label"]  # mid-a and mid-c are equally near; ties go to the lower id
+
+
+def _two_squeezed_groups(root, a, b):
+    """a items about 'alpha' and b about 'beta' whose raw vectors nearly coincide: only subtracting the common part tells them apart."""
+    for n in range(a):
+        _skill(root, f"alpha-{n}", "Handles alpha")
+    for n in range(b):
+        _skill(root, f"beta-{n}", "Handles beta")
+    return FakeEmbedder({"alpha": [10.0, 1.0, 0.0], "beta": [10.0, 0.0, 1.0]})
+
+
+def _cluster_sizes(root, embedder):
+    return sorted(len(c.item_ids) for c in scan(root, embedder=embedder).clusters)
+
+
+def test_with_enough_items_the_common_direction_is_removed_so_squeezed_groups_separate(tmp_path):
+    assert _cluster_sizes(tmp_path, _two_squeezed_groups(tmp_path, 5, 5)) == [5, 5]
+
+
+def test_with_too_few_items_to_average_the_vectors_are_used_raw(tmp_path):
+    assert _cluster_sizes(tmp_path, _two_squeezed_groups(tmp_path, 5, 4)) == [9]
+
+
+def test_vectors_of_different_sizes_are_an_error_even_when_they_would_be_centred(tmp_path):
+    for n in range(10):
+        _skill(tmp_path, f"s{n}", "Handles it")
+    sizes = iter([3, 2, 3, 3, 3, 3, 3, 3, 3, 3])
+
+    def uneven(texts):
+        return [[1.0] * next(sizes) for _ in texts]
+
+    with pytest.raises(ValueError):
+        scan(tmp_path, embedder=uneven)
+
+
+def test_the_default_threshold_depends_on_whether_the_vectors_were_centred(tmp_path, monkeypatch):
+    cluster_module = sys.modules["constellation.cluster"]
+    monkeypatch.setattr(cluster_module, "CENTRED_THRESHOLD", -2.0)  # merges everything
+    monkeypatch.setattr(cluster_module, "RAW_THRESHOLD", 2.0)  # merges nothing
+    assert _cluster_sizes(tmp_path, _two_squeezed_groups(tmp_path, 5, 5)) == [10]
+    other = tmp_path / "other"
+    assert _cluster_sizes(other, _two_squeezed_groups(other, 5, 4)) == [1] * 9

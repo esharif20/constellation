@@ -17,3 +17,13 @@ vector of the scanned Items widens the gap (0.16 inside, -0.07 across).
 Follow-up if clusters look poor on a real setup: centre the vectors in `cluster()` and use threshold 0.0. It needs a minimum number of
 Items to be meaningful (two or three Items centre to noise), so gate it on size, and the existing small-vector unit tests would need
 vectors designed for centred cosine. Also worth trying then: a threshold slider in the graph UI (#10).
+
+## Update: mean-centring shipped (2026-11-03)
+
+`cluster()` now subtracts the mean vector when there are at least 10 Items (`MIN_ITEMS_TO_CENTRE`) and uses `CENTRED_THRESHOLD = 0.2`; below
+10 it stays raw at 0.75. The two measurements disagree: the synthetic eval peaks at threshold 0.0 (F1 0.67; 0.37 at 0.2), while on the real
+255 Items 0.0 gives 5 giant clusters and 0.25 to 0.3 looks sensible. 0.2 is a middle guess, not validated.
+
+Real scan after the fix (233 Items, 27 clusters, 6 singletons, themed names). Still open: all 46 hooks form one cluster, because hook
+descriptions are shell commands and cluster by shape. Try embedding `kind + name` for hooks, or leaving hooks out of clustering.
+A hand-labelled real eval set would settle the threshold.

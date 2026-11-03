@@ -92,3 +92,15 @@ def test_an_empty_config_scans_to_nothing_without_error(tmp_path):
     constellation = scan(tmp_path, llm=FakeLLM({}), embedder=FakeEmbedder({}))
 
     assert (constellation.items, constellation.labels, constellation.clusters, constellation.warnings) == ([], {}, [], [])
+
+
+def test_the_prompt_asks_for_a_short_topic_not_a_sentence(tmp_path):
+    (tmp_path / "skills" / "tidy").mkdir(parents=True)
+    (tmp_path / "skills" / "tidy" / "SKILL.md").write_text("---\nname: tidy\ndescription: Reviews diffs\n---\n")
+    llm = FakeLLM({})
+
+    scan(tmp_path, llm=llm)
+
+    assert llm.prompts[0].endswith(
+        "\n\nReply with only a 2 to 4 word topic for what this item is for, like 'code review' or 'web research'."
+    )
