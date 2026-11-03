@@ -23,14 +23,14 @@ def by_kind(constellation, kind):
 def test_scan_lists_agents_as_items():
     agents = by_kind(scan(FIXTURE), "agent")
 
-    assert set(agents) == {"reviewer"}
+    assert set(agents) == {"reviewer", "helper"}  # helper ships in the demo plugin
     assert agents["reviewer"].description == "Reviews code for quality and best practices"
 
 
 def test_scan_lists_locally_configured_mcp_servers_as_items():
     servers = by_kind(scan(FIXTURE), "mcp_server")
 
-    assert set(servers) == {"localdb"}
+    assert set(servers) == {"localdb", "pserver"}  # pserver ships in the demo plugin
     assert servers["localdb"].description == "npx -y @example/db-mcp"
 
 
@@ -50,7 +50,19 @@ def test_scan_lists_a_hook_per_handler_across_all_five_lifecycle_events():
         "PreToolUse:Bash": "./block-rm.sh",
         "PostToolUse:Edit|Write": "./lint.sh",
         "Stop": "echo done",
+        "PostToolUse:Read": "${CLAUDE_PLUGIN_ROOT}/scripts/log.sh",  # ships in the demo plugin
     }
+
+
+def test_scan_lists_plugins_and_links_them_to_what_they_contain():
+    constellation = scan(FIXTURE)
+
+    plugins = by_kind(constellation, "plugin")
+    assert set(plugins) == {"demo"}
+    assert plugins["demo"].description == "A demo plugin bundling an agent, a hook and an MCP server."
+    names = {i.id: (i.kind, i.name) for i in constellation.items}
+    contained = {names[r.target] for r in constellation.relations if r.kind == "contains" and r.source == plugins["demo"].id}
+    assert contained == {("agent", "helper"), ("mcp_server", "pserver"), ("hook", "PostToolUse:Read")}
 
 
 def test_skill_without_description_is_skipped_with_a_warning():

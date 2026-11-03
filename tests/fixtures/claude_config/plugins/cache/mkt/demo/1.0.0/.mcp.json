@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pserver": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/servers/run",
+      "args": ["--port", "8080"]
+    }
+  }
+}

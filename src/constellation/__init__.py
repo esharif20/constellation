@@ -6,8 +6,8 @@ from .models import Constellation, Item
 
 def scan(config_dir: Path, llm=None, embedder=None) -> Constellation:
     # llm/embedder are the provider seam; unused until the LLM boundary ticket (#3).
-    items, warnings = read_items(config_dir)
-    return Constellation(items, warnings)
+    items, warnings, relations = read_items(config_dir)
+    return Constellation(items, warnings, relations)
 
 
 __all__ = ["scan", "Constellation", "Item"]

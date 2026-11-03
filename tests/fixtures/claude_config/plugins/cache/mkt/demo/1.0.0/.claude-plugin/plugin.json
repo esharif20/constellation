@@ -1,0 +1,4 @@
+{
+  "name": "demo",
+  "description": "A demo plugin bundling an agent, a hook and an MCP server."
+}
