@@ -10,7 +10,8 @@
       {"matcher": "Bash", "hooks": [{"type": "command", "command": "./block-rm.sh"}]}
     ],
     "PostToolUse": [
-      {"matcher": "Edit|Write", "hooks": [{"type": "command", "command": "./lint.sh"}]}
+      {"matcher": "Edit|Write", "hooks": [{"type": "command", "command": "./lint.sh"}]},
+      {"matcher": "Write", "hooks": [{"type": "mcp_tool", "server": "localdb", "tool": "scan"}]}
     ],
     "Stop": [
       {"hooks": [{"type": "command", "command": "echo done"}]}

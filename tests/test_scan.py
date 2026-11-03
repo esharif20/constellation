@@ -49,6 +49,7 @@ def test_scan_lists_a_hook_per_handler_across_all_five_lifecycle_events():
         "UserPromptSubmit": "echo prompt",
         "PreToolUse:Bash": "./block-rm.sh",
         "PostToolUse:Edit|Write": "./lint.sh",
+        "PostToolUse:Write": "localdb.scan",
         "Stop": "echo done",
         "PostToolUse:Read": "${CLAUDE_PLUGIN_ROOT}/scripts/log.sh",  # ships in the demo plugin
     }
@@ -63,6 +64,17 @@ def test_scan_lists_plugins_and_links_them_to_what_they_contain():
     names = {i.id: (i.kind, i.name) for i in constellation.items}
     contained = {names[r.target] for r in constellation.relations if r.kind == "contains" and r.source == plugins["demo"].id}
     assert contained == {("agent", "helper"), ("mcp_server", "pserver"), ("hook", "PostToolUse:Read")}
+
+
+def test_hook_that_calls_an_mcp_tool_triggers_that_server():
+    constellation = scan(FIXTURE)
+
+    hook = by_kind(constellation, "hook")["PostToolUse:Write"]
+    server = by_kind(constellation, "mcp_server")["localdb"]
+    assert hook.description == "localdb.scan"
+    assert [(r.source, r.target, r.kind) for r in constellation.relations if r.kind == "triggers"] == [
+        (hook.id, server.id, "triggers")
+    ]
 
 
 def test_skill_without_description_is_skipped_with_a_warning():
