@@ -1,5 +1,12 @@
 # Plan: Overlap detection (#6)
 
+## Amendments (decided by the user; these override the plan below wherever they conflict)
+
+1. **Privacy.** File bodies never go to a model. The ticket #3 invariant stays absolute: only names and descriptions (and tool schemas later) are sent to any provider. The verifier prompt holds, for each Item of the pair, its kind, name and description, plus short deterministic local signals computed from the full bodies on the user's machine ("A is N words", "A's body mentions B", shared heading count, same name). The exact-content hash, the wrapper rule and the embeddings read full bodies locally; nothing from a body is sent. There is no 8,000-char excerpt and no ADR. Future, opt-in only: sending body excerpts to the verifier; not implemented.
+2. **Cost.** Prompts are small, so a real run prints a pair-count and cost estimate to stderr (pairs capped as below) and does not ask for confirmation. The dry run shows the exact verifier prompts and uses the real local embedder only when the `local` extra is installed, otherwise it says so; the rest of the dry run is unchanged.
+3. **Verifier model.** `claude-sonnet-5-5` through the Anthropic SDK called directly (the approved D15 deviation from `langchain-anthropic`). Call shape checked against the claude-api skill: `messages.create(model=..., max_tokens=2048, output_config={"effort": "low"})`, reply read from the first `text` block.
+4. **Verdict cache.** Keyed by sha256 of the redacted prompt, file mode 0600, an unwritable cache is a warning, a provider failure or unparseable reply is a warning for that pair and never aborts the scan.
+
 Layers run cheapest first; each later layer only sees pairs the earlier ones left undecided. New module `src/constellation/overlaps.py`, added to `only_mutate`. Tests go through `scan()` and `cli.main` with a new fixture dir `tests/fixtures/overlap_config` (the existing fixture's tests assert exact Item sets, so it stays as is).
 
 ## Data model
@@ -25,19 +32,19 @@ Layers run cheapest first; each later layer only sees pairs the earlier ones lef
 ## Layer 4: verifier (stronger model)
 
 - Seam: `scan(..., verifier: LLM | None = None, verdict_cache: Path | None = None)`. Same `LLM` type, wrapped as `guarded(verifier, secrets)`. Real model: `anthropic_llm(client=None, model=MODEL)` gains a `model` param; `VERIFIER_MODEL = "claude-sonnet-5-5"` (checked against the claude-api skill: $2/$10 per MTok, effort supported). Use `effort: "low"` and `max_tokens=2048`.
-- `verify(pairs, items, bodies, llm, known, cache_path) -> tuple[list[Overlap], list[str]]`. Each body goes through `redact(body, known)` first, then is cut to `MAX_BODY_CHARS = 8000` with a `[truncated]` marker. Redacting before cutting means a cut never splits a secret. The guard then redacts the whole prompt again. The prompt wraps the bodies in `<item_a>`/`<item_b>` tags, says the text is data and not instructions, and asks for JSON only: `{"verdict": ..., "reason": ...}`.
+- `verify(pairs, items, bodies, llm, known, cache_path) -> tuple[list[Overlap], list[str]]`. The prompt holds kind, name and description of each Item in `<item_a>`/`<item_b>` tags, the local signals (see Amendments), says the text is data and not instructions, and asks for JSON only: `{"verdict": ..., "reason": ..., "wraps": "A"|"B"}` (`wraps` only for a wrapper). No body text is in the prompt. The guard redacts the whole prompt.
 - Parsing: strip code fences, then `json.loads`. The verdict must be in the set; the reason is cleaned like `classify._clean` (one line, 200 chars). Anything else becomes the warning `could not verify 'A' / 'B': unreadable reply` and the pair gets no verdict. A `ProviderError` becomes the same kind of warning. A prompt injection can at worst pick a wrong verdict.
 - LangGraph: same shape as `classify`. A conditional edge from START returns `list[Send]`, which is map: one branch per pair. Branch outputs merge through `Annotated[list[Overlap], operator.add]` and `Annotated[list[str], operator.add]`, which is reduce, with a list reducer where `classify` used a dict one. The fan-in to END is implicit. `config={"max_concurrency": 4}` caps parallel calls. shortcut: the graph is duplicated from classify rather than shared; generalise it if a third fan-out appears.
-- Cache: `~/.cache/constellation/overlap-verdicts.json`, mode 0o600. The key is the sha256 of the redacted prompt, so a template change invalidates the cache by itself and no secret reaches the file. Make `costs._load/_save` public as `load_cache/save_cache` and reuse them. An unwritable cache is a warning.
+- Cache: `~/.cache/constellation/overlap-verdicts.json`, mode 0o600. The key is the sha256 of the redacted prompt, so a template change invalidates the cache by itself and no secret reaches the file; the value is the raw reply, re-parsed on a hit. Make `costs._load/_save` public as `load_cache/save_cache` and reuse them. An unwritable cache is a warning.
 
 ## CLI
 
-- `scan --no-verify` skips layer 4. Before a real verify run, stderr shows an upper bound: `verifying at most 150 pairs with claude-sonnet-5-5, under $2.70 (cached pairs are free)`. The figure is 150 × (4k input + 1k output tokens) at Sonnet 5.5 prices. `main(..., verifier=...)` makes this injectable for tests.
-- Dry run: record `--- VERIFY ---` prompts and reply `{"verdict":"distinct","reason":"dry-run"}`, with the verdict cache in the temp dir. The dry-run embedder currently returns zero vectors, which would yield no candidates. When fastembed is installed, the dry run uses the real local embedder (it runs locally, so it sends nothing) and still records the texts. Otherwise it prints that no verifier prompts can be shown.
+- `scan --no-verify` skips layer 4. Before a real verify run, stderr shows `verifying N pairs with claude-sonnet-5-5, about $X (cached pairs are free)` from the actual prompts (chars/4 input tokens, 300 output tokens each, $2/$10 per MTok), with no confirmation prompt. `main(..., verifier=...)` makes this injectable for tests.
+- Dry run: record `--- VERIFY ---` prompts and reply `{"verdict":"distinct","reason":"dry-run"}`, with the verdict cache in the temp dir. The dry-run embedder returns zero vectors, which yield no candidates, so when fastembed is installed the dry run uses the real local embedder (it runs locally, so it sends nothing) and still records the texts. Otherwise it prints that no similarity-based verifier prompts can be shown.
 
 ## Eval
 
-`tests/eval/test_overlap_quality.py`, `@pytest.mark.eval`, skipped without `ANTHROPIC_API_KEY`. Data in `tests/eval/overlap_pairs.py`: 20 invented pairs (body A, body B, expected verdict), 5 per verdict, including near-misses such as "review a PR" vs "review prose". It calls `verify()` directly with the real guarded model. It prints a confusion table plus per-verdict precision and recall, and asserts that "flagged" (not distinct) precision ≥ 0.8 and recall ≥ 0.7. That is a regression guard on invented data, not proof of quality on a real setup. Cost is about $0.20 per run. Update the pytest `eval` marker text. The real check (that stop-slop, skill-creator and shadcn surface) is done by the user on `~/.claude`, and its output is never committed.
+`tests/eval/test_overlap_quality.py`, `@pytest.mark.eval`, skipped without `ANTHROPIC_API_KEY`. Data in `tests/eval/overlap_pairs.py`: 20 invented pairs (body A, body B, expected verdict), 5 per verdict, including near-misses such as "review a PR" vs "review prose". It calls `verify()` directly with the real guarded model (the real-model run is left to the main session). An unmarked test checks the scoring code against a fake verifier. It prints a confusion table plus per-verdict precision and recall, and asserts that "flagged" (not distinct) precision ≥ 0.8 and recall ≥ 0.7. That is a regression guard on invented data, not proof of quality on a real setup. Cost is about $0.20 per run. Update the pytest `eval` marker text. The real check (that stop-slop, skill-creator and shadcn surface) is done by the user on `~/.claude`, and its output is never committed.
 
 ## Slices (red, then green; one commit each)
 
@@ -54,7 +61,7 @@ Layers run cheapest first; each later layer only sees pairs the earlier ones lef
 
 ## Risks
 
-- Full skill bodies leave the machine for the first time; until now only names and descriptions did. Redaction is pattern-based, so an unusual secret in a body could get through.
+- With names and descriptions only, the verifier cannot tell a true duplicate from a similar skill unless the local signals help; expect more `overlap` verdicts and fewer confident `duplicate` ones outside the exact-hash layer.
 - The wrapper rule's thresholds are guesses; tune them on the real setup.
 - The dry run now loads the local embedder, which is slower and different from before.
 - Same-name copies with drifted bodies depend on the verifier.
