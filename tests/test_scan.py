@@ -27,6 +27,13 @@ def test_scan_lists_agents_as_items():
     assert agents["reviewer"].description == "Reviews code for quality and best practices"
 
 
+def test_scan_lists_locally_configured_mcp_servers_as_items():
+    servers = by_kind(scan(FIXTURE), "mcp_server")
+
+    assert set(servers) == {"localdb"}
+    assert servers["localdb"].description == "npx -y @example/db-mcp"
+
+
 def test_skill_without_description_is_skipped_with_a_warning():
     constellation = scan(FIXTURE)
 

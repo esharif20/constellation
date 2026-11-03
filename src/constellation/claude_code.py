@@ -1,4 +1,5 @@
 """Claude Code Source adapter: reads a config dir, emits harness-neutral Items (ADR 0001)."""
+import json
 from pathlib import Path
 
 import yaml
@@ -23,4 +24,9 @@ def read_items(config_dir: Path) -> tuple[list[Item], list[str]]:
                 warnings.append(f"skipped {kind} '{name}': no description ({path})")
                 continue
             items.append(Item(f"{SOURCE}:{kind}:{name}", kind, name, description, SOURCE))
+    mcp_file = config_dir / ".mcp.json"
+    if mcp_file.exists():
+        for name, server in json.loads(mcp_file.read_text())["mcpServers"].items():
+            description = " ".join([server["command"], *server.get("args", [])])
+            items.append(Item(f"{SOURCE}:mcp_server:{name}", "mcp_server", name, description, SOURCE))
     return items, warnings
