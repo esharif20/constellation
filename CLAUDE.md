@@ -39,3 +39,12 @@ Sonnet then executes a defined plan: writing the code, tests and routine fixes. 
 Every UI task loads the full set above before writing code, not just one: `/prototype` for feel, `frontend-design:frontend-design`, `ui-ux-pro-max`, `dataviz`, plus `shadcn` and `vercel-plugin:react-best-practices` if React is used, and `vercel-plugin:agent-browser` to screenshot and look at the result. For graph and motion, prefer well-known libraries (d3-force / d3-zoom / d3-drag, or sigma.js / react-force-graph for large graphs; Motion or CSS transitions for UI motion) over hand-rolled physics. `scroll-craft` stays landing-page only (#15).
 
 Split by model: an Opus 5.5 subagent makes the first design (layout, palette, typography, motion language, a written design note under `docs/design/`), then a Sonnet agent refines it: spacing, states, polish, responsiveness, bug fixes, checked with screenshots. Brief each with the design note and the screenshots, not the conversation.
+
+## Plan alignment (every ticket)
+
+The approved plan is `~/.claude/plans/pasted-content-id-d61b-i-think-modular-fog.md`; its status is mirrored in `docs/plan-tracker.md`.
+
+- Before starting a ticket, read the decisions that touch it (`docs/plan-tracker.md`, then the plan) and put the relevant ones into every agent brief. Briefs must name the required technology, not only the goal.
+- If the right choice differs from the plan, stop and say so: record it as a **deviation** in the tracker with the reason, and get the user's approval before building on it.
+- At the end of every ticket, update `docs/plan-tracker.md` (status, deviations, new decisions) in the same commit, and reflect it in the ticket's closing comment.
+- A reviewer checks the diff against the tracker: wrong stack or silent drift is a finding.
