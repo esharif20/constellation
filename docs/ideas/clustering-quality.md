@@ -27,3 +27,6 @@ vectors designed for centred cosine. Also worth trying then: a threshold slider 
 Real scan after the fix (233 Items, 27 clusters, 6 singletons, themed names). Still open: all 46 hooks form one cluster, because hook
 descriptions are shell commands and cluster by shape. Try embedding `kind + name` for hooks, or leaving hooks out of clustering.
 A hand-labelled real eval set would settle the threshold.
+
+Hooks fix: `cluster()` now embeds a hook by its name only (event:matcher). On the real scan, adding kind to the text changed nothing (46 hooks in one
+cluster); name only splits them 26 / 16 / 2 / 2 by event. Still coarse, since hooks have no real description to cluster on.

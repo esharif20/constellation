@@ -38,7 +38,8 @@ def cluster(items: list[Item], labels: dict[str, str], embed: Embedder, threshol
     """Greedy leader clustering on name and description only (labels just name the clusters): each Item joins the closest
     cluster centre at or above `threshold`, else starts a new cluster. The default threshold depends on whether the vectors were centred."""
     items = sorted(items, key=lambda i: i.id)  # greedy clustering depends on order, so fix the order
-    vectors = [_unit(v) for v in embed([f"{i.name}: {i.description}" for i in items])]
+    # a hook's description is a shell command, which clusters by shape rather than meaning, so hooks are embedded by name (event:matcher)
+    vectors = [_unit(v) for v in embed([i.name if i.kind == "hook" else f"{i.name}: {i.description}" for i in items])]
     centred = len(vectors) >= MIN_ITEMS_TO_CENTRE
     if centred:
         vectors = _centre(vectors)

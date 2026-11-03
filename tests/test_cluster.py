@@ -182,3 +182,16 @@ def test_the_default_threshold_depends_on_whether_the_vectors_were_centred(tmp_p
     assert _cluster_sizes(tmp_path, _two_squeezed_groups(tmp_path, 5, 5)) == [10]
     other = tmp_path / "other"
     assert _cluster_sizes(other, _two_squeezed_groups(other, 5, 4)) == [1] * 9
+
+
+def test_a_hook_is_embedded_by_its_name_only_because_its_description_is_just_a_command(tmp_path):
+    (tmp_path / "settings.json").write_text(
+        '{"hooks": {"PostToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "run-the-thing.sh"}]}]}}'
+    )
+    _skill(tmp_path, "docs", "Writes documentation")
+    embedder = FakeEmbedder({})
+
+    scan(tmp_path, embedder=embedder)
+
+    assert "PostToolUse:Bash" in embedder.texts and "docs: Writes documentation" in embedder.texts
+    assert not any("run-the-thing" in text for text in embedder.texts)
