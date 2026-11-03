@@ -98,7 +98,8 @@ def test_the_dry_run_shows_the_exact_verifier_prompts_and_writes_nothing(tmp_pat
     printed = capsys.readouterr().out
     assert code == 0 and printed.count("--- VERIFY ---") == 2
     assert "Name: pdf-reader" in printed and "Name: pdf-viewer" in printed
-    assert "Check every page carefully" not in printed  # bodies stay on the machine
+    verify_prompts = "".join(block for block in printed.split("--- ") if block.startswith("VERIFY"))
+    assert "Check every page carefully" not in verify_prompts  # bodies stay on the machine (the COUNT texts are ticket 5's counter)
     assert "item_a is" in printed  # the local signals are what is sent
     assert not out.exists() and not (tmp_path / "home").exists() and not (tmp_path / "default-verdicts.json").exists()
 

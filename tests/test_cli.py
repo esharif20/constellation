@@ -15,6 +15,11 @@ def _t(*parts: str) -> str:
 SECRET = _t("ghp_", "aB3dE5gH" * 4, "7jK9")
 
 
+@pytest.fixture(autouse=True)
+def no_local_embedder(monkeypatch):
+    monkeypatch.setattr("constellation.cli._local_embedder", lambda: None)  # a dry run must not load the real model in the fast tests
+
+
 @pytest.fixture
 def config(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)  # so load_env never finds the real project .env
