@@ -1,0 +1,7 @@
+.vibe-wise/
+.venv/
+__pycache__/
+node_modules/
+.env
+.env.*
+*.sqlite

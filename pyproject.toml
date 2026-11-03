@@ -1,0 +1,21 @@
+[project]
+name = "constellation"
+version = "0.1.0"
+description = "An interactive map of a Claude Code setup"
+readme = "README.md"
+authors = [
+    { name = "esharif20", email = "eshansharif2004@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pyyaml>=6.0.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
