@@ -37,7 +37,7 @@ testpaths = ["tests"]
 
 [tool.mutmut]
 source_paths = ["src"]
-only_mutate = ["src/constellation/redact.py", "src/constellation/cluster.py"]
+only_mutate = ["src/constellation/redact.py", "src/constellation/cluster.py", "src/constellation/classify.py"]
 pytest_add_cli_args_test_selection = ["tests"]
 
 [tool.ruff]

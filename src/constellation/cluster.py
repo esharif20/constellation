@@ -26,8 +26,10 @@ class _Group:
 
 
 def cluster(items: list[Item], labels: dict[str, str], embed: Embedder, threshold: float = DEFAULT_THRESHOLD) -> list[Cluster]:
-    """Greedy leader clustering: each Item joins the closest cluster centre at or above `threshold`, else starts a new cluster."""
-    vectors = [_unit(v) for v in embed([f"{labels[i.id]}. {i.name}: {i.description}" for i in items])]
+    """Greedy leader clustering on name and description only (labels just name the clusters): each Item joins the closest
+    cluster centre at or above `threshold`, else starts a new cluster."""
+    items = sorted(items, key=lambda i: i.id)  # greedy clustering depends on order, so fix the order
+    vectors = [_unit(v) for v in embed([f"{i.name}: {i.description}" for i in items])]
     groups: list[_Group] = []
     for index, vector in enumerate(vectors):
         best = max(groups, key=lambda g: _dot(_unit(g.total), vector), default=None)
@@ -39,6 +41,8 @@ def cluster(items: list[Item], labels: dict[str, str], embed: Embedder, threshol
     clusters = []
     for group in groups:
         centre = _unit(group.total)
-        nearest = max(group.members, key=lambda i: _dot(centre, vectors[i]))  # the member closest to the centre names the cluster
-        clusters.append(Cluster(labels[items[nearest].id], tuple(items[i].id for i in group.members)))
+        by_closeness = sorted(group.members, key=lambda i: -_dot(centre, vectors[i]))  # sorted is stable, so ties keep item order
+        labelled = next((i for i in by_closeness if items[i].id in labels), None)
+        name = labels[items[labelled].id] if labelled is not None else items[by_closeness[0]].name
+        clusters.append(Cluster(name, tuple(items[i].id for i in group.members)))
     return clusters

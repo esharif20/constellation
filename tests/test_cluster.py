@@ -1,7 +1,10 @@
+import sys
+
 import pytest
 from fakes import FakeEmbedder, FakeLLM
 
 from constellation import scan
+from constellation.embeddings import fastembed_embedder
 
 
 def _skill(root, name, description):
@@ -85,3 +88,55 @@ def test_embeddings_of_mixed_dimensions_are_an_error(tmp_path):
 
     with pytest.raises(ValueError):
         scan(tmp_path, llm=FakeLLM({}), embedder=embedder)
+
+
+def test_a_failing_embedder_keeps_the_labels_and_adds_a_warning(tmp_path):
+    _skill(tmp_path, "docs-a", "Handles one thing")
+    embedder = FakeEmbedder({}, fail_with="download blocked")
+
+    constellation = scan(tmp_path, llm=FakeLLM({"docs-a": "writing docs"}), embedder=embedder)
+
+    assert constellation.clusters == []
+    assert constellation.labels == {"claude-code:skill:docs-a": "writing docs"}
+    [warning] = constellation.warnings
+    assert "ConnectionError" in warning and "download blocked" in warning
+
+
+def test_the_local_embedder_loads_lazily_and_says_how_to_install_it(monkeypatch):
+    monkeypatch.setitem(sys.modules, "fastembed", None)  # as if the optional extra were not installed
+
+    embed = fastembed_embedder()  # building it must not need the model
+
+    with pytest.raises(RuntimeError, match="uv sync --extra local"):
+        embed(["a text"])
+
+
+MID = {"mid-a": [1.0, 0.3, 0.0], "mid-b": [1.0, 0.0, 0.0], "mid-c": [1.0, -0.3, 0.0]}
+
+
+def test_clusters_need_no_model_and_are_named_after_the_member_nearest_the_centre(tmp_path):
+    for name in MID:
+        _skill(tmp_path, name, "Does a thing")
+
+    constellation = scan(tmp_path, embedder=FakeEmbedder(MID))
+
+    assert {frozenset(c.item_ids): c.name for c in constellation.clusters} == {frozenset(f"claude-code:skill:{n}" for n in MID): "mid-b"}
+
+
+def test_the_models_labels_never_enter_the_embedding_text(tmp_path):
+    _skill(tmp_path, "mid-a", "Does a thing")
+    embedder = FakeEmbedder(MID)
+
+    scan(tmp_path, llm=FakeLLM({"mid-a": "LABEL_MARKER"}), embedder=embedder)
+
+    assert embedder.texts and not any("LABEL_MARKER" in t for t in embedder.texts)
+
+
+def test_a_cluster_is_named_by_the_nearest_member_that_has_a_label(tmp_path):
+    for name in MID:
+        _skill(tmp_path, name, "Does a thing")
+    llm = FakeLLM({"mid-a": "A label", "mid-c": "C label"}, fail_for={"mid-b": "no answer"})  # the nearest member, mid-b, has no label
+
+    constellation = scan(tmp_path, llm=llm, embedder=FakeEmbedder(MID))
+
+    assert [c.name for c in constellation.clusters] == ["A label"]  # mid-a and mid-c are equally near; ties go to the lower id

@@ -212,3 +212,26 @@ def test_secrets_never_reach_the_embedder(tmp_path):
 
     assert any("Uses" in t for t in embedder.texts)  # the leaky skill was embedded, so the check below is not vacuous
     assert not any(key in t or TOKEN in t for t in embedder.texts)
+
+
+def test_a_secret_echoed_in_a_provider_error_never_reaches_the_warnings(tmp_path):
+    (tmp_path / "skills" / "leaky").mkdir(parents=True)
+    (tmp_path / "skills" / "leaky" / "SKILL.md").write_text("---\nname: leaky\ndescription: Does a thing\n---\n")
+    (tmp_path / ".env").write_text(f"DEPLOY_TOKEN={TOKEN}\n")
+    llm = FakeLLM({}, fail_for={"leaky": f"401 rejected credential {TOKEN}"})
+
+    constellation = scan(tmp_path, llm=llm)
+
+    assert any("ConnectionError" in w for w in constellation.warnings)  # the failure was reported, so the check below is not vacuous
+    assert not any(TOKEN in w for w in constellation.warnings)
+
+
+def test_a_secret_echoed_in_an_embedder_error_never_reaches_the_warnings(tmp_path):
+    (tmp_path / ".env").write_text(f"DEPLOY_TOKEN={TOKEN}\n")
+    (tmp_path / "skills" / "plain").mkdir(parents=True)
+    (tmp_path / "skills" / "plain" / "SKILL.md").write_text("---\nname: plain\ndescription: Does a thing\n---\n")
+
+    constellation = scan(tmp_path, embedder=FakeEmbedder({}, fail_with=f"401 rejected credential {TOKEN}"))
+
+    assert any("ConnectionError" in w for w in constellation.warnings)
+    assert not any(TOKEN in w for w in constellation.warnings)

@@ -72,13 +72,34 @@ def redact(text: str, known: Iterable[str] = ()) -> str:
     return _CANDIDATE.sub(lambda m: REDACTED if _looks_random(m[0]) else m[0], text)
 
 
+class ProviderError(Exception):
+    """A model or embedder call failed. The message is already redacted, so it is safe to store and show."""
+
+
 def guarded(llm: LLM, known: Iterable[str] = ()) -> LLM:
-    """The only way the app calls a model: every prompt is redacted first."""
+    """The only way the app calls a model: every prompt is redacted first, and a provider failure becomes a ProviderError."""
     known = tuple(known)
-    return lambda prompt: llm(redact(prompt, known))
+
+    def call(prompt: str) -> str:
+        safe = redact(prompt, known)  # a bug here must raise, not be reported as a provider failure
+        try:
+            return llm(safe)
+        except Exception as error:
+            # `from None`: the original error may echo a secret, and a traceback would print it.
+            raise ProviderError(redact(f"{type(error).__name__}: {error}", known)) from None
+
+    return call
 
 
 def guarded_embed(embed: Embedder, known: Iterable[str] = ()) -> Embedder:
     """Same rule for the embedder: a hosted one would receive Item text, so every text is redacted first."""
     known = tuple(known)
-    return lambda texts: embed([redact(text, known) for text in texts])
+
+    def call(texts: list[str]) -> list[list[float]]:
+        safe = [redact(text, known) for text in texts]
+        try:
+            return embed(safe)
+        except Exception as error:
+            raise ProviderError(redact(f"{type(error).__name__}: {error}", known)) from None
+
+    return call
