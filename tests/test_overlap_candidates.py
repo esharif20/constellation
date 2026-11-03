@@ -65,7 +65,11 @@ def test_pairs_already_decided_are_skipped_even_when_they_share_a_name():
 
 def test_same_name_pairs_are_added_even_when_their_vectors_are_far_apart():
     items = [_item("stop-slop"), _item("stop-slop", scope="p/"), _item("other")]
-    vectors = {"claude-code:skill:stop-slop": [1.0, 0.0], "claude-code:skill:p/stop-slop": [0.0, 1.0], "claude-code:skill:other": [-1.0, 0.0]}
+    vectors = {
+        "claude-code:skill:stop-slop": [1.0, 0.0],
+        "claude-code:skill:p/stop-slop": [0.0, 1.0],
+        "claude-code:skill:other": [-1.0, 0.0],
+    }
 
     assert _ids(candidates(items, vectors, set())[0]) == [("p/stop-slop", "stop-slop")]
 

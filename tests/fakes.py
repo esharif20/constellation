@@ -1,3 +1,5 @@
+import json
+import re
 import threading
 import time
 
@@ -70,3 +72,36 @@ class FakeCounter:
         if self.fail_with:
             raise ConnectionError(self.fail_with)
         return [len(t.split()) for t in texts]
+
+
+class FakeVerifier:
+    """Stand-in for the strong model: replies per pair of item names (or a default), records every prompt, and tracks concurrency."""
+
+    def __init__(
+        self,
+        replies: dict[frozenset[str], str] | None = None,
+        default: str | None = None,
+        fail_for: dict[str, str] | None = None,
+        seconds: float = 0.0,
+    ):
+        self.replies, self.fail_for, self.seconds, self.prompts = replies or {}, fail_for or {}, seconds, []
+        self.default = default or json.dumps({"verdict": "distinct", "reason": "different jobs"})
+        self.now, self.peak, self.lock = 0, 0, threading.Lock()
+
+    def __call__(self, prompt: str) -> str:
+        names = frozenset(re.findall(r"^Name: (.*)$", prompt, re.MULTILINE))
+        with self.lock:
+            self.prompts.append(prompt)
+            self.now += 1
+            self.peak = max(self.peak, self.now)
+        time.sleep(self.seconds)
+        with self.lock:
+            self.now -= 1
+        for name, message in self.fail_for.items():
+            if name in names:
+                raise ConnectionError(message)
+        return self.replies.get(names, self.default)
+
+
+def verdict(kind: str, reason: str = "because", **extra: str) -> str:
+    return json.dumps({"verdict": kind, "reason": reason, **extra})
