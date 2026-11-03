@@ -5,6 +5,7 @@ from .claude_code import read_items, read_secrets
 from .cluster import cluster
 from .costs import measure
 from .models import LLM, Cluster, Constellation, Cost, Embedder, TokenCounter
+from .overlaps import exact_duplicates
 from .redact import ProviderError, guarded, guarded_count, guarded_embed
 
 
@@ -33,7 +34,8 @@ def scan(
     if counter:
         costs, cost_warnings = measure(items, bodies, guarded_count(counter, secrets), secrets, cost_cache)
         warnings += cost_warnings
-    return Constellation(items, warnings, relations, labels, clusters, costs)
+    overlaps = sorted(exact_duplicates(items, bodies), key=lambda o: (o.a_id, o.b_id))
+    return Constellation(items, warnings, relations, labels, clusters, costs, overlaps)
 
 
 __all__ = ["scan", "Cluster", "Constellation", "Item"]
