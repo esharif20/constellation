@@ -9,6 +9,7 @@ from pathlib import Path
 from . import scan
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
+from .env import load_env
 from .models import LLM, Constellation, Embedder
 from .redact import redact
 
@@ -21,6 +22,7 @@ def main(argv: Sequence[str] | None = None, llm: LLM | None = None, embedder: Em
     scan_command.add_argument("--out", type=Path, default=Path("constellation.json"))
     scan_command.add_argument("--dry-run", action="store_true", help="print what would be sent to the providers; send nothing")
     args = parser.parse_args(argv)
+    load_env()  # a .env file in the working directory may hold ANTHROPIC_API_KEY
 
     if not args.config_dir.is_dir():
         print(f"{args.config_dir} is not a directory.", file=sys.stderr)
