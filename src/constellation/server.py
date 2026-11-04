@@ -43,7 +43,7 @@ def local_only(request: Request) -> None:
 
 def _checklist_path(checklist: Path, scan_file: Path) -> Path:
     path = checklist.resolve()
-    if path.is_relative_to((Path.home() / ".claude").resolve()):
+    if ".claude" in path.parts or path.is_relative_to((Path.home() / ".claude").resolve()):
         raise ValueError(f"Checklist {checklist} must be outside the Claude setup")
     if path == scan_file.resolve() or (path.exists() and scan_file.exists() and path.samefile(scan_file)):
         raise ValueError(f"Checklist {checklist} must not replace the scan file")
