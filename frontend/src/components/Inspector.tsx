@@ -1,13 +1,13 @@
-import { XIcon } from "lucide-react";
+import { ArrowLeftIcon, XIcon } from "lucide-react";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { kindName, relName, type GNode, type GOverlap, type Model } from "@/graph/model";
+import { kindName, relName, type GNode, type GOverlap, type Model, type UsageWindow } from "@/graph/model";
 
-type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void };
+type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
 
 // Non-modal on purpose: the map stays live beside it. A side panel on desktop, a bottom sheet on phones.
-export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose }, ref) {
+export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo }, ref) {
   const scroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scroll.current?.scrollTo({ top: 0 });
@@ -32,6 +32,7 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
         <XIcon />
       </Button>
       <div ref={scroll} className="overflow-y-auto overscroll-contain px-4 pt-3 pb-6 sm:px-6 sm:pt-6">
+        {backTo && <Button variant="ghost" className="-mx-2 mb-1 h-10 max-w-[calc(100%-3rem)] justify-start gap-2 px-2 text-[13px] text-text-2" onClick={onClose}><ArrowLeftIcon aria-hidden /><span className="truncate">Back to {backTo}</span></Button>}
         <p className="flex min-h-7 items-center gap-2 pr-10 text-xs font-medium tracking-[0.02em] text-text-3">
           <span className="glyph" data-kind={item.kind} />
           {kindName(item.kind)}
@@ -47,6 +48,7 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
         </dl>
 
         <Cost item={item} />
+        <Usage item={item} window={model.usageWindow} />
 
         <p className="mt-6 max-w-[65ch] text-sm leading-[1.55] text-text-2 whitespace-pre-wrap [overflow-wrap:anywhere]">{item.description || "No description."}</p>
         <p className="mt-3 font-mono text-xs leading-[1.45] text-text-3 [overflow-wrap:anywhere]">{item.source}</p>
@@ -92,6 +94,36 @@ function Cost({ item }: { item: GNode }) {
       ) : (
         c?.on_use == null && <p className="mt-2 text-xs text-text-3">Run <code className="font-mono">constellation scan --count-bodies</code> to measure.</p>
       )}
+    </section>
+  );
+}
+
+const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const noun = (n: number, one: string) => `${n.toLocaleString()} ${one}${n === 1 ? "" : "s"}`;
+
+// No usage entry means the kind is not tracked (hooks, plugins): said as such, never as 0. Count 0 is "never seen" in the window scanned.
+// A prompt-time hook also shows what it injects at session start: bytes are static, tokens only after --count-bodies, unknown never 0.
+function Usage({ item, window }: { item: GNode; window: UsageWindow | null }) {
+  const u = item.usage, w = item.weight;
+  if (!u && !w && !(item.kind === "hook" || item.kind === "plugin")) return null;
+  const seen = !u ? null : u.count > 0
+    ? <>{noun(u.count, "use")}{u.last_used && <span className="text-text-3"> · last {day(u.last_used)}</span>}</>
+    : window?.files ? <span className="text-text-2">Never seen in the {noun(window.files, "transcript")} scanned</span> : <i className="text-text-3">no transcripts scanned</i>;
+  return (
+    <section className="mt-6" aria-label="Usage">
+      <h3 className="mb-2 text-xs font-medium tracking-[0.02em] text-text-3">Usage</h3>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border bg-surface-2 px-4 py-3 text-[13px]">
+        <dt className="text-text-3">Seen in transcripts</dt>
+        <dd className="text-right">{seen ?? <i className="text-text-3">not tracked</i>}</dd>
+        {w && <>
+          <dt className="text-text-3">Session-start weight</dt>
+          <dd className="text-right font-mono tabular-nums">
+            {w.bytes == null ? <i className="font-sans text-text-3">unknown</i> : `${w.bytes.toLocaleString()} bytes`}
+            {w.tokens != null ? <span className="block">{w.tokens.toLocaleString()} tokens</span> : w.bytes != null && <i className="block font-sans text-text-3">tokens not counted</i>}
+          </dd>
+        </>}
+      </dl>
+      {window?.first && window.last && u && <p className="mt-2 text-xs text-text-3">Transcripts from {day(window.first)} to {day(window.last)}.</p>}
     </section>
   );
 }

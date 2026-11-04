@@ -1,5 +1,6 @@
 import copy
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -97,7 +98,7 @@ def test_reasons_redact_names_and_verdict_text(data):
 
 def test_unused_suggestions_do_not_displace_pairs(data):
     data["usage"] = {i["id"]: {"count": 0, "last_seen": None} for i in data["items"]}
-    data["usage_window"] = {"files": 5, "first": "2026-01-01", "last": "2026-02-01"}
+    data["usage_window"] = {"files": 5, "first": "2026-01-01", "last": "2026-02-01", "skipped": 0}
     assert any(s.kind == "remove_unused" for s in suggest(data))
     assert [r["kind"] for r in brief(data, top=1)["pairs"]["rows"]] == ["remove_duplicate"]
 
@@ -158,3 +159,29 @@ def test_appended_reasons_keep_their_text_on_one_line(tmp_path):
 
 def test_unknown_saving_is_excluded_even_if_an_item_cost_is_available():
     assert frees([{"removes": "a", "tokens_saved": None}], {"a": 10}) is None
+
+
+def test_append_never_rewrites_existing_text(tmp_path):
+    path = tmp_path / "checklist.md"
+    path.write_text("# mine\n- [ ] hand edit (id 0123456789ab)\n")
+    inode = path.stat().st_ino
+    assert append_line(path, Suggestion("abcdef012345", "review_cost", ("b",), "Review Beta.", None)) is True
+    assert path.read_text() == "# mine\n- [ ] hand edit (id 0123456789ab)\n- [ ] Review Beta. Saving not measured. (id abcdef012345)\n"
+    assert path.stat().st_ino == inode
+
+
+def test_append_writes_one_whole_line_with_o_append(tmp_path, monkeypatch):
+    path = tmp_path / "checklist.md"
+    path.write_text("keep\n")
+    calls = []
+    real_open = os.open
+    monkeypatch.setattr(os, "open", lambda p, flags, *a: calls.append(flags) or real_open(p, flags, *a))
+    append_line(path, Suggestion("abcdef012345", "review_cost", ("b",), "Review Beta.", None))
+    assert calls[0] & os.O_APPEND and not calls[0] & os.O_TRUNC
+
+
+def test_append_adds_a_missing_final_newline_inside_the_same_write(tmp_path):
+    path = tmp_path / "checklist.md"
+    path.write_text("- [ ] x (id 0123456789ab)")
+    append_line(path, Suggestion("abcdef012345", "review_cost", ("b",), "Review Beta.", None))
+    assert path.read_text().splitlines()[1].startswith("- [ ] Review Beta.")

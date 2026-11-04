@@ -26,11 +26,11 @@ def test_skills_and_agents_get_always_on_from_name_and_description_and_on_use_fr
     assert cost_of(result, "agent", "reviewer") == Cost(always_on=8, on_use=5)  # "You are a code reviewer."
 
 
-def test_servers_and_connectors_have_only_an_always_on_cost(tmp_path):
+def test_servers_have_only_an_always_on_cost(tmp_path):
     result = scan(FIXTURE, counter=FakeCounter(), cost_cache=tmp_path / "c.json")
 
-    assert cost_of(result, "mcp_server", "localdb") == Cost(always_on=4, on_use=None)
-    assert cost_of(result, "connector", "docs").on_use is None
+    assert cost_of(result, "mcp_server", "localdb") == Cost(always_on=3, on_use=None)
+    assert cost_of(result, "mcp_server", "docs").on_use is None
 
 
 def test_hook_costs_are_unknown_not_guessed(tmp_path):
