@@ -103,3 +103,29 @@ export function layout(nodes: LNode[], links: LLink[], clusters: LCluster[], tal
     c.fr = reach(c, c.x, c.y);
   }
 }
+
+// Camera targets, pure so the metrics script runs them in Node. A View is the graph point at the screen centre and the zoom,
+// like force-graph's centerAt/zoom. Insets are the px the chrome covers on each side.
+export type View = { x: number; y: number; k: number };
+export type Insets = { top: number; bottom: number; left: number; right: number };
+export const FOCUS_FILL = 0.86; // share of the free box's half-size the focused halo fills (the rest is room for rim names and the soft edge)
+
+// Fit every star and circle into the sky left free by the chrome, so a phone gets a tall, full map rather than empty bands.
+export function fitView(nodes: LNode[], clusters: LCluster[], ins: Insets, W: number, H: number): View {
+  const pad = W <= 640 ? 14 : 36;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const n of nodes) { x0 = Math.min(x0, n.x! - n.r - 8); x1 = Math.max(x1, n.x! + n.r + 8); y0 = Math.min(y0, n.y! - n.r - 8); y1 = Math.max(y1, n.y! + n.r + 8); }
+  for (const c of clusters) { x0 = Math.min(x0, c.x - c.r); x1 = Math.max(x1, c.x + c.r); y0 = Math.min(y0, c.y - c.r); y1 = Math.max(y1, c.y + c.r); }
+  const L = ins.left + pad, R = W - ins.right - pad, T = ins.top + pad / 2, B = H - ins.bottom - pad / 2;
+  const k = Math.min(3, (R - L) / Math.max(1, x1 - x0), (B - T) / Math.max(1, y1 - y0));
+  return { k, x: (x0 + x1) / 2 - ((L + R) / 2 - W / 2) / k, y: (y0 + y1) / 2 - ((T + B) / 2 - H / 2) / k };
+}
+
+// Frame one halo in the free box, filling FOCUS_FILL of it; never closer than the zoom limit (fitK * 10) nor further than fitK.
+export function focusView(halo: { x: number; y: number; r: number }, ins: Insets, W: number, H: number, fitK: number): View {
+  const pad = W <= 640 ? 14 : 36;
+  const L = ins.left + pad, R = W - ins.right - pad, T = ins.top + pad, B = H - ins.bottom - pad;
+  const Rs = (FOCUS_FILL * Math.min(R - L, B - T)) / 2;
+  const k = Math.max(fitK, Math.min(fitK * 10, Rs / halo.r));
+  return { k, x: halo.x - ((L + R) / 2 - W / 2) / k, y: halo.y - ((T + B) / 2 - H / 2) / k };
+}

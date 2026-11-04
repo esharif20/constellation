@@ -5,8 +5,9 @@
 import { readFileSync } from "node:fs";
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import { strict as assert } from "node:assert";
-import { buildModel, groupWarnings, costRadius, RMAX, RMIN, RUNK, type Constellation, type Model } from "../src/graph/model.ts";
-import { GAP, haloOf, K } from "../src/graph/layout.ts";
+import { buildModel, clusterSummary, groupWarnings, rankMembers, costRadius, RMAX, RMIN, RUNK, type Constellation, type GNode, type Model } from "../src/graph/model.ts";
+import { flightMs, flightPath } from "../src/graph/flight.ts";
+import { fitView, focusView, GAP, haloOf, K, type View } from "../src/graph/layout.ts";
 import { searchItems } from "../src/graph/search.ts";
 import { chooseSpot, hit, type Box } from "../src/graph/names.ts";
 
@@ -68,11 +69,65 @@ assert.equal(costRadius(0, 100), RMIN);
   assert.equal(g.find((x) => x.id === "bare")!.items[0].path, "~/d/SKILL.md");
   assert.equal(groupWarnings(["Offline: x"]).length, 0); // a mode, not a warning
 }
+// clusterSummary self-check: unknown never added in (all unknown is null, not 0), top 3 by cost then name, unused counts tracked Items only
+{
+  const mk = (name: string, always_on: number | null, usage?: number): GNode => ({ name, kind: "skill", unknown: always_on == null, cost: { always_on, on_use: null }, usage: usage == null ? undefined : { count: usage, last_used: null } }) as GNode;
+  const sum = (members: GNode[], usageWindow: Model["usageWindow"] = null) => clusterSummary({ members } as never, { overlaps: [], usageWindow });
+  const s = sum([mk("b", 10, 0), mk("a", 10, 3), mk("z", null), mk("c", 5), mk("d", 0), mk("e", 7)], { files: 3, first: null, last: null, skipped: 0 });
+  assert.equal(s.known, 32);
+  assert.equal(s.unknown, 1);
+  assert.deepEqual(s.top.map((n) => n.name), ["a", "b", "e"]);
+  assert.deepEqual(s.unused, { tracked: 2, unseen: 1 });
+  assert.equal(sum([mk("x", null), mk("y", null)]).known, null);
+  assert.equal(sum([mk("x", 0)]).known, 0);
+  assert.equal(sum([mk("x", null)]).top.length, 0);
+  assert.equal(sum([mk("x", 1, 1)]).unused, null); // no usage window
+}
 assert.equal(costRadius(100, 100), RMAX);
 assert.equal(costRadius(1e6, 100), RMAX);
 assert.equal(costRadius(null, 100), RUNK);
 assert.equal(costRadius(undefined, 100), RUNK);
 assert.ok(Math.abs(costRadius(100, 100) / costRadius(25, 100) - 2) < 1e-9); // 4x the cost, 2x the radius
+
+// Cluster focus (docs/design/cluster-focus.md section 12): the camera target of every cluster, the flight to it, and member names there.
+function focusChecks(m: Model, fv: View, phone: boolean, top: number, bottom: number, W: number, H: number) {
+  const left = phone ? 0 : 364, bot = phone ? Math.max(bottom, 0.4 * H + 8) : bottom, pad = phone ? 14 : 36;
+  const ins = { top, bottom: bot, left, right: 0 };
+  const L = left + pad, R = W - pad, T = top + pad, B = H - bot - pad;
+  let kRange = 0, outside = 0, small = 0, capped = 0, clamped = 0, flightEnds = 0, flightMs_ = 0, named = 0, members = 0, namedMin = 1, nameClash = 0;
+  const minR = phone ? 90 : 120;
+  for (const c of m.clusters) {
+    const halo = { x: c.x, y: c.y, r: c.r }, v = focusView(halo, ins, W, H, fv.k), ratio = c.r * v.k;
+    if (v.k < fv.k - 1e-9 || v.k > fv.k * 10 + 1e-9) kRange++;
+    const atMax = v.k >= fv.k * 10 - 1e-9, atMin = v.k <= fv.k + 1e-9 && c.r * fv.k > (0.86 * Math.min(R - L, B - T)) / 2;
+    if (atMax) capped++;
+    if (atMin) clamped++; // the circle is bigger than the free box even at the fitted zoom: the flight is a pan
+    const cx = W / 2 + (c.x - v.x) * v.k, cy = H / 2 + (c.y - v.y) * v.k;
+    if (!atMin && (cx - ratio < L - 0.5 || cx + ratio > R + 0.5 || cy - ratio < T - 0.5 || cy + ratio > B + 0.5)) outside++;
+    if (!atMax && !atMin && ratio < minR) small++;
+    // flight from the fitted view: exact endpoints, bounded duration
+    const i = flightPath(fv, v, W), p0 = i(0), p1 = i(1), ms = flightMs(i.duration);
+    if (Math.hypot(p0[0] - fv.x, p0[1] - fv.y) * fv.k > 0.5 || Math.hypot(p1[0] - v.x, p1[1] - v.y) * v.k > 0.5 || Math.abs(W / p1[2] - v.k) / v.k * W > 0.5 || ms < 700 || ms > 1300) flightEnds++;
+    flightMs_ = Math.max(flightMs_, ms);
+    // member names at the landing view: rank order, 22-char cut, half-em widths, none over a star or another name
+    const sxy = (n: GNode) => [W / 2 + (n.x! - v.x) * v.k, H / 2 + (n.y! - v.y) * v.k] as const;
+    const rad = (n: GNode) => n.r * Math.min(1, Math.sqrt(2.5 / v.k)) * v.k;
+    const stars: Box[] = m.nodes.map((n) => { const [x, y] = sxy(n), r = rad(n) + 2; return [x - r, y - r, x + r, y + r]; });
+    const placed: Box[] = [[0, 0, W, top], [0, 0, left, H], [0, H - bot, W, H]];
+    let got = 0;
+    for (const n of rankMembers(c)) {
+      const [x, y] = sxy(n), w = 0.5 * 12 * Math.min(22, n.name.length), y0 = y + rad(n) + 5;
+      const box: Box = [x - w / 2 - 2, y0, x + w / 2 + 2, y0 + 14];
+      if (box[0] < 0 || box[2] > W || placed.some((p) => hit(box, p)) || stars.some((s, j) => m.nodes[j] !== n && hit(box, s))) continue;
+      placed.push(box);
+      got++;
+    }
+    for (let a = 3; a < placed.length; a++) for (let b = a + 1; b < placed.length; b++) if (hit(placed[a], placed[b])) nameClash++;
+    named += got; members += c.members.length; namedMin = Math.min(namedMin, got / c.members.length);
+  }
+  const share = named / members;
+  return { focusK: kRange, focusOutside: outside, focusSmall: small, focusCapped: capped, focusPan: clamped, flightBad: flightEnds, flightMax: Math.round(flightMs_), focusNamed: +(share * 100).toFixed(0), focusNamedMin: +(namedMin * 100).toFixed(0), focusClash: nameClash, focusShare: share };
+}
 
 function measure(file: string, W: number, H: number) {
   const tall = Math.max(0.55, Math.min(2, H / W));
@@ -127,13 +182,10 @@ function measure(file: string, W: number, H: number) {
     }
   }
 
-  // the fitted view, as StarMap's fit() computes it, and the name placer run over it
-  const phone = W <= 640, top = phone ? 146 : 72, bottom = phone ? 100 : 56, pad = phone ? 14 : 36;
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const n of m.nodes) { x0 = Math.min(x0, n.x! - n.r - 8); x1 = Math.max(x1, n.x! + n.r + 8); y0 = Math.min(y0, n.y! - n.r - 8); y1 = Math.max(y1, n.y! + n.r + 8); }
-  for (const c of m.clusters) { x0 = Math.min(x0, c.x - c.r); x1 = Math.max(x1, c.x + c.r); y0 = Math.min(y0, c.y - c.r); y1 = Math.max(y1, c.y + c.r); }
-  const k = Math.min(3, (W - 2 * pad) / (x1 - x0), (H - top - bottom - pad) / (y1 - y0));
-  const sx = (x: number) => W / 2 + (x - (x0 + x1) / 2) * k, sy = (y: number) => top + (H - top - bottom) / 2 + (y - (y0 + y1) / 2) * k;
+  // the fitted view (fitView, shared with StarMap), and the name placer run over it
+  const phone = W <= 640, top = phone ? 146 : 72, bottom = phone ? 100 : 56;
+  const fv = fitView(m.nodes, m.clusters, { top, bottom, left: 0, right: 0 }, W, H), k = fv.k;
+  const sx = (x: number) => W / 2 + (x - fv.x) * k, sy = (y: number) => H / 2 + (y - fv.y) * k;
   const stars: Box[] = m.nodes.map((n) => { const R = n.r * k + 4, x = sx(n.x!), y = sy(n.y!); return [x - R, y - R, x + R, y + R]; });
   const placed: Box[] = [[0, 0, W, top], [0, H - bottom, W, H]];
   const eligible = m.clusters.filter((c) => c.members.length >= 5).sort((a, b) => b.members.length - a.members.length);
@@ -148,7 +200,8 @@ function measure(file: string, W: number, H: number) {
   for (const b of boxes) for (const s of stars) if (hit(b, s)) labelOnStar++;
   let labelClash = 0;
   for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) if (hit(boxes[i], boxes[j])) labelClash++;
-  return { items: m.nodes.length, clusters: m.clusters.length, minDist: +minDist.toFixed(2), starOverlaps: overlaps, inside: +(inside * 100).toFixed(1), circleClash, named: `${named}/${eligible.length}`, namedShare: eligible.length ? named / eligible.length : 1, labelOnStar, labelClash, deterministic: first === second, sizeRule, overlapLinks, slotGap: +slotGap.toFixed(2), haloBad };
+  const f = focusChecks(m, fv, phone, top, bottom, W, H);
+  return { ...f, items: m.nodes.length, clusters: m.clusters.length, minDist: +minDist.toFixed(2), starOverlaps: overlaps, inside: +(inside * 100).toFixed(1), circleClash, named: `${named}/${eligible.length}`, namedShare: eligible.length ? named / eligible.length : 1, labelOnStar, labelClash, deterministic: first === second, sizeRule, overlapLinks, slotGap: +slotGap.toFixed(2), haloBad };
 }
 
 // forgiving search, on invented Items
@@ -175,7 +228,7 @@ for (const file of ["demo.json", "demo-250.json", "demo-offline.json"]) {
   for (const [W, H] of [[1440, 900], [390, 844]]) {
     const r = measure(file, W, H);
     rows.push({ file, size: `${W}x${H}`, ...r });
-    const bad = r.starOverlaps > 0 || r.inside < 98 || r.circleClash > 0 || r.labelClash > 0 || r.labelOnStar > 0 || r.namedShare < (W <= 640 ? 0.7 : 0.8) || !r.deterministic || r.sizeRule > 0 || r.overlapLinks > 0 || r.slotGap < GAP - 0.5 || r.haloBad > 0;
+    const bad = r.starOverlaps > 0 || r.inside < 98 || r.circleClash > 0 || r.labelClash > 0 || r.labelOnStar > 0 || r.namedShare < (W <= 640 ? 0.7 : 0.8) || !r.deterministic || r.sizeRule > 0 || r.overlapLinks > 0 || r.slotGap < GAP - 0.5 || r.haloBad > 0 || r.focusK > 0 || r.focusOutside > 0 || r.focusSmall > 0 || r.flightBad > 0 || r.focusClash > 0 || r.focusShare < (W <= 640 ? 0.4 : 0.6);
     if (bad) failed = true;
   }
 }

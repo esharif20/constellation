@@ -2,12 +2,12 @@ import { Command as CommandPrimitive } from "cmdk";
 import { CheckIcon, CloudOffIcon, CopyIcon, InfoIcon, SearchIcon, TriangleAlertIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverAnchor, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { searchItems } from "@/graph/search";
-import { groupWarnings, kindName, type GNode, type Model, type WarningGroup } from "@/graph/model";
+import { groupWarnings, kindName, type Cluster, type GNode, type Model, type WarningGroup } from "@/graph/model";
 
 type Props = {
   model: Model;
@@ -16,22 +16,63 @@ type Props = {
   onQuery: (q: string) => void;
   onChoose: (n: GNode) => void;
   onPreview: (n: GNode | null) => void;
+  cluster: Cluster | null; // the focused cluster: the count line becomes a breadcrumb
+  onCluster: (c: Cluster | null, viaKeyboard?: boolean) => void;
 };
 
-export function TopBar({ model, query, found, onQuery, onChoose, onPreview }: Props) {
+export function TopBar({ model, query, found, onQuery, onChoose, onPreview, cluster, onCluster }: Props) {
   return (
     <header className="pointer-events-none fixed inset-x-4 top-3 flex flex-wrap items-center gap-x-4 gap-y-2 sm:inset-x-6 sm:top-4 sm:flex-nowrap">
       <h1 className="font-serif text-[22px] leading-none tracking-[0.01em] italic sm:text-2 [text-shadow:0_0_18px_rgb(150_170_255/0.35)] ">Constellation</h1>
-      <p className="text-xs text-text-2 tabular-nums sm:text-[13px]" title={model.offlineNote || undefined}>
-        {model.nodes.length} items, {model.links.length} relations, {model.clusters.length} clusters{model.offline && ", offline scan"}
-      </p>
+      {cluster ? (
+        <nav aria-label="Breadcrumb" className="pointer-events-auto min-w-0 text-xs text-text-2 sm:text-[13px]">
+          <ol className="flex items-center gap-2 whitespace-nowrap">
+            <li><button type="button" onClick={() => onCluster(null)} className="-my-3 cursor-pointer py-3 whitespace-nowrap underline decoration-text-3 underline-offset-4 hover:text-foreground">All clusters</button></li>
+            <li aria-hidden className="text-text-3">/</li>
+            <li aria-current="page" className="max-w-[24ch] truncate text-foreground" title={cluster.name}>{cluster.name}</li>
+          </ol>
+        </nav>
+      ) : (
+        <p className="text-xs text-text-2 tabular-nums sm:text-[13px]" title={model.offlineNote || undefined}>
+          {model.nodes.length} items, {model.links.length} relations, <Clusters model={model} onCluster={onCluster} />{model.offline && ", offline scan"}
+        </p>
+      )}
       <Warnings warnings={model.warnings} />
       <Search query={query} found={found} onQuery={onQuery} onChoose={onChoose} onPreview={onPreview} />
     </header>
   );
 }
 
-function Search({ query, found, onQuery, onChoose, onPreview }: Omit<Props, "model">) {
+// "24 clusters" opens the list: the keyboard way in to a cluster (names on the canvas are the pointer way).
+function Clusters({ model, onCluster }: Pick<Props, "model" | "onCluster">) {
+  const [open, setOpen] = useState(false);
+  const sorted = [...model.clusters].sort((a, b) => b.members.length - a.members.length || a.name.localeCompare(b.name));
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className="pointer-events-auto -my-3 cursor-pointer py-3 underline decoration-text-3 decoration-dotted underline-offset-4 hover:text-foreground aria-expanded:text-foreground">{model.clusters.length} clusters</button>
+      </PopoverTrigger>
+      <PopoverContent align="start" sideOffset={8} className="glass w-[min(320px,calc(100vw-2rem))] p-1">
+        <Command>
+          <CommandInput placeholder="Find a cluster" aria-label="Find a cluster" />
+          <CommandList aria-label="Clusters">
+            <CommandEmpty className="py-4 text-[13px] text-text-3">No cluster matches that name.</CommandEmpty>
+            <CommandGroup className="p-0">
+              {sorted.map((c) => (
+                <CommandItem key={c.slug} value={c.name} onSelect={() => { setOpen(false); onCluster(c, true); }} className="min-h-11 justify-between gap-3 rounded-md px-3">
+                  <span className="min-w-0 truncate font-serif text-[15px] italic">{c.name}</span>
+                  <span className="font-mono text-xs text-text-3 tabular-nums">{c.members.length}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function Search({ query, found, onQuery, onChoose, onPreview }: Pick<Props, "query" | "found" | "onQuery" | "onChoose" | "onPreview">) {
   const input = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
   const [active, setActive] = useState("");

@@ -1,13 +1,13 @@
-import { XIcon } from "lucide-react";
+import { ArrowLeftIcon, XIcon } from "lucide-react";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { kindName, relName, type GNode, type GOverlap, type Model, type UsageWindow } from "@/graph/model";
 
-type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void };
+type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
 
 // Non-modal on purpose: the map stays live beside it. A side panel on desktop, a bottom sheet on phones.
-export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose }, ref) {
+export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo }, ref) {
   const scroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scroll.current?.scrollTo({ top: 0 });
@@ -32,6 +32,7 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
         <XIcon />
       </Button>
       <div ref={scroll} className="overflow-y-auto overscroll-contain px-4 pt-3 pb-6 sm:px-6 sm:pt-6">
+        {backTo && <Button variant="ghost" className="-mx-2 mb-1 h-10 max-w-[calc(100%-3rem)] justify-start gap-2 px-2 text-[13px] text-text-2" onClick={onClose}><ArrowLeftIcon aria-hidden /><span className="truncate">Back to {backTo}</span></Button>}
         <p className="flex min-h-7 items-center gap-2 pr-10 text-xs font-medium tracking-[0.02em] text-text-3">
           <span className="glyph" data-kind={item.kind} />
           {kindName(item.kind)}

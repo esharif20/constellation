@@ -1,20 +1,28 @@
 // Canvas painting for the star atlas. force-graph calls pre -> links -> nodes -> post every frame;
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
-import { haloOf } from "./layout";
+import { FOCUS_FILL, haloOf } from "./layout";
 import { chooseSpot, type Box } from "./names";
-import type { Cluster, GLink, GNode, GOverlap, Model } from "./model";
+import { rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
 
 // Feel knobs, tuned by eye: change these, not the code below.
 export const FEEL = {
   fadeMs: 110, // time constant of hover/focus fades
-  glideMs: 750, // camera glide to a selected Item
   introMs: 900, // stars light up outward from the centre
   glow: 4.2, // glow sprite radius as a multiple of node radius
   hoverScale: 1.3,
   labelMs: 140, // cluster names ease to a new spot over about this long
+  // cluster focus (docs/design/cluster-focus.md); the flight itself is FLIGHT in layout.ts
+  focusDim: 0.12, // stars outside the focused cluster (above --fade, so the map stays legible as context)
+  focusHalo: 0.2, // halos outside it
+  focusFadeMs: 240, // time constant of the dim, 140 under reduced motion (the dim still eases then)
+  focusFadeReducedMs: 140,
+  labelStagger: 25, // ms between member names appearing after landing, by cost rank (rank capped at 16)
+  focusFill: FOCUS_FILL,
 };
 
-export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; keyFocus: boolean };
+// cluster: the focused cluster; flying: the camera is on its way (labels wait); landAt: when it landed (Infinity until then);
+// nameHover: the cluster whose name is under the pointer
+export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null };
 
 // Colours added after the first look. Each is read from a CSS variable when the stylesheet defines it, else the fallback.
 const PALETTE = { overlap: "#ff5fd2" }; // hot magenta: Overlap links are one family apart from the recessive Relation hairlines
@@ -28,7 +36,7 @@ function readInk() {
     overlap: t("--overlap") || PALETTE.overlap,
     fade: Number(t("--fade")) || 0.1,
     edge: t("--edge"), edgeAlt: t("--edge-alt"), halo: t("--halo"), haloName: t("--halo-name"), dust: t("--dust"),
-    ring: t("--ring"), text: t("--text"), text2: t("--text-2"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
+    ring: t("--ring"), text: t("--text"), text2: t("--text-2"), text3: t("--text-3"), mono: t("--font-mono-stack"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
   };
 }
 
@@ -40,12 +48,14 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const ink = readInk();
   const colorOf = new Map(model.nodes.map((n) => [n, ink.color(n.kind)]));
   const sprites = new Map<string, HTMLCanvasElement>();
-  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, keyFocus: false };
+  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, keyFocus: false, cluster: null, flying: false, landAt: Infinity, nameHover: null };
   // fitK: zoom at which the whole map fits (label levels are relative to it); top/bottom/right: px that the top bar,
   // legend and inspector cover, so canvas text keeps out from under them (measured by StarMap)
   const view = { fitK: 1, top: 76, bottom: 0, right: 0, left: 0 };
   const dust = Array.from({ length: 260 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 0.9 + 0.3, a: Math.random() * 0.5 + 0.1 }));
-  let last = 0, lit: Set<GNode> | null = null, f: GNode | null = null, fk = 1;
+  let last = 0, lit: Set<GNode> | null = null, f: GNode | null = null, fk = 1, fcPrev: Cluster | null = null, fcAt = -1e9;
+  const rank = new Map<GNode, number>(); // focus rank of each member of the focused cluster, built once on enter
+  const hubFirst = (a: GNode, b: GNode) => (rank.get(a) ?? 1e9) - (rank.get(b) ?? 1e9);
   // Every fade eases toward a target and snaps when close. `busy` says whether anything is still moving, so the
   // canvas can stop repainting once the map is at rest (StarMap wakes it again on any interaction).
   const halos = new Map<Cluster, { x: number; y: number; r: number }>();
@@ -91,7 +101,15 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     last = now;
     const k = (fk = reducedMotion ? 1 : 1 - Math.exp(-dt / FEEL.fadeMs));
     f = focus.preview ?? focus.hover ?? focus.selected;
-    const m = focus.matches;
+    const m = focus.matches, fc = focus.cluster;
+    if (fc !== fcPrev) { // focus entered, left or hopped: rank the members once and restart the slow fade
+      fcPrev = fc; fcAt = now;
+      rank.clear();
+      if (fc) rankMembers(fc).forEach((n, i) => rank.set(n, i));
+    }
+    // the dim eases slower than hover, and still eases under reduced motion
+    const kf = 1 - Math.exp(-dt / (reducedMotion ? FEEL.focusFadeReducedMs : FEEL.focusFadeMs));
+    const slow = !!fc || now - fcAt < 1500;
     // Search: every match stays lit while typing; the active result is only emphasised. Anything else under the
     // pointer or selected lights its own neighbourhood on top of the matches.
     const pure = !!(m && f && f === focus.preview && m.has(f));
@@ -101,20 +119,24 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       if (m) for (const x of m) lit.add(x);
     } else lit = m;
     for (const n of model.nodes) {
-      n.a = ease(n.a, now < n.born ? 0 : !lit || lit.has(n) ? 1 : ink.fade, k);
+      // in focus a lit neighbour outside the cluster only rises to 0.6, so the cluster stays the subject (search matches stay at 1)
+      const base = fc && n.cluster !== fc ? FEEL.focusDim : 1, up = fc && n.cluster !== fc && !m?.has(n) ? 0.6 : 1;
+      n.a = ease(n.a, now < n.born ? 0 : lit ? (lit.has(n) ? up : ink.fade) : base, lit || !slow ? k : kf);
       n.s = ease(n.s, n === f ? FEEL.hoverScale : 1, k);
     }
     for (const l of model.links) {
       const inc = !!f && (l.source === f || l.target === f);
       const on = f && !pure ? inc || (!!m && m.has(l.source) && m.has(l.target)) : !lit || (lit.has(l.source) && lit.has(l.target));
       l.hot = inc && on;
-      l.a = ease(l.a, Math.min(l.source.a, l.target.a) > 0.05 ? (on ? 1 : ink.fade * 0.5) : 0, k);
+      const rest = !fc || lit ? 1 : l.source.cluster === fc && l.target.cluster === fc ? 1 : l.source.cluster === fc || l.target.cluster === fc ? 0.35 : 0.06;
+      l.a = ease(l.a, Math.min(l.source.a, l.target.a) > 0.05 ? (on ? rest : ink.fade * 0.5) : 0, lit || !slow ? k : kf);
     }
     for (const o of model.overlaps) {
       // at rest only the actionable verdicts show; any focus shows its own Overlaps and hides the rest; a search hides all
       const rest = o.verdict === "overlap" ? 0 : o.a.cluster === o.b.cluster ? 0.55 : 0.28;
-      const target = f ? (o.a === f || o.b === f ? 1 : 0) : m ? 0 : rest;
-      o.alpha = ease(o.alpha, target, k);
+      const inside = fc ? (o.a.cluster === fc ? 1 : 0) + (o.b.cluster === fc ? 1 : 0) : 0; // in focus every verdict of the cluster shows, "overlap" included
+      const target = f ? (o.a === f || o.b === f ? 1 : 0) : m ? 0 : fc ? [0, 0.15, 0.7][inside] : rest;
+      o.alpha = ease(o.alpha, target, f || m || !slow ? k : kf);
     }
     const hk = reducedMotion ? 1 : 1 - Math.exp(-dt / FEEL.labelMs);
     for (const c of model.clusters) {
@@ -125,11 +147,12 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       let top = 0;
       for (const n of c.members) top = Math.max(top, n.a);
       const on = f && !pure && !m ? f.cluster === c : !lit || c.members.some((n) => lit!.has(n));
-      c.a = ease(c.a, top > 0.05 ? (on ? 1 : 0.22) : 0, k);
+      c.a = ease(c.a, top > 0.05 ? (on ? (!lit && fc && c !== fc ? FEEL.focusHalo : 1) : 0.22) : 0, lit || !slow ? k : kf);
     }
   }
 
   function pre(ctx: CanvasRenderingContext2D) {
+    if (import.meta.env.DEV) performance.mark("cx-pre"); // dev only: frame time, pre to post (read by the screenshot harness)
     update(performance.now());
     const sc = screen(ctx);
     const k = sc.k;
@@ -156,7 +179,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     // glows are additive so dense regions bloom
     ctx.globalCompositeOperation = "lighter";
     for (const n of model.nodes) {
-      if (n.a < 0.01) continue;
+      if (n.a < 0.01 || (focus.flying && n.a < 0.15)) continue;
       const R = radius(n, k) * FEEL.glow;
       ctx.globalAlpha = n.a * (n === f ? 1 : 0.85) * (n.unknown ? 0.4 : 1);
       ctx.drawImage(sprite(colorOf.get(n)!), n.x! - R, n.y! - R, 2 * R, 2 * R);
@@ -308,28 +331,55 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     ctx.strokeStyle = ink.night;
     ctx.textAlign = "center";
 
+    const fc = focus.cluster, now = performance.now();
     const named: [number, GNode, number][] = [];
     for (const n of model.nodes) {
       if (lit && !lit.has(n)) continue; // a dimmed star's name at 10% alpha is only noise over the lit ones
+      if (fc && n.cluster !== fc && !lit) continue; // in focus only members are named (and lit neighbours, below)
       const start = 1.3 - Math.min(0.9, Math.max(0, n.degree - 1) * 0.15); // hubs are named at the fitted view, leaves from 1.3x
       let a = clamp01((z - start) / 0.35) * n.a;
+      if (fc && n.cluster === fc) { // every member is a candidate whatever the zoom; names stagger in by cost rank once landed
+        a = focus.flying ? 0 : (reducedMotion ? 1 : clamp01((now - focus.landAt - FEEL.labelStagger * Math.min(rank.get(n) ?? 0, 16)) / 140)) * n.a;
+        if (a < 1 && !focus.flying) moving = true;
+      }
       if (lit?.has(n) && n.a > 0.5) a = Math.max(a, n === f ? 1 : 0.85);
       if (a > 0.03) named.push([n === f ? 0 : lit?.has(n) ? 1 : 2, n, a]);
     }
-    named.sort((p, q) => p[0] - q[0] || q[1].degree - p[1].degree);
+    named.sort((p, q) => p[0] - q[0] || (fc ? hubFirst(p[1], q[1]) : q[1].degree - p[1].degree));
+    const costLine = (n: GNode) => (n.unknown ? "unknown" : n.cost!.always_on!.toLocaleString()) + (model.usageWindow && n.usage?.count === 0 ? " · not seen" : "");
 
+    const clearOfStars = (x0: number, y0: number, x1: number, y1: number, self: GNode) => {
+      for (const o of model.nodes) {
+        if (o === self || o.a < 0.15) continue;
+        const R = radius(o, sc.k) * sc.k + 2, ox = o.x! * sc.k + sc.tx, oy = o.y! * sc.k + sc.ty;
+        if (x0 < ox + R && x1 > ox - R && y0 < oy + R && y1 > oy - R) return false;
+      }
+      return true;
+    };
     const itemLabel = ([rank, n, a]: [number, GNode, number]) => {
       const size = rank === 0 ? 13 : 12;
       ctx.font = `${rank === 0 ? 600 : 450} ${size}px ${ink.sans}`;
       ctx.textBaseline = "top";
       const [sx, sy0] = sc.apply(n.x!, n.y!);
-      const sy = sy0 + radius(n, sc.k) * sc.k + 5, w = ctx.measureText(n.name).width;
+      const sy = sy0 + radius(n, sc.k) * sc.k + 5, text = fc && n.name.length > 22 ? `${n.name.slice(0, 21)}...` : n.name, w = ctx.measureText(text).width;
+      if (fc && n.cluster === fc && !clearOfStars(sx - w / 2 - 2, sy, sx + w / 2 + 2, sy + size + 2, n)) return; // in focus a name never sits on another star
       if (!fits(sx - w / 2 - 2, sy, sx + w / 2 + 2, sy + size + 2)) return;
       ctx.globalAlpha = a;
       ctx.lineWidth = 3;
-      ctx.strokeText(n.name, sx, sy);
+      ctx.strokeText(text, sx, sy);
       ctx.fillStyle = rank < 2 ? ink.text : ink.text2;
-      ctx.fillText(n.name, sx, sy);
+      ctx.fillText(text, sx, sy);
+      // cost under the name: only in focus, for members, where there is room (a big on-screen cluster or a small one)
+      if (fc && n.cluster === fc && (halos.get(fc)!.r * sc.k >= 160 || fc.members.length <= 12)) {
+        const line = costLine(n), y2 = sy + size + 2;
+        ctx.font = n.unknown ? `italic 400 10px ${ink.sans}` : `400 10px ${ink.mono}`;
+        const w2 = ctx.measureText(line).width;
+        if (!fits(sx - w2 / 2 - 2, y2, sx + w2 / 2 + 2, y2 + 12)) return;
+        ctx.lineWidth = 3;
+        ctx.strokeText(line, sx, y2);
+        ctx.fillStyle = ink.text3;
+        ctx.fillText(line, sx, y2);
+      }
     };
 
     // stars and the names of hubs are what a cluster name must keep clear of
@@ -342,6 +392,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     }
 
     const clusterLabel = (c: Cluster, zoomAlpha: number) => {
+      if (focus.flying && fc) { c.hit = false; return; }
       const size = (phone ? 12 : 13) + 4 * clamp01((c.members.length - 3) / 20);
       ctx.font = `italic 400 ${size}px ${ink.serif}`;
       ctx.letterSpacing = "0.03em";
@@ -352,7 +403,9 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       const h = halos.get(c)!, [cx, cy] = sc.apply(h.x, h.y), focused = f?.cluster === c;
       // at the fitted view only clusters of 5 or more try for a name; smaller ones come in as you zoom, or when looked at
       const tries = c.members.length >= 5 || z >= 1.15 || focused;
-      const spot = tries && zoomAlpha > 0.03 && c.a > 0.03
+      const mine = fc === c, hidden = (fc && (mine || focus.flying)) || false; // the focused name lives in the card; no names while flying in
+      if (fc) zoomAlpha = hidden ? 0 : 0.4; // other names stay as quiet, clickable context, at any zoom
+      const spot = !hidden && tries && zoomAlpha > 0.03 && (c.a > 0.03 || !!fc)
         ? chooseSpot({ cx, cy, r: h.r * sc.k, w, h: lh, pick: c.pick, allowed: focused ? 2 : 0, W, H, top: view.top, bottom: view.bottom, right: view.right, placed, obstacles })
         : null;
       if (spot) {
@@ -367,12 +420,17 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       if (c.la > 0.02 && zoomAlpha > 0.03) {
         ctx.font = `italic 400 ${size * m.scale}px ${ink.serif}`;
         const [sx, sy] = sc.apply(c.lx, c.ly);
-        ctx.globalAlpha = zoomAlpha * c.la * c.a * 0.9;
+        const over = focus.nameHover === c;
+        ctx.globalAlpha = over ? 1 : zoomAlpha * c.la * (fc ? 1 : c.a) * 0.9;
         ctx.lineWidth = 4;
         ctx.strokeText(c.name, sx, sy);
-        ctx.fillStyle = ink.haloName;
+        ctx.fillStyle = over ? ink.text : ink.haloName;
         ctx.fillText(c.name, sx, sy);
-      }
+        // the hit box: the text padded 6 px (10 on touch), at least 44 px tall; only a name drawn clearly can be clicked
+        const pad = coarse ? 10 : 6, hw = w * m.scale / 2 + pad, hh = Math.max(22, size * m.scale / 2 + pad);
+        c.box[0] = sx - hw; c.box[1] = sy - hh; c.box[2] = sx + hw; c.box[3] = sy + hh;
+        c.hit = over || zoomAlpha * c.la >= 0.25;
+      } else c.hit = false;
       ctx.letterSpacing = "0px";
     };
 
@@ -392,13 +450,16 @@ export function makePainter(model: Model, reducedMotion: boolean) {
         ctx.fillText(text, sx, sy);
       }
     }
-    const zoomAlpha = clamp01((1.8 - z) / 0.6);
+    const zoomAlpha = clamp01((1.8 - z) / 0.6), coarse = matchMedia("(pointer: coarse)").matches;
     [...model.clusters].sort((a, b) => b.members.length - a.members.length).forEach((c) => clusterLabel(c, zoomAlpha));
     named.filter((x) => x[0] === 2).forEach(itemLabel);
     ctx.restore();
-    busy = moving || performance.now() < introEnd;
+    busy = moving || focus.flying || now < introEnd;
+    if (import.meta.env.DEV) performance.measure("cx-frame", "cx-pre");
   }
 
-  return { focus, view, pre, link, node, pointer, post, busy: () => busy };
+  // The cluster whose drawn name is under (x, y) in screen px: what a background click enters or hops to.
+  const clusterAt = (x: number, y: number) => model.clusters.find((c) => c.hit && x >= c.box[0] && x <= c.box[2] && y >= c.box[1] && y <= c.box[3]) ?? null;
+  return { focus, view, pre, link, node, pointer, post, clusterAt, busy: () => busy };
 }
 export type Painter = ReturnType<typeof makePainter>;
