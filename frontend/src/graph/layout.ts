@@ -29,8 +29,8 @@ export function applyForces(link: ForceLink<LNode, LLink>, set: Setter) {
     .strength((l) => (!same(l) ? 0.02 : l.kind === "contains" ? 0.6 : 0.3));
   set("charge", forceManyBody<LNode>().strength(-14).distanceMax(40));
   set("collide", forceCollide<LNode>((n) => n.r + 2.5).strength(0.8).iterations(2));
-  set("x", forceX<LNode>((n) => n.sx).strength((n) => (n.degree > 0 ? 0.08 : 0.35)));
-  set("y", forceY<LNode>((n) => n.sy).strength((n) => (n.degree > 0 ? 0.08 : 0.35)));
+  set("x", forceX<LNode>((n) => n.sx).strength((n) => (n.degree > 0 ? 0.25 : 0.35)));
+  set("y", forceY<LNode>((n) => n.sy).strength((n) => (n.degree > 0 ? 0.25 : 0.35)));
   // keep every Item inside its own halo
   let nodes: LNode[] = [];
   const contain = (alpha: number) => {
