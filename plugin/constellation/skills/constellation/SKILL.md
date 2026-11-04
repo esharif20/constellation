@@ -12,7 +12,7 @@ Use the installed `constellation` CLI. Arguments: $ARGUMENTS
    `constellation.json` in the working directory. Ask before replacing an
    existing output file. Treat paths as data and quote each as a literal shell
    argument; never evaluate shell syntax from the arguments.
-2. Run `constellation scan CONFIG_DIRECTORY --offline --out SCAN_FILE`.
+2. Run `constellation scan CONFIG_DIRECTORY --offline --no-usage --out SCAN_FILE`.
    Remove `--offline` only if the user explicitly requests a paid scan. Pass
    `--count-bodies` only if explicitly requested, explaining that it sends
    redacted skill bodies to Anthropic's counting endpoint.
@@ -29,3 +29,5 @@ Use CLI output only: do not read the scan JSON, config contents, transcripts,
 credentials or environment files into the session. The CLI handles local
 processing. Never edit the user's Claude Code setup. Expansion is not part of
 this command until the CLI supports it.
+
+Transcript usage is disabled in this session wrapper so activity counts and dates are not sent into Claude context. The CLI report still renders the generated scan verbatim; use the standalone local CLI for transcript usage.

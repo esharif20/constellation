@@ -19,7 +19,7 @@ plugins; it provides the same slash-command interface without a legacy format.
 1. Require a user-supplied config directory. Use a user-supplied scan output
    file, or `constellation.json` in the working directory; ask before replacing
    an existing file. Quote paths as literal shell arguments.
-2. Run `constellation scan CONFIG --offline --out FILE` by default. Paid scan
+2. Run `constellation scan CONFIG --offline --no-usage --out FILE` by default. Paid scan
    options require an explicit user request; `--count-bodies` is never inferred.
 3. After a successful scan, run `constellation report FILE` and show its stdout
    verbatim in a code block. Read only this CLI output into the session.
@@ -46,3 +46,5 @@ validation. Record any missing gate or integration validation in the tracker.
 - [Claude Code plugin creation and local loading](https://code.claude.com/docs/en/plugins/create)
 - [Plugin manifest reference](https://code.claude.com/docs/en/plugins/manifest-reference)
 - [Plugin components, including Markdown commands](https://code.claude.com/docs/en/plugins/components)
+
+Transcript usage is disabled in this session wrapper so activity counts and dates are not sent into Claude context. The CLI report still renders the generated scan verbatim; use the standalone local CLI for transcript usage.
