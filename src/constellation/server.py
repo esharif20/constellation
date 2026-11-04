@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import threading
@@ -6,13 +7,16 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from . import retrieve
 from .brief import append_line, brief, checklist_ids, frees
 from .chat import LocalChat
+from .embeddings import fastembed_embedder
+from .models import Embedder
 from .report import _known_costs
 from .suggestions import Suggestion
 
@@ -41,6 +45,12 @@ class ChatRequest(BaseModel):
         return value
 
 
+class SearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    q: str = Field(max_length=retrieve.MAX_QUERY)
+    limit: int = Field(default=retrieve.LIMIT, ge=1)
+
+
 def local_only(request: Request) -> None:
     # Vite's dev proxy rewrites Host to its localhost target, so dev requests also pass.
     host = request.headers.get("host", "")
@@ -65,7 +75,7 @@ def _checklist_path(checklist: Path, scan_file: Path) -> Path:
     return path
 
 
-def create_app(scan_file: Path, checklist: Path | None = None) -> FastAPI:
+def create_app(scan_file: Path, checklist: Path | None = None, embedder: Embedder | None = None) -> FastAPI:
     checklist = DEFAULT_CHECKLIST if checklist is None else checklist
     _checklist_path(checklist, scan_file)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -141,10 +151,7 @@ def create_app(scan_file: Path, checklist: Path | None = None) -> FastAPI:
             raise HTTPException(500, f"Could not write checklist {checklist}: {error}") from None
         return {"added": added, **state}
 
-    chat = LocalChat()
-
-    @app.post("/api/chat", dependencies=[Depends(local_only)])
-    def ask_chat(entry: ChatRequest) -> dict[str, Any]:
+    def read_items() -> dict[str, Any]:
         try:
             data = json.loads(scan_file.read_text())
             if not isinstance(data, dict) or not isinstance(data.get("items"), list):
@@ -154,17 +161,52 @@ def create_app(scan_file: Path, checklist: Path | None = None) -> FastAPI:
                 for item in data["items"]
             ):
                 raise ValueError
-            ids = {item["id"] for item in data["items"]}
-            if len(ids) != len(data["items"]):
+            if len({item["id"] for item in data["items"]}) != len(data["items"]):
                 raise ValueError
         except (OSError, ValueError, TypeError, KeyError):
             raise HTTPException(404, "The saved scan could not be read") from None
+        return data
+
+    chat = LocalChat()
+
+    @app.post("/api/chat", dependencies=[Depends(local_only)])
+    def ask_chat(entry: ChatRequest) -> dict[str, Any]:
+        data = read_items()
+        ids = {item["id"] for item in data["items"]}
         if any(id_ not in ids for id_ in entry.selected_ids):
             raise HTTPException(404, "That Item is not in the current scan")
         try:
             return chat.answer(data, entry.question, entry.selected_ids)
         except (ValueError, TypeError, KeyError, AttributeError):
             raise HTTPException(404, "The saved scan could not be read") from None
+
+    embed = embedder or fastembed_embedder()  # loads the model on first use, once
+    search_lock = threading.Lock()
+    current: list[tuple[str, retrieve.Index]] = []  # the index for the scan content last searched
+
+    def index_for(items: list[dict[str, Any]]) -> retrieve.Index:
+        key = hashlib.sha256(json.dumps(items, sort_keys=True).encode()).hexdigest()
+        with search_lock:
+            if not current or current[0][0] != key:
+                index = retrieve.Index(items)
+                # vectors are built off the request path; until they are ready (or if the embedder is missing) search is word-only
+                threading.Thread(target=index.add_vectors, args=(embed, retrieve.DEFAULT_CACHE), daemon=True).start()
+                if current:
+                    current[0][1].close()
+                current[:] = [(key, index)]
+            return current[0][1]
+
+    def search(q: str, limit: int) -> dict[str, Any]:
+        index = index_for(read_items()["items"])
+        return {"results": index.query(q, min(limit, 20)), "note": index.note}
+
+    @app.get("/api/search", dependencies=[Depends(local_only)])
+    def get_search(q: str = Query(max_length=retrieve.MAX_QUERY), limit: int = Query(retrieve.LIMIT, ge=1)) -> dict[str, Any]:
+        return search(q, limit)
+
+    @app.post("/api/search", dependencies=[Depends(local_only)])
+    def post_search(entry: SearchRequest) -> dict[str, Any]:
+        return search(entry.q, entry.limit)
 
     app.mount("/", StaticFiles(directory=STATIC, html=True))  # last: the API route above wins
     return app
