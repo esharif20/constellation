@@ -407,3 +407,8 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Lockfile read: one `try` around `is_file`, read and parse, catching `OSError`, `ValueError` and `RecursionError` into the fixed warning. Tested with deep nesting and an unreadable file.
 - The lockfile is consulted only for a skill folder that is a symlink pointing outside the config dir. A plain folder sharing a name with a lock entry gets nothing.
 - `--no-origins` test monkeypatches `read_lock` to raise; the conftest guard now wraps both `origins.read_lock` and `claude_code.read_lock` (and a test proves it refuses the real `~/.agents`).
+
+## #43/#44/#59 per-project plan (2026-11-04, branch `claude/plan-43-44`)
+
+- Plan written: `docs/plans/per-project.md` (contract commit, then tickets A usage, B repo scan, C move Suggestions, D UI). No app code.
+- **Deviation awaiting owner approval:** project label = folder name minus the encoded home prefix (or `--project` basename), not plan G's last segment, which breaks hyphenated names. Low tier (specificity) and the paid scope verdict are deferred.
