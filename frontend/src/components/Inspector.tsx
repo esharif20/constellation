@@ -2,7 +2,7 @@ import { ArrowLeftIcon, XIcon } from "lucide-react";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { kindName, relName, type GNode, type GOverlap, type Model, type UsageWindow } from "@/graph/model";
+import { day, kindName, noun, relName, type GNode, type GOverlap, type Model, type UsageWindow } from "@/graph/model";
 
 type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
 
@@ -97,9 +97,6 @@ function Cost({ item }: { item: GNode }) {
     </section>
   );
 }
-
-const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-const noun = (n: number, one: string) => `${n.toLocaleString()} ${one}${n === 1 ? "" : "s"}`;
 
 // No usage entry means the kind is not tracked (hooks, plugins): said as such, never as 0. Count 0 is "never seen" in the window scanned.
 // A prompt-time hook also shows what it injects at session start: bytes are static, tokens only after --count-bodies, unknown never 0.

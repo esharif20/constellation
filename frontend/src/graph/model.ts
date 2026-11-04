@@ -42,6 +42,7 @@ export type GNode = Item & {
   // simulation and animation state, mutated in place each frame (never React state)
   x?: number; y?: number; vx?: number; vy?: number; fx?: number; fy?: number;
   a: number; s: number; born: number;
+  la: number; // canvas name alpha, eased over time toward 0 or 1 (paint.ts); never a zoom-scrubbed partial
   sx: number; sy: number; // the slot the layout assigns: a tidy spot in its cluster that the force pulls it back to
 };
 // An Overlap verdict between two Items; for `wrapper`, a is the wrapper and b what it calls. Not a force link.
@@ -49,7 +50,7 @@ export type GOverlap = { a: GNode; b: GNode; verdict: Exclude<Verdict, "distinct
 export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot: boolean };
 // la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
 export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number; a: number; la: number; lx: number; ly: number; pick: number; slug: string; box: [number, number, number, number]; hit: boolean }; // slug: the #cluster= deep link; box/hit: where its name was last drawn on screen (paint.ts post), for clicks
-export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; usageWindow: UsageWindow | null; warnings: string[]; offline: boolean; offlineNote: string };
+export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; heavyR: number; usageWindow: UsageWindow | null; warnings: string[]; offline: boolean; offlineNote: string };
 
 // Star radius from always-on cost, area-proportional (magnitude by area, not radius). cRef is the scan's 95th percentile,
 // so one huge MCP server cannot shrink everything else. Unknown cost gets its own middling size (and is drawn hollow).
@@ -82,7 +83,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   const tall = Math.max(0.55, Math.min(2, aspect)); // wide screens spread the clusters sideways, tall ones downwards
   const byId = new Map<string, GNode>();
   const nodes = data.items.map((it) => {
-    const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, unknown: false, cost: costs[it.id], usage: data.usage?.[it.id], weight: data.hook_weights?.[it.id], a: 0, s: 1, born: 0, sx: 0, sy: 0 };
+    const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, unknown: false, cost: costs[it.id], usage: data.usage?.[it.id], weight: data.hook_weights?.[it.id], a: 0, s: 1, born: 0, la: 0, sx: 0, sy: 0 };
     byId.set(n.id, n);
     return n;
   });
@@ -117,6 +118,8 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   });
   const known = nodes.flatMap((n) => n.cost?.always_on ?? []).sort((a, b) => a - b);
   const costRef = Math.max(1, known[Math.min(known.length - 1, Math.floor(0.95 * known.length))] ?? 1);
+  // the star radius at the 90th percentile of known cost: the "heavy" stars whose names show at the fitted view (labels.md 1, tuned: a fixed r >= 7 named 47% of the demo's known stars)
+  const heavyR = known.length ? costRadius(known[Math.floor(0.9 * known.length)], costRef) : Infinity;
   for (const n of nodes) {
     n.degree = neighbours.get(n)!.size;
     n.unknown = n.cost?.always_on == null;
@@ -133,7 +136,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   });
   const offlineNote = (data.warnings ?? []).find((w) => w.startsWith("Offline")) ?? "";
   layout(nodes, links, clusters, tall);
-  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, usageWindow: data.usage_window ?? null, warnings: data.warnings ?? [], offline: offlineNote !== "", offlineNote };
+  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, heavyR, usageWindow: data.usage_window ?? null, warnings: data.warnings ?? [], offline: offlineNote !== "", offlineNote };
 }
 
 // Forgiving search (stopgap until #40/#41); see search.ts for the ranking.
@@ -220,3 +223,26 @@ export function clusterSummary(c: Cluster, model: Pick<Model, "overlaps" | "usag
 // Focus order for member names: known cost first (high to low), then hubs, then name.
 export const rankMembers = (c: Cluster): GNode[] =>
   [...c.members].sort((a, b) => (a.unknown ? 1 : 0) - (b.unknown ? 1 : 0) || (b.cost?.always_on ?? 0) - (a.cost?.always_on ?? 0) || b.degree - a.degree || a.name.localeCompare(b.name));
+
+// Shared by the hover tooltip and the Inspector (labels.md 9). `year` is dropped by the tooltip when the date is in the window's year.
+export const day = (iso: string, year = true) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", ...(year ? { year: "numeric" } : {}), timeZone: "UTC" });
+export const noun = (n: number, one: string) => `${n.toLocaleString()} ${one}${n === 1 ? "" : "s"}`;
+
+// One usage line for the tooltip, or null when the kind is not tracked (no entry is not 0).
+export function usageLine(n: Pick<GNode, "usage">, w: UsageWindow | null): string | null {
+  const u = n.usage;
+  if (!u) return null;
+  if (u.count > 0) return u.last_used ? `${noun(u.count, "use")}, last ${day(u.last_used, u.last_used.slice(0, 4) !== w?.last?.slice(0, 4))}` : noun(u.count, "use");
+  if (!w?.files) return "no transcripts scanned";
+  if (w.first && w.last) return `never seen in ${noun(Math.round((Date.parse(w.last) - Date.parse(w.first)) / 864e5) + 1, "day")}`;
+  return `never seen in ${noun(w.files, "transcript")}`;
+}
+
+// Badges under the tooltip: disabled, and the strongest Overlap verdict of the Item (duplicate > wrapper > overlap) with its count.
+export function tipBadges(n: GNode, model: Pick<Model, "overlapsOf">): { disabled: boolean; overlap: string | null } {
+  const os = model.overlapsOf.get(n) ?? [];
+  const role = (o: GOverlap) => (o.verdict === "duplicate" ? "Duplicate" : o.verdict === "wrapper" ? (o.a === n ? "Wraps" : "Wrapped by") : "Overlaps");
+  const best = ["Duplicate", "Wraps", "Wrapped by", "Overlaps"].find((r) => os.some((o) => role(o) === r));
+  const count = best ? os.filter((o) => role(o) === best).length : 0;
+  return { disabled: !!n.disabled, overlap: best ? (count > 1 ? `${best} ${count}` : best) : null };
+}

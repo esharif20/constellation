@@ -68,3 +68,30 @@ const usage_window = { files: 132, first: "2026-10-05", last: "2026-11-04", skip
 const fixed = relations.filter((r) => r.source !== r.target);
 fs.writeFileSync(new URL("demo-250.json", import.meta.url), JSON.stringify({ items, relations: fixed, labels, clusters, costs, overlaps, hook_weights, usage, usage_window, warnings: [] }, null, 1) + "\n");
 console.log(overlaps.length, "overlaps,", items.length, "items", fixed.length, "relations", clusters.length, "clusters");
+
+// Label and tooltip fixtures (docs/design/labels.md 12.7): four invented Items added to all three demos, after everything above so
+// no existing name, Relation or Overlap changes. Two names are over 22 chars (the canvas cut and the full name in the tooltip) and two are
+// `disabled: true` (a switched-off plugin and what it contains: the "Disabled" badge). Idempotent: skipped when already present.
+for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo-250.json", 1]]) {
+  const url = new URL(file, import.meta.url), d = JSON.parse(fs.readFileSync(url, "utf8"));
+  if (d.items.some((i) => i.id === "skill:extra:quarterly-ledger-reconciliation-helper")) continue;
+  const known = d.costs && Object.values(d.costs).some((c) => c.always_on != null); // offline demos have no cost to give
+  const big = d.clusters.filter((c) => c.item_ids.length >= 8).slice(2); // clusters 2 and 3: the choice that keeps every existing layout:check floor (the phone named share is 15/19 on demo-250)
+  const add = (cluster, it, cost) => {
+    d.items.push({ ...it, source: `~/.claude/${it.kind}s/${it.name}` });
+    cluster.item_ids.push(it.id);
+    if (d.labels && Object.keys(d.labels).length) d.labels[it.id] = it.description.replace(/\.$/, "");
+    if (d.costs) d.costs[it.id] = known ? cost : { always_on: null, on_use: null };
+    if (d.usage && it.kind !== "plugin") d.usage[it.id] = it.disabled ? { count: 0, last_used: null } : { count: 3, last_used: "2026-11-02" };
+  };
+  add(big[0], { id: "skill:extra:quarterly-ledger-reconciliation-helper", kind: "skill", name: "quarterly-ledger-reconciliation-helper", description: "Use when closing the quarter and matching ledgers." }, { always_on: 410, on_use: 2600 });
+  add(big[0], { id: "agent:extra:lighthouse-lamp-maintenance-scheduler", kind: "agent", name: "lighthouse-lamp-maintenance-scheduler", description: "Plans lamp upkeep rounds around the tides." }, { always_on: 150, on_use: 900 });
+  add(big[1], { id: "plugin:extra:idle-beekeeping-bundle", kind: "plugin", name: "idle-beekeeping-bundle", description: "A bundle for hive inspection, switched off.", disabled: true }, { always_on: 90, on_use: null });
+  add(big[1], { id: "skill:extra:idle-hive-inspector", kind: "skill", name: "idle-hive-inspector", description: "Use when inspecting a hive. Switched off with its plugin.", disabled: true }, { always_on: 60, on_use: 700 });
+  d.relations.push({ source: "plugin:extra:idle-beekeeping-bundle", target: "skill:extra:idle-hive-inspector", kind: "contains" });
+  if (d.overlaps) { // a duplicate of an existing skill in the same cluster, so the Overlap badge and arc can be screenshotted
+    const twin = d.items.find((i) => i.kind === "skill" && big[0].item_ids.includes(i.id) && !i.id.includes(":extra:"));
+    d.overlaps.push({ a_id: twin.id, b_id: "skill:extra:quarterly-ledger-reconciliation-helper", verdict: "duplicate", reason: "Same steps and trigger wording; one could go." });
+  }
+  fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
+}

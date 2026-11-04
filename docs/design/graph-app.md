@@ -50,7 +50,7 @@ One curve family: `--ease-out cubic-bezier(.16,1,.3,1)` for entering, `--ease-in
 - Hover: the Item and its neighbours stay lit, everything else eases to alpha 0.1 (frame-rate independent, 110 ms time constant); the hovered star swells 1.3x; neighbour names appear.
 - Drag: force-graph pins the node and reheats the sim, neighbours follow on their springs, release springs it home.
 - Select: 750 ms cubic glide that keeps the Item left of the panel (above the sheet on phones), a fine double reticle in the Item's own colour, panel slides in 420 ms.
-- Semantic zoom, relative to the fitted zoom: cluster names fade out between 1.2x and 1.8x; hubs are named at the fitted view, leaves from about 1.3x. Labels are placed greedily by priority (focus, its neighbours, cluster names, then by degree) and skipped on collision; the top bar band is reserved.
+- Semantic zoom, relative to the fitted zoom (full rules in `docs/design/labels.md`): cluster names show below 1.45x and hide above 1.55x, easing over time (no zoom-scrubbed partial alpha, which fails AA); hubs (degree 4+) and heavy stars (known cost at the scan's 90th percentile) are named at the fitted view, degree 2-3 from 1.0-1.15x, leaves from 1.3x. Item names are cut to 22 characters with one "…", greedily placed by priority (hovered, selected, matches, lit neighbours, cluster names, the rest) and skipped on collision or on a star; the top bar, panels and the open tooltip are reserved. Hovering a star for 120 ms opens a DOM tooltip (`Hover.tsx`) with the full name, kind, cluster, always-on and on-use cost, usage, badges and description.
 - Search: the highlighted result previews its neighbourhood on the map before Enter.
 
 Tuning lives in `FEEL` (paint.ts) and the force setup in StarMap.tsx.

@@ -629,6 +629,36 @@
       "name": "inkwell",
       "description": "Connector to a hosted notes service.",
       "source": "claude.ai connector"
+    },
+    {
+      "id": "skill:extra:quarterly-ledger-reconciliation-helper",
+      "kind": "skill",
+      "name": "quarterly-ledger-reconciliation-helper",
+      "description": "Use when closing the quarter and matching ledgers.",
+      "source": "~/.claude/skills/quarterly-ledger-reconciliation-helper"
+    },
+    {
+      "id": "agent:extra:lighthouse-lamp-maintenance-scheduler",
+      "kind": "agent",
+      "name": "lighthouse-lamp-maintenance-scheduler",
+      "description": "Plans lamp upkeep rounds around the tides.",
+      "source": "~/.claude/agents/lighthouse-lamp-maintenance-scheduler"
+    },
+    {
+      "id": "plugin:extra:idle-beekeeping-bundle",
+      "kind": "plugin",
+      "name": "idle-beekeeping-bundle",
+      "description": "A bundle for hive inspection, switched off.",
+      "disabled": true,
+      "source": "~/.claude/plugins/idle-beekeeping-bundle"
+    },
+    {
+      "id": "skill:extra:idle-hive-inspector",
+      "kind": "skill",
+      "name": "idle-hive-inspector",
+      "description": "Use when inspecting a hive. Switched off with its plugin.",
+      "disabled": true,
+      "source": "~/.claude/skills/idle-hive-inspector"
     }
   ],
   "relations": [
@@ -916,6 +946,11 @@
       "source": "agent:scribe",
       "target": "connector:inkwell",
       "kind": "uses"
+    },
+    {
+      "source": "plugin:extra:idle-beekeeping-bundle",
+      "target": "skill:extra:idle-hive-inspector",
+      "kind": "contains"
     }
   ],
   "labels": {},
@@ -962,7 +997,9 @@
         "skill:sentinel:suggest-tests",
         "hook:block-force-push",
         "agent:auditor",
-        "skill:port-finder"
+        "skill:port-finder",
+        "skill:extra:quarterly-ledger-reconciliation-helper",
+        "agent:extra:lighthouse-lamp-maintenance-scheduler"
       ]
     },
     {
@@ -977,7 +1014,9 @@
         "skill:redgreen:flake-hunter",
         "hook:notify-on-finish",
         "agent:critic",
-        "skill:yaml-lint"
+        "skill:yaml-lint",
+        "plugin:extra:idle-beekeeping-bundle",
+        "skill:extra:idle-hive-inspector"
       ]
     },
     {
@@ -1431,6 +1470,22 @@
     "connector:inkwell": {
       "always_on": null,
       "on_use": null
+    },
+    "skill:extra:quarterly-ledger-reconciliation-helper": {
+      "always_on": 410,
+      "on_use": 2600
+    },
+    "agent:extra:lighthouse-lamp-maintenance-scheduler": {
+      "always_on": 150,
+      "on_use": 900
+    },
+    "plugin:extra:idle-beekeeping-bundle": {
+      "always_on": 90,
+      "on_use": null
+    },
+    "skill:extra:idle-hive-inspector": {
+      "always_on": 60,
+      "on_use": 700
     }
   },
   "warnings": [

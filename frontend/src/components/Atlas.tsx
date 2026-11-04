@@ -223,7 +223,7 @@ export default function Atlas({ model }: { model: Model }) {
         </Suspense>
       )}
       <p className="sr-only" aria-live="polite">{live}</p>
-      <p className="sr-only" aria-live="polite">{selected ? `${selected.name}, ${kindName(selected.kind)}` : ""}</p>
+      <p className="sr-only" aria-live="polite">{selected ? `${selected.name}, ${kindName(selected.kind)}, ${selected.cost?.always_on == null ? "cost unknown" : `${selected.cost.always_on.toLocaleString()} tokens always on`}` : ""}</p>
     </>
   );
 }
