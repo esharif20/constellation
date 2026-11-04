@@ -127,3 +127,22 @@ def test_a_real_run_passes_the_counter_to_the_scan_and_writes_the_costs(config, 
     )
 
     assert code == 0 and json.loads(out.read_text())["costs"] and not cache.exists()
+
+
+def _skill_with_body(root):
+    (root / "skills" / "deep").mkdir(parents=True)
+    (root / "skills" / "deep" / "SKILL.md").write_text(
+        "---\nname: deep\ndescription: Does deep work\n---\nThe long private instructions.\n"
+    )
+
+
+def test_dry_run_counts_no_bodies_unless_asked(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / "claude"
+    _skill_with_body(root)
+
+    assert main(["scan", str(root), "--dry-run"]) == 0
+    assert "long private instructions" not in capsys.readouterr().out
+
+    assert main(["scan", str(root), "--dry-run", "--count-bodies"]) == 0
+    assert "--- COUNT ---\nThe long private instructions." in capsys.readouterr().out

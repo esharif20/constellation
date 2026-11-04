@@ -58,3 +58,7 @@ Free by default, paid only for new or changed Items. A scan of an unchanged setu
 - Every real run prints a call-count and cost estimate first; dry runs show exactly what would be sent.
 - Offline mode (no key, or `--offline`) must still produce a useful Constellation.
 - Plan for at most a few hundred Items per user, not thousands; do not add complexity for scale beyond that.
+
+## Privacy invariant
+
+Only Item kinds, names and descriptions (plus short local signals and, later, tool schemas) are ever sent to a provider, always after redaction. File bodies are read locally and never sent, with one opt-in exception: `constellation scan --count-bodies` sends each skill's redacted body to Anthropic's token-counting endpoint to measure on-use cost. Without the flag, on-use cost is reported as unknown. Any new feature that would send more than this needs the user's explicit approval first.

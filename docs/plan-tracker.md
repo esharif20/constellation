@@ -35,5 +35,5 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 ## Review notes (2026-11-04)
 
 - #6 merged. Known judgement calls from the Opus review, not fixed: the verdict cache key ignores the verifier model id (changing the model reuses old verdicts; delete the cache file); `CANDIDATE_THRESHOLD = 0.5` assumes centred vectors, which only apply from 10 Items up; a `wrapper` verdict without a `wraps` field quietly treats A as the wrapper.
-- Open privacy decision: the #5 token counter sends redacted skill bodies to Anthropic's counting endpoint. Options: keep and document, count locally, or make it opt-in (`--count-bodies`). Awaiting the user.
+- Privacy decision made (user chose option 3): the #5 token counter sends only always-on text by default; skill bodies go to the counting endpoint only with `--count-bodies`. Recorded in CLAUDE.md "Privacy invariant".
 - #8 design pass merged (Vite + React + TS + Tailwind + shadcn, react-force-graph-2d). D13 and D14 are no longer deviations. Rough edges for the Sonnet polish pass are listed in `docs/design/graph-app.md`.

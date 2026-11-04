@@ -16,6 +16,7 @@ def scan(
     embedder: Embedder | None = None,
     cluster_threshold: float | None = None,
     counter: TokenCounter | None = None,
+    count_bodies: bool = False,
     cost_cache: Path | None = None,
     verifier: LLM | None = None,
     verdict_cache: Path | None = None,
@@ -38,7 +39,7 @@ def scan(
             warnings.append(f"could not cluster items: {error}")
     costs: dict[str, Cost] = {}
     if counter:
-        costs, cost_warnings = measure(items, bodies, guarded_count(counter, secrets), secrets, cost_cache)
+        costs, cost_warnings = measure(items, bodies if count_bodies else {}, guarded_count(counter, secrets), secrets, cost_cache)
         warnings += cost_warnings
     overlaps = [*exact_duplicates(items, bodies), *wrappers(items, bodies)]
     if verifier:

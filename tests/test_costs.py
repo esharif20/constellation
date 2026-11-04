@@ -19,7 +19,7 @@ def cost_of(constellation, kind, name):
 
 
 def test_skills_and_agents_get_always_on_from_name_and_description_and_on_use_from_the_body(tmp_path):
-    result = scan(FIXTURE, counter=FakeCounter(), cost_cache=tmp_path / "c.json")
+    result = scan(FIXTURE, counter=FakeCounter(), cost_cache=tmp_path / "c.json", count_bodies=True)
 
     assert cost_of(result, "skill", "alpha") == Cost(always_on=7, on_use=4)  # "# Alpha\nFull instructions." is the body
     assert cost_of(result, "agent", "reviewer") == Cost(always_on=8, on_use=5)  # "You are a code reviewer."
@@ -54,13 +54,13 @@ def test_a_second_scan_of_an_unchanged_setup_makes_no_counting_calls(tmp_path):
 
 def test_the_cache_is_private_and_only_new_texts_are_counted(tmp_path):
     cache = tmp_path / "a" / "b" / "c.json"
-    scan(FIXTURE, counter=FakeCounter(), cost_cache=cache)
+    scan(FIXTURE, counter=FakeCounter(), cost_cache=cache, count_bodies=True)
     assert stat.S_IMODE(cache.stat().st_mode) == 0o600
     counts = json.loads(cache.read_text())
     cache.write_text(json.dumps(dict(list(counts.items())[1:])))  # forget one text
     counter = FakeCounter()
 
-    result = scan(FIXTURE, counter=counter, cost_cache=cache)
+    result = scan(FIXTURE, counter=counter, cost_cache=cache, count_bodies=True)
 
     assert len(counter.texts) == 1
     assert cost_of(result, "skill", "alpha") == Cost(7, 4)
@@ -90,7 +90,7 @@ def test_a_planted_secret_never_reaches_the_counter(tmp_path):
     (config / ".env").write_text(f"TOKEN={secret}\n")
     counter = FakeCounter()
 
-    scan(config, counter=counter, cost_cache=tmp_path / "c.json")
+    scan(config, counter=counter, cost_cache=tmp_path / "c.json", count_bodies=True)
 
     assert counter.texts and not any(secret in t for t in counter.texts)
     leaky = next(t for t in counter.texts if "Uses" in t)
@@ -131,3 +131,12 @@ def test_an_unwritable_cache_is_a_warning_and_the_counts_are_kept(tmp_path):
 
     assert cost_of(result, "skill", "alpha").always_on is not None
     assert any("could not save the token-count cache" in w for w in result.warnings)
+
+
+def test_by_default_no_skill_body_is_counted_so_none_leaves_the_machine_and_on_use_is_unknown(tmp_path):
+    counter = FakeCounter()
+
+    result = scan(FIXTURE, counter=counter, cost_cache=tmp_path / "c.json")
+
+    assert not any("Full instructions" in t or "You are a code reviewer" in t for t in counter.texts)
+    assert cost_of(result, "skill", "alpha") == Cost(always_on=7, on_use=None)

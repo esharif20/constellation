@@ -33,6 +33,11 @@ def main(
     scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
     scan_command.add_argument("config_dir", type=Path)
     scan_command.add_argument("--out", type=Path, default=Path("constellation.json"))
+    scan_command.add_argument(
+        "--count-bodies",
+        action="store_true",
+        help="also count each skill's full text (sends redacted bodies to Anthropic's counting endpoint)",
+    )
     scan_command.add_argument("--dry-run", action="store_true", help="print what would be sent to the providers; send nothing")
     scan_command.add_argument("--no-verify", action="store_true", help="skip the stronger model that labels candidate Overlaps")
     open_command = commands.add_parser("open", help="serve a constellation JSON file as a graph in the browser")
@@ -79,6 +84,7 @@ def main(
             llm=llm,
             embedder=embedder,
             counter=counter,
+            count_bodies=args.count_bodies,
             cost_cache=cache,
             verifier=None if args.no_verify else verifier,
             verdict_cache=Path(scratch) / "verdicts.json" if args.dry_run else None,
