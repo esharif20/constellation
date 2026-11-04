@@ -1,5 +1,5 @@
 // The Constellation as the API serves it (GET /api/constellation), and the graph model the canvas draws.
-import { forceCollide, forceSimulation, forceX, forceY } from "d3-force";
+import { layout } from "./layout.ts";
 
 export type Item = { id: string; kind: string; name: string; description: string; source: string };
 export type Relation = { source: string; target: string; kind: string };
@@ -51,7 +51,7 @@ const tidy = (s: string) => s.replace(/[-_]+/g, " ");
 // `aspect` is the viewport's height over width: tall (phone) screens seed a taller layout so the map fills them.
 export function buildModel(data: Constellation, aspect = 1): Model {
   const labels = data.labels ?? {}, costs = data.costs ?? {}, labelled = Object.keys(labels).length > 0;
-  const tall = Math.max(1, Math.min(2, aspect));
+  const tall = Math.max(0.55, Math.min(2, aspect)); // wide screens spread the clusters sideways, tall ones downwards
   const byId = new Map<string, GNode>();
   const nodes = data.items.map((it) => {
     const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, cost: costs[it.id], a: 0, s: 1, born: 0, sx: 0, sy: 0 };
@@ -61,7 +61,16 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   const clusters: Cluster[] = (data.clusters ?? [])
     .map((c) => ({ name: labelled ? c.name : tidy(c.name), members: c.item_ids.flatMap((id) => byId.get(id) ?? []), x: 0, y: 0, r: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0 }))
     .filter((c) => c.members.length);
-  clusters.forEach((c) => c.members.forEach((n) => (n.cluster = c)));
+  // Clusters of fewer than 3 Items, and Items in no cluster, share one quiet region called "Other"
+  const big = clusters.filter((c) => c.members.length >= 3);
+  big.forEach((c) => c.members.forEach((n) => (n.cluster = c)));
+  const rest = nodes.filter((n) => !n.cluster);
+  if (rest.length) {
+    const other: Cluster = { name: "Other", members: rest, x: 0, y: 0, r: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0 };
+    rest.forEach((n) => (n.cluster = other));
+    big.push(other);
+  }
+  clusters.splice(0, clusters.length, ...big);
   const neighbours = new Map(nodes.map((n) => [n, new Set<GNode>()]));
   const links: GLink[] = (data.relations ?? []).flatMap((r) => {
     const source = byId.get(r.source), target = byId.get(r.target);
@@ -74,7 +83,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
     n.degree = neighbours.get(n)!.size;
     n.r = 3.2 + Math.min(10, Math.sqrt(n.degree) * 1.9);
   }
-  placeSlots(nodes, clusters, tall);
+  layout(nodes, links, clusters, tall);
   return { nodes, links, clusters, neighbours, warnings: data.warnings ?? [], offline: (data.warnings ?? []).some((w) => w.startsWith("Offline")) };
 }
 
@@ -104,64 +113,4 @@ export function step(nodes: GNode[], from: GNode, dx: number, dy: number): GNode
     if (score < bestScore) { best = n; bestScore = score; }
   }
   return best;
-}
-
-// Layout, step 1 of 2 (the force sim in StarMap is step 2). Every cluster is laid out on its own: its hub (an Item with
-// Relations) in the middle, its Items with Relations on the first ring around it, the rest on further rings. Then the
-// clusters are packed as circles so they never overlap and always leave a gap for their names. Items in no cluster form
-// one more group. A force then pulls each Item back to its slot, which is what makes a dragged Item spring home.
-const PITCH = 17; // ring spacing and Item spacing along a ring
-const GAP = 40; // clear space between two clusters (room for a name)
-
-function ringLayout(members: GNode[]): { slots: [number, number][]; radius: number } {
-  const order = [...members].sort((a, b) => b.degree - a.degree);
-  const hubs = order.filter((n) => n.degree >= 3).slice(0, 3), rest = order.filter((n) => !hubs.includes(n));
-  const slots = new Map<GNode, [number, number]>();
-  let inner = 0;
-  if (hubs.length === 1) {
-    slots.set(hubs[0], [0, 0]);
-    inner = 24;
-  } else if (hubs.length > 1) {
-    const r = Math.max(22, (hubs.length * PITCH) / (2 * Math.PI) + 10);
-    hubs.forEach((h, i) => slots.set(h, [Math.cos((i / hubs.length) * 2 * Math.PI) * r, Math.sin((i / hubs.length) * 2 * Math.PI) * r]));
-    inner = r + 22;
-  }
-  let i = 0, ring = 0, radius = inner;
-  while (i < rest.length) {
-    radius = Math.max(inner, 13) + ring * PITCH;
-    const cap = Math.max(1, Math.floor((2 * Math.PI * radius) / PITCH)), take = Math.min(cap, rest.length - i);
-    for (let j = 0; j < take; j++) {
-      const t = (j / take) * 2 * Math.PI + ring * 0.6;
-      slots.set(rest[i + j], [Math.cos(t) * radius, Math.sin(t) * radius]);
-    }
-    i += take;
-    ring++;
-  }
-  return { slots: members.map((n) => slots.get(n)!), radius: radius + 14 };
-}
-
-function placeSlots(nodes: GNode[], clusters: Cluster[], tall: number) {
-  const groups = clusters.map((c) => c.members);
-  const loose = nodes.filter((n) => !n.cluster);
-  if (loose.length) groups.push(loose);
-  const laid = groups.map((g) => ({ g, ...ringLayout(g) }));
-  // pack: a small force sim on the cluster centres, pulled gently to the middle (harder across on a tall screen)
-  const order = laid.map((l, i) => ({ i, r: l.radius })).sort((a, b) => b.r - a.r);
-  const centres = laid.map(() => ({ x: 0, y: 0, r: 0 }));
-  order.forEach(({ i, r }, k) => {
-    const t = k * 2.39996, d = 55 * Math.sqrt(k + 0.5) * 1.4;
-    centres[i] = { x: (Math.cos(t) * d) / Math.sqrt(tall), y: Math.sin(t) * d * Math.sqrt(tall), r };
-  });
-  const sim = forceSimulation(centres)
-    .stop()
-    .alphaDecay(0.01)
-    .velocityDecay(0.5)
-    .force("x", forceX<{ x: number; y: number; r: number }>().strength(0.04 * tall))
-    .force("y", forceY<{ x: number; y: number; r: number }>().strength(0.04 / tall))
-    .force("collide", forceCollide<{ x: number; y: number; r: number }>((c) => c.r + GAP / 2).strength(1).iterations(4));
-  for (let k = 0; k < 400; k++) sim.tick();
-  laid.forEach((l, i) => l.g.forEach((n, j) => {
-    n.sx = n.x = centres[i].x + l.slots[j][0];
-    n.sy = n.y = centres[i].y + l.slots[j][1];
-  }));
 }

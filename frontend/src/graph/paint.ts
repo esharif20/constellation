@@ -1,5 +1,6 @@
 // Canvas painting for the star atlas. force-graph calls pre -> links -> nodes -> post every frame;
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
+import { chooseSpot, type Box } from "./names";
 import type { Cluster, GLink, GNode, Model } from "./model";
 
 // Feel knobs, tuned by eye: change these, not the code below.
@@ -103,11 +104,8 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       l.a = ease(l.a, Math.min(l.source.a, l.target.a) > 0.05 ? (on ? 1 : ink.fade * 0.5) : 0, k);
     }
     for (const c of model.clusters) {
-      let x = 0, y = 0, d2 = 0, top = 0;
-      for (const n of c.members) { x += n.x!; y += n.y!; top = Math.max(top, n.a); }
-      c.x = x / c.members.length; c.y = y / c.members.length;
-      for (const n of c.members) d2 += (n.x! - c.x) ** 2 + (n.y! - c.y) ** 2;
-      c.r = Math.sqrt(d2 / c.members.length) * 1.5 + 18;
+      let top = 0; // the circle itself is fixed (layout.ts); only its brightness follows its Items
+      for (const n of c.members) top = Math.max(top, n.a);
       const on = f && !pure && !m ? f.cluster === c : !lit || c.members.some((n) => lit!.has(n));
       c.a = ease(c.a, top > 0.05 ? (on ? 1 : 0.22) : 0, k);
     }
@@ -151,7 +149,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   function link(l: GLink, ctx: CanvasRenderingContext2D, k: number) {
     if (l.a < 0.01) return;
     const s = l.source, t = l.target, px = 1 / k;
-    ctx.globalAlpha = l.a;
+    ctx.globalAlpha = l.a * (!l.hot && s.cluster !== t.cluster ? 0.45 : 1); // long links between clusters stay in the background
     if (l.hot) {
       const g = ctx.createLinearGradient(s.x!, s.y!, t.x!, t.y!);
       g.addColorStop(0, colorOf.get(s)!); g.addColorStop(1, colorOf.get(t)!);
@@ -220,8 +218,6 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   // Labels go down greedily by priority and are skipped when they would collide. A cluster name tries several
   // spots around its halo and takes the first that clears every star, every placed label and the chrome; when
   // none is free it fades out instead of sitting on a star.
-  type Box = [number, number, number, number];
-  const hit = (a: Box, b: Box) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
   const widths = new Map<Cluster, { size: number; w: number }>();
 
   function post(ctx: CanvasRenderingContext2D) {
@@ -272,38 +268,22 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       obstacles.push([sx - R, sy - R, sx + R, sy + R]);
       if (n.degree >= 4) obstacles.push([sx - 30, sy + R, sx + 30, sy + R + 16]);
     }
-    const crowd = (b: Box) => { let c = 0; for (const o of obstacles) if (hit(b, o)) c++; return c; };
 
     const clusterLabel = (c: Cluster, zoomAlpha: number) => {
-      const size = (phone ? 12 : 14) + Math.min(phone ? 4 : 10, Math.sqrt(c.members.length) * (phone ? 0.8 : 1.6));
+      const size = (phone ? 12 : 13) + 4 * clamp01((c.members.length - 3) / 20);
       ctx.font = `italic 400 ${size}px ${ink.serif}`;
       ctx.letterSpacing = "0.03em";
       ctx.textBaseline = "middle";
       let m = widths.get(c);
       if (!m || m.size !== size) widths.set(c, (m = { size, w: ctx.measureText(c.name).width }));
       const w = m.w, h = size * 1.15;
-      const [cx, cy] = sc.apply(c.x, c.y), r = c.r * sc.k, side = r * 0.75 + w / 2;
-      // candidate centres, best first: above the halo (the atlas default), then around it
-      const spots: [number, number][] = [
-        [0, -r * 0.8], [0, -(r + h * 0.6)], [0, r + h * 0.6], [-side, -r * 0.35], [side, -r * 0.35],
-        [-side, r * 0.35], [side, r * 0.35], [0, -r * 0.45], [0, -(r * 1.4 + h)], [0, r * 1.4 + h],
-        [-(side + w * 0.3), -r * 0.9], [side + w * 0.3, -r * 0.9], [-(side + w * 0.3), r * 0.9], [side + w * 0.3, r * 0.9],
-        [0, -(r * 0.8 + h * 1.7)], [0, r * 0.8 + h * 1.7],
-      ];
-      const allowed = f?.cluster === c ? 2 : 0; // a cluster being looked at keeps its name even in a crowd
-      const minX = 8 + w / 2, maxX = Math.max(minX, W - view.right - 8 - w / 2);
-      const minY = view.top + h / 2 + 2, maxY = Math.max(minY, H - view.bottom - h / 2 - 2);
-      let best: { x: number; y: number; box: Box; crowded: number; i: number } | null = null, bestScore = Infinity;
-      for (const [i, [dx, dy]] of spots.entries()) {
-        const x = Math.min(maxX, Math.max(minX, cx + dx)), y = Math.min(maxY, Math.max(minY, cy + dy));
-        if (Math.abs(x - cx - dx) + Math.abs(y - cy - dy) > Math.max(w * 0.5, 40)) continue; // not detached from its cluster
-        const box: Box = [x - w / 2 - 6, y - h / 2, x + w / 2 + 6, y + h / 2];
-        if (placed.some((p) => hit(box, p))) continue;
-        const crowded = crowd(box), score = crowded * 10 + i * 0.5 - (i === c.pick ? 2.5 : 0); // a small bias keeps the last spot
-        if (crowded <= allowed && score < bestScore) { best = { x, y, box, crowded, i }; bestScore = score; }
-      }
-      const spot = best as { x: number; y: number; box: Box; crowded: number; i: number } | null;
-      if (spot && zoomAlpha > 0.03 && c.members.length >= 3 && c.a > 0.03) {
+      const [cx, cy] = sc.apply(c.x, c.y), focused = f?.cluster === c;
+      // at the fitted view only clusters of 5 or more try for a name; smaller ones come in as you zoom, or when looked at
+      const tries = c.members.length >= 5 || z >= 1.15 || focused;
+      const spot = tries && zoomAlpha > 0.03 && c.a > 0.03
+        ? chooseSpot({ cx, cy, r: c.r * sc.k, w, h, pick: c.pick, allowed: focused ? 2 : 0, W, H, top: view.top, bottom: view.bottom, right: view.right, placed, obstacles })
+        : null;
+      if (spot) {
         placed.push(spot.box);
         c.pick = spot.i;
         const gx = (spot.x - sc.tx) / sc.k, gy = (spot.y - sc.ty) / sc.k, appearing = c.la < 0.05;

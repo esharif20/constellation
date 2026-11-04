@@ -1,6 +1,7 @@
-import { forceCollide, type ForceLink, type ForceManyBody } from "d3-force";
+import type { ForceLink } from "d3-force";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
+import { applyForces, type LLink, type LNode } from "@/graph/layout";
 import { step, type GLink, type GNode, type Model } from "@/graph/model";
 import { FEEL, makePainter, type Painter } from "@/graph/paint";
 import { cn } from "@/lib/utils";
@@ -16,15 +17,6 @@ type Props = {
 };
 
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-// Pulls every Item toward its layout slot (model.ts), so clusters stay tidy and a dragged Item springs back home.
-function slotPull(nodes: GNode[], strength: number) {
-  const force = (alpha: number) => {
-    for (const n of nodes) { n.vx! += (n.sx - n.x!) * strength * alpha; n.vy! += (n.sy - n.y!) * strength * alpha; }
-  };
-  force.initialize = () => {};
-  return force;
-}
 
 // How far the top bar, legend and inspector reach into the viewport, read from the DOM (they are not part of the canvas).
 function measureInsets(view: Painter["view"]) {
@@ -42,13 +34,18 @@ function measureInsets(view: Painter["view"]) {
 }
 
 // Fit every star into the sky left free by the chrome, so a phone gets a tall, full map rather than empty bands.
-function fit(g: ForceGraphMethods<GNode, GLink>, painter: Painter, nodes: GNode[]) {
+function fit(g: ForceGraphMethods<GNode, GLink>, painter: Painter, model: Model) {
   measureInsets(painter.view);
   const { top, bottom, right } = painter.view, W = innerWidth, H = innerHeight, pad = W <= 640 ? 14 : 36;
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const n of nodes) {
+  // the circles' bounds (not just the stars), so halos are not clipped
+  for (const n of model.nodes) {
     x0 = Math.min(x0, n.x! - n.r - 8); x1 = Math.max(x1, n.x! + n.r + 8);
     y0 = Math.min(y0, n.y! - n.r - 8); y1 = Math.max(y1, n.y! + n.r + 8);
+  }
+  for (const c of model.clusters) {
+    x0 = Math.min(x0, c.x - c.r); x1 = Math.max(x1, c.x + c.r);
+    y0 = Math.min(y0, c.y - c.r); y1 = Math.max(y1, c.y + c.r);
   }
   const L = pad, R = W - right - pad, T = top + pad / 2, B = H - bottom - pad / 2;
   const k = Math.min(3, (R - L) / Math.max(1, x1 - x0), (B - T) / Math.max(1, y1 - y0));
@@ -90,7 +87,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   // (the stars are still unlit then, so the camera move is never seen).
   const first = useRef(true);
   const onEngineStop = useCallback(() => {
-    if (first.current && fg.current) fit(fg.current, painter, model.nodes);
+    if (first.current && fg.current) fit(fg.current, painter, model);
     first.current = false;
     setCool(0);
     wake();
@@ -113,7 +110,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
       setSize({ w: innerWidth, h: innerHeight });
       // a map still at its fitted view follows the window; one the reader has moved stays put
       requestAnimationFrame(() => {
-        if (fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) fit(fg.current, painter, model.nodes);
+        if (fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) fit(fg.current, painter, model);
         wake();
       });
     };
@@ -124,13 +121,9 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   // Forces go in before the data so the warm-up ticks run with them and the first paint is already settled.
   useEffect(() => {
     const g = fg.current!;
-    // Slots decide the layout; Relations only add a soft spring whose rest length is the slot distance, so a dragged
-    // Item tugs its neighbours without bending the clusters.
-    (g.d3Force("link") as ForceLink<GNode, GLink>).distance((l) => Math.max(20, Math.hypot(l.source.sx - l.target.sx, l.source.sy - l.target.sy))).strength(0.3);
-    (g.d3Force("charge") as ForceManyBody<GNode>).strength(-6).distanceMax(60);
+    // the same forces the layout settled with (layout.ts), so a dragged Item springs back to its slot
+    applyForces(g.d3Force("link") as unknown as ForceLink<LNode, LLink>, (name, f) => g.d3Force(name, f as never));
     g.d3Force("center", null);
-    g.d3Force("collide", forceCollide<GNode>((n) => n.r + 3));
-    g.d3Force("slot", slotPull(model.nodes, 0.3));
     setData({ nodes: model.nodes, links: model.links });
   }, [model]);
 
@@ -182,9 +175,9 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
         backgroundColor="rgba(0,0,0,0)"
         nodeLabel={() => ""} // names are drawn on the canvas; no browser tooltip
         onEngineStop={onEngineStop}
-        warmupTicks={500}
+        warmupTicks={0} // the layout is settled before the first paint (layout.ts)
         cooldownTicks={cool}
-        d3AlphaDecay={0.04}
+        d3AlphaDecay={0.05}
         d3VelocityDecay={0.3}
         minZoom={0.15}
         maxZoom={8}
