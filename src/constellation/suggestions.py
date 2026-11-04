@@ -10,14 +10,17 @@ from .report import _known_costs, _names, _never_used
 @dataclass(frozen=True)
 class Suggestion:
     id: str  # content-derived, so a decision still applies after a re-scan
-    kind: Literal["remove_duplicate", "use_underlying", "remove_unused"]
+    kind: Literal["remove_duplicate", "use_underlying", "remove_unused", "review_cost"]
     item_ids: tuple[str, ...]
     reason: str  # plain English, redacted
     tokens_saved: int | None  # None = unknown, never 0
 
 
 def _make(
-    kind: Literal["remove_duplicate", "use_underlying", "remove_unused"], item_ids: tuple[str, ...], reason: str, saved: int | None
+    kind: Literal["remove_duplicate", "use_underlying", "remove_unused", "review_cost"],
+    item_ids: tuple[str, ...],
+    reason: str,
+    saved: int | None,
 ) -> Suggestion:
     digest = hashlib.sha256((kind + "\0" + "\0".join(item_ids)).encode()).hexdigest()[:12]
     return Suggestion(digest, kind, item_ids, redact(reason), saved)

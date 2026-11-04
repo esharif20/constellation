@@ -42,7 +42,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const focus: Focus = { hover: null, preview: null, selected: null, matches: null, keyFocus: false };
   // fitK: zoom at which the whole map fits (label levels are relative to it); top/bottom/right: px that the top bar,
   // legend and inspector cover, so canvas text keeps out from under them (measured by StarMap)
-  const view = { fitK: 1, top: 76, bottom: 0, right: 0 };
+  const view = { fitK: 1, top: 76, bottom: 0, right: 0, left: 0 };
   const dust = Array.from({ length: 260 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 0.9 + 0.3, a: Math.random() * 0.5 + 0.1 }));
   let last = 0, lit: Set<GNode> | null = null, f: GNode | null = null, fk = 1;
   // Every fade eases toward a target and snaps when close. `busy` says whether anything is still moving, so the
@@ -283,6 +283,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     const placed: Box[] = [[0, 0, W, view.top]];
     if (view.bottom > 0) placed.push([0, H - view.bottom, W, H]);
     if (view.right > 0) placed.push([W - view.right, 0, W, H]);
+    if (view.left > 0) placed.push([0, 0, view.left, H]);
     const fits = (x0: number, y0: number, x1: number, y1: number) => {
       if (placed.some((b) => x0 < b[2] && x1 > b[0] && y0 < b[3] && y1 > b[1])) return false;
       placed.push([x0, y0, x1, y1]);
