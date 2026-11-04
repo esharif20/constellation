@@ -1,8 +1,8 @@
 import { CheckIcon, PlusIcon, TriangleAlertIcon, XIcon } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { kindName, type BriefData, type BriefGroup, type BriefRow, type Checklist, type Model } from "@/graph/model";
+import { budget, kindName, type Budget, type BriefData, type BriefGroup, type BriefRow, type Checklist, type Model } from "@/graph/model";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -26,6 +26,7 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
   const busy = useRef(false);
   const byId = new Map(model.nodes.map((n) => [n.id, n]));
   const added = new Set(checklist?.ids ?? []);
+  const meter = useMemo(() => budget(model.nodes), [model.nodes]);
   const maxCost = Math.max(1, ...data.cost.rows.flatMap((row) => row.tokens_saved == null ? [] : [row.tokens_saved]));
 
   useEffect(() => {
@@ -97,6 +98,7 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
       </div>
       <div className="flex flex-col gap-6 overflow-y-auto overscroll-contain px-4 pt-3 pb-[max(24px,env(safe-area-inset-bottom))] sm:px-6">
         {!data.cost.rows.length && !data.pairs.rows.length && <p className="text-[13px] leading-[1.4] text-text-2">Nothing to rank yet. Run <code className="font-mono text-xs">constellation scan</code> with a key to measure cost.</p>}
+        {meter.measured && (data.cost.rows.length > 0 || data.pairs.rows.length > 0) && <Meter b={meter} frees={data.cost.frees} count={data.cost.rows.length} />}
         <div>
           <h3 className="text-sm font-medium">Most expensive, always on</h3>
           {data.cost.measured ? <Counter group={data.cost} /> : <p className="mt-1 text-xs text-text-3 italic">Cost was not measured in this scan.</p>}
@@ -127,4 +129,25 @@ function Counter({ group }: { group: BriefGroup }) {
     {group.frees == null ? "Saving not measured" : `Removing these ${group.rows.length} frees ~${group.frees.toLocaleString()} tokens per session (estimate)`}
     {group.unknown_rows > 0 && <span className="mt-1 block">+ {group.unknown_rows} with unknown cost, not counted</span>}
   </p>;
+}
+
+const fmt = (n: number) => n.toLocaleString();
+function Meter({ b, frees, count }: { b: Budget; frees: number | null; count: number }) {
+  return <div>
+    <div className="flex flex-wrap items-baseline gap-x-2">
+      <span className="text-xs text-text-3">Session start</span>
+      <span className="font-mono text-xl tabular-nums sm:text-2xl">{fmt(b.known)}</span>
+      <span className="text-xs text-text-3">tokens before your first prompt</span>
+    </div>
+    <div role="img" aria-label={`Items ${fmt(b.items)} tokens, hooks ${fmt(b.hooks)} tokens`} className="mt-2 flex h-2 gap-0.5 overflow-hidden rounded-full bg-line-1">
+      <span className="bg-indigo-bright/70" style={{ width: `${100 * b.items / b.known}%` }} />
+      {b.hooks > 0 && <span className="bg-indigo-bright/35" style={{ width: `${100 * b.hooks / b.known}%` }} />}
+    </div>
+    <p className="mt-2 flex flex-wrap gap-x-3 text-xs text-text-3">
+      <span className="flex items-center gap-1.5"><i aria-hidden className="size-2 rounded-full bg-indigo-bright/70" />Items {fmt(b.items)}</span>
+      {b.hooks > 0 && <span className="flex items-center gap-1.5"><i aria-hidden className="size-2 rounded-full bg-[repeating-linear-gradient(45deg,var(--indigo-bright)_0_2px,transparent_2px_4px)]" />Hooks {fmt(b.hooks)}</span>}
+    </p>
+    {b.unknown > 0 && <p className="mt-1 text-xs text-text-3">{b.unknown} with unknown cost, not counted</p>}
+    {frees != null && <p className="mt-1 text-xs text-text-2">Removing the top {count} saves ~{fmt(frees)} (estimate)</p>}
+  </div>;
 }

@@ -247,3 +247,18 @@ export function tipBadges(n: GNode, model: Pick<Model, "overlapsOf">): { disable
   const count = best ? os.filter((o) => role(o) === best).length : 0;
   return { disabled: !!n.disabled, overlap: best ? (count > 1 ? `${best} ${count}` : best) : null };
 }
+
+// Session-start budget. Unknown cost is counted, never summed as 0. An Item's always-on cost wins; a hook without one falls back to its prompt-time weight.
+export type Budget = { measured: boolean; known: number; items: number; hooks: number; unknown: number; saved: number; removed: number; removedUnknown: number };
+export function budget(nodes: GNode[], removed: ReadonlySet<GNode> = new Set()): Budget {
+  const b: Budget = { measured: false, known: 0, items: 0, hooks: 0, unknown: 0, saved: 0, removed: 0, removedUnknown: 0 };
+  for (const n of nodes) {
+    const gone = removed.has(n), cost = n.cost?.always_on ?? null, tokens = n.kind === "hook" ? n.weight?.tokens ?? null : null;
+    if (gone) b.removed++;
+    if (cost == null && tokens == null) { if (gone) b.removedUnknown++; else b.unknown++; continue; }
+    b.measured = true;
+    if (gone) b.saved += cost ?? tokens!;
+    else if (cost != null) { b.items += cost; b.known += cost; } else { b.hooks += tokens!; b.known += tokens!; }
+  }
+  return b;
+}

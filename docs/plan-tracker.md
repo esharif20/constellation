@@ -429,3 +429,7 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - **Owner APPROVED** the project-label rule: `--project` folder name, else the folder name with the encoded home prefix stripped; the username is never shown. The earlier deviation is closed. Low tier and the paid scope verdict stay not built.
 - Contract only, no logic: `Item.scope`/`Item.project`, `ProjectUsage`, `Constellation.projects`/`usage_by_project`/`current_project`, `scan(project=)`, `read_items(project=)`, `read_usage(project=)` returning a 4th `ProjectUsage` (empty), `Suggestion.project`/`confidence`. Defaults keep behaviour unchanged; brief rows now carry `project`/`confidence` as None. Test proves defaults and that `snapshot()` drops the new keys.
+
+## #42 session-start budget meter (what-if ticket 0, `docs/plans/whatif.md`)
+
+Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: demo-250 shows 20,082 tokens (10,448 Items + 9,634 hooks), 55 unknown not counted, and `data.cost.frees` ~853 for the top 5, all as the plan expected. No deviations. Frontend only, no fetch, no Python change. The not-measured line stays the Brief's existing one (the Meter is hidden when nothing is measured, to avoid saying it twice); `demo-offline.json` has costs, so it shows the Meter without a hooks segment.
