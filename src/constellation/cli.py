@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import importlib.util
 import json
 import os
@@ -16,6 +17,7 @@ from . import scan
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
 from .env import load_env
+from .expansion import Query, expand
 from .models import LLM, Constellation, Embedder, TokenCounter
 from .overlaps import estimate_cost
 from .redact import redact
@@ -33,6 +35,7 @@ def main(
     counter: TokenCounter | None = None,
     verifier: LLM | None = None,
     serve: Serve | None = None,
+    expansion_query: Query | None = None,
     decide: Callable[[Suggestion], str] | None = None,  # returns "a", "s" or "q"; the default asks on stdin
 ) -> int:
     parser = argparse.ArgumentParser(prog="constellation")
@@ -55,6 +58,11 @@ def main(
     open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     open_command.add_argument("--port", type=int, default=8765)
     open_command.add_argument("--no-browser", action="store_true")
+    open_command.add_argument("--config-dir", type=Path, help="enable live MCP tool listing from this config root")
+    expand_command = commands.add_parser("expand", help="list the tools of one configured local MCP server")
+    expand_command.add_argument("item_id")
+    expand_command.add_argument("--config-dir", type=Path, required=True)
+    expand_command.add_argument("--file", type=Path, default=Path("constellation.json"))
     open_command.add_argument("--checklist", type=Path, help="private cleanup checklist path (outside the Claude setup)")
     report_command = commands.add_parser(
         "report", help="print a plain-text report of a saved scan (reads the file only; no network, no cost)"
@@ -71,12 +79,23 @@ def main(
     review_command.add_argument("--out", type=Path, default=Path("cleanup.md"), help="the checklist to write")
     review_command.add_argument("--force", action="store_true", help="overwrite an existing checklist")
     args = parser.parse_args(argv)
+    if args.command == "expand":
+        data = _load_scan(args.file)
+        if data is None:
+            return 2
+        try:
+            expansion_result = asyncio.run(expand(data, args.item_id, args.config_dir, expansion_query))
+        except (KeyError, ValueError):
+            print("Unknown Item or invalid scan/config input.", file=sys.stderr)
+            return 2
+        print(json.dumps(asdict(expansion_result), indent=2))
+        return 0
     if args.command == "review":
         return _review(args, decide)  # reads the scan file only, so it skips load_env
     if args.command == "report":
         return _report(args)  # reads the file only, so it skips load_env
     if args.command == "open":
-        return _open(args, serve)  # serving never needs the API key, so it skips load_env
+        return _open(args, serve, expansion_query)  # serving never needs the API key, so it skips load_env
     load_env()  # a .env file in the working directory may hold ANTHROPIC_API_KEY
 
     if not args.config_dir.is_dir():
@@ -230,7 +249,7 @@ def _report(args: argparse.Namespace) -> int:
     return 0
 
 
-def _open(args: argparse.Namespace, serve: Serve | None) -> int:
+def _open(args: argparse.Namespace, serve: Serve | None, expansion_query: Query | None) -> int:
     if not args.file.is_file():
         print(f"{args.file} not found; run `constellation scan` first.", file=sys.stderr)
         return 2
@@ -243,7 +262,7 @@ def _open(args: argparse.Namespace, serve: Serve | None) -> int:
         print(server.BUILD_HINT, file=sys.stderr)
         return 2
     try:
-        app = server.create_app(args.file, checklist=args.checklist)
+        app = server.create_app(args.file, checklist=args.checklist, config_dir=args.config_dir, expansion_query=expansion_query)
     except (OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 2
