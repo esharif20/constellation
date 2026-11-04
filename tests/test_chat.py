@@ -257,7 +257,7 @@ def test_concurrent_identical_requests_share_memory_cache_and_close_sqlite(chat,
             connections.append(self)
             super().close()
 
-    monkeypatch.setattr(sqlite3, "connect", lambda *args: original(*args, factory=RecordingConnection, check_same_thread=False))
+    monkeypatch.setattr(sqlite3, "connect", lambda *args, **kw: original(*args, factory=RecordingConnection, **kw))
     with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(lambda _: ask(chat, "email"), range(8)))
     assert sum(not result["cached"] for result in results) == 1

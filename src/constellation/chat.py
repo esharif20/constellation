@@ -3,10 +3,8 @@
 import hashlib
 import json
 import re
-import sqlite3
 import threading
 from collections import OrderedDict
-from contextlib import closing
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -15,6 +13,7 @@ from langsmith import tracing_context
 from .brief import brief
 from .redact import redact
 from .report import _never_used, _usage_note
+from .retrieve import Index
 
 _STOP = set("what can help me to do a an the with for please find search show highlight focus filter on items item".split())
 
@@ -33,28 +32,17 @@ def _retrieve(state: ChatState) -> dict[str, Any]:
     question, items = state["question"].lower().strip(), state["data"]["items"]
     question = re.sub(r"^(?:show(?: me)? )?everything that touches\s+", "", question)
     tokens = [t for t in re.findall(r"[^\W_]+", question) if t not in _STOP and t != "redacted"]
-    with closing(sqlite3.connect(":memory:")) as connection:
-        connection.execute(
-            "CREATE VIRTUAL TABLE metadata USING fts5(id UNINDEXED, name, description, kind)"  # pragma: no mutate (SQL case)
-        )
-        connection.executemany(
-            "INSERT INTO metadata VALUES (?, ?, ?, ?)",  # pragma: no mutate (SQL case)
-            [(i["id"], i["name"], i["description"], i["kind"]) for i in items],
-        )
-        rows = (
-            connection.execute(
-                "SELECT id FROM metadata WHERE metadata MATCH ? ORDER BY bm25(metadata), id LIMIT 8",  # pragma: no mutate (SQL case)
-                (" OR ".join('"' + t + '"' for t in tokens),),
-            ).fetchall()
-            if tokens
-            else []
-        )
+    index = Index(items)
+    try:
+        rows = index.fts(tokens)
+    finally:
+        index.close()
     exact = [i["id"] for i in items if i["name"] and re.search(r"(?<!\w)" + re.escape(i["name"].lower()) + r"(?!\w)", question)]
     context = state["selected"] if re.search(r"\b(this|these|selected)\b", question) or state["intent"] == "explain" else []
     scoped = list(dict.fromkeys([*context, *sorted(exact)]))
     if scoped and state["intent"] in ("explain", "cost"):
         return {"matches": scoped, "intent": "explain"}
-    return {"matches": list(dict.fromkeys([*scoped, *(row[0] for row in rows)])), "scope": scoped}
+    return {"matches": list(dict.fromkeys([*scoped, *rows])), "scope": scoped}
 
 
 def _short(text: str, limit: int) -> str:
