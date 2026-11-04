@@ -9,6 +9,7 @@ import { buildModel, clusterSummary, groupWarnings, rankMembers, costRadius, RMA
 import { flightMs, flightPath } from "../src/graph/flight.ts";
 import { fitView, focusView, GAP, haloOf, K, type View } from "../src/graph/layout.ts";
 import { searchItems } from "../src/graph/search.ts";
+import { didYouMean, matchClusters, mergeResults, warningMention } from "../src/graph/searchMerge.ts";
 import { chooseSpot, hit, type Box } from "../src/graph/names.ts";
 
 const legacy = process.argv.includes("--legacy");
@@ -220,6 +221,31 @@ function measure(file: string, W: number, H: number) {
   assert.deepEqual(searchItems(items, "qwxzvkj"), []);
   assert.deepEqual(searchItems(items, "where is the"), []);
   assert.ok(searchItems(items, "pony").length <= 8);
+}
+
+// merging server results with local, cluster matching, did-you-mean
+{
+  const mk = (id: string, name: string, description = "") => ({ id, name, description, kind: "skill" });
+  const items = [mk("a", "ponytail", "Lazy mode"), mk("b", "shadcn", "UI components"), mk("c", "pptx", "Make slides"), mk("d", "pdf-tools", "Fill forms")];
+  const byId = new Map(items.map((i) => [i.id, i]));
+  const local = searchItems(items, "pdf");
+  const merged = mergeResults(local, { results: [{ id: "d", why: "name" }, { id: "c", why: "similar meaning" }, { id: "b", why: "in description" }, { id: "zz", why: "name" }], note: null }, byId);
+  assert.deepEqual(merged.map((r) => [r.item.id, r.related]), [["d", false], ["b", false], ["c", true]]); // deduped, unknown ids dropped, Related last
+  assert.equal(merged[0].why, "name starts with it"); // the instant local reason wins
+  assert.deepEqual(mergeResults(searchItems(items, "pdf"), null, byId).map((r) => r.item.id), ["d"]); // API down: local alone
+  const clusters = [{ name: "Documents" }, { name: "Frontend design" }, { name: "Git workflow" }];
+  assert.deepEqual(matchClusters(clusters, "document").map((c) => c.name), ["Documents"]);
+  assert.deepEqual(matchClusters(clusters, "frontend").map((c) => c.name), ["Frontend design"]);
+  assert.deepEqual(matchClusters(clusters, "documnets").map((c) => c.name), ["Documents"]); // typo
+  assert.deepEqual(matchClusters(clusters, "qwxzvkj"), []);
+  assert.equal(didYouMean("shadnc", "shadcn"), "shadcn");
+  assert.equal(didYouMean("shadcn", "shadcn"), null); // already right
+  assert.equal(didYouMean("sha", "shadcn"), null); // too short to guess
+  assert.equal(didYouMean("pytail", "ponytail"), "ponytail");
+  assert.equal(didYouMean("slides", "shadcn"), null); // far off
+  assert.equal(didYouMean("x", undefined), null);
+  assert.equal(warningMention(["Skipped skill ripgrep: bad frontmatter"], "ripgrep"), "Skipped skill ripgrep: bad frontmatter");
+  assert.equal(warningMention(["Skipped skill ripgrep"], "gh"), null);
 }
 
 let failed = false;

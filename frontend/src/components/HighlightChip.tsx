@@ -4,7 +4,7 @@ import { XIcon } from "lucide-react";
 export function HighlightChip({ highlight, onClear }: { highlight: { from: "chat" | "search"; count: number } | null; onClear: () => void }) {
   if (!highlight) return null;
   return (
-    <div role="status" className="glass fixed top-14 left-1/2 flex h-8 -translate-x-1/2 items-center gap-1 rounded-full border pr-1 pl-3 text-xs text-text-2 shadow-(--shadow-float) sm:top-4">
+    <div role="status" className="glass fixed top-[5.25rem] left-1/2 flex h-8 -translate-x-1/2 items-center gap-1 rounded-full border pr-1 pl-3 text-xs text-text-2 shadow-(--shadow-float) sm:top-4">
       <span>{highlight.count} highlighted <span className="text-text-3">· from {highlight.from}</span></span>
       <button type="button" onClick={onClear} aria-label={`Clear highlight from ${highlight.from}`} className="grid size-6 cursor-pointer place-items-center rounded-full text-text-3 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"><XIcon aria-hidden className="size-3.5" /></button>
     </div>

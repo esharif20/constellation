@@ -6,13 +6,17 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverAnchor, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { searchItems } from "@/graph/search";
+import { didYouMean, warningMention, type Row } from "@/graph/searchMerge";
 import { groupWarnings, kindName, type Cluster, type GNode, type Model, type WarningGroup } from "@/graph/model";
 
 type Props = {
   model: Model;
   query: string;
   found: GNode[];
+  rows: Row<GNode>[]; // the merged local and server results, best first, Related last
+  clusterHits: Cluster[];
+  note: string | null; // the server's line about search itself, e.g. meaning search being off
+  pending: boolean; // the server has not answered yet
   onQuery: (q: string) => void;
   onChoose: (n: GNode) => void;
   onPreview: (n: GNode | null) => void;
@@ -20,7 +24,7 @@ type Props = {
   onCluster: (c: Cluster | null, viaKeyboard?: boolean) => void;
 };
 
-export function TopBar({ model, query, found, onQuery, onChoose, onPreview, cluster, onCluster }: Props) {
+export function TopBar({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, cluster, onCluster }: Props) {
   return (
     <header className="pointer-events-none fixed inset-x-4 top-3 flex flex-wrap items-center gap-x-4 gap-y-2 sm:inset-x-6 sm:top-4 sm:flex-nowrap">
       <h1 className="font-serif text-[22px] leading-none tracking-[0.01em] italic sm:text-2 [text-shadow:0_0_18px_rgb(150_170_255/0.35)] ">Constellation</h1>
@@ -38,7 +42,7 @@ export function TopBar({ model, query, found, onQuery, onChoose, onPreview, clus
         </p>
       )}
       <Warnings warnings={model.warnings} />
-      <Search query={query} found={found} onQuery={onQuery} onChoose={onChoose} onPreview={onPreview} />
+      <Search model={model} query={query} found={found} rows={rows} clusterHits={clusterHits} note={note} pending={pending} onCluster={onCluster} onQuery={onQuery} onChoose={onChoose} onPreview={onPreview} />
     </header>
   );
 }
@@ -72,13 +76,26 @@ function Clusters({ model, onCluster }: Pick<Props, "model" | "onCluster">) {
   );
 }
 
-function Search({ query, found, onQuery, onChoose, onPreview }: Pick<Props, "query" | "found" | "onQuery" | "onChoose" | "onPreview">) {
+function Search({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, onCluster }: Pick<Props, "model" | "query" | "found" | "rows" | "clusterHits" | "note" | "pending" | "onQuery" | "onChoose" | "onPreview" | "onCluster">) {
   const input = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
   const [active, setActive] = useState("");
   const open = focused && query.trim() !== "";
-  const shown = found.slice(0, 8);
-  const why = (n: GNode) => searchItems([n], query)[0]?.why;
+  const shown = rows.slice(0, 8);
+  const items = shown.filter((r) => !r.related), related = shown.filter((r) => r.related);
+  const mean = didYouMean(query, rows[0]?.item.name);
+  const mention = warningMention(model.warnings, query);
+  const grouped = (items.length > 0 ? 1 : 0) + (related.length > 0 ? 1 : 0) + (clusterHits.length > 0 ? 1 : 0) > 1;
+  const row = ({ item: n, why }: Row<GNode>) => (
+    <CommandItem key={n.id} value={n.id} onSelect={() => onChoose(n)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 gap-3 rounded-md px-3">
+      <span className="glyph" data-kind={n.kind} />
+      <span className="min-w-0">
+        <span className="block font-medium">{n.name}</span>
+        <span className="block truncate text-xs text-text-3">{n.label || kindName(n.kind)}</span>
+        <span className="block truncate text-xs text-text-3">Matched: {why}</span>
+      </span>
+    </CommandItem>
+  );
 
   // "/" focuses search from anywhere, as in most developer tools
   useEffect(() => {
@@ -116,7 +133,7 @@ function Search({ query, found, onQuery, onChoose, onPreview }: Pick<Props, "que
               className="glass h-11 w-full rounded-lg border border-line-2 pr-10 pl-10 text-base text-foreground transition-[border-color,box-shadow] duration-(--t-fast) outline-none placeholder:text-text-3 hover:border-line-3 focus-visible:border-indigo-bright focus-visible:shadow-[0_0_0_3px_rgb(130_143_255/0.25)] sm:h-10 sm:text-sm"
             />
             <p id="search-count" className="sr-only" aria-live="polite">
-              {query.trim() ? `${found.length} ${found.length === 1 ? "Item matches" : "Items match"}, all lit on the map` : ""}
+              {query.trim() && !pending ? `${found.length} ${found.length === 1 ? "Item matches" : "Items match"}, all lit on the map${clusterHits.length ? `, ${clusterHits.length} ${clusterHits.length === 1 ? "cluster" : "clusters"}` : ""}` : ""}
             </p>
             {!focused && !query && <Kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 sm:inline-flex">/</Kbd>}
           </div>
@@ -130,21 +147,35 @@ function Search({ query, found, onQuery, onChoose, onPreview }: Pick<Props, "que
         >
           <CommandList aria-label="Matching Items">
             <CommandEmpty className="px-3 py-4 text-left text-[13px] text-text-3">
-              <p className="text-text-2">No Item matches that</p>
-              <p className="mt-1">Items come from your Claude config; plugins, skills, agents, hooks and MCP servers are shown, not CLI tools</p>
+              {pending ? <p>Searching</p> : (
+                <>
+                  <p className="text-text-2">No Item matches that</p>
+                  {mention && <p className="mt-1 break-words">Mentioned in a scan warning: {mention}</p>}
+                  <p className="mt-1">Items come from your Claude config: plugins, skills, agents, commands, hooks and MCP servers are shown, not CLI tools such as git or npm</p>
+                  <p className="mt-1">{model.nodes.length} Items scanned</p>
+                </>
+              )}
             </CommandEmpty>
-            <CommandGroup className="p-0">
-              {shown.map((n) => (
-                <CommandItem key={n.id} value={n.id} onSelect={() => onChoose(n)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 gap-3 rounded-md px-3">
-                  <span className="glyph" data-kind={n.kind} />
-                  <span className="min-w-0">
-                    <span className="block font-medium">{n.name}</span>
-                    <span className="block truncate text-xs text-text-3">{n.label || kindName(n.kind)}</span>
-                    <span className="block truncate text-xs text-text-3">Matched: {why(n)}</span>
-                  </span>
+            {mean && (
+              <CommandGroup className="p-0">
+                <CommandItem value="did-you-mean" onSelect={() => onQuery(mean)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 rounded-md px-3 text-[13px] text-text-2">
+                  <span>Did you mean <span className="font-medium text-foreground">{mean}</span>?</span>
                 </CommandItem>
-              ))}
-            </CommandGroup>
+              </CommandGroup>
+            )}
+            {clusterHits.length > 0 && (
+              <CommandGroup className="p-0" heading="Clusters">
+                {clusterHits.map((c) => (
+                  <CommandItem key={c.slug} value={`cluster:${c.slug}`} onSelect={() => { onQuery(""); onCluster(c, true); }} onMouseDown={(e) => e.preventDefault()} className="min-h-11 justify-between gap-3 rounded-md px-3">
+                    <span className="min-w-0 truncate font-serif text-[15px] italic">{c.name}</span>
+                    <span className="font-mono text-xs text-text-3 tabular-nums">{c.members.length}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {items.length > 0 && <CommandGroup className="p-0" heading={grouped ? "Items" : undefined}>{items.map(row)}</CommandGroup>}
+            {related.length > 0 && <CommandGroup className="p-0" heading="Related">{related.map(row)}</CommandGroup>}
+            {note && <p className="px-3 pt-2 pb-1 text-xs text-text-3">{note}</p>}
           </CommandList>
         </PopoverContent>
       </Popover>

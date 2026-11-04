@@ -6,7 +6,10 @@ import { HighlightChip } from "@/components/HighlightChip";
 import { ClusterCard } from "@/components/ClusterCard";
 import { StarMap, type StarMapHandle } from "@/components/StarMap";
 import { TopBar } from "@/components/TopBar";
-import { clusterSummary, kindName, search, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model } from "@/graph/model";
+import { useRemoteSearch } from "@/components/useRemoteSearch";
+import { searchItems } from "@/graph/search";
+import { matchClusters, mergeResults } from "@/graph/searchMerge";
+import { clusterSummary, kindName, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model } from "@/graph/model";
 
 // The inspector only appears once something is selected, so it loads on its own; it is fetched when the page is idle
 // so the first selection does not wait.
@@ -39,7 +42,11 @@ export default function Atlas({ model }: { model: Model }) {
   const [query, setQuery] = useState("");
   const [phone, setPhone] = useState(() => matchMedia("(max-width: 640px)").matches);
   const [narrow, setNarrow] = useState(() => matchMedia("(width < 960px)").matches);
-  const found = useMemo(() => search(model.nodes, query), [model, query]);
+  const { remote, pending } = useRemoteSearch(query);
+  const byId = useMemo(() => new Map(model.nodes.map((n) => [n.id, n])), [model]);
+  const rows = useMemo(() => mergeResults(searchItems(model.nodes, query, Infinity), remote, byId), [model, query, remote, byId]);
+  const found = useMemo(() => rows.map((r) => r.item), [rows]);
+  const clusterHits = useMemo(() => matchClusters(model.clusters, query), [model, query]);
   // One owner for the highlighted set: search wins while a query is typed, otherwise the last chat answer. The chip names it and clears it.
   const highlight = query.trim() ? { from: "search" as const, count: found.length } : chatMatches ? { from: "chat" as const, count: chatMatches.size } : null;
   const matches = useMemo(() => (query.trim() ? new Set(found) : chatMatches), [found, query, chatMatches]);
@@ -203,6 +210,10 @@ export default function Atlas({ model }: { model: Model }) {
         model={model}
         query={query}
         found={found}
+        rows={rows}
+        clusterHits={clusterHits}
+        note={remote?.note ?? null}
+        pending={pending}
         onQuery={setQuery}
         onPreview={setPreview}
         onChoose={(n) => { setQuery(""); select(n); map.current?.focusCanvas(); }}
