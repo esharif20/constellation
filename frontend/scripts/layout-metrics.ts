@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import { strict as assert } from "node:assert";
-import { buildModel, costRadius, RMAX, RMIN, RUNK, type Constellation, type Model } from "../src/graph/model.ts";
+import { buildModel, groupWarnings, costRadius, RMAX, RMIN, RUNK, type Constellation, type Model } from "../src/graph/model.ts";
 import { GAP, K } from "../src/graph/layout.ts";
 import { chooseSpot, hit, type Box } from "../src/graph/names.ts";
 
@@ -51,6 +51,22 @@ function legacyLayout(m: Model, tall: number) {
 
 // costRadius self-check: floor, cap, area proportionality, unknown
 assert.equal(costRadius(0, 100), RMIN);
+{
+  const g = groupWarnings([
+    "Offline: no labels.",
+    "frontmatter is not valid YAML, read name and description leniently (~/a/SKILL.md)",
+    "frontmatter is not valid YAML, read name and description leniently (~/b/SKILL.md)",
+    "skipped skill 'x': no description (~/c/SKILL.md)",
+    "no frontmatter in ~/d/SKILL.md",
+    "could not label 'y': boom",
+    "something new",
+  ]);
+  assert.deepEqual(g.map((x) => x.id), ["missing", "label", "loose", "bare", "other"]);
+  assert.deepEqual(g.find((x) => x.id === "loose")!.items.map((i) => i.path), ["~/a/SKILL.md", "~/b/SKILL.md"]);
+  assert.deepEqual(g[0].items, [{ text: "skill 'x': no description (~/c/SKILL.md)", path: "~/c/SKILL.md" }]);
+  assert.equal(g.find((x) => x.id === "bare")!.items[0].path, "~/d/SKILL.md");
+  assert.equal(groupWarnings(["Offline: x"]).length, 0); // a mode, not a warning
+}
 assert.equal(costRadius(100, 100), RMAX);
 assert.equal(costRadius(1e6, 100), RMAX);
 assert.equal(costRadius(null, 100), RUNK);

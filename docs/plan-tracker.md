@@ -140,3 +140,10 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - Checklist adds now append one whole line with `O_APPEND` (no truncate, so a hand edit is never lost); a re-add chmods the file to 0600; the cache directory is created 0700; the path guard rejects any `.claude` folder, not only `~/.claude`.
 - Plan behaviour kept (no code change): a duplicate whose cost is unknown has `removes=null`, saves nothing countable, and its row says "unknown".
+
+## #35 warnings: ~ paths, grouping, Offline as a mode (2026-11-04, branch `claude/ticket-35`)
+
+- Done, per `docs/plans/explore-ux.md` section B: `_shown(path)` in `claude_code.py` writes home paths as `~/...` in the frontmatter and skip warnings (a test pins that the scan holds no home folder). `groupWarnings` in `model.ts` groups by stable message prefix into actionable, degraded and info groups; the top bar button says "N to look at" (actionable + degraded only), info groups sit collapsed, up to 5 items with "and N more" and a copy-path button (`~` form). "Offline" is a mode: `Model.offlineNote` is the tooltip on "offline scan" and it never counts as a warning.
+- Contract test `tests/test_warning_contract.py` pins the prefixes (emitted by `scan()` for the file-based ones, literal-in-source for provider/usage ones) and that `model.ts` still names each one. `layout:check` asserts `groupWarnings` on invented strings.
+- Public Snapshot untouched (it already drops warnings). Warnings from other modules that quote an OS error with an absolute path (cache save failures) are not rewritten: not in the plan's source list. No deviations.
+- Not verified: other themes/real long path lists; screenshots only on demo data with injected warnings at 1440 and 390.
