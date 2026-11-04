@@ -96,5 +96,20 @@ Overlaps ------------------------------------------------------------------
 
 (Abridged from `tests/fixtures/scan.json`; the full output is `tests/fixtures/report.txt`.)
 
+### Review Suggestions
+
+```
+constellation review                  # reads constellation.json; no network, no API key, no cost
+constellation review scan.json --out todo.md [--force]
+```
+
+Each duplicate or wrapper Overlap becomes a Suggestion, biggest token saving first. You are asked one at a time: `a` approve, `s` skip,
+`q` (or Ctrl+C) quit. Approved Suggestions are written to `cleanup.md` (0600; an existing file needs `--force`). Constellation never
+edits or deletes your config; the checklist is yours to act on by hand.
+
+Answers are saved in a LangGraph SQLite checkpoint at `~/.cache/constellation/review.sqlite` (0600), one thread per scan file. It holds
+only Suggestion ids and your answers, never Item text, descriptions or reasons. Quit and run `constellation review` again to continue at
+the same Suggestion; answered ones are not asked again, even after a re-scan, because ids come from the Items involved.
+
 The API key goes in a `.env` file in the folder you run the command from (it is gitignored), as one line with no quotes:
 `ANTHROPIC_API_KEY=sk-ant-...`. Run `chmod 600 .env` so only you can read it. A variable already set in your shell wins over the file.
