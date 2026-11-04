@@ -132,3 +132,154 @@ def test_tool_calls_credit_user_scope_servers_not_a_plugin_called_user(tmp_path)
 
     assert result.usage["claude-code:mcp_server:user/srv"].count == 1
     assert [u.count for k, u in result.usage.items() if ":local/" in k] == [1]
+
+
+def shapes(tmp_path, servers):
+    (tmp_path / ".claude.json").write_text(json.dumps({"mcpServers": servers}))
+    return {i.name: i.description for i in scan(tmp_path).items if i.kind == "mcp_server"}
+
+
+def test_stdio_shape_skips_env_assignments_and_never_emits_an_equals_word(tmp_path):
+    got = shapes(
+        tmp_path,
+        {
+            "a": {"command": "GITHUB_PAT=abc123zz npx srv"},
+            "b": {"command": "A=1 B=2 /usr/bin/runner x"},
+            "c": {"command": "ONLY=secret9"},
+            "d": {"command": "--token=abc123zz"},
+        },
+    )
+
+    assert got == {"a": "stdio: npx", "b": "stdio: runner", "c": "stdio: unknown", "d": "stdio: unknown"}
+
+
+def test_a_scheme_less_url_never_prints_its_userinfo_as_the_scheme(tmp_path):
+    got = shapes(tmp_path, {"a": {"url": "tok3nabc:pw@host.com"}, "b": {"type": "sse", "url": "wss://x.example.com/p"}})
+
+    assert got == {"a": "remote http: unknown://", "b": "remote sse: wss://x.example.com"}
+
+
+def test_local_servers_get_a_per_scan_index_not_a_path_derived_id(tmp_path):
+    projects = {"/z/b": {"mcpServers": {"s": {"command": "x"}}}, "/a/a": {"mcpServers": {"s": {"command": "y"}}}}
+    (tmp_path / ".claude.json").write_text(json.dumps({"projects": projects}))
+
+    ids = sorted(i.id for i in scan(tmp_path).items)
+
+    assert ids == ["claude-code:mcp_server:local/1/s", "claude-code:mcp_server:local/2/s"]
+
+
+def test_local_scope_can_be_switched_off(tmp_path, monkeypatch):
+    import constellation.claude_code as cc
+
+    (tmp_path / ".claude.json").write_text(json.dumps({"projects": {"/p": {"mcpServers": {"s": {"command": "x"}}}}}))
+    monkeypatch.setattr(cc, "LOCAL_SCOPE", False)
+
+    assert scan(tmp_path).items == []
+
+
+def test_command_descriptions_are_capped_and_redacted_and_bodies_never_reach_the_counter(tmp_path):
+    (tmp_path / "commands").mkdir()
+    (tmp_path / "commands" / "c.md").write_text("Run PLANTEDSECRET99 now " + "x" * 400 + "\nBODY_PLANTED_TEXT\n")
+    (tmp_path / "settings.json").write_text('{"env": {"K": "PLANTEDSECRET99"}}')
+    sent = []
+
+    def counter(texts):
+        sent.extend(texts)
+        return [1] * len(texts)
+
+    result = scan(tmp_path, counter=counter, count_bodies=True, cost_cache=tmp_path / "cache.json")
+
+    command = named(result, "command")["c"]
+    assert len(command.description) <= 200
+    assert "PLANTEDSECRET99" not in command.description
+    assert sent
+    assert "BODY_PLANTED_TEXT" not in " ".join(sent)
+    assert result.costs[command.id].on_use is None
+
+
+def test_an_invalid_utf8_command_and_a_malformed_installed_plugins_entry_warn_and_continue(tmp_path):
+    (tmp_path / "commands").mkdir()
+    (tmp_path / "commands" / "bad.md").write_bytes(b"\xff\xfe PLANTED_BYTES")
+    (tmp_path / "commands" / "ok.md").write_text("Fine.\n")
+    (tmp_path / "plugins").mkdir()
+    (tmp_path / "plugins" / "installed_plugins.json").write_text(json.dumps({"plugins": {"a@m": [5, {"installPath": 3}], "b@m": "x"}}))
+
+    result = scan(tmp_path)
+
+    assert list(named(result, "command")) == ["ok"]
+    assert "skipped a command file: unreadable or not valid UTF-8" in result.warnings
+    assert "skipped malformed entries in installed_plugins.json" in result.warnings
+    assert "bad.md" not in repr(result.warnings) and "PLANTED" not in repr(result.warnings)
+
+
+def test_a_symlink_inside_a_plugin_pointing_outside_is_refused(tmp_path):
+    root = tmp_path / "plugins" / "cache" / "mkt" / "p" / "1.0.0"
+    (root / ".claude-plugin").mkdir(parents=True)
+    (root / ".claude-plugin" / "plugin.json").write_text('{"name": "p", "description": "d"}')
+    (root / "commands").mkdir()
+    outside = tmp_path / "outside.md"
+    outside.write_text("PLANTED_OUTSIDE first line\n")
+    (root / "commands" / "evil.md").symlink_to(outside)
+
+    result = scan(tmp_path)
+
+    assert "evil" not in named(result, "command")
+    assert "PLANTED_OUTSIDE" not in json.dumps(asdict(result))
+    assert "skipped a file in a plugin: it is a symlink pointing outside the plugin" in result.warnings
+
+
+def test_a_plugin_named_user_is_not_the_user_scope_for_tool_calls(tmp_path):
+    root = tmp_path / "plugins" / "cache" / "mkt" / "user" / "1.0.0"
+    (root / ".claude-plugin").mkdir(parents=True)
+    (root / ".claude-plugin").joinpath("plugin.json").write_text(
+        '{"name": "user", "description": "d", "mcpServers": {"srv": {"command": "x"}}}'
+    )
+    (tmp_path / ".claude.json").write_text('{"mcpServers": {"other": {"command": "y"}}}')
+    transcript = tmp_path / "projects" / "p" / "s.jsonl"
+    transcript.parent.mkdir(parents=True)
+    block = {"type": "tool_use", "name": "mcp__srv__go", "id": "1", "input": {}}
+    transcript.write_text(json.dumps({"type": "assistant", "timestamp": "2026-11-02T12:00:00Z", "message": {"content": [block]}}) + "\n")
+
+    result = scan(tmp_path)
+
+    assert result.usage["claude-code:mcp_server:user/srv"].count == 0  # mcp__srv__ is not the plugin's name (plugin_user_srv)
+    block["name"] = "mcp__plugin_user_srv__go"
+    transcript.write_text(json.dumps({"type": "assistant", "timestamp": "2026-11-02T12:00:00Z", "message": {"content": [block]}}) + "\n")
+    assert scan(tmp_path).usage["claude-code:mcp_server:user/srv"].count == 1
+
+
+def test_a_hook_calling_a_user_scope_server_links_to_it(tmp_path):
+    (tmp_path / ".claude.json").write_text('{"mcpServers": {"srv": {"command": "x"}}}')
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"hooks": {"Stop": [{"hooks": [{"type": "mcp_tool", "server": "srv", "tool": "t"}]}]}})
+    )
+
+    result = scan(tmp_path)
+
+    assert [(r.target, r.kind) for r in result.relations if r.kind == "triggers"] == [("claude-code:mcp_server:user/srv", "triggers")]
+
+
+def test_planted_secrets_reach_no_provider_input_and_not_the_report(tmp_path):
+    from fakes import FakeEmbedder, FakeLLM
+
+    from constellation.report import render_report
+
+    shutil.copytree(FIXTURE, tmp_path / "cfg")
+    (tmp_path / "cfg" / "commands" / "first.md").write_text("Use PLANTED_SETTINGS_ENV here\n")
+    llm, verifier, embedder = FakeLLM({}), FakeLLM({}, default='{"verdict": "distinct", "reason": "x"}'), FakeEmbedder({})
+    counted = []
+
+    def counter(texts):
+        counted.extend(texts)
+        return [1] * len(texts)
+
+    result = scan(
+        tmp_path / "cfg", llm=llm, embedder=embedder, counter=counter, count_bodies=True, verifier=verifier,
+        cost_cache=tmp_path / "c.json", label_cache=tmp_path / "l.json", verdict_cache=tmp_path / "v.json",
+    )  # fmt: skip
+    offline = scan(tmp_path / "cfg", offline=True)
+
+    sent = "\n".join([*llm.prompts, *verifier.prompts, *embedder.texts, *counted])
+    assert sent and "PLANTED" not in sent
+    for each in (result, offline):
+        assert "PLANTED" not in render_report(json.loads(json.dumps(asdict(each))), top=10, color=False, width=100, show_all=True)

@@ -1,6 +1,5 @@
 """Claude Code Source adapter: reads a config dir, emits harness-neutral Items (ADR 0001)."""
 
-import hashlib
 import json
 import re
 from collections.abc import Iterator
@@ -15,6 +14,9 @@ from .models import Item, Relation
 from .redact import redact
 
 SOURCE = "claude-code"
+LOCAL_SCOPE = True  # approved deviation from plan A item 8: read project/local-scope servers from .claude.json; False drops them
+DESCRIPTION_CAP = 200  # a command's first line can be a whole paragraph
+_SCHEMES = {"http", "https", "ws", "wss"}
 
 
 def _frontmatter(path: Path) -> tuple[dict[str, Any], str | None]:
@@ -43,11 +45,16 @@ def _shape(server: dict[str, Any]) -> str:
     if isinstance(url, str) and url:
         try:
             parts = urlsplit(url)
-            return f"remote {transport or 'http'}: {parts.scheme}://{parts.hostname or ''}"
+            # A scheme-less "user:pw@host" parses the userinfo as the scheme, so only a known scheme is printed.
+            scheme = parts.scheme if parts.scheme in _SCHEMES else "unknown"
+            return f"remote {transport or 'http'}: {scheme}://{parts.hostname or ''}"
         except ValueError:  # a malformed url (bad port or bracket) is not worth a warning, and must not echo the url
             return f"remote {transport or 'http'}: unknown host"
     if isinstance(command, str) and command.split():
-        return f"stdio: {PurePath(command.split()[0]).name}"  # the first word only: a shell-string command may carry arguments
+        # The first word that is not a NAME=value assignment: a shell-string command may lead with env values or carry arguments.
+        words = [w for w in command.split() if not re.match(r"[A-Za-z_]\w*=", w)]
+        word = PurePath(words[0]).name if words else ""
+        return f"stdio: {word if word and '=' not in word else 'unknown'}"
     return f"{transport or 'unknown'}: unknown shape"
 
 
@@ -101,11 +108,12 @@ def _read_claude_json(config_dir: Path, items: list[Item], warnings: list[str], 
         return
     _add_servers(data.get("mcpServers", {}), "user/", items, warnings, secrets, ".claude.json")
     projects = data.get("projects")
-    for project, state in (projects if isinstance(projects, dict) else {}).items():
-        if isinstance(state, dict) and state.get("mcpServers"):
-            # The project path stays out of the id (it holds the username); a short hash keeps same-named servers apart.
-            scope = f"local/{hashlib.sha256(str(project).encode()).hexdigest()[:8]}/"
-            _add_servers(state["mcpServers"], scope, items, warnings, secrets, ".claude.json")
+    if not LOCAL_SCOPE or not isinstance(projects, dict):
+        return
+    # The project path stays out of the id (it holds the username); a per-scan index in sorted path order keeps same-named servers apart.
+    having = [p for p in sorted(projects, key=str) if isinstance(projects[p], dict) and projects[p].get("mcpServers")]
+    for number, project in enumerate(having, 1):
+        _add_servers(projects[project]["mcpServers"], f"local/{number}/", items, warnings, secrets, ".claude.json")
 
 
 def _plugin_servers(meta: dict[str, Any], root: Path, scope: str, items: list[Item], warnings: list[str], secrets: set[str]) -> None:
@@ -127,9 +135,14 @@ def _plugin_servers(meta: dict[str, Any], root: Path, scope: str, items: list[It
             warnings.append(f"skipped an MCP entry in {label}: not an inline object, a bundle, or a file inside the plugin")
 
 
-def _command(path: Path, warnings: list[str]) -> tuple[str, str, str]:
-    """(description, body, name) of a slash command. Frontmatter is optional here: Claude Code uses the first line when it has none."""
-    text = path.read_text()
+def _command(path: Path, warnings: list[str]) -> tuple[str, str] | None:
+    """(description, name) of a slash command, or None if the file is unreadable. The body is never kept: only skills and agents have
+    a body that --count-bodies may send. Frontmatter is optional here: Claude Code uses the first line when it has none."""
+    try:
+        text = path.read_text()
+    except (OSError, UnicodeDecodeError):
+        warnings.append("skipped a command file: unreadable or not valid UTF-8")
+        return None
     meta: dict[str, Any] = {}
     body = text
     if text.startswith("---") and len(text.split("---", 2)) == 3:
@@ -138,7 +151,16 @@ def _command(path: Path, warnings: list[str]) -> tuple[str, str, str]:
         if problem:
             warnings.append(problem)
     first = next((line.strip() for line in body.splitlines() if line.strip()), "")
-    return str(meta.get("description") or first), body.strip(), path.stem
+    return str(meta.get("description") or first)[:DESCRIPTION_CAP], path.stem
+
+
+def _inside(root: Path, pattern: str, scope: str, warnings: list[str]) -> Iterator[Path]:
+    """Files matching `pattern`; in a plugin (non-empty scope) a symlink resolving outside the plugin is refused, not read."""
+    for path in sorted(root.glob(pattern)):
+        if scope and not path.resolve().is_relative_to(root.resolve()):
+            warnings.append("skipped a file in a plugin: it is a symlink pointing outside the plugin")
+        else:
+            yield path
 
 
 def _read_root(
@@ -151,7 +173,7 @@ def _read_root(
         ("skill", "skills/synced/*/*/SKILL.md", "synced/"),
         ("agent", "agents/*.md", ""),
     ):
-        for path in sorted(root.glob(pattern)):
+        for path in _inside(root, pattern, scope, warnings):
             meta, problem = _frontmatter(path)
             if problem:
                 warnings.append(problem)
@@ -164,13 +186,15 @@ def _read_root(
                 continue
             items.append(Item(f"{SOURCE}:{kind}:{scope}{extra}{name}", kind, name, description, SOURCE))
             bodies[items[-1].id] = path.read_text().split("---", 2)[2].strip()  # loaded only when invoked: the on-use text
-    for path in sorted(root.glob("commands/*.md")):
-        description, body, name = _command(path, warnings)
+    for path in _inside(root, "commands/*.md", scope, warnings):
+        parsed = _command(path, warnings)
+        if parsed is None:
+            continue
+        description, name = redact(parsed[0], secrets), parsed[1]
         if not description:
             warnings.append(f"skipped command '{name}': no description ({path})")
             continue
         items.append(Item(f"{SOURCE}:command:{scope}{name}", "command", name, description, SOURCE))
-        bodies[items[-1].id] = body
     mcp_file = root / ".mcp.json"
     if mcp_file.exists():
         data = _load(mcp_file, warnings, f"{scope or 'config'}.mcp.json")
@@ -188,18 +212,40 @@ def _read_root(
                     id_ = f"{SOURCE}:hook:{scope}{name}:{len(items)}"
                     if handler["type"] == "mcp_tool":
                         description = f"{handler['server']}.{handler['tool']}"
-                        server_id = f"{SOURCE}:mcp_server:{scope}{handler['server']}"
-                        if any(i.id == server_id for i in items):
-                            relations.append(Relation(id_, server_id, "triggers"))
+                        # A user's hook may call a ~/.claude.json (user-scope) server as well as a config-dir one.
+                        for prefix in (scope, "user/") if not scope else (scope,):
+                            server_id = f"{SOURCE}:mcp_server:{prefix}{handler['server']}"
+                            if any(i.id == server_id for i in items):
+                                relations.append(Relation(id_, server_id, "triggers"))
+                                break
                     else:
                         description = handler["command"]
                     items.append(Item(id_, "hook", name, description, SOURCE))
 
 
+def _installed(config_dir: Path) -> tuple[dict[Path, str], bool]:
+    """installPath -> plugin key from installed_plugins.json, and whether the whole file was well formed. Bad entries are dropped."""
+    try:
+        plugins = _json_or_empty(config_dir / "plugins" / "installed_plugins.json").get("plugins", {})
+    except (OSError, ValueError, AttributeError):
+        return {}, False
+    if not isinstance(plugins, dict):
+        return {}, False
+    found: dict[Path, str] = {}
+    clean = True
+    for key, entries in plugins.items():
+        for e in entries if isinstance(entries, list) else []:
+            if isinstance(e, dict) and isinstance(e.get("installPath"), str):
+                found[Path(e["installPath"])] = key
+            else:
+                clean = False
+        clean = clean and isinstance(entries, list)
+    return found, clean
+
+
 def _plugin_manifests(config_dir: Path) -> list[Path]:
     """One manifest per plugin: the version installed_plugins.json names, else the newest cached one (stale versions duplicate ids)."""
-    installed = _json_or_empty(config_dir / "plugins" / "installed_plugins.json").get("plugins", {})
-    named = {Path(e["installPath"]) for entries in installed.values() for e in entries if "installPath" in e}
+    named = set(_installed(config_dir)[0])
     newest: dict[Path, Path] = {}
     for manifest in sorted(config_dir.glob("plugins/cache/*/*/*/.claude-plugin/plugin.json")):
         root = manifest.parent.parent
@@ -219,15 +265,12 @@ def read_items(config_dir: Path) -> tuple[list[Item], list[str], list[Relation],
     bodies: dict[str, str] = {}  # skill/agent Item id -> file text after the frontmatter
     config_dir = Path(config_dir)
     secrets = read_secrets(config_dir)
+    _read_claude_json(config_dir, items, warnings, secrets)  # first, so a hook can link to a user-scope server
     _read_root(config_dir, "", items, warnings, relations, bodies, secrets)
-    _read_claude_json(config_dir, items, warnings, secrets)
     enabled = _json_or_empty(config_dir / "settings.json").get("enabledPlugins", {})
-    keys = {
-        Path(e["installPath"]): key
-        for key, entries in _json_or_empty(config_dir / "plugins" / "installed_plugins.json").get("plugins", {}).items()
-        for e in entries
-        if "installPath" in e
-    }
+    keys, clean = _installed(config_dir)
+    if not clean:
+        warnings.append("skipped malformed entries in installed_plugins.json")
     for manifest in _plugin_manifests(config_dir):
         meta = json.loads(manifest.read_text())
         root = manifest.parent.parent
@@ -236,8 +279,8 @@ def read_items(config_dir: Path) -> tuple[list[Item], list[str], list[Relation],
             continue
         items.append(plugin)
         first = len(items)
-        _read_root(root, f"{meta['name']}/", items, warnings, relations, bodies, secrets)
         _plugin_servers(meta, root, f"{meta['name']}/", items, warnings, secrets)
+        _read_root(root, f"{meta['name']}/", items, warnings, relations, bodies, secrets)
         relations += [Relation(plugin.id, item.id, "contains") for item in items[first:]]
         key = keys.get(root) or f"{meta['name']}@{root.parent.parent.name}"
         if isinstance(enabled, dict) and enabled.get(key) is False:  # off in settings: still on the map, flagged, with its contents

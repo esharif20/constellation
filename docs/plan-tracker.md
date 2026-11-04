@@ -149,3 +149,12 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - `usage.py`: scopes `user/` and `local/` are the user's own, so `mcp__<name>__*` calls credit them (a test pins it).
 - Not done, by design of this ticket: `plugin.json` extra `skills`/`agents`/`commands` paths (item 5 tail), connector Items from transcripts (item 7, in `usage.py`), project `.mcp.json` (G), project/local `enabledPlugins`. A disabled plugin's always-on cost is still counted in totals. Inspector does not yet say "disabled".
 - No deviation from the plan. Both tickets landed on one branch in two commits because they share `claude_code.py`; commit 1 holds the Python for both.
+
+### #32/#33 security review fixes (2026-11-04, branch `claude/ticket-32`)
+
+- **DEVIATION (approved by the user, 2026-11-04): local-scope servers.** Plan section A item 8 says project `.mcp.json` and local scope wait for `scan --project PATH` (G). This branch reads `projects[*].mcpServers` from `~/.claude.json` now (shape only). Switch: `LOCAL_SCOPE` in `claude_code.py`; set it to `False` to drop them. Local ids are `local/<n>/<name>`, n a per-scan index over sorted project paths (no path-derived value).
+- Stdio shape skips leading `NAME=value` words and never prints a word containing `=` (else `stdio: unknown`); a URL scheme is printed only if http, https, ws or wss (else `unknown`).
+- Command bodies are no longer kept, so `--count-bodies` sends only skill and agent bodies, as on main. Command descriptions are capped at 200 chars, then redacted.
+- A non-UTF-8 command file and a malformed `installed_plugins.json` entry give fixed-text warnings and the scan continues. A symlink inside a plugin that resolves outside it is refused (warning), for skills, agents and commands.
+- `usage.py` decides plugin scope from the plugin's `contains` relations (a plugin named `user` is not user scope). `.claude.json` is read before the config root, and plugin `mcpServers` before the plugin's hooks, so hooks link to those servers (a user hook tries `user/<server>` too).
+- Not fixed: a plugin named `user`, `local` or `synced` still shares an id prefix with that scope (ids can collide; first wins).

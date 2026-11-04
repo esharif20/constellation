@@ -306,7 +306,7 @@ def test_reader_does_not_consult_environment(tmp_path, monkeypatch):
 
         scoped.setattr(reader, "os", LocalOS())
         scoped.setattr(Path, "home", classmethod(lambda cls: (_ for _ in ()).throw(AssertionError("home read"))))
-        got, window, warnings = read_usage(tmp_path, items)
+        got, window, warnings = read_usage(tmp_path, items, [])
     assert got["claude-code:skill:tdd"].count == 1 and window.files == 1 and warnings == []
 
 
