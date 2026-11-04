@@ -104,7 +104,7 @@ From this repository, load the thin plugin for one session:
 uv sync --all-extras
 npm --prefix frontend install
 npm --prefix frontend run build
-uv run claude --plugin-dir ./plugin/constellation
+uv run --all-extras claude --plugin-dir ./plugin/constellation
 ```
 
 Then invoke it with an explicit config directory and an optional output file:
@@ -114,9 +114,8 @@ Then invoke it with an explicit config directory and an optional output file:
 ```
 
 Claude Code namespaces plugin commands, so the supported spelling is
-`/constellation:constellation`; the ticket's bare `/constellation` spelling is
-pending confirmation. The plugin requires `constellation` on the session's
-`PATH` (provided by `uv run` above). It calls `scan --offline`, shows the exact
+`/constellation:constellation`, approved for this project. The plugin requires `constellation` on the session's
+`PATH` (provided by `uv run` above). It calls `scan --offline --no-usage`, shows the exact
 `constellation report` output, then starts `constellation open` in the
 background. The config directory is always supplied by you; an existing output
 file requires confirmation before replacement. Paid scans and `--count-bodies`
@@ -124,7 +123,7 @@ require explicit requests. Expansion is pending #9.
 
 This [official local-loading method](https://code.claude.com/docs/en/plugins/create#load-a-directory-or-archive-for-one-session)
 loads the plugin for that session without installing it or changing Claude
-Code settings. A live Claude session and browser launch have not been verified.
+Code settings. Isolated manifest validation and the fixture CLI workflow passed; the user reports live execution works. Agent verification did not run a live model session or query real MCP servers.
 
 ### Review Suggestions
 

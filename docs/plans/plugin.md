@@ -10,8 +10,7 @@ renderer, provider, dependency or application changes.
 
 Claude Code namespaces plugin commands, so the invocation is
 `/constellation:constellation`, rather than bare `/constellation` in the ticket.
-This platform constraint is documented explicitly; approval of that naming
-adjustment is pending. The current official docs recommend `skills/` for new
+The user approved this namespaced spelling on 2026-11-04. The current official docs recommend `skills/` for new
 plugins; it provides the same slash-command interface without a legacy format.
 
 ## Behaviour
