@@ -121,6 +121,16 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Gates: Ruff check/format, mypy, 459 tests (2 paid/eval deselected), mutmut 2,573 killed, results empty. No paid calls; no real transcripts read.
 - Not verified: the real record shapes. After merge the user reruns a real scan to confirm the malformed count drops to zero or near it.
 
+## Usage reader residuals (2026-11-04, branch `claude/usage-residuals`, spec `docs/plans/usage-residuals.md`)
+
+- Real-scan evidence (counts only, from the spec): the leftover "malformed" lines were valid JSON the shape check rejected, and the one skipped file is a symlink in a `subagents/` folder pointing at a file already read.
+- R1 (non-message records stay silent) was already done in #26; kept, with a test for a nested `tool_use` in an `attachment`.
+- R2: each content block is validated on its own; a bad block adds at most 1 malformed per line and the line's valid blocks are still credited.
+- R3: `Agent`/`Task` with no `subagent_type` is valid and credits nothing; a present non-string value (or a `Skill` with a non-string `skill`) is still a bad block.
+- R4: the skipped-files warning is `N files (B too big, S symlinks skipped on purpose, U unreadable)`. Symlinks are still never followed (no inside-`projects/` exception). Window `skipped` stays the total.
+- No deviation from the plan. Gates: ruff check/format, mypy, pytest all green; mutmut zero survivors (one unrelated timing "suspicious" in brief.py cleared on rerun).
+- Not verified: a real scan; the user reruns one to confirm the malformed count falls to near zero.
+
 ## #23 taste review (2026-11-04, branch `worktree-agent-a9082504e2a9f29e3`)
 
 - Done: inspector (`--app`) and look-and-fix loop at 1440 and 390 on demo data only; before/after in `docs/design/screenshots/23-*`. Fixes: unlit star names hidden while something is lit (`paint.ts`), atlas marks on empty and failed states, nowrap code pill. No deviations; no new dependencies or assets. Findings that conflict with DESIGN.md or the star-atlas direction, and ideas not built, are recorded in `docs/design/graph-app.md`.

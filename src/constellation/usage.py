@@ -54,10 +54,41 @@ def _digest(value: str) -> bytes:
     return hashlib.blake2b(value.encode(), digest_size=8).digest()  # pragma: no mutate (digest length changes are equivalent)
 
 
-def _matches(
-    record: Any, index: tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]]
-) -> Iterator[tuple[str, bytes, tuple[str, ...]]]:
+Index = tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]]
+
+
+def _block(role: str, block: Any, record: dict[str, Any], index: Index) -> tuple[list[list[str]], Any]:
+    """One content block to (name lookups, dedup key); ValueError marks only this block bad."""
     names, prefixes = index
+    if not isinstance(block, dict) or not isinstance(block.get("type"), str):
+        raise ValueError
+    groups: list[list[str]] = []  # one group per name lookup; ambiguity is decided per lookup
+    key: Any = ""  # pragma: no mutate (initial key is unused until ids are matched)
+    if role == "assistant" and block.get("type") == "tool_use":
+        name, inputs, key = block.get("name"), block.get("input"), block.get("id")
+        if not isinstance(name, str) or not isinstance(inputs, dict) or not isinstance(key, str):
+            raise ValueError
+        if name in {"Skill", "Agent", "Task"}:
+            field = "skill" if name == "Skill" else "subagent_type"
+            if field in inputs or name == "Skill":  # an Agent without subagent_type is the built-in agent: valid, no Item
+                value = inputs.get(field)
+                if not isinstance(value, str):
+                    raise ValueError
+                groups = [names.get(("skill" if name == "Skill" else "agent", value), [])]
+        elif name.startswith("mcp__"):
+            for prefix in sorted(prefixes, reverse=True):
+                if name.startswith(prefix):
+                    groups = [prefixes[prefix]]
+                    break
+    elif role == "user" and block.get("type") == "text":
+        text, key = block.get("text"), record.get("uuid")
+        if not isinstance(text, str) or not isinstance(key, str):
+            raise ValueError
+        groups = [names.get(("skill", value), []) for value in re.findall(r"<command-name>/([^<]+)</command-name>", text)]
+    return groups, key
+
+
+def _matches(record: Any, index: Index, errors: list[int]) -> Iterator[tuple[str, bytes, tuple[str, ...]]]:
     if not isinstance(record, dict):
         raise ValueError
     if "message" not in record:  # not a user/assistant record (summaries, snapshots)
@@ -76,29 +107,11 @@ def _matches(
     if not isinstance(content, list):
         raise ValueError
     for block in content:
-        if not isinstance(block, dict) or not isinstance(block.get("type"), str):
-            raise ValueError
-        groups: list[list[str]] = []  # one group per name lookup; ambiguity is decided per lookup
-        key: Any = ""  # pragma: no mutate (initial key is unused until ids are matched)
-        if role == "assistant" and block.get("type") == "tool_use":
-            name, inputs, key = block.get("name"), block.get("input"), block.get("id")
-            if not isinstance(name, str) or not isinstance(inputs, dict) or not isinstance(key, str):
-                raise ValueError
-            if name in {"Skill", "Agent", "Task"}:
-                value = inputs.get("skill" if name == "Skill" else "subagent_type")
-                if not isinstance(value, str):
-                    raise ValueError
-                groups = [names.get(("skill" if name == "Skill" else "agent", value), [])]
-            elif name.startswith("mcp__"):
-                for prefix in sorted(prefixes, reverse=True):
-                    if name.startswith(prefix):
-                        groups = [prefixes[prefix]]
-                        break
-        elif role == "user" and block.get("type") == "text":
-            text, key = block.get("text"), record.get("uuid")
-            if not isinstance(text, str) or not isinstance(key, str):
-                raise ValueError
-            groups = [names.get(("skill", value), []) for value in re.findall(r"<command-name>/([^<]+)</command-name>", text)]
+        try:
+            groups, key = _block(role, block, record, index)
+        except ValueError:
+            errors[0] = 1  # at most one per line; the other blocks are still credited
+            continue
         if isinstance(key, str):
             digest = _digest(key)
             for group in groups:
@@ -106,20 +119,16 @@ def _matches(
                     yield id_, digest, tuple(sorted(group)) if len(group) > 1 else ()
 
 
-def _invocations(
-    record: Any, index: tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]], errors: list[int]
-) -> Iterator[tuple[str, bytes, tuple[str, ...]]]:
+def _invocations(record: Any, index: Index, errors: list[int]) -> Iterator[tuple[str, bytes, tuple[str, ...]]]:
     try:
-        matched = list(_matches(record, index))
+        matched = list(_matches(record, index, errors))
     except ValueError:
         errors[0] = 1
         return
     yield from matched
 
 
-def _parse(
-    line: bytes, index: tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]], relevant: bool
-) -> tuple[list[tuple[str, bytes, tuple[str, ...]]], str | None, int]:
+def _parse(line: bytes, index: Index, relevant: bool) -> tuple[list[tuple[str, bytes, tuple[str, ...]]], str | None, int]:
     # The record and all its text die with this call, including on malformed shapes.
     try:
         record = json.loads(line)
@@ -149,7 +158,7 @@ def _directory(name: str | Path, parent: int | None = None) -> Iterator[int]:
         os.close(fd)
 
 
-def _walk(parent: int, depth: int) -> Iterator[tuple[int, str] | None]:
+def _walk(parent: int, depth: int) -> Iterator[tuple[int, str] | str | None]:
     """Only project/main files (depth 1) and session/subagents files (depth 3)."""
     try:
         with os.scandir(parent) as stream:
@@ -157,7 +166,7 @@ def _walk(parent: int, depth: int) -> Iterator[tuple[int, str] | None]:
         for entry in entries:
             try:
                 if entry.is_symlink():
-                    yield None
+                    yield "symlink"
                 elif depth in {1, 3} and entry.name.endswith(".jsonl") and _is_file(entry):
                     yield parent, entry.name
                 elif depth < 3 and _is_dir(entry):
@@ -173,7 +182,7 @@ def _walk(parent: int, depth: int) -> Iterator[tuple[int, str] | None]:
         yield None
 
 
-def _transcripts(config_dir: Path) -> Iterator[tuple[int, str] | None]:
+def _transcripts(config_dir: Path) -> Iterator[tuple[int, str] | str | None]:
     # Keep every ancestor pinned; subsequent opens resolve only one child component.
     with _directory(config_dir) as config:
         with _directory(PROJECTS, config) as projects:
@@ -197,12 +206,13 @@ def read_usage(config_dir: Path, items: list[Item]) -> tuple[dict[str, Usage], U
     index = _index(items)
     seen: set[bytes] = set()
     ambiguous: set[tuple[str, ...]] = set()
-    files = skipped = malformed = oversize = big = 0
+    files = skipped = malformed = oversize = big = symlinks = 0
     first = last = None
     try:
         for path in _transcripts(config_dir):
-            if path is None:
+            if path is None or isinstance(path, str):  # None is unreadable, "symlink" is skipped on purpose
                 skipped += 1
+                symlinks += path == "symlink"
                 continue
             try:
                 parent, name = path
@@ -246,7 +256,7 @@ def read_usage(config_dir: Path, items: list[Item]) -> tuple[dict[str, Usage], U
     if malformed or oversize or skipped:
         warnings.append(
             f"usage: skipped {malformed} malformed lines, {oversize} oversize line, "
-            f"{skipped} files ({big} too big, {skipped - big} unreadable)"
+            f"{skipped} files ({big} too big, {symlinks} symlinks skipped on purpose, {skipped - big - symlinks} unreadable)"
         )
     if ambiguous:
         warnings.append(f"usage: {len(ambiguous)} invocation names matched more than one Item; each was credited")
