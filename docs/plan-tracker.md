@@ -101,3 +101,14 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Gates: Ruff check/format, mypy, 453 tests (2 paid/eval tests deselected), mutmut (2,541 killed; results empty), frontend lint/build/layout all passed. Demo-only browser checks include 1440px, 700px and 390px, add/error states, offline/unknown/static fallback, keyboard/pill, pair selection and resizing. Root verified compiled UI against the real local Python API using only copied demo data and a temporary private checklist; no page errors.
 - Not verified: real scans, Safari/Firefox, real touch or screen readers, and an external Opus review. No paid calls or real setup reads were used.
 - User authorized review/merge: #20 was fast-forwarded into local `main` at `aac28a4`; #25 is ready for the same local merge. Nothing was pushed to main and no issue was closed. #11's contract, #12's plugin preview and #13's Snapshot privacy foundation remain isolated on their ticket branches until their remaining decisions/integrations are resolved.
+
+## #26 usage reader trustworthiness (2026-11-04, branch `worktree-agent-a5b2432b72409ecbc`)
+
+- Real-scan evidence from the user (counts only): 122 malformed lines, 1 skipped file, 86 files over 2026-11-01..2026-11-04, 23 Items with usage, 171 never seen.
+- 1. Records with no top-level `message`, or whose `type` is not `user`/`assistant`, give no matches and are not counted malformed; only prefiltered lines can count as malformed.
+- 2. Ambiguity is decided per name lookup: two clear slash commands in one message no longer warn; an ambiguous name beside a clear one still does.
+- 3. The skipped-files warning splits the reason: `N files (B too big, U unreadable)`, counts only. The report note gives the day span and skipped count and says Claude Code deletes old transcripts, so 'never seen' is not proof of non-use; the `remove_unused` reason (shown by `review`) carries the same caveat. No `cli.py` change was needed.
+- 4. The config dir is resolved once before pinning, so a symlinked config dir is read; a symlinked `projects/` is still refused.
+- 5. Window dates come from each record's top-level `timestamp` only (every line is parsed for it); undated windows print no `None to None`.
+- Gates: Ruff check/format, mypy, 459 tests (2 paid/eval deselected), mutmut 2,573 killed, results empty. No paid calls; no real transcripts read.
+- Not verified: the real record shapes. After merge the user reruns a real scan to confirm the malformed count drops to zero or near it.

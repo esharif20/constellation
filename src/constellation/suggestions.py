@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from .redact import redact
-from .report import _known_costs, _names, _never_used
+from .report import _known_costs, _names, _never_used, _span
 
 
 @dataclass(frozen=True)
@@ -57,9 +57,12 @@ def _unused(data: dict[str, Any]) -> list[Suggestion]:
     for item in _never_used(data):
         id_ = item["id"]
         window = data["usage_window"]
-        reason = f"{names[id_]} was never seen in {window['files']} transcripts ({window['first']} to {window['last']})."
+        reason = f"{names[id_]} was never seen in {window['files']} transcripts{_span(window, ' ({0} to {1}, {2} days)')}."
         if id_ in known:
             reason += f" It costs {known[id_]} always-on tokens every session."
+        reason += (
+            f" Claude Code deletes old transcripts and {window['skipped']} skipped files were not read, so this is not proof it is unused."
+        )
         found.append(_make("remove_unused", (id_,), reason, known.get(id_)))
     return found
 

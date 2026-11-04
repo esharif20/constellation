@@ -6,6 +6,8 @@ from fakes import write_skill
 
 from constellation import scan
 
+CAVEAT = " Claude Code deletes old transcripts and {} skipped files were not read, so this is not proof it is unused."
+
 
 def write_transcript(root, records, name="session.jsonl"):
     path = root / "projects" / "invented" / name
@@ -49,12 +51,13 @@ def test_unused_report_and_suggestions(tmp_path):
     assert suggestions[0].tokens_saved == 42
     assert (
         suggestions[0].reason
-        == "unused (skill) was never seen in 1 transcripts (2026-11-02 to 2026-11-02). It costs 42 always-on tokens every session."
+        == "unused (skill) was never seen in 1 transcripts (2026-11-02 to 2026-11-02, 1 days). It costs 42 always-on tokens every session."
+        + CAVEAT.format(0)
     )
     report = render_report(data, top=10, color=False, width=120, show_all=False)
     assert "Never used (in the transcripts scanned)" in report
     assert "unused (skill)  42 tokens" in report
-    assert "Sessions Claude Code has already deleted" in report
+    assert "Claude Code deletes old transcripts" in " ".join(report.split())
     assert "## Never used" in render_cleanup(data, top=10)
 
 
@@ -138,7 +141,7 @@ def test_caps_drain_and_malformed(tmp_path, monkeypatch):
     path.write_bytes(b"x" * (cap * 3) + b"\n" + valid + b"\n" + b'{"tool_use":' + b"\n")
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 1}
-    assert got.warnings == ["usage: skipped 1 malformed lines, 1 oversize line, 0 files (too big or unreadable)"]
+    assert got.warnings == ["usage: skipped 1 malformed lines, 1 oversize line, 0 files (0 too big, 0 unreadable)"]
     monkeypatch.setattr(reader, "FILE_CAP", path.stat().st_size)
     assert scan(tmp_path).usage_window.files == 1
     monkeypatch.setattr(reader, "FILE_CAP", path.stat().st_size - 1)
@@ -173,7 +176,7 @@ def test_wrong_shapes_and_bad_dates(tmp_path):
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 2}
     assert got.usage["claude-code:skill:tdd"].last_used is None
-    assert got.warnings == ["usage: skipped 10 malformed lines, 0 oversize line, 0 files (too big or unreadable)"]
+    assert got.warnings == ["usage: skipped 10 malformed lines, 0 oversize line, 0 files (0 too big, 0 unreadable)"]
 
 
 def test_no_usage_never_calls_reader(tmp_path, monkeypatch):
@@ -334,7 +337,7 @@ def test_unreadable_file_and_read_failure_do_not_abort(tmp_path, monkeypatch):
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 1}
     assert got.usage_window.skipped == 1
-    assert got.warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 1 files (too big or unreadable)"]
+    assert got.warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 1 files (0 too big, 1 unreadable)"]
 
 
 def test_report_unused_order_limits_unknown_and_window_states(tmp_path):
@@ -348,7 +351,7 @@ def test_report_unused_order_limits_unknown_and_window_states(tmp_path):
     data["costs"] = {"claude-code:skill:cheap": {"always_on": 1}, "claude-code:skill:expensive": {"always_on": 100}}
     unused = [s for s in suggest(data) if s.kind == "remove_unused"]
     assert [s.tokens_saved for s in unused] == [100, 1, None]
-    assert unused[-1].reason == "unknown (skill) was never seen in 1 transcripts (2026-11-02 to 2026-11-02)."
+    assert unused[-1].reason == "unknown (skill) was never seen in 1 transcripts (2026-11-02 to 2026-11-02, 1 days)." + CAVEAT.format(0)
     assert unused == [s for s in suggest(data) if s.kind == "remove_unused"]
     out = render_cleanup(data, top=2).split("## Never used")[1]
     assert out.endswith("- [ ] expensive (skill)  100 tokens\n- [ ] cheap (skill)  1 tokens\n")
@@ -388,10 +391,10 @@ def test_line_boundaries_without_newline_and_multiple_oversizes(tmp_path, monkey
     assert counts(scan(tmp_path)) == {"tdd": 1}
     assert scan(tmp_path).warnings == []
     path.write_bytes(b"x" * (len(valid) + 1))
-    assert scan(tmp_path).warnings == ["usage: skipped 0 malformed lines, 1 oversize line, 0 files (too big or unreadable)"]
+    assert scan(tmp_path).warnings == ["usage: skipped 0 malformed lines, 1 oversize line, 0 files (0 too big, 0 unreadable)"]
     path.write_bytes(b"x" * (len(valid) * 3) + b"\n" + b"y" * (len(valid) * 2) + b"\n" + valid)
     assert counts(scan(tmp_path)) == {"tdd": 1}
-    assert scan(tmp_path).warnings == ["usage: skipped 0 malformed lines, 2 oversize line, 0 files (too big or unreadable)"]
+    assert scan(tmp_path).warnings == ["usage: skipped 0 malformed lines, 2 oversize line, 0 files (0 too big, 0 unreadable)"]
 
 
 def test_multiple_oversize_files_and_open_errors(tmp_path, monkeypatch):
@@ -404,6 +407,10 @@ def test_multiple_oversize_files_and_open_errors(tmp_path, monkeypatch):
     got = scan(tmp_path)
     assert asdict(got.usage_window) == {"files": 0, "first": None, "last": None, "skipped": 2}
     assert counts(got) == {"tdd": 0}
+    assert got.warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 2 files (2 too big, 0 unreadable)"]
+    (tmp_path / "projects" / "invented" / "link.jsonl").symlink_to(tmp_path / "nowhere")
+    assert scan(tmp_path).warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 3 files (2 too big, 1 unreadable)"]
+    (tmp_path / "projects" / "invented" / "link.jsonl").unlink()
 
     original = reader.os.open
 
@@ -433,7 +440,7 @@ def test_unmatched_slash_and_invalid_user_shapes(tmp_path):
     write_transcript(tmp_path, records)
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 0}
-    assert got.warnings == ["usage: skipped 2 malformed lines, 0 oversize line, 0 files (too big or unreadable)"]
+    assert got.warnings == ["usage: skipped 2 malformed lines, 0 oversize line, 0 files (0 too big, 0 unreadable)"]
 
 
 def test_normalized_plugin_and_server_preserve_uppercase(tmp_path):
@@ -460,8 +467,8 @@ def test_saved_usage_report_exact_rows_kinds_redaction_and_limits():
     section = text.split("Never used (in the transcripts scanned)")[1].split("Overlaps")[0]
     assert section.endswith("  0 (skill)  0 tokens\n  1 (agent)  0 tokens\n  2 (mcp_server)  unknown cost\n\n")
     note = (
-        "Covers 2 transcript files from 2026-10-01 to 2026-11-04. Sessions Claude Code has already deleted are not counted, "
-        "so 'never seen' only covers these."
+        "Covers 2 transcript files from 2026-10-01 to 2026-11-04 (35 days); 0 files skipped. "
+        "Claude Code deletes old transcripts, so 'never seen' covers only these files and is not proof an Item is unused."
     )
     assert note in section
     cleanup = render_cleanup(data, top=10).split("## Never used\n\n")[1]
@@ -543,7 +550,7 @@ def test_excluded_folders_and_recursive_json(tmp_path):
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 1}
     assert got.usage_window.files == 1
-    assert got.warnings == ["usage: skipped 1 malformed lines, 0 oversize line, 0 files (too big or unreadable)"]
+    assert got.warnings == ["usage: skipped 1 malformed lines, 0 oversize line, 0 files (0 too big, 0 unreadable)"]
 
 
 def test_synced_item_shadows_bare_plugin_name(tmp_path):
@@ -601,7 +608,7 @@ def test_record_and_block_types_must_be_strings(tmp_path):
     b["message"]["content"][0]["type"] = None
     b["tool_use"] = True
     write_transcript(tmp_path, [a, b])
-    assert scan(tmp_path).warnings == ["usage: skipped 2 malformed lines, 0 oversize line, 0 files (too big or unreadable)"]
+    assert scan(tmp_path).warnings == ["usage: skipped 2 malformed lines, 0 oversize line, 0 files (0 too big, 0 unreadable)"]
 
 
 @pytest.mark.parametrize("swapped", ["projects", "invented", "session", "subagents", "session.jsonl"])
@@ -758,7 +765,7 @@ def test_root_close_failure_preserves_prior_skip_count(tmp_path, monkeypatch):
     monkeypatch.setattr(reader.os, "close", close)
     result = scan(tmp_path)
     assert result.usage_window.skipped == 2
-    assert result.warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 2 files (too big or unreadable)"]
+    assert result.warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 2 files (0 too big, 2 unreadable)"]
 
 
 @pytest.mark.parametrize("metadata_check", ["is_symlink", "is_file", "is_dir"])
@@ -802,4 +809,82 @@ def test_unreadable_entry_metadata_does_not_hide_later_transcripts(tmp_path, mon
     assert failures == [metadata_check]
     assert counts(result) == {"tdd": 1}
     assert asdict(result.usage_window) == {"files": 1, "first": "2026-11-02", "last": "2026-11-02", "skipped": 1}
-    assert result.warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 1 files (too big or unreadable)"]
+    assert result.warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 1 files (0 too big, 1 unreadable)"]
+
+
+def user(text, uuid="u1"):
+    return {"type": "user", "uuid": uuid, "timestamp": "2026-11-02T12:00:00Z", "message": {"content": text}}
+
+
+def test_non_message_records_are_not_malformed(tmp_path):
+    write_skill(tmp_path, "tdd", "invented")
+    write_transcript(
+        tmp_path,
+        [
+            {"type": "summary", "note": "tool_use", "timestamp": "2026-11-02T00:00:00Z"},
+            {"type": "x", "text": "<command-name>"},
+            {"type": "system", "message": "tool_use"},
+            tool(),
+        ],
+    )
+    got = scan(tmp_path)
+    assert got.warnings == []
+    assert counts(got) == {"tdd": 1}
+
+
+def test_two_slash_commands_in_one_message_are_not_ambiguous(tmp_path):
+    for name in ("a", "b"):
+        write_skill(tmp_path, name, name)
+    write_transcript(tmp_path, [user("<command-name>/a</command-name><command-name>/b</command-name>")])
+    got = scan(tmp_path)
+    assert counts(got) == {"a": 1, "b": 1}
+    assert got.warnings == []
+
+
+def test_ambiguity_is_per_lookup_even_beside_a_clear_command(tmp_path):
+    write_skill(tmp_path, "b", "b")
+    for p in ("p", "q"):
+        write_skill(plugin(tmp_path, p), "a", "a")
+    write_transcript(tmp_path, [user("<command-name>/a</command-name><command-name>/b</command-name>")])
+    assert scan(tmp_path).warnings == ["usage: 1 invocation names matched more than one Item; each was credited"]
+
+
+def test_symlinked_config_dir_is_read(tmp_path):
+    real = tmp_path / "real"
+    write_skill(real, "tdd", "invented")
+    write_transcript(real, [tool()])
+    link = tmp_path / "link"
+    link.symlink_to(real, target_is_directory=True)
+    got = scan(link)
+    assert counts(got) == {"tdd": 1}
+    assert got.warnings == []
+    assert got.usage_window.files == 1
+
+
+def test_window_uses_top_level_timestamp_only(tmp_path):
+    write_skill(tmp_path, "tdd", "invented")
+    nested = {"message": {"content": [{"timestamp": "1999-01-01T00:00:00Z"}]}, "timestamp": "2026-11-03T00:00:00Z"}
+    only_nested = {"message": {"content": [{"timestamp": "1998-01-01T00:00:00Z"}]}}
+    write_transcript(tmp_path, [nested, only_nested, tool(day="2026-11-04")])
+    got = scan(tmp_path)
+    assert asdict(got.usage_window) == {"files": 1, "first": "2026-11-03", "last": "2026-11-04", "skipped": 0}
+    assert got.usage["claude-code:skill:tdd"].last_used == "2026-11-04"
+
+
+def test_undated_transcripts_never_print_none_and_skips_are_reported(tmp_path, monkeypatch, capsys):
+    from constellation.cli import main
+    from constellation.report import render_report
+
+    write_skill(tmp_path, "unused", "invented")
+    write_transcript(tmp_path, [{"type": "x"}])
+    (tmp_path / "projects" / "invented" / "gone.jsonl").symlink_to(tmp_path / "nowhere")
+    data = asdict(scan(tmp_path))
+    assert data["usage_window"] == {"files": 1, "first": None, "last": None, "skipped": 1}
+    report = render_report(data, top=5, color=False, width=200, show_all=False)
+    assert "Covers 1 transcript files; 1 files skipped. Claude Code deletes old transcripts" in report
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "constellation.json").write_text(json.dumps(data))
+    assert main(["review"], decide=lambda s: "s") == 0
+    out = capsys.readouterr().out
+    assert "unused (skill) was never seen in 1 transcripts." + CAVEAT.format(1) in out
+    assert "None to None" not in out + report
