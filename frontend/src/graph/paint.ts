@@ -1,5 +1,6 @@
 // Canvas painting for the star atlas. force-graph calls pre -> links -> nodes -> post every frame;
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
+import { haloOf } from "./layout";
 import { chooseSpot, type Box } from "./names";
 import type { Cluster, GLink, GNode, GOverlap, Model } from "./model";
 
@@ -47,6 +48,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   let last = 0, lit: Set<GNode> | null = null, f: GNode | null = null, fk = 1;
   // Every fade eases toward a target and snaps when close. `busy` says whether anything is still moving, so the
   // canvas can stop repainting once the map is at rest (StarMap wakes it again on any interaction).
+  const halos = new Map<Cluster, { x: number; y: number; r: number }>();
   let moving = false, busy = true;
   const ease = (a: number, b: number, k: number) => {
     if (Math.abs(b - a) < 0.002) return b;
@@ -114,8 +116,13 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       const target = f ? (o.a === f || o.b === f ? 1 : 0) : m ? 0 : rest;
       o.alpha = ease(o.alpha, target, k);
     }
+    const hk = reducedMotion ? 1 : 1 - Math.exp(-dt / FEEL.labelMs);
     for (const c of model.clusters) {
-      let top = 0; // the circle itself is fixed (layout.ts); only its brightness follows its Items
+      // the halo follows its members' live position, eased (exactly the home circle at rest); brightness follows its Items
+      const t = haloOf(c), h = halos.get(c);
+      if (!h) halos.set(c, t);
+      else { h.x = ease(h.x, t.x, hk); h.y = ease(h.y, t.y, hk); h.r = ease(h.r, t.r, hk); }
+      let top = 0;
       for (const n of c.members) top = Math.max(top, n.a);
       const on = f && !pure && !m ? f.cluster === c : !lit || c.members.some((n) => lit!.has(n));
       c.a = ease(c.a, top > 0.05 ? (on ? 1 : 0.22) : 0, k);
@@ -139,11 +146,12 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     // cluster halos: soft nebulae, one neutral hue (27 clusters is far past what colour can encode)
     for (const c of model.clusters) {
       if (c.members.length < 3 || c.a < 0.01) continue;
-      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+      const h = halos.get(c)!;
+      const g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.r);
       g.addColorStop(0, ink.halo); g.addColorStop(0.6, ink.halo); g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.globalAlpha = c.a;
       ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 2 * Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, 2 * Math.PI); ctx.fill();
     }
     // glows are additive so dense regions bloom
     ctx.globalCompositeOperation = "lighter";
@@ -333,12 +341,12 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.textBaseline = "middle";
       let m = widths.get(c);
       if (!m || m.size !== size) widths.set(c, (m = { size, w: ctx.measureText(c.name).width, scale: 1 }));
-      const w = m.w, h = size * 1.15;
-      const [cx, cy] = sc.apply(c.x, c.y), focused = f?.cluster === c;
+      const w = m.w, lh = size * 1.15;
+      const h = halos.get(c)!, [cx, cy] = sc.apply(h.x, h.y), focused = f?.cluster === c;
       // at the fitted view only clusters of 5 or more try for a name; smaller ones come in as you zoom, or when looked at
       const tries = c.members.length >= 5 || z >= 1.15 || focused;
       const spot = tries && zoomAlpha > 0.03 && c.a > 0.03
-        ? chooseSpot({ cx, cy, r: c.r * sc.k, w, h, pick: c.pick, allowed: focused ? 2 : 0, W, H, top: view.top, bottom: view.bottom, right: view.right, placed, obstacles })
+        ? chooseSpot({ cx, cy, r: h.r * sc.k, w, h: lh, pick: c.pick, allowed: focused ? 2 : 0, W, H, top: view.top, bottom: view.bottom, right: view.right, placed, obstacles })
         : null;
       if (spot) {
         m.scale = spot.scale;

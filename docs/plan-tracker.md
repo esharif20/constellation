@@ -140,3 +140,11 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - Checklist adds now append one whole line with `O_APPEND` (no truncate, so a hand edit is never lost); a re-add chmods the file to 0600; the cache directory is created 0700; the path guard rejects any `.claude` folder, not only `~/.claude`.
 - Plan behaviour kept (no code change): a duplicate whose cost is unknown has `removes=null`, saves nothing countable, and its row says "unknown".
+
+## #36 halo follows the cluster (2026-11-04, branch `claude/ticket-36`, plan `docs/plans/explore-ux.md` section H, T6)
+
+- `layout.ts` gains pure `haloOf(c)`: centre = home + (live member mean - rest mean), radius = `c.r` widened by how much the farthest member's reach grew past its rest reach, capped at 1.4 `c.r`. `layout()` records the rest mean and rest reach (`mx`, `my`, `fr`) per cluster, so at rest the halo is exactly `(c.x, c.y, c.r)`. `paint.ts` eases a per-cluster halo toward it with `FEEL.labelMs` and uses it for the glow and the cluster-name placement. No new dependency.
+- Small deviation from the plan's formula (no approval needed, same behaviour): the plan's `farthest + r + GAP` already exceeds `c.r` at rest, so the radius is measured relative to the rest reach to keep the at-rest picture unchanged.
+- `layout:check` adds `haloBad` (rest equals home; one member moved by d shifts the centre by d / n; radius within [r, 1.4 r]); all existing thresholds untouched and passing.
+- Gates: lint, build, layout:check, pytest (469 passed). Dragging a hub on `demo-250.json` checked by eye with agent-browser: halo and name move with the members.
+- Not verified: a before/after pair on the old build (the stashed rerun did not drag), touch drag, phone width.
