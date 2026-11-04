@@ -221,6 +221,7 @@ def test_every_api_rejects_nonlocal_hosts_and_invalid_ports(scan_file, host):
     for route in ("/api/constellation", "/api/brief"):
         assert client.get(route, headers={"host": host}).status_code == 403
     assert client.post("/api/checklist", json={"id": "0" * 12}, headers={"host": host}).status_code == 403
+    assert client.post("/api/chat", json={"question": "email"}, headers={"host": host}).status_code == 403
 
 
 @pytest.mark.parametrize("host", ["localhost:1", "localhost:65535", "127.0.0.1:80"])
@@ -243,6 +244,7 @@ def test_post_rejects_cross_origin_requests(scan_file, headers, tmp_path):
     checklist = tmp_path / "checklist.md"
     client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
     assert client.post("/api/checklist", json={"id": "0" * 12}, headers=headers).status_code == 403
+    assert client.post("/api/chat", json={"question": "email"}, headers=headers).status_code == 403
     assert not checklist.exists()
     assert (
         client.options("/api/checklist", headers={"origin": "http://evil.example", "access-control-request-method": "POST"}).status_code

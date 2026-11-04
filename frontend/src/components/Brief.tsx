@@ -10,13 +10,14 @@ type Props = {
   model: Model;
   open: boolean;
   hidden: boolean;
+  footerInset?: number;
   pill: RefObject<HTMLButtonElement | null>;
   onOpen: (open: boolean) => void;
   onItem: (id: string) => void;
   onPair: (row: BriefRow) => void;
 };
 
-export function Brief({ data, model, open, hidden, pill, onOpen, onItem, onPair }: Props) {
+export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen, onItem, onPair }: Props) {
   const [checklist, setChecklist] = useState(data.checklist);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -85,7 +86,7 @@ export function Brief({ data, model, open, hidden, pill, onOpen, onItem, onPair 
   return <>
     {!hidden && (open ? <section
       aria-labelledby="brief-title"
-      style={{ "--brief-bottom": `${bottom}px` } as CSSProperties}
+      style={{ "--brief-bottom": `${bottom + footerInset}px` } as CSSProperties}
       className="glass fixed inset-x-0 bottom-0 flex max-h-[46dvh] animate-sheet-in flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:top-[76px] sm:bottom-auto sm:left-4 sm:max-h-[calc(100dvh-76px-var(--brief-bottom))] sm:w-[340px] sm:animate-panel-in sm:rounded-xl sm:border-b"
       onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); onOpen(false); requestAnimationFrame(() => pill.current?.focus()); } }}
     >

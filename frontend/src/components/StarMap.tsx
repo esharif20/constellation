@@ -13,7 +13,7 @@ type Props = {
   preview: GNode | null; // an Item hovered in the inspector or search list
   matches: Set<GNode> | null;
   panelWidth: number; // px the inspector covers on the right (0 on phones, where it is a bottom sheet)
-  briefOpen: boolean;
+  leftPanel: "brief" | "chat" | null;
   onSelect: (n: GNode | null) => void;
 };
 
@@ -32,15 +32,17 @@ function measureInsets(view: Painter["view"]) {
     if (panel.width > W * 0.8) view.bottom = Math.max(view.bottom, H - panel.top + 8); // phone: a bottom sheet
     else view.right = W - panel.left + 8;
   }
-  const brief = edge('section[aria-labelledby="brief-title"]');
-  if (brief) {
-    if (W <= 640) view.bottom = Math.max(view.bottom, H - brief.top + 8);
-    else view.left = brief.right + 8;
+  const chatTrigger = edge('button[aria-controls="chat-title"]');
+  if (W <= 640 && chatTrigger) view.bottom = Math.max(view.bottom, H - chatTrigger.top + 8);
+  const leftPanel = edge('section[aria-labelledby="brief-title"], section[aria-labelledby="chat-title"]');
+  if (leftPanel) {
+    if (W <= 640) view.bottom = Math.max(view.bottom, H - leftPanel.top + 8);
+    else view.left = leftPanel.right + 8;
   }
 }
 
 // Fit every star into the sky left free by the chrome, so a phone gets a tall, full map rather than empty bands.
-function fit(g: ForceGraphMethods<GNode, GLink>, painter: Painter, model: Model) {
+function fittedView(painter: Painter, model: Model) {
   measureInsets(painter.view);
   const { top, bottom, right, left } = painter.view, W = innerWidth, H = innerHeight, pad = W <= 640 ? 14 : 36;
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -55,12 +57,10 @@ function fit(g: ForceGraphMethods<GNode, GLink>, painter: Painter, model: Model)
   }
   const L = left + pad, R = W - right - pad, T = top + pad / 2, B = H - bottom - pad / 2;
   const k = Math.min(3, (R - L) / Math.max(1, x1 - x0), (B - T) / Math.max(1, y1 - y0));
-  g.zoom(k, 0);
-  g.centerAt((x0 + x1) / 2 - ((L + R) / 2 - W / 2) / k, (y0 + y1) / 2 - ((T + B) / 2 - H / 2) / k, 0);
-  painter.view.fitK = k;
+  return { k, x: (x0 + x1) / 2 - ((L + R) / 2 - W / 2) / k, y: (y0 + y1) / 2 - ((T + B) / 2 - H / 2) / k };
 }
 
-export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, panelWidth, briefOpen, onSelect }, ref) {
+export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, panelWidth, leftPanel, onSelect }, ref) {
   const fg = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined);
   const wrap = useRef<HTMLDivElement>(null);
   const painter = useMemo(() => makePainter(model, reduced()), [model]);
@@ -93,12 +93,20 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   const [cool, setCool] = useState(0);
   // The warm-up runs on the first frame, after the data lands, so the first rest is when the final layout can be fitted
   // (the stars are still unlit then, so the camera move is never seen).
-  const [range, setRange] = useState<[number, number]>([0.05, 40]); // zoom limits, relative to the fitted zoom once known
+  const [fitted, setFitted] = useState<ReturnType<typeof fittedView> | null>(null);
+  const range = fitted ? [fitted.k * 0.6, fitted.k * 10] : [0.05, 40];
+  // force-graph receives the new bounds during render; apply the camera afterwards so the old minZoom cannot clamp it.
+  useEffect(() => {
+    if (!fitted || !fg.current) return;
+    fg.current.zoom(fitted.k, 0);
+    fg.current.centerAt(fitted.x, fitted.y, 0);
+    painter.view.fitK = fitted.k;
+    wake();
+  }, [fitted, painter, wake]);
   const first = useRef(true);
   const onEngineStop = useCallback(() => {
     if (first.current && fg.current) {
-      fit(fg.current, painter, model);
-      setRange([painter.view.fitK * 0.6, painter.view.fitK * 10]);
+      setFitted(fittedView(painter, model));
     }
     first.current = false;
     setCool(0);
@@ -150,18 +158,18 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     measureInsets(painter.view);
     const id = setTimeout(() => {
       measureInsets(painter.view);
-      if (!selected && fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) fit(fg.current, painter, model);
+      if (!selected && fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) setFitted(fittedView(painter, model));
       wake();
     }, 460);
     return () => clearTimeout(id);
-  }, [selected, briefOpen, painter, model, wake]);
+  }, [selected, leftPanel, size.w, size.h, painter, model, wake]);
 
   useEffect(() => {
     const onResize = () => {
       setSize({ w: innerWidth, h: innerHeight });
       // a map still at its fitted view follows the window; one the reader has moved stays put
       requestAnimationFrame(() => {
-        if (fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) fit(fg.current, painter, model);
+        if (fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) setFitted(fittedView(painter, model));
         wake();
       });
     };

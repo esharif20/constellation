@@ -64,7 +64,7 @@ Free by default; paid scan calls only for new or changed Items. A scan of an unc
 
 Scan providers receive only Item kinds, names and descriptions (plus short local signals and, later, tool schemas), always after redaction. File bodies are read locally and never sent, with one opt-in exception: `constellation scan --count-bodies` sends each skill's redacted body to Anthropic's token-counting endpoint to measure on-use cost. Without the flag, on-use cost is reported as unknown. Any new feature that would send more than this needs the user's explicit approval first.
 
-Chat exception approved by the user on 2026-11-04: model chat is disabled by default; explicit opt-in permits redacted questions and bounded relevant Item/graph metadata with per-interaction calls. Local work remains first, requests are bounded and cached privately, and local failures never trigger paid fallback. Transcript text, usage counts/dates, file bodies and credentials remain excluded. See `docs/plans/chat.md` for the contract and proposed D12 cost amendment.
+Chat exception approved by the user on 2026-11-04: model chat is disabled by default; explicit opt-in permits redacted questions and bounded relevant Item/graph metadata with per-interaction calls. Local work remains first, requests are bounded and cached privately, and local failures never trigger paid fallback. Transcript text, usage counts/dates, file bodies and credentials remain excluded. The user selected free-first local answers for a 16GB baseline, with optional on-device generation later; hosted execution is deferred. See `docs/plans/chat.md` for the contract and D12 staging amendment.
 
 ### Staged skills (not loaded, to keep context cost at zero)
 

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Legend } from "@/components/Legend";
 import { Brief } from "@/components/Brief";
+import { Chat, type ChatAction } from "@/components/Chat";
 import { StarMap, type StarMapHandle } from "@/components/StarMap";
 import { TopBar } from "@/components/TopBar";
 import { kindName, search, type BriefData, type BriefRow, type GNode, type Model } from "@/graph/model";
@@ -18,14 +19,17 @@ export default function Atlas({ model }: { model: Model }) {
   const pill = useRef<HTMLButtonElement>(null);
   const [brief, setBrief] = useState<BriefData | null>(null);
   const [briefOpen, setBriefOpen] = useState(() => { try { return localStorage.getItem("constellation.brief") !== "closed"; } catch { return true; } });
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMatches, setChatMatches] = useState<Set<GNode> | null>(null);
   const [selected, setSelected] = useState<GNode | null>(null);
   const [preview, setPreview] = useState<GNode | null>(null);
   const [query, setQuery] = useState("");
   const [phone, setPhone] = useState(() => matchMedia("(max-width: 640px)").matches);
   const [narrow, setNarrow] = useState(() => matchMedia("(width < 960px)").matches);
   const found = useMemo(() => search(model.nodes, query), [model, query]);
-  const matches = useMemo(() => (query.trim() ? new Set(found) : null), [found, query]);
-  const showBrief = !!brief && briefOpen && !(narrow && selected);
+  const matches = useMemo(() => (query.trim() ? new Set(found) : chatMatches), [found, query, chatMatches]);
+  const showBrief = !!brief && briefOpen && !chatOpen && !(narrow && selected);
+  const showInspector = !(narrow && chatOpen);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -38,9 +42,16 @@ export default function Atlas({ model }: { model: Model }) {
 
   const openBrief = useCallback((open: boolean) => {
     setBriefOpen(open);
+    if (open) setChatOpen(false);
     if (open && narrow) { setSelected(null); setPreview(null); }
     try { localStorage.setItem("constellation.brief", open ? "open" : "closed"); } catch { /* Storage is optional. */ }
   }, [narrow]);
+
+  const openChat = useCallback((open: boolean) => {
+    setChatOpen(open);
+    setPreview(null);
+    if (selected) requestAnimationFrame(() => map.current?.glideTo(selected, framedPair.current));
+  }, [selected]);
 
   useEffect(() => {
     const id = setTimeout(loadInspector, 600);
@@ -48,10 +59,13 @@ export default function Atlas({ model }: { model: Model }) {
   }, []);
 
   useEffect(() => {
-    const mq = matchMedia("(max-width: 640px)"), on = () => setPhone(mq.matches);
+    const mq = matchMedia("(max-width: 640px)"), on = () => {
+      setPhone(mq.matches);
+      if (selected) requestAnimationFrame(() => map.current?.glideTo(selected, framedPair.current));
+    };
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
-  }, []);
+  }, [selected]);
 
   useEffect(() => {
     const mq = matchMedia("(width < 960px)");
@@ -108,12 +122,21 @@ export default function Atlas({ model }: { model: Model }) {
     const onKey = (e: KeyboardEvent) => {
       const typing = e.target instanceof Element && !!e.target.closest('input, textarea, select, [contenteditable="true"]');
       if (typing || e.defaultPrevented) return;
-      if (e.key === "b" && !e.metaKey && !e.ctrlKey && !e.altKey && brief) { e.preventDefault(); openBrief(!briefOpen); }
-      if (e.key === "Escape") close();
+      if (e.key === "b" && !e.metaKey && !e.ctrlKey && !e.altKey && brief) { e.preventDefault(); openBrief(chatOpen || !briefOpen); }
+      if (e.key === "Escape") { if (chatOpen) openChat(false); else close(); }
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
-  }, [close, brief, briefOpen, openBrief]);
+  }, [close, brief, briefOpen, openBrief, chatOpen, openChat]);
+
+  const applyChatActions = (actions: ChatAction[]) => {
+    const ids = new Set(actions.flatMap((action) => action.item_ids));
+    setQuery("");
+    setChatMatches(ids.size ? new Set(model.nodes.filter((n) => ids.has(n.id))) : null);
+    const focus = actions.find((action) => action.kind === "focus" && action.item_ids.length);
+    const node = focus && model.nodes.find((n) => n.id === focus.item_ids[0]);
+    if (node) select(node);
+  };
 
   return (
     <>
@@ -126,12 +149,13 @@ export default function Atlas({ model }: { model: Model }) {
         onPreview={setPreview}
         onChoose={(n) => { setQuery(""); select(n); map.current?.focusCanvas(); }}
       />
-      {brief && <Brief data={brief} model={model} open={showBrief} hidden={phone && !!selected} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} />}
+      {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected)} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} />}
+      <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={selectById} />
       </div>
-      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} panelWidth={phone ? 0 : PANEL} briefOpen={showBrief} onSelect={select} />
-      <Legend model={model} hidden={!!selected || showBrief} />
+      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} onSelect={select} />
+      <Legend model={model} hidden={!!selected || showBrief || chatOpen} />
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
-      {selected && (
+      {selected && showInspector && (
         <Suspense fallback={null}>
           <Inspector model={model} item={selected} onSelect={select} onPreview={setPreview} onClose={close} />
         </Suspense>
