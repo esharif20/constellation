@@ -209,7 +209,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   function node(n: GNode, ctx: CanvasRenderingContext2D, k: number) {
     if (n.a < 0.01) return;
     const r = radius(n, k), px = 1 / k, x = n.x!, y = n.y!, c = colorOf.get(n)!;
-    ctx.globalAlpha = n.a;
+    ctx.globalAlpha = n.a * (n.disabled ? 0.4 : 1); // a disabled plugin and its contents: dimmed, with a hollow ring below
     ctx.fillStyle = ctx.strokeStyle = c;
     // Unknown cost is a dashed outline with no fill and no white core (zero is a filled star at the floor size), so the
     // difference survives colour-blindness and greyscale. A plugin ring just turns dashed and keeps its centre dot.
@@ -227,6 +227,9 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     } else if (n.shape === "square") {
       ctx.rect(x - r * 0.9, y - r * 0.9, r * 1.8, r * 1.8);
       if (unk) { ctx.lineWidth = line; ctx.stroke(); } else ctx.fill();
+    } else if (n.shape === "triangle") {
+      ctx.moveTo(x, y - r * 1.15); ctx.lineTo(x + r, y + r * 0.85); ctx.lineTo(x - r, y + r * 0.85);
+      if (unk) { ctx.closePath(); ctx.lineWidth = line; ctx.stroke(); } else ctx.fill();
     } else if (unk) {
       ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.lineWidth = line; ctx.stroke();
     } else {
@@ -236,6 +239,10 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.beginPath(); ctx.arc(x, y, r * 0.38, 0, 2 * Math.PI); ctx.fill();
     }
     ctx.setLineDash([]);
+    if (n.disabled) {
+      ctx.lineWidth = 1.2 * px;
+      ctx.beginPath(); ctx.arc(x, y, r + 3 * px, 0, 2 * Math.PI); ctx.stroke();
+    }
     if (focus.matches?.has(n) && n !== focus.selected) { // a search match carries a ring, so it never relies on brightness alone
       ctx.strokeStyle = c;
       ctx.lineWidth = 1.2 * px;

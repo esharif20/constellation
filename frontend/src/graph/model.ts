@@ -1,7 +1,7 @@
 // The Constellation as the API serves it (GET /api/constellation), and the graph model the canvas draws.
 import { layout } from "./layout.ts";
 
-export type Item = { id: string; kind: string; name: string; description: string; source: string };
+export type Item = { id: string; kind: string; name: string; description: string; source: string; disabled?: boolean };
 export type Relation = { source: string; target: string; kind: string };
 export type Cost = { always_on: number | null; on_use: number | null };
 export type Usage = { count: number; last_used: string | null };
@@ -27,7 +27,7 @@ export type BriefGroup = { rows: BriefRow[]; unknown: number; unknown_rows: numb
 export type Checklist = { path: string; ids: string[]; frees: number | null; unknown_rows: number };
 export type BriefData = { cost: BriefGroup & { measured: boolean }; pairs: BriefGroup; checklist?: Checklist };
 
-export type Shape = "dot" | "ring" | "diamond" | "square";
+export type Shape = "dot" | "ring" | "diamond" | "square" | "triangle";
 export type GNode = Item & {
   label: string;
   shape: Shape;
@@ -56,10 +56,10 @@ export const RMIN = 2.6, RMAX = 9, RUNK = 4.5;
 export const costRadius = (alwaysOn: number | null | undefined, cRef: number) =>
   alwaysOn == null ? RUNK : Math.max(RMIN, Math.min(RMAX, RMAX * Math.sqrt(alwaysOn / cRef)));
 
-const KIND_NAME: Record<string, string> = { skill: "Skill", hook: "Hook", agent: "Agent", plugin: "Plugin", mcp_server: "MCP server", connector: "Connector" };
+const KIND_NAME: Record<string, string> = { skill: "Skill", hook: "Hook", agent: "Agent", plugin: "Plugin", mcp_server: "MCP server", connector: "Connector", command: "Command" };
 export const kindName = (k: string) => KIND_NAME[k] ?? k.replace(/_/g, " ");
 
-const SHAPE: Record<string, Shape> = { plugin: "ring", mcp_server: "diamond", connector: "square" }; // structural kinds share one colour, so shape carries identity
+const SHAPE: Record<string, Shape> = { plugin: "ring", mcp_server: "diamond", connector: "square", command: "triangle" }; // structural kinds share one colour, so shape carries identity
 
 const REL_NAME: Record<string, [string, string]> = {
   contains: ["Contains", "Contained in"],
