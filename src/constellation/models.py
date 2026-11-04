@@ -35,6 +35,12 @@ class Cost:
     on_use: int | None  # tokens paid only when invoked; None = unknown
 
 
+@dataclass(frozen=True)
+class Weight:
+    bytes: int | None  # statically known size of what a prompt-time hook injects; None = unknown
+    tokens: int | None  # counted only with --count-bodies (or already cached); None = not counted
+
+
 Verdict = Literal["duplicate", "wrapper", "overlap", "distinct"]
 
 
@@ -55,3 +61,4 @@ class Constellation:
     clusters: list[Cluster] = field(default_factory=list)
     costs: dict[str, Cost] = field(default_factory=dict)  # Item id -> Context cost, set when scan() gets a token counter
     overlaps: list[Overlap] = field(default_factory=list)  # sorted by (a_id, b_id)
+    hook_weights: dict[str, Weight] = field(default_factory=dict)  # hook Item id -> what it injects at SessionStart / UserPromptSubmit
