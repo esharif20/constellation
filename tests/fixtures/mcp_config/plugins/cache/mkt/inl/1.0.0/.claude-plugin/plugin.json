@@ -1,0 +1,1 @@
+{"name":"inl","description":"inline","mcpServers":{"inlsrv":{"command":"inlcmd","args":["PLANTED_INLARG"],"env":{"K":"PLANTED_INLENV"}},"zbundle2":{"url":"https://inl.example.com/p?s=PLANTED_INLQ"}}}

@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from .models import Item, Usage, UsageWindow
+from .models import Item, Relation, Usage, UsageWindow
 
 FILE_CAP = 256 * 1024 * 1024
 LINE_CAP = 8 * 1024 * 1024
@@ -29,20 +29,22 @@ def _day(value: Any) -> str | None:
         return None
 
 
-def _index(items: list[Item]) -> tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]]:
+def _index(items: list[Item], relations: list[Relation]) -> tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]]:
     names: dict[tuple[str, str], list[str]] = {}
     prefixes: dict[str, list[str]] = {}
-    scopes = {i.id: i.id.removeprefix(f"claude-code:{i.kind}:") for i in items}
-    local = {(i.kind, i.name) for i in items if "/" not in scopes[i.id] or scopes[i.id].startswith("synced/")}
+    # A plugin's contents are the targets of its "contains" edges; an id prefix is no scope (a plugin may be named "user").
+    owner = {r.target: r.source for r in relations if r.kind == "contains"}
+    plugin_names = {i.id: i.name for i in items if i.kind == "plugin"}
+    plugin_of = {i.id: plugin_names[owner[i.id]] if i.id in owner else "" for i in items}
+    local = {(i.kind, i.name) for i in items if not plugin_of[i.id]}
     for i in items:
-        scope = scopes[i.id]
-        plugin = scope.split("/")[0] if "/" in scope and not scope.startswith("synced/") else ""
+        plugin = plugin_of[i.id]
         if i.kind in {"skill", "agent"}:
             if plugin:
                 names.setdefault((i.kind, f"{plugin}:{i.name}"), []).append(i.id)
             if not plugin or (i.kind, i.name) not in local:
                 names.setdefault((i.kind, i.name), []).append(i.id)
-        if i.kind in {"mcp_server", "connector"}:
+        if i.kind == "mcp_server":  # scans no longer produce connectors; they return with transcript-seen connectors
             normalized = re.sub(r"[^A-Za-z0-9_-]", "_", i.name)
             if plugin:
                 normalized = "plugin_" + re.sub(r"[^A-Za-z0-9_-]", "_", plugin) + "_" + normalized
@@ -195,7 +197,7 @@ def _drain(stream: BinaryIO) -> None:
             return
 
 
-def read_usage(config_dir: Path, items: list[Item]) -> tuple[dict[str, Usage], UsageWindow, list[str]]:
+def read_usage(config_dir: Path, items: list[Item], relations: list[Relation]) -> tuple[dict[str, Usage], UsageWindow, list[str]]:
     usage = {i.id: Usage(0, None) for i in items if i.kind in TRACKED}
     config_dir = config_dir.resolve()  # a symlinked config dir is the user's choice; pin its real target once
     projects = config_dir / PROJECTS
@@ -203,7 +205,7 @@ def read_usage(config_dir: Path, items: list[Item]) -> tuple[dict[str, Usage], U
         return usage, UsageWindow(0, None, None, 1), ["usage: projects folder is a symlink; not read"]
     if not projects.exists():
         return usage, UsageWindow(0, None, None, 0), []
-    index = _index(items)
+    index = _index(items, relations)
     seen: set[bytes] = set()
     ambiguous: set[tuple[str, ...]] = set()
     files = skipped = malformed = oversize = big = symlinks = 0

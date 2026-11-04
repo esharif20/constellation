@@ -37,6 +37,7 @@
   --k-plugin: #ece4cc;
   --k-mcp_server: #ece4cc;
   --k-connector: #ece4cc;
+  --k-command: #ece4cc; /* structural, so starlight again: the triangle carries identity */
   --k-other: #c3c8dc;
 
   /* canvas ink */
@@ -162,6 +163,8 @@
   .glyph[data-kind="plugin"] { --c: var(--k-plugin); background: none; border: 1.5px solid var(--c); width: 11px; height: 11px; }
   .glyph[data-kind="mcp_server"] { --c: var(--k-mcp_server); border-radius: 1px; transform: rotate(45deg) scale(0.86); }
   .glyph[data-kind="connector"] { --c: var(--k-connector); border-radius: 2px; }
+  .glyph[data-kind="command"] { --c: var(--k-command); border-radius: 0; box-shadow: none; clip-path: polygon(50% 5%, 100% 95%, 0 95%); }
+  .glyph[data-disabled] { opacity: 0.4; }
   .edge-key { flex: none; display: inline-block; width: 18px; border-top: 1px dashed var(--edge-alt); }
   .edge-key[data-kind="contains"] { border-top: 1px solid rgb(150 168 235 / 0.55); }
   .edge-key[data-kind="uses"] { border-top-style: dotted; }
