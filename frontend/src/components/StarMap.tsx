@@ -85,9 +85,13 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   const [cool, setCool] = useState(0);
   // The warm-up runs on the first frame, after the data lands, so the first rest is when the final layout can be fitted
   // (the stars are still unlit then, so the camera move is never seen).
+  const [range, setRange] = useState<[number, number]>([0.05, 40]); // zoom limits, relative to the fitted zoom once known
   const first = useRef(true);
   const onEngineStop = useCallback(() => {
-    if (first.current && fg.current) fit(fg.current, painter, model);
+    if (first.current && fg.current) {
+      fit(fg.current, painter, model);
+      setRange([painter.view.fitK * 0.6, painter.view.fitK * 10]);
+    }
     first.current = false;
     setCool(0);
     wake();
@@ -97,6 +101,41 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     Object.assign(focus, { selected, preview, matches });
     wake();
   }, [focus, selected, preview, matches, wake]);
+
+  // Wheel and trackpad pinch: an eased, damped zoom towards the cursor instead of d3-zoom's instant steps. The target zoom
+  // moves with every wheel event; each frame the real zoom closes 1 - e^(-dt/90ms) of the gap, which is the soft tail.
+  // Touch pinch and drag-pan stay with d3-zoom so they track the fingers 1:1.
+  const zoomTo = useRef({ kT: 1, sx: 0, sy: 0, raf: 0 });
+  useEffect(() => {
+    const el = wrap.current!, z = zoomTo.current;
+    const tick = (last: number) => (now: number) => {
+      const g = fg.current;
+      if (!g) return void (z.raf = 0);
+      const k = g.zoom(), tau = reduced() ? 0 : 90;
+      let k2 = tau ? k + (z.kT - k) * (1 - Math.exp(-Math.min(64, now - last) / tau)) : z.kT;
+      if (Math.abs(z.kT - k2) / k2 < 0.002) k2 = z.kT;
+      const c = g.centerAt(), f = 1 / k - 1 / k2; // keep the graph point under the cursor still
+      g.zoom(k2, 0);
+      g.centerAt(c.x + (z.sx - innerWidth / 2) * f, c.y + (z.sy - innerHeight / 2) * f, 0);
+      z.raf = k2 === z.kT ? 0 : requestAnimationFrame(tick(now));
+    };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation(); // d3-zoom never sees it
+      const g = fg.current;
+      if (!g) return;
+      const rate = e.ctrlKey ? 0.01 : 0.0015 * (e.deltaMode === 1 ? 33 : 1);
+      const fitK = painter.view.fitK;
+      z.kT = Math.min(fitK * 10, Math.max(fitK * 0.6, (z.raf ? z.kT : g.zoom()) * Math.exp(-e.deltaY * rate)));
+      z.sx = e.clientX;
+      z.sy = e.clientY;
+      if (!z.raf) z.raf = requestAnimationFrame(tick(performance.now()));
+    };
+    const stop = () => { cancelAnimationFrame(z.raf); z.raf = 0; };
+    el.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    el.addEventListener("pointerdown", stop);
+    return () => { el.removeEventListener("wheel", onWheel, { capture: true }); el.removeEventListener("pointerdown", stop); stop(); };
+  }, [painter]);
 
   // the chrome moves with the selection (the panel slides in), so measure again once it has settled
   useEffect(() => {
@@ -179,8 +218,8 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
         cooldownTicks={cool}
         d3AlphaDecay={0.05}
         d3VelocityDecay={0.3}
-        minZoom={0.15}
-        maxZoom={8}
+        minZoom={range[0]}
+        maxZoom={range[1]}
         nodeCanvasObjectMode={() => "replace"}
         nodeCanvasObject={painter.node}
         nodePointerAreaPaint={painter.pointer}

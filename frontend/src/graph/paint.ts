@@ -218,7 +218,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   // Labels go down greedily by priority and are skipped when they would collide. A cluster name tries several
   // spots around its halo and takes the first that clears every star, every placed label and the chrome; when
   // none is free it fades out instead of sitting on a star.
-  const widths = new Map<Cluster, { size: number; w: number }>();
+  const widths = new Map<Cluster, { size: number; w: number; scale: number }>();
 
   function post(ctx: CanvasRenderingContext2D) {
     const sc = screen(ctx), z = sc.k / view.fitK;
@@ -275,7 +275,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.letterSpacing = "0.03em";
       ctx.textBaseline = "middle";
       let m = widths.get(c);
-      if (!m || m.size !== size) widths.set(c, (m = { size, w: ctx.measureText(c.name).width }));
+      if (!m || m.size !== size) widths.set(c, (m = { size, w: ctx.measureText(c.name).width, scale: 1 }));
       const w = m.w, h = size * 1.15;
       const [cx, cy] = sc.apply(c.x, c.y), focused = f?.cluster === c;
       // at the fitted view only clusters of 5 or more try for a name; smaller ones come in as you zoom, or when looked at
@@ -284,6 +284,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
         ? chooseSpot({ cx, cy, r: c.r * sc.k, w, h, pick: c.pick, allowed: focused ? 2 : 0, W, H, top: view.top, bottom: view.bottom, right: view.right, placed, obstacles })
         : null;
       if (spot) {
+        m.scale = spot.scale;
         placed.push(spot.box);
         c.pick = spot.i;
         const gx = (spot.x - sc.tx) / sc.k, gy = (spot.y - sc.ty) / sc.k, appearing = c.la < 0.05;
@@ -292,6 +293,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
         c.la = ease(c.la, spot.crowded ? 0.7 : 1, fk);
       } else c.la = ease(c.la, 0, fk);
       if (c.la > 0.02 && zoomAlpha > 0.03) {
+        ctx.font = `italic 400 ${size * m.scale}px ${ink.serif}`;
         const [sx, sy] = sc.apply(c.lx, c.ly);
         ctx.globalAlpha = zoomAlpha * c.la * c.a * 0.9;
         ctx.lineWidth = 4;

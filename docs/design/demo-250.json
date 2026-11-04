@@ -1,0 +1,3677 @@
+{
+ "items": [
+  {
+   "id": "plugin:tidy0",
+   "kind": "plugin",
+   "name": "tidy0",
+   "description": "A bundle for tidy the changelog.",
+   "source": "~/.claude/plugins/p0/plugin.json"
+  },
+  {
+   "id": "hook:0:mend-gasket-mini",
+   "kind": "hook",
+   "name": "mend-gasket-mini",
+   "description": "Use when the task involves mend gasket-mini. Keeps the work small.",
+   "source": "~/.claude/hooks/mend-gasket-mini"
+  },
+  {
+   "id": "skill:0:fold-canvas-pro",
+   "kind": "skill",
+   "name": "fold-canvas-pro",
+   "description": "Use when the task involves fold canvas-pro. Keeps the work small.",
+   "source": "~/.claude/skills/fold-canvas-pro"
+  },
+  {
+   "id": "agent:0:label-valve",
+   "kind": "agent",
+   "name": "label-valve",
+   "description": "Use when the task involves label valve. Keeps the work small.",
+   "source": "~/.claude/agents/label-valve"
+  },
+  {
+   "id": "skill:0:trace-canvas",
+   "kind": "skill",
+   "name": "trace-canvas",
+   "description": "Use when the task involves trace canvas. Keeps the work small.",
+   "source": "~/.claude/skills/trace-canvas"
+  },
+  {
+   "id": "skill:0:gather-crate",
+   "kind": "skill",
+   "name": "gather-crate",
+   "description": "Use when the task involves gather crate. Keeps the work small.",
+   "source": "~/.claude/skills/gather-crate"
+  },
+  {
+   "id": "skill:0:label-wick",
+   "kind": "skill",
+   "name": "label-wick",
+   "description": "Use when the task involves label wick. Keeps the work small.",
+   "source": "~/.claude/skills/label-wick"
+  },
+  {
+   "id": "skill:0:trace-ribbon-pro",
+   "kind": "skill",
+   "name": "trace-ribbon-pro",
+   "description": "Use when the task involves trace ribbon-pro. Keeps the work small.",
+   "source": "~/.claude/skills/trace-ribbon-pro"
+  },
+  {
+   "id": "skill:0:check-compass-pro",
+   "kind": "skill",
+   "name": "check-compass-pro",
+   "description": "Use when the task involves check compass-pro. Keeps the work small.",
+   "source": "~/.claude/skills/check-compass-pro"
+  },
+  {
+   "id": "skill:0:label-crate-lite",
+   "kind": "skill",
+   "name": "label-crate-lite",
+   "description": "Use when the task involves label crate-lite. Keeps the work small.",
+   "source": "~/.claude/skills/label-crate-lite"
+  },
+  {
+   "id": "skill:0:sort-lattice-mini",
+   "kind": "skill",
+   "name": "sort-lattice-mini",
+   "description": "Use when the task involves sort lattice-mini. Keeps the work small.",
+   "source": "~/.claude/skills/sort-lattice-mini"
+  },
+  {
+   "id": "skill:0:mend-gasket",
+   "kind": "skill",
+   "name": "mend-gasket",
+   "description": "Use when the task involves mend gasket. Keeps the work small.",
+   "source": "~/.claude/skills/mend-gasket"
+  },
+  {
+   "id": "skill:0:fold-beacon",
+   "kind": "skill",
+   "name": "fold-beacon",
+   "description": "Use when the task involves fold beacon. Keeps the work small.",
+   "source": "~/.claude/skills/fold-beacon"
+  },
+  {
+   "id": "agent:0:fold-crate-pro",
+   "kind": "agent",
+   "name": "fold-crate-pro",
+   "description": "Use when the task involves fold crate-pro. Keeps the work small.",
+   "source": "~/.claude/agents/fold-crate-pro"
+  },
+  {
+   "id": "skill:0:bind-compass",
+   "kind": "skill",
+   "name": "bind-compass",
+   "description": "Use when the task involves bind compass. Keeps the work small.",
+   "source": "~/.claude/skills/bind-compass"
+  },
+  {
+   "id": "skill:0:mend-canvas",
+   "kind": "skill",
+   "name": "mend-canvas",
+   "description": "Use when the task involves mend canvas. Keeps the work small.",
+   "source": "~/.claude/skills/mend-canvas"
+  },
+  {
+   "id": "agent:0:sort-ledger",
+   "kind": "agent",
+   "name": "sort-ledger",
+   "description": "Use when the task involves sort ledger. Keeps the work small.",
+   "source": "~/.claude/agents/sort-ledger"
+  },
+  {
+   "id": "agent:0:trace-thread-lite",
+   "kind": "agent",
+   "name": "trace-thread-lite",
+   "description": "Use when the task involves trace thread-lite. Keeps the work small.",
+   "source": "~/.claude/agents/trace-thread-lite"
+  },
+  {
+   "id": "hook:0:trace-crate-lite",
+   "kind": "hook",
+   "name": "trace-crate-lite",
+   "description": "Use when the task involves trace crate-lite. Keeps the work small.",
+   "source": "~/.claude/hooks/trace-crate-lite"
+  },
+  {
+   "id": "skill:0:trace-valve",
+   "kind": "skill",
+   "name": "trace-valve",
+   "description": "Use when the task involves trace valve. Keeps the work small.",
+   "source": "~/.claude/skills/trace-valve"
+  },
+  {
+   "id": "skill:0:sort-crate-pro",
+   "kind": "skill",
+   "name": "sort-crate-pro",
+   "description": "Use when the task involves sort crate-pro. Keeps the work small.",
+   "source": "~/.claude/skills/sort-crate-pro"
+  },
+  {
+   "id": "skill:0:sort-lattice-two",
+   "kind": "skill",
+   "name": "sort-lattice-two",
+   "description": "Use when the task involves sort lattice-two. Keeps the work small.",
+   "source": "~/.claude/skills/sort-lattice-two"
+  },
+  {
+   "id": "skill:0:mend-anvil-two",
+   "kind": "skill",
+   "name": "mend-anvil-two",
+   "description": "Use when the task involves mend anvil-two. Keeps the work small.",
+   "source": "~/.claude/skills/mend-anvil-two"
+  },
+  {
+   "id": "skill:0:sort-thread",
+   "kind": "skill",
+   "name": "sort-thread",
+   "description": "Use when the task involves sort thread. Keeps the work small.",
+   "source": "~/.claude/skills/sort-thread"
+  },
+  {
+   "id": "skill:0:sort-tally-lite",
+   "kind": "skill",
+   "name": "sort-tally-lite",
+   "description": "Use when the task involves sort tally-lite. Keeps the work small.",
+   "source": "~/.claude/skills/sort-tally-lite"
+  },
+  {
+   "id": "skill:0:sort-compass-pro",
+   "kind": "skill",
+   "name": "sort-compass-pro",
+   "description": "Use when the task involves sort compass-pro. Keeps the work small.",
+   "source": "~/.claude/skills/sort-compass-pro"
+  },
+  {
+   "id": "skill:0:sort-gasket-lite",
+   "kind": "skill",
+   "name": "sort-gasket-lite",
+   "description": "Use when the task involves sort gasket-lite. Keeps the work small.",
+   "source": "~/.claude/skills/sort-gasket-lite"
+  },
+  {
+   "id": "agent:0:bind-crate",
+   "kind": "agent",
+   "name": "bind-crate",
+   "description": "Use when the task involves bind crate. Keeps the work small.",
+   "source": "~/.claude/agents/bind-crate"
+  },
+  {
+   "id": "plugin:plan1",
+   "kind": "plugin",
+   "name": "plan1",
+   "description": "A bundle for plan the quarterly review.",
+   "source": "~/.claude/plugins/p1/plugin.json"
+  },
+  {
+   "id": "skill:1:bind-anvil-pro",
+   "kind": "skill",
+   "name": "bind-anvil-pro",
+   "description": "Use when the task involves bind anvil-pro. Keeps the work small.",
+   "source": "~/.claude/skills/bind-anvil-pro"
+  },
+  {
+   "id": "skill:1:draft-valve",
+   "kind": "skill",
+   "name": "draft-valve",
+   "description": "Use when the task involves draft valve. Keeps the work small.",
+   "source": "~/.claude/skills/draft-valve"
+  },
+  {
+   "id": "skill:1:polish-beacon",
+   "kind": "skill",
+   "name": "polish-beacon",
+   "description": "Use when the task involves polish beacon. Keeps the work small.",
+   "source": "~/.claude/skills/polish-beacon"
+  },
+  {
+   "id": "skill:1:scout-wick",
+   "kind": "skill",
+   "name": "scout-wick",
+   "description": "Use when the task involves scout wick. Keeps the work small.",
+   "source": "~/.claude/skills/scout-wick"
+  },
+  {
+   "id": "skill:1:chart-beacon",
+   "kind": "skill",
+   "name": "chart-beacon",
+   "description": "Use when the task involves chart beacon. Keeps the work small.",
+   "source": "~/.claude/skills/chart-beacon"
+  },
+  {
+   "id": "agent:1:polish-tally-lite",
+   "kind": "agent",
+   "name": "polish-tally-lite",
+   "description": "Use when the task involves polish tally-lite. Keeps the work small.",
+   "source": "~/.claude/agents/polish-tally-lite"
+  },
+  {
+   "id": "skill:1:trace-ribbon",
+   "kind": "skill",
+   "name": "trace-ribbon",
+   "description": "Use when the task involves trace ribbon. Keeps the work small.",
+   "source": "~/.claude/skills/trace-ribbon"
+  },
+  {
+   "id": "skill:1:draft-valve-mini",
+   "kind": "skill",
+   "name": "draft-valve-mini",
+   "description": "Use when the task involves draft valve-mini. Keeps the work small.",
+   "source": "~/.claude/skills/draft-valve-mini"
+  },
+  {
+   "id": "skill:1:draft-canvas",
+   "kind": "skill",
+   "name": "draft-canvas",
+   "description": "Use when the task involves draft canvas. Keeps the work small.",
+   "source": "~/.claude/skills/draft-canvas"
+  },
+  {
+   "id": "skill:1:scout-ledger",
+   "kind": "skill",
+   "name": "scout-ledger",
+   "description": "Use when the task involves scout ledger. Keeps the work small.",
+   "source": "~/.claude/skills/scout-ledger"
+  },
+  {
+   "id": "skill:1:gather-wick-two",
+   "kind": "skill",
+   "name": "gather-wick-two",
+   "description": "Use when the task involves gather wick-two. Keeps the work small.",
+   "source": "~/.claude/skills/gather-wick-two"
+  },
+  {
+   "id": "skill:1:tune-valve",
+   "kind": "skill",
+   "name": "tune-valve",
+   "description": "Use when the task involves tune valve. Keeps the work small.",
+   "source": "~/.claude/skills/tune-valve"
+  },
+  {
+   "id": "skill:1:sort-plinth-lite",
+   "kind": "skill",
+   "name": "sort-plinth-lite",
+   "description": "Use when the task involves sort plinth-lite. Keeps the work small.",
+   "source": "~/.claude/skills/sort-plinth-lite"
+  },
+  {
+   "id": "skill:1:sort-valve-lite",
+   "kind": "skill",
+   "name": "sort-valve-lite",
+   "description": "Use when the task involves sort valve-lite. Keeps the work small.",
+   "source": "~/.claude/skills/sort-valve-lite"
+  },
+  {
+   "id": "skill:1:draft-beacon",
+   "kind": "skill",
+   "name": "draft-beacon",
+   "description": "Use when the task involves draft beacon. Keeps the work small.",
+   "source": "~/.claude/skills/draft-beacon"
+  },
+  {
+   "id": "hook:1:bind-compass-lite",
+   "kind": "hook",
+   "name": "bind-compass-lite",
+   "description": "Use when the task involves bind compass-lite. Keeps the work small.",
+   "source": "~/.claude/hooks/bind-compass-lite"
+  },
+  {
+   "id": "skill:1:trace-ledger-pro",
+   "kind": "skill",
+   "name": "trace-ledger-pro",
+   "description": "Use when the task involves trace ledger-pro. Keeps the work small.",
+   "source": "~/.claude/skills/trace-ledger-pro"
+  },
+  {
+   "id": "skill:1:mend-anvil-pro",
+   "kind": "skill",
+   "name": "mend-anvil-pro",
+   "description": "Use when the task involves mend anvil-pro. Keeps the work small.",
+   "source": "~/.claude/skills/mend-anvil-pro"
+  },
+  {
+   "id": "hook:1:draft-compass-lite",
+   "kind": "hook",
+   "name": "draft-compass-lite",
+   "description": "Use when the task involves draft compass-lite. Keeps the work small.",
+   "source": "~/.claude/hooks/draft-compass-lite"
+  },
+  {
+   "id": "skill:1:mend-tally",
+   "kind": "skill",
+   "name": "mend-tally",
+   "description": "Use when the task involves mend tally. Keeps the work small.",
+   "source": "~/.claude/skills/mend-tally"
+  },
+  {
+   "id": "hook:1:trace-anvil",
+   "kind": "hook",
+   "name": "trace-anvil",
+   "description": "Use when the task involves trace anvil. Keeps the work small.",
+   "source": "~/.claude/hooks/trace-anvil"
+  },
+  {
+   "id": "skill:1:fold-gasket-lite",
+   "kind": "skill",
+   "name": "fold-gasket-lite",
+   "description": "Use when the task involves fold gasket-lite. Keeps the work small.",
+   "source": "~/.claude/skills/fold-gasket-lite"
+  },
+  {
+   "id": "skill:1:gather-stencil",
+   "kind": "skill",
+   "name": "gather-stencil",
+   "description": "Use when the task involves gather stencil. Keeps the work small.",
+   "source": "~/.claude/skills/gather-stencil"
+  },
+  {
+   "id": "skill:1:chart-gasket-lite",
+   "kind": "skill",
+   "name": "chart-gasket-lite",
+   "description": "Use when the task involves chart gasket-lite. Keeps the work small.",
+   "source": "~/.claude/skills/chart-gasket-lite"
+  },
+  {
+   "id": "hook:1:check-anvil",
+   "kind": "hook",
+   "name": "check-anvil",
+   "description": "Use when the task involves check anvil. Keeps the work small.",
+   "source": "~/.claude/hooks/check-anvil"
+  },
+  {
+   "id": "plugin:hook2",
+   "kind": "plugin",
+   "name": "hook2",
+   "description": "A bundle for hook script execution.",
+   "source": "~/.claude/plugins/p2/plugin.json"
+  },
+  {
+   "id": "skill:2:bind-gasket-lite",
+   "kind": "skill",
+   "name": "bind-gasket-lite",
+   "description": "Use when the task involves bind gasket-lite. Keeps the work small.",
+   "source": "~/.claude/skills/bind-gasket-lite"
+  },
+  {
+   "id": "skill:2:tune-crate-mini",
+   "kind": "skill",
+   "name": "tune-crate-mini",
+   "description": "Use when the task involves tune crate-mini. Keeps the work small.",
+   "source": "~/.claude/skills/tune-crate-mini"
+  },
+  {
+   "id": "skill:2:sweep-lattice-two",
+   "kind": "skill",
+   "name": "sweep-lattice-two",
+   "description": "Use when the task involves sweep lattice-two. Keeps the work small.",
+   "source": "~/.claude/skills/sweep-lattice-two"
+  },
+  {
+   "id": "skill:2:draft-wick",
+   "kind": "skill",
+   "name": "draft-wick",
+   "description": "Use when the task involves draft wick. Keeps the work small.",
+   "source": "~/.claude/skills/draft-wick"
+  },
+  {
+   "id": "skill:2:weigh-stencil",
+   "kind": "skill",
+   "name": "weigh-stencil",
+   "description": "Use when the task involves weigh stencil. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-stencil"
+  },
+  {
+   "id": "skill:2:sort-tally",
+   "kind": "skill",
+   "name": "sort-tally",
+   "description": "Use when the task involves sort tally. Keeps the work small.",
+   "source": "~/.claude/skills/sort-tally"
+  },
+  {
+   "id": "skill:2:scout-beacon-two",
+   "kind": "skill",
+   "name": "scout-beacon-two",
+   "description": "Use when the task involves scout beacon-two. Keeps the work small.",
+   "source": "~/.claude/skills/scout-beacon-two"
+  },
+  {
+   "id": "skill:2:fold-gasket",
+   "kind": "skill",
+   "name": "fold-gasket",
+   "description": "Use when the task involves fold gasket. Keeps the work small.",
+   "source": "~/.claude/skills/fold-gasket"
+  },
+  {
+   "id": "skill:2:mend-ledger-mini",
+   "kind": "skill",
+   "name": "mend-ledger-mini",
+   "description": "Use when the task involves mend ledger-mini. Keeps the work small.",
+   "source": "~/.claude/skills/mend-ledger-mini"
+  },
+  {
+   "id": "skill:2:trace-anvil-pro",
+   "kind": "skill",
+   "name": "trace-anvil-pro",
+   "description": "Use when the task involves trace anvil-pro. Keeps the work small.",
+   "source": "~/.claude/skills/trace-anvil-pro"
+  },
+  {
+   "id": "agent:2:chart-plinth-pro",
+   "kind": "agent",
+   "name": "chart-plinth-pro",
+   "description": "Use when the task involves chart plinth-pro. Keeps the work small.",
+   "source": "~/.claude/agents/chart-plinth-pro"
+  },
+  {
+   "id": "skill:2:tune-canvas",
+   "kind": "skill",
+   "name": "tune-canvas",
+   "description": "Use when the task involves tune canvas. Keeps the work small.",
+   "source": "~/.claude/skills/tune-canvas"
+  },
+  {
+   "id": "hook:2:label-compass-lite",
+   "kind": "hook",
+   "name": "label-compass-lite",
+   "description": "Use when the task involves label compass-lite. Keeps the work small.",
+   "source": "~/.claude/hooks/label-compass-lite"
+  },
+  {
+   "id": "skill:2:trace-gasket",
+   "kind": "skill",
+   "name": "trace-gasket",
+   "description": "Use when the task involves trace gasket. Keeps the work small.",
+   "source": "~/.claude/skills/trace-gasket"
+  },
+  {
+   "id": "agent:2:polish-gasket-lite",
+   "kind": "agent",
+   "name": "polish-gasket-lite",
+   "description": "Use when the task involves polish gasket-lite. Keeps the work small.",
+   "source": "~/.claude/agents/polish-gasket-lite"
+  },
+  {
+   "id": "skill:2:sort-beacon",
+   "kind": "skill",
+   "name": "sort-beacon",
+   "description": "Use when the task involves sort beacon. Keeps the work small.",
+   "source": "~/.claude/skills/sort-beacon"
+  },
+  {
+   "id": "agent:2:scout-tally",
+   "kind": "agent",
+   "name": "scout-tally",
+   "description": "Use when the task involves scout tally. Keeps the work small.",
+   "source": "~/.claude/agents/scout-tally"
+  },
+  {
+   "id": "skill:2:gather-lattice",
+   "kind": "skill",
+   "name": "gather-lattice",
+   "description": "Use when the task involves gather lattice. Keeps the work small.",
+   "source": "~/.claude/skills/gather-lattice"
+  },
+  {
+   "id": "skill:2:bind-canvas",
+   "kind": "skill",
+   "name": "bind-canvas",
+   "description": "Use when the task involves bind canvas. Keeps the work small.",
+   "source": "~/.claude/skills/bind-canvas"
+  },
+  {
+   "id": "plugin:pressing3",
+   "kind": "plugin",
+   "name": "pressing3",
+   "description": "A bundle for pressing flowers.",
+   "source": "~/.claude/plugins/p3/plugin.json"
+  },
+  {
+   "id": "skill:3:bind-stencil-lite",
+   "kind": "skill",
+   "name": "bind-stencil-lite",
+   "description": "Use when the task involves bind stencil-lite. Keeps the work small.",
+   "source": "~/.claude/skills/bind-stencil-lite"
+  },
+  {
+   "id": "skill:3:mend-compass-pro",
+   "kind": "skill",
+   "name": "mend-compass-pro",
+   "description": "Use when the task involves mend compass-pro. Keeps the work small.",
+   "source": "~/.claude/skills/mend-compass-pro"
+  },
+  {
+   "id": "agent:3:tune-thread",
+   "kind": "agent",
+   "name": "tune-thread",
+   "description": "Use when the task involves tune thread. Keeps the work small.",
+   "source": "~/.claude/agents/tune-thread"
+  },
+  {
+   "id": "skill:3:gather-valve",
+   "kind": "skill",
+   "name": "gather-valve",
+   "description": "Use when the task involves gather valve. Keeps the work small.",
+   "source": "~/.claude/skills/gather-valve"
+  },
+  {
+   "id": "skill:3:trace-ledger",
+   "kind": "skill",
+   "name": "trace-ledger",
+   "description": "Use when the task involves trace ledger. Keeps the work small.",
+   "source": "~/.claude/skills/trace-ledger"
+  },
+  {
+   "id": "skill:3:scout-thread-lite",
+   "kind": "skill",
+   "name": "scout-thread-lite",
+   "description": "Use when the task involves scout thread-lite. Keeps the work small.",
+   "source": "~/.claude/skills/scout-thread-lite"
+  },
+  {
+   "id": "skill:3:scout-ribbon",
+   "kind": "skill",
+   "name": "scout-ribbon",
+   "description": "Use when the task involves scout ribbon. Keeps the work small.",
+   "source": "~/.claude/skills/scout-ribbon"
+  },
+  {
+   "id": "skill:3:sort-beacon-pro",
+   "kind": "skill",
+   "name": "sort-beacon-pro",
+   "description": "Use when the task involves sort beacon-pro. Keeps the work small.",
+   "source": "~/.claude/skills/sort-beacon-pro"
+  },
+  {
+   "id": "skill:3:tune-valve-two",
+   "kind": "skill",
+   "name": "tune-valve-two",
+   "description": "Use when the task involves tune valve-two. Keeps the work small.",
+   "source": "~/.claude/skills/tune-valve-two"
+  },
+  {
+   "id": "skill:3:trace-crate",
+   "kind": "skill",
+   "name": "trace-crate",
+   "description": "Use when the task involves trace crate. Keeps the work small.",
+   "source": "~/.claude/skills/trace-crate"
+  },
+  {
+   "id": "skill:3:polish-valve-two",
+   "kind": "skill",
+   "name": "polish-valve-two",
+   "description": "Use when the task involves polish valve-two. Keeps the work small.",
+   "source": "~/.claude/skills/polish-valve-two"
+  },
+  {
+   "id": "agent:3:sort-plinth",
+   "kind": "agent",
+   "name": "sort-plinth",
+   "description": "Use when the task involves sort plinth. Keeps the work small.",
+   "source": "~/.claude/agents/sort-plinth"
+  },
+  {
+   "id": "skill:3:scout-compass",
+   "kind": "skill",
+   "name": "scout-compass",
+   "description": "Use when the task involves scout compass. Keeps the work small.",
+   "source": "~/.claude/skills/scout-compass"
+  },
+  {
+   "id": "skill:3:weigh-beacon",
+   "kind": "skill",
+   "name": "weigh-beacon",
+   "description": "Use when the task involves weigh beacon. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-beacon"
+  },
+  {
+   "id": "skill:3:chart-lattice-lite",
+   "kind": "skill",
+   "name": "chart-lattice-lite",
+   "description": "Use when the task involves chart lattice-lite. Keeps the work small.",
+   "source": "~/.claude/skills/chart-lattice-lite"
+  },
+  {
+   "id": "skill:3:polish-wick",
+   "kind": "skill",
+   "name": "polish-wick",
+   "description": "Use when the task involves polish wick. Keeps the work small.",
+   "source": "~/.claude/skills/polish-wick"
+  },
+  {
+   "id": "plugin:stage4",
+   "kind": "plugin",
+   "name": "stage4",
+   "description": "A bundle for stage lighting cues.",
+   "source": "~/.claude/plugins/p4/plugin.json"
+  },
+  {
+   "id": "skill:4:bind-ledger-pro",
+   "kind": "skill",
+   "name": "bind-ledger-pro",
+   "description": "Use when the task involves bind ledger-pro. Keeps the work small.",
+   "source": "~/.claude/skills/bind-ledger-pro"
+  },
+  {
+   "id": "skill:4:bind-ledger",
+   "kind": "skill",
+   "name": "bind-ledger",
+   "description": "Use when the task involves bind ledger. Keeps the work small.",
+   "source": "~/.claude/skills/bind-ledger"
+  },
+  {
+   "id": "skill:4:tune-gasket-two",
+   "kind": "skill",
+   "name": "tune-gasket-two",
+   "description": "Use when the task involves tune gasket-two. Keeps the work small.",
+   "source": "~/.claude/skills/tune-gasket-two"
+  },
+  {
+   "id": "skill:4:label-plinth",
+   "kind": "skill",
+   "name": "label-plinth",
+   "description": "Use when the task involves label plinth. Keeps the work small.",
+   "source": "~/.claude/skills/label-plinth"
+  },
+  {
+   "id": "skill:4:tune-plinth",
+   "kind": "skill",
+   "name": "tune-plinth",
+   "description": "Use when the task involves tune plinth. Keeps the work small.",
+   "source": "~/.claude/skills/tune-plinth"
+  },
+  {
+   "id": "skill:4:draft-ledger",
+   "kind": "skill",
+   "name": "draft-ledger",
+   "description": "Use when the task involves draft ledger. Keeps the work small.",
+   "source": "~/.claude/skills/draft-ledger"
+  },
+  {
+   "id": "agent:4:gather-beacon",
+   "kind": "agent",
+   "name": "gather-beacon",
+   "description": "Use when the task involves gather beacon. Keeps the work small.",
+   "source": "~/.claude/agents/gather-beacon"
+  },
+  {
+   "id": "hook:4:sort-canvas",
+   "kind": "hook",
+   "name": "sort-canvas",
+   "description": "Use when the task involves sort canvas. Keeps the work small.",
+   "source": "~/.claude/hooks/sort-canvas"
+  },
+  {
+   "id": "skill:4:bind-beacon",
+   "kind": "skill",
+   "name": "bind-beacon",
+   "description": "Use when the task involves bind beacon. Keeps the work small.",
+   "source": "~/.claude/skills/bind-beacon"
+  },
+  {
+   "id": "skill:4:sweep-anvil",
+   "kind": "skill",
+   "name": "sweep-anvil",
+   "description": "Use when the task involves sweep anvil. Keeps the work small.",
+   "source": "~/.claude/skills/sweep-anvil"
+  },
+  {
+   "id": "skill:4:chart-ledger-pro",
+   "kind": "skill",
+   "name": "chart-ledger-pro",
+   "description": "Use when the task involves chart ledger-pro. Keeps the work small.",
+   "source": "~/.claude/skills/chart-ledger-pro"
+  },
+  {
+   "id": "skill:4:check-tally",
+   "kind": "skill",
+   "name": "check-tally",
+   "description": "Use when the task involves check tally. Keeps the work small.",
+   "source": "~/.claude/skills/check-tally"
+  },
+  {
+   "id": "skill:4:fold-canvas-two",
+   "kind": "skill",
+   "name": "fold-canvas-two",
+   "description": "Use when the task involves fold canvas-two. Keeps the work small.",
+   "source": "~/.claude/skills/fold-canvas-two"
+  },
+  {
+   "id": "plugin:tide5",
+   "kind": "plugin",
+   "name": "tide5",
+   "description": "A bundle for tide table lookups.",
+   "source": "~/.claude/plugins/p5/plugin.json"
+  },
+  {
+   "id": "skill:5:trace-compass-lite",
+   "kind": "skill",
+   "name": "trace-compass-lite",
+   "description": "Use when the task involves trace compass-lite. Keeps the work small.",
+   "source": "~/.claude/skills/trace-compass-lite"
+  },
+  {
+   "id": "skill:5:trace-plinth",
+   "kind": "skill",
+   "name": "trace-plinth",
+   "description": "Use when the task involves trace plinth. Keeps the work small.",
+   "source": "~/.claude/skills/trace-plinth"
+  },
+  {
+   "id": "skill:5:weigh-compass",
+   "kind": "skill",
+   "name": "weigh-compass",
+   "description": "Use when the task involves weigh compass. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-compass"
+  },
+  {
+   "id": "agent:5:weigh-tally",
+   "kind": "agent",
+   "name": "weigh-tally",
+   "description": "Use when the task involves weigh tally. Keeps the work small.",
+   "source": "~/.claude/agents/weigh-tally"
+  },
+  {
+   "id": "skill:5:scout-valve",
+   "kind": "skill",
+   "name": "scout-valve",
+   "description": "Use when the task involves scout valve. Keeps the work small.",
+   "source": "~/.claude/skills/scout-valve"
+  },
+  {
+   "id": "skill:5:check-wick",
+   "kind": "skill",
+   "name": "check-wick",
+   "description": "Use when the task involves check wick. Keeps the work small.",
+   "source": "~/.claude/skills/check-wick"
+  },
+  {
+   "id": "skill:5:sort-gasket",
+   "kind": "skill",
+   "name": "sort-gasket",
+   "description": "Use when the task involves sort gasket. Keeps the work small.",
+   "source": "~/.claude/skills/sort-gasket"
+  },
+  {
+   "id": "agent:5:weigh-beacon-pro",
+   "kind": "agent",
+   "name": "weigh-beacon-pro",
+   "description": "Use when the task involves weigh beacon-pro. Keeps the work small.",
+   "source": "~/.claude/agents/weigh-beacon-pro"
+  },
+  {
+   "id": "skill:5:bind-tally",
+   "kind": "skill",
+   "name": "bind-tally",
+   "description": "Use when the task involves bind tally. Keeps the work small.",
+   "source": "~/.claude/skills/bind-tally"
+  },
+  {
+   "id": "hook:5:gather-plinth-lite",
+   "kind": "hook",
+   "name": "gather-plinth-lite",
+   "description": "Use when the task involves gather plinth-lite. Keeps the work small.",
+   "source": "~/.claude/hooks/gather-plinth-lite"
+  },
+  {
+   "id": "hook:5:sweep-beacon-two",
+   "kind": "hook",
+   "name": "sweep-beacon-two",
+   "description": "Use when the task involves sweep beacon-two. Keeps the work small.",
+   "source": "~/.claude/hooks/sweep-beacon-two"
+  },
+  {
+   "id": "hook:5:fold-ribbon",
+   "kind": "hook",
+   "name": "fold-ribbon",
+   "description": "Use when the task involves fold ribbon. Keeps the work small.",
+   "source": "~/.claude/hooks/fold-ribbon"
+  },
+  {
+   "id": "plugin:bread6",
+   "kind": "plugin",
+   "name": "bread6",
+   "description": "A bundle for bread and fermentation.",
+   "source": "~/.claude/plugins/p6/plugin.json"
+  },
+  {
+   "id": "skill:6:sweep-gasket-mini",
+   "kind": "skill",
+   "name": "sweep-gasket-mini",
+   "description": "Use when the task involves sweep gasket-mini. Keeps the work small.",
+   "source": "~/.claude/skills/sweep-gasket-mini"
+  },
+  {
+   "id": "skill:6:tune-ribbon-lite",
+   "kind": "skill",
+   "name": "tune-ribbon-lite",
+   "description": "Use when the task involves tune ribbon-lite. Keeps the work small.",
+   "source": "~/.claude/skills/tune-ribbon-lite"
+  },
+  {
+   "id": "hook:6:gather-valve-two",
+   "kind": "hook",
+   "name": "gather-valve-two",
+   "description": "Use when the task involves gather valve-two. Keeps the work small.",
+   "source": "~/.claude/hooks/gather-valve-two"
+  },
+  {
+   "id": "skill:6:weigh-anvil",
+   "kind": "skill",
+   "name": "weigh-anvil",
+   "description": "Use when the task involves weigh anvil. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-anvil"
+  },
+  {
+   "id": "skill:6:sweep-canvas-lite",
+   "kind": "skill",
+   "name": "sweep-canvas-lite",
+   "description": "Use when the task involves sweep canvas-lite. Keeps the work small.",
+   "source": "~/.claude/skills/sweep-canvas-lite"
+  },
+  {
+   "id": "skill:6:scout-ribbon-two",
+   "kind": "skill",
+   "name": "scout-ribbon-two",
+   "description": "Use when the task involves scout ribbon-two. Keeps the work small.",
+   "source": "~/.claude/skills/scout-ribbon-two"
+  },
+  {
+   "id": "agent:6:tune-beacon",
+   "kind": "agent",
+   "name": "tune-beacon",
+   "description": "Use when the task involves tune beacon. Keeps the work small.",
+   "source": "~/.claude/agents/tune-beacon"
+  },
+  {
+   "id": "agent:6:scout-thread-two",
+   "kind": "agent",
+   "name": "scout-thread-two",
+   "description": "Use when the task involves scout thread-two. Keeps the work small.",
+   "source": "~/.claude/agents/scout-thread-two"
+  },
+  {
+   "id": "skill:6:weigh-lattice-two",
+   "kind": "skill",
+   "name": "weigh-lattice-two",
+   "description": "Use when the task involves weigh lattice-two. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-lattice-two"
+  },
+  {
+   "id": "hook:6:mend-lattice-lite",
+   "kind": "hook",
+   "name": "mend-lattice-lite",
+   "description": "Use when the task involves mend lattice-lite. Keeps the work small.",
+   "source": "~/.claude/hooks/mend-lattice-lite"
+  },
+  {
+   "id": "skill:6:mend-ribbon",
+   "kind": "skill",
+   "name": "mend-ribbon",
+   "description": "Use when the task involves mend ribbon. Keeps the work small.",
+   "source": "~/.claude/skills/mend-ribbon"
+  },
+  {
+   "id": "plugin:orchard7",
+   "kind": "plugin",
+   "name": "orchard7",
+   "description": "A bundle for orchard pruning notes.",
+   "source": "~/.claude/plugins/p7/plugin.json"
+  },
+  {
+   "id": "agent:7:draft-lattice-mini",
+   "kind": "agent",
+   "name": "draft-lattice-mini",
+   "description": "Use when the task involves draft lattice-mini. Keeps the work small.",
+   "source": "~/.claude/agents/draft-lattice-mini"
+  },
+  {
+   "id": "skill:7:sweep-stencil-two",
+   "kind": "skill",
+   "name": "sweep-stencil-two",
+   "description": "Use when the task involves sweep stencil-two. Keeps the work small.",
+   "source": "~/.claude/skills/sweep-stencil-two"
+  },
+  {
+   "id": "skill:7:sweep-valve-two",
+   "kind": "skill",
+   "name": "sweep-valve-two",
+   "description": "Use when the task involves sweep valve-two. Keeps the work small.",
+   "source": "~/.claude/skills/sweep-valve-two"
+  },
+  {
+   "id": "skill:7:sort-anvil-two",
+   "kind": "skill",
+   "name": "sort-anvil-two",
+   "description": "Use when the task involves sort anvil-two. Keeps the work small.",
+   "source": "~/.claude/skills/sort-anvil-two"
+  },
+  {
+   "id": "skill:7:fold-ledger",
+   "kind": "skill",
+   "name": "fold-ledger",
+   "description": "Use when the task involves fold ledger. Keeps the work small.",
+   "source": "~/.claude/skills/fold-ledger"
+  },
+  {
+   "id": "skill:7:sort-plinth-pro",
+   "kind": "skill",
+   "name": "sort-plinth-pro",
+   "description": "Use when the task involves sort plinth-pro. Keeps the work small.",
+   "source": "~/.claude/skills/sort-plinth-pro"
+  },
+  {
+   "id": "skill:7:scout-wick-pro",
+   "kind": "skill",
+   "name": "scout-wick-pro",
+   "description": "Use when the task involves scout wick-pro. Keeps the work small.",
+   "source": "~/.claude/skills/scout-wick-pro"
+  },
+  {
+   "id": "skill:7:scout-ribbon-lite",
+   "kind": "skill",
+   "name": "scout-ribbon-lite",
+   "description": "Use when the task involves scout ribbon-lite. Keeps the work small.",
+   "source": "~/.claude/skills/scout-ribbon-lite"
+  },
+  {
+   "id": "skill:7:fold-beacon-pro",
+   "kind": "skill",
+   "name": "fold-beacon-pro",
+   "description": "Use when the task involves fold beacon-pro. Keeps the work small.",
+   "source": "~/.claude/skills/fold-beacon-pro"
+  },
+  {
+   "id": "skill:7:polish-plinth-lite",
+   "kind": "skill",
+   "name": "polish-plinth-lite",
+   "description": "Use when the task involves polish plinth-lite. Keeps the work small.",
+   "source": "~/.claude/skills/polish-plinth-lite"
+  },
+  {
+   "id": "plugin:kite8",
+   "kind": "plugin",
+   "name": "kite8",
+   "description": "A bundle for kite building.",
+   "source": "~/.claude/plugins/p8/plugin.json"
+  },
+  {
+   "id": "skill:8:sweep-canvas",
+   "kind": "skill",
+   "name": "sweep-canvas",
+   "description": "Use when the task involves sweep canvas. Keeps the work small.",
+   "source": "~/.claude/skills/sweep-canvas"
+  },
+  {
+   "id": "skill:8:polish-plinth",
+   "kind": "skill",
+   "name": "polish-plinth",
+   "description": "Use when the task involves polish plinth. Keeps the work small.",
+   "source": "~/.claude/skills/polish-plinth"
+  },
+  {
+   "id": "agent:8:chart-tally-pro",
+   "kind": "agent",
+   "name": "chart-tally-pro",
+   "description": "Use when the task involves chart tally-pro. Keeps the work small.",
+   "source": "~/.claude/agents/chart-tally-pro"
+  },
+  {
+   "id": "skill:8:polish-beacon-pro",
+   "kind": "skill",
+   "name": "polish-beacon-pro",
+   "description": "Use when the task involves polish beacon-pro. Keeps the work small.",
+   "source": "~/.claude/skills/polish-beacon-pro"
+  },
+  {
+   "id": "skill:8:trace-lattice-pro",
+   "kind": "skill",
+   "name": "trace-lattice-pro",
+   "description": "Use when the task involves trace lattice-pro. Keeps the work small.",
+   "source": "~/.claude/skills/trace-lattice-pro"
+  },
+  {
+   "id": "hook:8:gather-compass-pro",
+   "kind": "hook",
+   "name": "gather-compass-pro",
+   "description": "Use when the task involves gather compass-pro. Keeps the work small.",
+   "source": "~/.claude/hooks/gather-compass-pro"
+  },
+  {
+   "id": "skill:8:label-compass-pro",
+   "kind": "skill",
+   "name": "label-compass-pro",
+   "description": "Use when the task involves label compass-pro. Keeps the work small.",
+   "source": "~/.claude/skills/label-compass-pro"
+  },
+  {
+   "id": "agent:8:scout-plinth-pro",
+   "kind": "agent",
+   "name": "scout-plinth-pro",
+   "description": "Use when the task involves scout plinth-pro. Keeps the work small.",
+   "source": "~/.claude/agents/scout-plinth-pro"
+  },
+  {
+   "id": "skill:8:polish-compass",
+   "kind": "skill",
+   "name": "polish-compass",
+   "description": "Use when the task involves polish compass. Keeps the work small.",
+   "source": "~/.claude/skills/polish-compass"
+  },
+  {
+   "id": "plugin:lantern9",
+   "kind": "plugin",
+   "name": "lantern9",
+   "description": "A bundle for lantern repair.",
+   "source": "~/.claude/plugins/p9/plugin.json"
+  },
+  {
+   "id": "skill:9:gather-compass",
+   "kind": "skill",
+   "name": "gather-compass",
+   "description": "Use when the task involves gather compass. Keeps the work small.",
+   "source": "~/.claude/skills/gather-compass"
+  },
+  {
+   "id": "skill:9:bind-lattice",
+   "kind": "skill",
+   "name": "bind-lattice",
+   "description": "Use when the task involves bind lattice. Keeps the work small.",
+   "source": "~/.claude/skills/bind-lattice"
+  },
+  {
+   "id": "skill:9:chart-anvil",
+   "kind": "skill",
+   "name": "chart-anvil",
+   "description": "Use when the task involves chart anvil. Keeps the work small.",
+   "source": "~/.claude/skills/chart-anvil"
+  },
+  {
+   "id": "skill:9:bind-anvil",
+   "kind": "skill",
+   "name": "bind-anvil",
+   "description": "Use when the task involves bind anvil. Keeps the work small.",
+   "source": "~/.claude/skills/bind-anvil"
+  },
+  {
+   "id": "skill:9:bind-gasket-pro",
+   "kind": "skill",
+   "name": "bind-gasket-pro",
+   "description": "Use when the task involves bind gasket-pro. Keeps the work small.",
+   "source": "~/.claude/skills/bind-gasket-pro"
+  },
+  {
+   "id": "skill:9:sort-thread-pro",
+   "kind": "skill",
+   "name": "sort-thread-pro",
+   "description": "Use when the task involves sort thread-pro. Keeps the work small.",
+   "source": "~/.claude/skills/sort-thread-pro"
+  },
+  {
+   "id": "skill:9:gather-ribbon",
+   "kind": "skill",
+   "name": "gather-ribbon",
+   "description": "Use when the task involves gather ribbon. Keeps the work small.",
+   "source": "~/.claude/skills/gather-ribbon"
+  },
+  {
+   "id": "skill:9:draft-crate",
+   "kind": "skill",
+   "name": "draft-crate",
+   "description": "Use when the task involves draft crate. Keeps the work small.",
+   "source": "~/.claude/skills/draft-crate"
+  },
+  {
+   "id": "plugin:map10",
+   "kind": "plugin",
+   "name": "map10",
+   "description": "A bundle for map making.",
+   "source": "~/.claude/plugins/p10/plugin.json"
+  },
+  {
+   "id": "skill:10:weigh-valve-pro",
+   "kind": "skill",
+   "name": "weigh-valve-pro",
+   "description": "Use when the task involves weigh valve-pro. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-valve-pro"
+  },
+  {
+   "id": "skill:10:mend-thread-pro",
+   "kind": "skill",
+   "name": "mend-thread-pro",
+   "description": "Use when the task involves mend thread-pro. Keeps the work small.",
+   "source": "~/.claude/skills/mend-thread-pro"
+  },
+  {
+   "id": "skill:10:label-lattice",
+   "kind": "skill",
+   "name": "label-lattice",
+   "description": "Use when the task involves label lattice. Keeps the work small.",
+   "source": "~/.claude/skills/label-lattice"
+  },
+  {
+   "id": "skill:10:draft-plinth-mini",
+   "kind": "skill",
+   "name": "draft-plinth-mini",
+   "description": "Use when the task involves draft plinth-mini. Keeps the work small.",
+   "source": "~/.claude/skills/draft-plinth-mini"
+  },
+  {
+   "id": "skill:10:scout-crate",
+   "kind": "skill",
+   "name": "scout-crate",
+   "description": "Use when the task involves scout crate. Keeps the work small.",
+   "source": "~/.claude/skills/scout-crate"
+  },
+  {
+   "id": "skill:10:sort-compass",
+   "kind": "skill",
+   "name": "sort-compass",
+   "description": "Use when the task involves sort compass. Keeps the work small.",
+   "source": "~/.claude/skills/sort-compass"
+  },
+  {
+   "id": "skill:10:mend-crate-lite",
+   "kind": "skill",
+   "name": "mend-crate-lite",
+   "description": "Use when the task involves mend crate-lite. Keeps the work small.",
+   "source": "~/.claude/skills/mend-crate-lite"
+  },
+  {
+   "id": "plugin:chess11",
+   "kind": "plugin",
+   "name": "chess11",
+   "description": "A bundle for chess openings.",
+   "source": "~/.claude/plugins/p11/plugin.json"
+  },
+  {
+   "id": "skill:11:mend-ribbon-lite",
+   "kind": "skill",
+   "name": "mend-ribbon-lite",
+   "description": "Use when the task involves mend ribbon-lite. Keeps the work small.",
+   "source": "~/.claude/skills/mend-ribbon-lite"
+  },
+  {
+   "id": "skill:11:draft-thread",
+   "kind": "skill",
+   "name": "draft-thread",
+   "description": "Use when the task involves draft thread. Keeps the work small.",
+   "source": "~/.claude/skills/draft-thread"
+  },
+  {
+   "id": "skill:11:sweep-lattice-pro",
+   "kind": "skill",
+   "name": "sweep-lattice-pro",
+   "description": "Use when the task involves sweep lattice-pro. Keeps the work small.",
+   "source": "~/.claude/skills/sweep-lattice-pro"
+  },
+  {
+   "id": "skill:11:polish-stencil",
+   "kind": "skill",
+   "name": "polish-stencil",
+   "description": "Use when the task involves polish stencil. Keeps the work small.",
+   "source": "~/.claude/skills/polish-stencil"
+  },
+  {
+   "id": "skill:11:weigh-ribbon-pro",
+   "kind": "skill",
+   "name": "weigh-ribbon-pro",
+   "description": "Use when the task involves weigh ribbon-pro. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-ribbon-pro"
+  },
+  {
+   "id": "hook:11:scout-crate-mini",
+   "kind": "hook",
+   "name": "scout-crate-mini",
+   "description": "Use when the task involves scout crate-mini. Keeps the work small.",
+   "source": "~/.claude/hooks/scout-crate-mini"
+  },
+  {
+   "id": "skill:11:weigh-lattice",
+   "kind": "skill",
+   "name": "weigh-lattice",
+   "description": "Use when the task involves weigh lattice. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-lattice"
+  },
+  {
+   "id": "skill:12:draft-anvil-two",
+   "kind": "skill",
+   "name": "draft-anvil-two",
+   "description": "Use when the task involves draft anvil-two. Keeps the work small.",
+   "source": "~/.claude/skills/draft-anvil-two"
+  },
+  {
+   "id": "hook:12:fold-stencil",
+   "kind": "hook",
+   "name": "fold-stencil",
+   "description": "Use when the task involves fold stencil. Keeps the work small.",
+   "source": "~/.claude/hooks/fold-stencil"
+  },
+  {
+   "id": "agent:12:gather-lattice-two",
+   "kind": "agent",
+   "name": "gather-lattice-two",
+   "description": "Use when the task involves gather lattice-two. Keeps the work small.",
+   "source": "~/.claude/agents/gather-lattice-two"
+  },
+  {
+   "id": "skill:12:check-lattice",
+   "kind": "skill",
+   "name": "check-lattice",
+   "description": "Use when the task involves check lattice. Keeps the work small.",
+   "source": "~/.claude/skills/check-lattice"
+  },
+  {
+   "id": "skill:12:check-stencil",
+   "kind": "skill",
+   "name": "check-stencil",
+   "description": "Use when the task involves check stencil. Keeps the work small.",
+   "source": "~/.claude/skills/check-stencil"
+  },
+  {
+   "id": "skill:12:tune-gasket",
+   "kind": "skill",
+   "name": "tune-gasket",
+   "description": "Use when the task involves tune gasket. Keeps the work small.",
+   "source": "~/.claude/skills/tune-gasket"
+  },
+  {
+   "id": "hook:12:trace-stencil",
+   "kind": "hook",
+   "name": "trace-stencil",
+   "description": "Use when the task involves trace stencil. Keeps the work small.",
+   "source": "~/.claude/hooks/trace-stencil"
+  },
+  {
+   "id": "skill:13:mend-valve-lite",
+   "kind": "skill",
+   "name": "mend-valve-lite",
+   "description": "Use when the task involves mend valve-lite. Keeps the work small.",
+   "source": "~/.claude/skills/mend-valve-lite"
+  },
+  {
+   "id": "skill:13:draft-compass-mini",
+   "kind": "skill",
+   "name": "draft-compass-mini",
+   "description": "Use when the task involves draft compass-mini. Keeps the work small.",
+   "source": "~/.claude/skills/draft-compass-mini"
+  },
+  {
+   "id": "skill:13:draft-stencil",
+   "kind": "skill",
+   "name": "draft-stencil",
+   "description": "Use when the task involves draft stencil. Keeps the work small.",
+   "source": "~/.claude/skills/draft-stencil"
+  },
+  {
+   "id": "skill:13:polish-lattice-lite",
+   "kind": "skill",
+   "name": "polish-lattice-lite",
+   "description": "Use when the task involves polish lattice-lite. Keeps the work small.",
+   "source": "~/.claude/skills/polish-lattice-lite"
+  },
+  {
+   "id": "skill:13:gather-tally-two",
+   "kind": "skill",
+   "name": "gather-tally-two",
+   "description": "Use when the task involves gather tally-two. Keeps the work small.",
+   "source": "~/.claude/skills/gather-tally-two"
+  },
+  {
+   "id": "skill:13:polish-canvas-two",
+   "kind": "skill",
+   "name": "polish-canvas-two",
+   "description": "Use when the task involves polish canvas-two. Keeps the work small.",
+   "source": "~/.claude/skills/polish-canvas-two"
+  },
+  {
+   "id": "skill:13:label-tally-two",
+   "kind": "skill",
+   "name": "label-tally-two",
+   "description": "Use when the task involves label tally-two. Keeps the work small.",
+   "source": "~/.claude/skills/label-tally-two"
+  },
+  {
+   "id": "skill:14:chart-canvas",
+   "kind": "skill",
+   "name": "chart-canvas",
+   "description": "Use when the task involves chart canvas. Keeps the work small.",
+   "source": "~/.claude/skills/chart-canvas"
+  },
+  {
+   "id": "skill:14:sort-wick-pro",
+   "kind": "skill",
+   "name": "sort-wick-pro",
+   "description": "Use when the task involves sort wick-pro. Keeps the work small.",
+   "source": "~/.claude/skills/sort-wick-pro"
+  },
+  {
+   "id": "skill:14:sweep-ribbon-lite",
+   "kind": "skill",
+   "name": "sweep-ribbon-lite",
+   "description": "Use when the task involves sweep ribbon-lite. Keeps the work small.",
+   "source": "~/.claude/skills/sweep-ribbon-lite"
+  },
+  {
+   "id": "hook:14:gather-crate-pro",
+   "kind": "hook",
+   "name": "gather-crate-pro",
+   "description": "Use when the task involves gather crate-pro. Keeps the work small.",
+   "source": "~/.claude/hooks/gather-crate-pro"
+  },
+  {
+   "id": "skill:14:label-canvas-pro",
+   "kind": "skill",
+   "name": "label-canvas-pro",
+   "description": "Use when the task involves label canvas-pro. Keeps the work small.",
+   "source": "~/.claude/skills/label-canvas-pro"
+  },
+  {
+   "id": "hook:14:sweep-tally",
+   "kind": "hook",
+   "name": "sweep-tally",
+   "description": "Use when the task involves sweep tally. Keeps the work small.",
+   "source": "~/.claude/hooks/sweep-tally"
+  },
+  {
+   "id": "skill:15:trace-compass",
+   "kind": "skill",
+   "name": "trace-compass",
+   "description": "Use when the task involves trace compass. Keeps the work small.",
+   "source": "~/.claude/skills/trace-compass"
+  },
+  {
+   "id": "skill:15:label-ribbon",
+   "kind": "skill",
+   "name": "label-ribbon",
+   "description": "Use when the task involves label ribbon. Keeps the work small.",
+   "source": "~/.claude/skills/label-ribbon"
+  },
+  {
+   "id": "skill:15:weigh-gasket-two",
+   "kind": "skill",
+   "name": "weigh-gasket-two",
+   "description": "Use when the task involves weigh gasket-two. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-gasket-two"
+  },
+  {
+   "id": "skill:15:weigh-canvas",
+   "kind": "skill",
+   "name": "weigh-canvas",
+   "description": "Use when the task involves weigh canvas. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-canvas"
+  },
+  {
+   "id": "skill:15:label-ledger",
+   "kind": "skill",
+   "name": "label-ledger",
+   "description": "Use when the task involves label ledger. Keeps the work small.",
+   "source": "~/.claude/skills/label-ledger"
+  },
+  {
+   "id": "skill:15:tune-ledger",
+   "kind": "skill",
+   "name": "tune-ledger",
+   "description": "Use when the task involves tune ledger. Keeps the work small.",
+   "source": "~/.claude/skills/tune-ledger"
+  },
+  {
+   "id": "skill:16:weigh-wick",
+   "kind": "skill",
+   "name": "weigh-wick",
+   "description": "Use when the task involves weigh wick. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-wick"
+  },
+  {
+   "id": "hook:16:label-compass",
+   "kind": "hook",
+   "name": "label-compass",
+   "description": "Use when the task involves label compass. Keeps the work small.",
+   "source": "~/.claude/hooks/label-compass"
+  },
+  {
+   "id": "skill:16:gather-ledger",
+   "kind": "skill",
+   "name": "gather-ledger",
+   "description": "Use when the task involves gather ledger. Keeps the work small.",
+   "source": "~/.claude/skills/gather-ledger"
+  },
+  {
+   "id": "skill:16:check-canvas-two",
+   "kind": "skill",
+   "name": "check-canvas-two",
+   "description": "Use when the task involves check canvas-two. Keeps the work small.",
+   "source": "~/.claude/skills/check-canvas-two"
+  },
+  {
+   "id": "skill:16:tune-beacon-two",
+   "kind": "skill",
+   "name": "tune-beacon-two",
+   "description": "Use when the task involves tune beacon-two. Keeps the work small.",
+   "source": "~/.claude/skills/tune-beacon-two"
+  },
+  {
+   "id": "hook:17:chart-wick",
+   "kind": "hook",
+   "name": "chart-wick",
+   "description": "Use when the task involves chart wick. Keeps the work small.",
+   "source": "~/.claude/hooks/chart-wick"
+  },
+  {
+   "id": "skill:17:tune-tally",
+   "kind": "skill",
+   "name": "tune-tally",
+   "description": "Use when the task involves tune tally. Keeps the work small.",
+   "source": "~/.claude/skills/tune-tally"
+  },
+  {
+   "id": "skill:17:gather-lattice-mini",
+   "kind": "skill",
+   "name": "gather-lattice-mini",
+   "description": "Use when the task involves gather lattice-mini. Keeps the work small.",
+   "source": "~/.claude/skills/gather-lattice-mini"
+  },
+  {
+   "id": "skill:17:weigh-valve-lite",
+   "kind": "skill",
+   "name": "weigh-valve-lite",
+   "description": "Use when the task involves weigh valve-lite. Keeps the work small.",
+   "source": "~/.claude/skills/weigh-valve-lite"
+  },
+  {
+   "id": "skill:17:tune-ledger-pro",
+   "kind": "skill",
+   "name": "tune-ledger-pro",
+   "description": "Use when the task involves tune ledger-pro. Keeps the work small.",
+   "source": "~/.claude/skills/tune-ledger-pro"
+  },
+  {
+   "id": "skill:18:scout-anvil",
+   "kind": "skill",
+   "name": "scout-anvil",
+   "description": "Use when the task involves scout anvil. Keeps the work small.",
+   "source": "~/.claude/skills/scout-anvil"
+  },
+  {
+   "id": "skill:18:polish-stencil-two",
+   "kind": "skill",
+   "name": "polish-stencil-two",
+   "description": "Use when the task involves polish stencil-two. Keeps the work small.",
+   "source": "~/.claude/skills/polish-stencil-two"
+  },
+  {
+   "id": "skill:18:label-crate-mini",
+   "kind": "skill",
+   "name": "label-crate-mini",
+   "description": "Use when the task involves label crate-mini. Keeps the work small.",
+   "source": "~/.claude/skills/label-crate-mini"
+  },
+  {
+   "id": "skill:18:trace-ribbon-mini",
+   "kind": "skill",
+   "name": "trace-ribbon-mini",
+   "description": "Use when the task involves trace ribbon-mini. Keeps the work small.",
+   "source": "~/.claude/skills/trace-ribbon-mini"
+  },
+  {
+   "id": "skill:19:mend-wick-lite",
+   "kind": "skill",
+   "name": "mend-wick-lite",
+   "description": "Use when the task involves mend wick-lite. Keeps the work small.",
+   "source": "~/.claude/skills/mend-wick-lite"
+  },
+  {
+   "id": "skill:19:fold-beacon-mini",
+   "kind": "skill",
+   "name": "fold-beacon-mini",
+   "description": "Use when the task involves fold beacon-mini. Keeps the work small.",
+   "source": "~/.claude/skills/fold-beacon-mini"
+  },
+  {
+   "id": "agent:19:polish-compass-lite",
+   "kind": "agent",
+   "name": "polish-compass-lite",
+   "description": "Use when the task involves polish compass-lite. Keeps the work small.",
+   "source": "~/.claude/agents/polish-compass-lite"
+  },
+  {
+   "id": "hook:19:bind-tally-pro",
+   "kind": "hook",
+   "name": "bind-tally-pro",
+   "description": "Use when the task involves bind tally-pro. Keeps the work small.",
+   "source": "~/.claude/hooks/bind-tally-pro"
+  },
+  {
+   "id": "skill:20:tune-anvil",
+   "kind": "skill",
+   "name": "tune-anvil",
+   "description": "Use when the task involves tune anvil. Keeps the work small.",
+   "source": "~/.claude/skills/tune-anvil"
+  },
+  {
+   "id": "skill:20:check-ledger-lite",
+   "kind": "skill",
+   "name": "check-ledger-lite",
+   "description": "Use when the task involves check ledger-lite. Keeps the work small.",
+   "source": "~/.claude/skills/check-ledger-lite"
+  },
+  {
+   "id": "agent:20:scout-ledger-pro",
+   "kind": "agent",
+   "name": "scout-ledger-pro",
+   "description": "Use when the task involves scout ledger-pro. Keeps the work small.",
+   "source": "~/.claude/agents/scout-ledger-pro"
+  },
+  {
+   "id": "hook:21:trace-gasket-pro",
+   "kind": "hook",
+   "name": "trace-gasket-pro",
+   "description": "Use when the task involves trace gasket-pro. Keeps the work small.",
+   "source": "~/.claude/hooks/trace-gasket-pro"
+  },
+  {
+   "id": "skill:21:polish-crate-two",
+   "kind": "skill",
+   "name": "polish-crate-two",
+   "description": "Use when the task involves polish crate-two. Keeps the work small.",
+   "source": "~/.claude/skills/polish-crate-two"
+  },
+  {
+   "id": "skill:21:mend-plinth",
+   "kind": "skill",
+   "name": "mend-plinth",
+   "description": "Use when the task involves mend plinth. Keeps the work small.",
+   "source": "~/.claude/skills/mend-plinth"
+  },
+  {
+   "id": "skill:22:check-canvas-pro",
+   "kind": "skill",
+   "name": "check-canvas-pro",
+   "description": "Use when the task involves check canvas-pro. Keeps the work small.",
+   "source": "~/.claude/skills/check-canvas-pro"
+  },
+  {
+   "id": "skill:22:draft-ledger-two",
+   "kind": "skill",
+   "name": "draft-ledger-two",
+   "description": "Use when the task involves draft ledger-two. Keeps the work small.",
+   "source": "~/.claude/skills/draft-ledger-two"
+  },
+  {
+   "id": "skill:23:polish-anvil",
+   "kind": "skill",
+   "name": "polish-anvil",
+   "description": "Use when the task involves polish anvil. Keeps the work small.",
+   "source": "~/.claude/skills/polish-anvil"
+  },
+  {
+   "id": "skill:23:chart-stencil",
+   "kind": "skill",
+   "name": "chart-stencil",
+   "description": "Use when the task involves chart stencil. Keeps the work small.",
+   "source": "~/.claude/skills/chart-stencil"
+  },
+  {
+   "id": "skill:24:check-ribbon-two",
+   "kind": "skill",
+   "name": "check-ribbon-two",
+   "description": "Use when the task involves check ribbon-two. Keeps the work small.",
+   "source": "~/.claude/skills/check-ribbon-two"
+  },
+  {
+   "id": "skill:24:tune-thread-lite",
+   "kind": "skill",
+   "name": "tune-thread-lite",
+   "description": "Use when the task involves tune thread-lite. Keeps the work small.",
+   "source": "~/.claude/skills/tune-thread-lite"
+  },
+  {
+   "id": "skill:25:bind-lattice-mini",
+   "kind": "skill",
+   "name": "bind-lattice-mini",
+   "description": "Use when the task involves bind lattice-mini. Keeps the work small.",
+   "source": "~/.claude/skills/bind-lattice-mini"
+  },
+  {
+   "id": "skill:26:check-compass",
+   "kind": "skill",
+   "name": "check-compass",
+   "description": "Use when the task involves check compass. Keeps the work small.",
+   "source": "~/.claude/skills/check-compass"
+  },
+  {
+   "id": "agent:27:mend-ledger",
+   "kind": "agent",
+   "name": "mend-ledger",
+   "description": "Use when the task involves mend ledger. Keeps the work small.",
+   "source": "~/.claude/agents/mend-ledger"
+  },
+  {
+   "id": "skill:28:chart-thread",
+   "kind": "skill",
+   "name": "chart-thread",
+   "description": "Use when the task involves chart thread. Keeps the work small.",
+   "source": "~/.claude/skills/chart-thread"
+  },
+  {
+   "id": "hook:29:tune-lattice",
+   "kind": "hook",
+   "name": "tune-lattice",
+   "description": "Use when the task involves tune lattice. Keeps the work small.",
+   "source": "~/.claude/hooks/tune-lattice"
+  },
+  {
+   "id": "hook:29:weigh-anvil-pro",
+   "kind": "hook",
+   "name": "weigh-anvil-pro",
+   "description": "Use when the task involves weigh anvil-pro. Keeps the work small.",
+   "source": "~/.claude/hooks/weigh-anvil-pro"
+  },
+  {
+   "id": "skill:29:polish-crate-lite",
+   "kind": "skill",
+   "name": "polish-crate-lite",
+   "description": "Use when the task involves polish crate-lite. Keeps the work small.",
+   "source": "~/.claude/skills/polish-crate-lite"
+  }
+ ],
+ "relations": [
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:fold-canvas-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:trace-canvas",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:gather-crate",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:label-wick",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:check-compass-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:label-crate-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:sort-lattice-mini",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:mend-gasket",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:fold-beacon",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:mend-canvas",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:trace-valve",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:mend-anvil-two",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:sort-thread",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:sort-tally-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tidy0",
+   "target": "skill:0:sort-compass-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:bind-anvil-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:draft-valve",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:chart-beacon",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:trace-ribbon",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:draft-valve-mini",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:draft-canvas",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:scout-ledger",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:gather-wick-two",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:tune-valve",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:sort-plinth-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:sort-valve-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:trace-ledger-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:mend-anvil-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:mend-tally",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:plan1",
+   "target": "skill:1:fold-gasket-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:hook2",
+   "target": "skill:2:bind-gasket-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:hook2",
+   "target": "skill:2:tune-crate-mini",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:hook2",
+   "target": "skill:2:draft-wick",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:hook2",
+   "target": "skill:2:scout-beacon-two",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:hook2",
+   "target": "skill:2:fold-gasket",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:hook2",
+   "target": "skill:2:trace-anvil-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:hook2",
+   "target": "skill:2:trace-gasket",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:hook2",
+   "target": "skill:2:gather-lattice",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:hook2",
+   "target": "skill:2:bind-canvas",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:pressing3",
+   "target": "skill:3:mend-compass-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:pressing3",
+   "target": "skill:3:gather-valve",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:pressing3",
+   "target": "skill:3:polish-valve-two",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:pressing3",
+   "target": "skill:3:chart-lattice-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:pressing3",
+   "target": "skill:3:polish-wick",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:stage4",
+   "target": "skill:4:label-plinth",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:stage4",
+   "target": "skill:4:draft-ledger",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:stage4",
+   "target": "skill:4:chart-ledger-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:stage4",
+   "target": "skill:4:fold-canvas-two",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tide5",
+   "target": "skill:5:trace-compass-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tide5",
+   "target": "skill:5:trace-plinth",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tide5",
+   "target": "skill:5:weigh-compass",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tide5",
+   "target": "skill:5:scout-valve",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:tide5",
+   "target": "skill:5:bind-tally",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:bread6",
+   "target": "skill:6:sweep-gasket-mini",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:bread6",
+   "target": "skill:6:tune-ribbon-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:bread6",
+   "target": "skill:6:weigh-anvil",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:bread6",
+   "target": "skill:6:sweep-canvas-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:bread6",
+   "target": "skill:6:scout-ribbon-two",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:bread6",
+   "target": "skill:6:weigh-lattice-two",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:bread6",
+   "target": "skill:6:mend-ribbon",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:orchard7",
+   "target": "skill:7:sweep-stencil-two",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:orchard7",
+   "target": "skill:7:sort-anvil-two",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:orchard7",
+   "target": "skill:7:fold-ledger",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:orchard7",
+   "target": "skill:7:scout-wick-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:orchard7",
+   "target": "skill:7:scout-ribbon-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:kite8",
+   "target": "skill:8:sweep-canvas",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:kite8",
+   "target": "skill:8:polish-plinth",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:kite8",
+   "target": "skill:8:polish-beacon-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:kite8",
+   "target": "skill:8:label-compass-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:lantern9",
+   "target": "skill:9:gather-compass",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:lantern9",
+   "target": "skill:9:bind-lattice",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:lantern9",
+   "target": "skill:9:chart-anvil",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:lantern9",
+   "target": "skill:9:bind-gasket-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:lantern9",
+   "target": "skill:9:sort-thread-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:lantern9",
+   "target": "skill:9:draft-crate",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:map10",
+   "target": "skill:10:mend-thread-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:map10",
+   "target": "skill:10:label-lattice",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:map10",
+   "target": "skill:10:draft-plinth-mini",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:map10",
+   "target": "skill:10:sort-compass",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:map10",
+   "target": "skill:10:mend-crate-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:chess11",
+   "target": "skill:11:mend-ribbon-lite",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:chess11",
+   "target": "skill:11:polish-stencil",
+   "kind": "contains"
+  },
+  {
+   "source": "plugin:chess11",
+   "target": "skill:11:weigh-ribbon-pro",
+   "kind": "contains"
+  },
+  {
+   "source": "skill:5:trace-plinth",
+   "target": "skill:15:weigh-gasket-two",
+   "kind": "triggers"
+  },
+  {
+   "source": "skill:1:polish-beacon",
+   "target": "skill:2:scout-beacon-two",
+   "kind": "uses"
+  },
+  {
+   "source": "hook:11:scout-crate-mini",
+   "target": "skill:11:polish-stencil",
+   "kind": "triggers"
+  },
+  {
+   "source": "skill:2:trace-anvil-pro",
+   "target": "skill:2:draft-wick",
+   "kind": "triggers"
+  },
+  {
+   "source": "skill:22:check-canvas-pro",
+   "target": "skill:13:polish-canvas-two",
+   "kind": "uses"
+  },
+  {
+   "source": "hook:29:weigh-anvil-pro",
+   "target": "skill:1:draft-valve",
+   "kind": "uses"
+  },
+  {
+   "source": "skill:2:weigh-stencil",
+   "target": "hook:6:gather-valve-two",
+   "kind": "triggers"
+  },
+  {
+   "source": "hook:17:chart-wick",
+   "target": "skill:24:tune-thread-lite",
+   "kind": "triggers"
+  }
+ ],
+ "labels": {
+  "plugin:tidy0": "Tidy the changelog",
+  "hook:0:mend-gasket-mini": "mend gasket-mini for tidy the changelog",
+  "skill:0:fold-canvas-pro": "fold canvas-pro for tidy the changelog",
+  "agent:0:label-valve": "label valve for tidy the changelog",
+  "skill:0:trace-canvas": "trace canvas for tidy the changelog",
+  "skill:0:gather-crate": "gather crate for tidy the changelog",
+  "skill:0:label-wick": "label wick for tidy the changelog",
+  "skill:0:trace-ribbon-pro": "trace ribbon-pro for tidy the changelog",
+  "skill:0:check-compass-pro": "check compass-pro for tidy the changelog",
+  "skill:0:label-crate-lite": "label crate-lite for tidy the changelog",
+  "skill:0:sort-lattice-mini": "sort lattice-mini for tidy the changelog",
+  "skill:0:mend-gasket": "mend gasket for tidy the changelog",
+  "skill:0:fold-beacon": "fold beacon for tidy the changelog",
+  "agent:0:fold-crate-pro": "fold crate-pro for tidy the changelog",
+  "skill:0:bind-compass": "bind compass for tidy the changelog",
+  "skill:0:mend-canvas": "mend canvas for tidy the changelog",
+  "agent:0:sort-ledger": "sort ledger for tidy the changelog",
+  "agent:0:trace-thread-lite": "trace thread-lite for tidy the changelog",
+  "hook:0:trace-crate-lite": "trace crate-lite for tidy the changelog",
+  "skill:0:trace-valve": "trace valve for tidy the changelog",
+  "skill:0:sort-crate-pro": "sort crate-pro for tidy the changelog",
+  "skill:0:sort-lattice-two": "sort lattice-two for tidy the changelog",
+  "skill:0:mend-anvil-two": "mend anvil-two for tidy the changelog",
+  "skill:0:sort-thread": "sort thread for tidy the changelog",
+  "skill:0:sort-tally-lite": "sort tally-lite for tidy the changelog",
+  "skill:0:sort-compass-pro": "sort compass-pro for tidy the changelog",
+  "skill:0:sort-gasket-lite": "sort gasket-lite for tidy the changelog",
+  "agent:0:bind-crate": "bind crate for tidy the changelog",
+  "plugin:plan1": "Plan the quarterly review",
+  "skill:1:bind-anvil-pro": "bind anvil-pro for plan the quarterly review",
+  "skill:1:draft-valve": "draft valve for plan the quarterly review",
+  "skill:1:polish-beacon": "polish beacon for plan the quarterly review",
+  "skill:1:scout-wick": "scout wick for plan the quarterly review",
+  "skill:1:chart-beacon": "chart beacon for plan the quarterly review",
+  "agent:1:polish-tally-lite": "polish tally-lite for plan the quarterly review",
+  "skill:1:trace-ribbon": "trace ribbon for plan the quarterly review",
+  "skill:1:draft-valve-mini": "draft valve-mini for plan the quarterly review",
+  "skill:1:draft-canvas": "draft canvas for plan the quarterly review",
+  "skill:1:scout-ledger": "scout ledger for plan the quarterly review",
+  "skill:1:gather-wick-two": "gather wick-two for plan the quarterly review",
+  "skill:1:tune-valve": "tune valve for plan the quarterly review",
+  "skill:1:sort-plinth-lite": "sort plinth-lite for plan the quarterly review",
+  "skill:1:sort-valve-lite": "sort valve-lite for plan the quarterly review",
+  "skill:1:draft-beacon": "draft beacon for plan the quarterly review",
+  "hook:1:bind-compass-lite": "bind compass-lite for plan the quarterly review",
+  "skill:1:trace-ledger-pro": "trace ledger-pro for plan the quarterly review",
+  "skill:1:mend-anvil-pro": "mend anvil-pro for plan the quarterly review",
+  "hook:1:draft-compass-lite": "draft compass-lite for plan the quarterly review",
+  "skill:1:mend-tally": "mend tally for plan the quarterly review",
+  "hook:1:trace-anvil": "trace anvil for plan the quarterly review",
+  "skill:1:fold-gasket-lite": "fold gasket-lite for plan the quarterly review",
+  "skill:1:gather-stencil": "gather stencil for plan the quarterly review",
+  "skill:1:chart-gasket-lite": "chart gasket-lite for plan the quarterly review",
+  "hook:1:check-anvil": "check anvil for plan the quarterly review",
+  "plugin:hook2": "Hook script execution",
+  "skill:2:bind-gasket-lite": "bind gasket-lite for hook script execution",
+  "skill:2:tune-crate-mini": "tune crate-mini for hook script execution",
+  "skill:2:sweep-lattice-two": "sweep lattice-two for hook script execution",
+  "skill:2:draft-wick": "draft wick for hook script execution",
+  "skill:2:weigh-stencil": "weigh stencil for hook script execution",
+  "skill:2:sort-tally": "sort tally for hook script execution",
+  "skill:2:scout-beacon-two": "scout beacon-two for hook script execution",
+  "skill:2:fold-gasket": "fold gasket for hook script execution",
+  "skill:2:mend-ledger-mini": "mend ledger-mini for hook script execution",
+  "skill:2:trace-anvil-pro": "trace anvil-pro for hook script execution",
+  "agent:2:chart-plinth-pro": "chart plinth-pro for hook script execution",
+  "skill:2:tune-canvas": "tune canvas for hook script execution",
+  "hook:2:label-compass-lite": "label compass-lite for hook script execution",
+  "skill:2:trace-gasket": "trace gasket for hook script execution",
+  "agent:2:polish-gasket-lite": "polish gasket-lite for hook script execution",
+  "skill:2:sort-beacon": "sort beacon for hook script execution",
+  "agent:2:scout-tally": "scout tally for hook script execution",
+  "skill:2:gather-lattice": "gather lattice for hook script execution",
+  "skill:2:bind-canvas": "bind canvas for hook script execution",
+  "plugin:pressing3": "Pressing flowers",
+  "skill:3:bind-stencil-lite": "bind stencil-lite for pressing flowers",
+  "skill:3:mend-compass-pro": "mend compass-pro for pressing flowers",
+  "agent:3:tune-thread": "tune thread for pressing flowers",
+  "skill:3:gather-valve": "gather valve for pressing flowers",
+  "skill:3:trace-ledger": "trace ledger for pressing flowers",
+  "skill:3:scout-thread-lite": "scout thread-lite for pressing flowers",
+  "skill:3:scout-ribbon": "scout ribbon for pressing flowers",
+  "skill:3:sort-beacon-pro": "sort beacon-pro for pressing flowers",
+  "skill:3:tune-valve-two": "tune valve-two for pressing flowers",
+  "skill:3:trace-crate": "trace crate for pressing flowers",
+  "skill:3:polish-valve-two": "polish valve-two for pressing flowers",
+  "agent:3:sort-plinth": "sort plinth for pressing flowers",
+  "skill:3:scout-compass": "scout compass for pressing flowers",
+  "skill:3:weigh-beacon": "weigh beacon for pressing flowers",
+  "skill:3:chart-lattice-lite": "chart lattice-lite for pressing flowers",
+  "skill:3:polish-wick": "polish wick for pressing flowers",
+  "plugin:stage4": "Stage lighting cues",
+  "skill:4:bind-ledger-pro": "bind ledger-pro for stage lighting cues",
+  "skill:4:bind-ledger": "bind ledger for stage lighting cues",
+  "skill:4:tune-gasket-two": "tune gasket-two for stage lighting cues",
+  "skill:4:label-plinth": "label plinth for stage lighting cues",
+  "skill:4:tune-plinth": "tune plinth for stage lighting cues",
+  "skill:4:draft-ledger": "draft ledger for stage lighting cues",
+  "agent:4:gather-beacon": "gather beacon for stage lighting cues",
+  "hook:4:sort-canvas": "sort canvas for stage lighting cues",
+  "skill:4:bind-beacon": "bind beacon for stage lighting cues",
+  "skill:4:sweep-anvil": "sweep anvil for stage lighting cues",
+  "skill:4:chart-ledger-pro": "chart ledger-pro for stage lighting cues",
+  "skill:4:check-tally": "check tally for stage lighting cues",
+  "skill:4:fold-canvas-two": "fold canvas-two for stage lighting cues",
+  "plugin:tide5": "Tide table lookups",
+  "skill:5:trace-compass-lite": "trace compass-lite for tide table lookups",
+  "skill:5:trace-plinth": "trace plinth for tide table lookups",
+  "skill:5:weigh-compass": "weigh compass for tide table lookups",
+  "agent:5:weigh-tally": "weigh tally for tide table lookups",
+  "skill:5:scout-valve": "scout valve for tide table lookups",
+  "skill:5:check-wick": "check wick for tide table lookups",
+  "skill:5:sort-gasket": "sort gasket for tide table lookups",
+  "agent:5:weigh-beacon-pro": "weigh beacon-pro for tide table lookups",
+  "skill:5:bind-tally": "bind tally for tide table lookups",
+  "hook:5:gather-plinth-lite": "gather plinth-lite for tide table lookups",
+  "hook:5:sweep-beacon-two": "sweep beacon-two for tide table lookups",
+  "hook:5:fold-ribbon": "fold ribbon for tide table lookups",
+  "plugin:bread6": "Bread and fermentation",
+  "skill:6:sweep-gasket-mini": "sweep gasket-mini for bread and fermentation",
+  "skill:6:tune-ribbon-lite": "tune ribbon-lite for bread and fermentation",
+  "hook:6:gather-valve-two": "gather valve-two for bread and fermentation",
+  "skill:6:weigh-anvil": "weigh anvil for bread and fermentation",
+  "skill:6:sweep-canvas-lite": "sweep canvas-lite for bread and fermentation",
+  "skill:6:scout-ribbon-two": "scout ribbon-two for bread and fermentation",
+  "agent:6:tune-beacon": "tune beacon for bread and fermentation",
+  "agent:6:scout-thread-two": "scout thread-two for bread and fermentation",
+  "skill:6:weigh-lattice-two": "weigh lattice-two for bread and fermentation",
+  "hook:6:mend-lattice-lite": "mend lattice-lite for bread and fermentation",
+  "skill:6:mend-ribbon": "mend ribbon for bread and fermentation",
+  "plugin:orchard7": "Orchard pruning notes",
+  "agent:7:draft-lattice-mini": "draft lattice-mini for orchard pruning notes",
+  "skill:7:sweep-stencil-two": "sweep stencil-two for orchard pruning notes",
+  "skill:7:sweep-valve-two": "sweep valve-two for orchard pruning notes",
+  "skill:7:sort-anvil-two": "sort anvil-two for orchard pruning notes",
+  "skill:7:fold-ledger": "fold ledger for orchard pruning notes",
+  "skill:7:sort-plinth-pro": "sort plinth-pro for orchard pruning notes",
+  "skill:7:scout-wick-pro": "scout wick-pro for orchard pruning notes",
+  "skill:7:scout-ribbon-lite": "scout ribbon-lite for orchard pruning notes",
+  "skill:7:fold-beacon-pro": "fold beacon-pro for orchard pruning notes",
+  "skill:7:polish-plinth-lite": "polish plinth-lite for orchard pruning notes",
+  "plugin:kite8": "Kite building",
+  "skill:8:sweep-canvas": "sweep canvas for kite building",
+  "skill:8:polish-plinth": "polish plinth for kite building",
+  "agent:8:chart-tally-pro": "chart tally-pro for kite building",
+  "skill:8:polish-beacon-pro": "polish beacon-pro for kite building",
+  "skill:8:trace-lattice-pro": "trace lattice-pro for kite building",
+  "hook:8:gather-compass-pro": "gather compass-pro for kite building",
+  "skill:8:label-compass-pro": "label compass-pro for kite building",
+  "agent:8:scout-plinth-pro": "scout plinth-pro for kite building",
+  "skill:8:polish-compass": "polish compass for kite building",
+  "plugin:lantern9": "Lantern repair",
+  "skill:9:gather-compass": "gather compass for lantern repair",
+  "skill:9:bind-lattice": "bind lattice for lantern repair",
+  "skill:9:chart-anvil": "chart anvil for lantern repair",
+  "skill:9:bind-anvil": "bind anvil for lantern repair",
+  "skill:9:bind-gasket-pro": "bind gasket-pro for lantern repair",
+  "skill:9:sort-thread-pro": "sort thread-pro for lantern repair",
+  "skill:9:gather-ribbon": "gather ribbon for lantern repair",
+  "skill:9:draft-crate": "draft crate for lantern repair",
+  "plugin:map10": "Map making",
+  "skill:10:weigh-valve-pro": "weigh valve-pro for map making",
+  "skill:10:mend-thread-pro": "mend thread-pro for map making",
+  "skill:10:label-lattice": "label lattice for map making",
+  "skill:10:draft-plinth-mini": "draft plinth-mini for map making",
+  "skill:10:scout-crate": "scout crate for map making",
+  "skill:10:sort-compass": "sort compass for map making",
+  "skill:10:mend-crate-lite": "mend crate-lite for map making",
+  "plugin:chess11": "Chess openings",
+  "skill:11:mend-ribbon-lite": "mend ribbon-lite for chess openings",
+  "skill:11:draft-thread": "draft thread for chess openings",
+  "skill:11:sweep-lattice-pro": "sweep lattice-pro for chess openings",
+  "skill:11:polish-stencil": "polish stencil for chess openings",
+  "skill:11:weigh-ribbon-pro": "weigh ribbon-pro for chess openings",
+  "hook:11:scout-crate-mini": "scout crate-mini for chess openings",
+  "skill:11:weigh-lattice": "weigh lattice for chess openings",
+  "skill:12:draft-anvil-two": "draft anvil-two for beekeeping log",
+  "hook:12:fold-stencil": "fold stencil for beekeeping log",
+  "agent:12:gather-lattice-two": "gather lattice-two for beekeeping log",
+  "skill:12:check-lattice": "check lattice for beekeeping log",
+  "skill:12:check-stencil": "check stencil for beekeeping log",
+  "skill:12:tune-gasket": "tune gasket for beekeeping log",
+  "hook:12:trace-stencil": "trace stencil for beekeeping log",
+  "skill:13:mend-valve-lite": "mend valve-lite for compost schedule",
+  "skill:13:draft-compass-mini": "draft compass-mini for compost schedule",
+  "skill:13:draft-stencil": "draft stencil for compost schedule",
+  "skill:13:polish-lattice-lite": "polish lattice-lite for compost schedule",
+  "skill:13:gather-tally-two": "gather tally-two for compost schedule",
+  "skill:13:polish-canvas-two": "polish canvas-two for compost schedule",
+  "skill:13:label-tally-two": "label tally-two for compost schedule",
+  "skill:14:chart-canvas": "chart canvas for glass blowing",
+  "skill:14:sort-wick-pro": "sort wick-pro for glass blowing",
+  "skill:14:sweep-ribbon-lite": "sweep ribbon-lite for glass blowing",
+  "hook:14:gather-crate-pro": "gather crate-pro for glass blowing",
+  "skill:14:label-canvas-pro": "label canvas-pro for glass blowing",
+  "hook:14:sweep-tally": "sweep tally for glass blowing",
+  "skill:15:trace-compass": "trace compass for marathon pacing",
+  "skill:15:label-ribbon": "label ribbon for marathon pacing",
+  "skill:15:weigh-gasket-two": "weigh gasket-two for marathon pacing",
+  "skill:15:weigh-canvas": "weigh canvas for marathon pacing",
+  "skill:15:label-ledger": "label ledger for marathon pacing",
+  "skill:15:tune-ledger": "tune ledger for marathon pacing",
+  "skill:16:weigh-wick": "weigh wick for tea tasting",
+  "hook:16:label-compass": "label compass for tea tasting",
+  "skill:16:gather-ledger": "gather ledger for tea tasting",
+  "skill:16:check-canvas-two": "check canvas-two for tea tasting",
+  "skill:16:tune-beacon-two": "tune beacon-two for tea tasting",
+  "hook:17:chart-wick": "chart wick for moth identification",
+  "skill:17:tune-tally": "tune tally for moth identification",
+  "skill:17:gather-lattice-mini": "gather lattice-mini for moth identification",
+  "skill:17:weigh-valve-lite": "weigh valve-lite for moth identification",
+  "skill:17:tune-ledger-pro": "tune ledger-pro for moth identification",
+  "skill:18:scout-anvil": "scout anvil for bridge inspection",
+  "skill:18:polish-stencil-two": "polish stencil-two for bridge inspection",
+  "skill:18:label-crate-mini": "label crate-mini for bridge inspection",
+  "skill:18:trace-ribbon-mini": "trace ribbon-mini for bridge inspection",
+  "skill:19:mend-wick-lite": "mend wick-lite for lighthouse upkeep",
+  "skill:19:fold-beacon-mini": "fold beacon-mini for lighthouse upkeep",
+  "agent:19:polish-compass-lite": "polish compass-lite for lighthouse upkeep",
+  "hook:19:bind-tally-pro": "bind tally-pro for lighthouse upkeep",
+  "skill:20:tune-anvil": "tune anvil for feature implementation planning",
+  "skill:20:check-ledger-lite": "check ledger-lite for feature implementation planning",
+  "agent:20:scout-ledger-pro": "scout ledger-pro for feature implementation planning",
+  "hook:21:trace-gasket-pro": "trace gasket-pro for plan design interview",
+  "skill:21:polish-crate-two": "polish crate-two for plan design interview",
+  "skill:21:mend-plinth": "mend plinth for plan design interview",
+  "skill:22:check-canvas-pro": "check canvas-pro for garden irrigation",
+  "skill:22:draft-ledger-two": "draft ledger-two for garden irrigation",
+  "skill:23:polish-anvil": "polish anvil for vinyl cataloguing",
+  "skill:23:chart-stencil": "chart stencil for vinyl cataloguing",
+  "skill:24:check-ribbon-two": "check ribbon-two for telescope alignment",
+  "skill:24:tune-thread-lite": "tune thread-lite for telescope alignment",
+  "skill:25:bind-lattice-mini": "bind lattice-mini for ceramic glazes",
+  "skill:26:check-compass": "check compass for rope knots",
+  "agent:27:mend-ledger": "mend ledger for weather diary",
+  "skill:28:chart-thread": "chart thread for puppet staging",
+  "hook:29:tune-lattice": "tune lattice for claude code hook setup",
+  "hook:29:weigh-anvil-pro": "weigh anvil-pro for claude code hook setup",
+  "skill:29:polish-crate-lite": "polish crate-lite for claude code hook setup"
+ },
+ "clusters": [
+  {
+   "name": "Tidy the changelog",
+   "item_ids": [
+    "plugin:tidy0",
+    "hook:0:mend-gasket-mini",
+    "skill:0:fold-canvas-pro",
+    "agent:0:label-valve",
+    "skill:0:trace-canvas",
+    "skill:0:gather-crate",
+    "skill:0:label-wick",
+    "skill:0:trace-ribbon-pro",
+    "skill:0:check-compass-pro",
+    "skill:0:label-crate-lite",
+    "skill:0:sort-lattice-mini",
+    "skill:0:mend-gasket",
+    "skill:0:fold-beacon",
+    "agent:0:fold-crate-pro",
+    "skill:0:bind-compass",
+    "skill:0:mend-canvas",
+    "agent:0:sort-ledger",
+    "agent:0:trace-thread-lite",
+    "hook:0:trace-crate-lite",
+    "skill:0:trace-valve",
+    "skill:0:sort-crate-pro",
+    "skill:0:sort-lattice-two",
+    "skill:0:mend-anvil-two",
+    "skill:0:sort-thread",
+    "skill:0:sort-tally-lite",
+    "skill:0:sort-compass-pro",
+    "skill:0:sort-gasket-lite",
+    "agent:0:bind-crate"
+   ]
+  },
+  {
+   "name": "Plan the quarterly review",
+   "item_ids": [
+    "plugin:plan1",
+    "skill:1:bind-anvil-pro",
+    "skill:1:draft-valve",
+    "skill:1:polish-beacon",
+    "skill:1:scout-wick",
+    "skill:1:chart-beacon",
+    "agent:1:polish-tally-lite",
+    "skill:1:trace-ribbon",
+    "skill:1:draft-valve-mini",
+    "skill:1:draft-canvas",
+    "skill:1:scout-ledger",
+    "skill:1:gather-wick-two",
+    "skill:1:tune-valve",
+    "skill:1:sort-plinth-lite",
+    "skill:1:sort-valve-lite",
+    "skill:1:draft-beacon",
+    "hook:1:bind-compass-lite",
+    "skill:1:trace-ledger-pro",
+    "skill:1:mend-anvil-pro",
+    "hook:1:draft-compass-lite",
+    "skill:1:mend-tally",
+    "hook:1:trace-anvil",
+    "skill:1:fold-gasket-lite",
+    "skill:1:gather-stencil",
+    "skill:1:chart-gasket-lite",
+    "hook:1:check-anvil"
+   ]
+  },
+  {
+   "name": "Hook script execution",
+   "item_ids": [
+    "plugin:hook2",
+    "skill:2:bind-gasket-lite",
+    "skill:2:tune-crate-mini",
+    "skill:2:sweep-lattice-two",
+    "skill:2:draft-wick",
+    "skill:2:weigh-stencil",
+    "skill:2:sort-tally",
+    "skill:2:scout-beacon-two",
+    "skill:2:fold-gasket",
+    "skill:2:mend-ledger-mini",
+    "skill:2:trace-anvil-pro",
+    "agent:2:chart-plinth-pro",
+    "skill:2:tune-canvas",
+    "hook:2:label-compass-lite",
+    "skill:2:trace-gasket",
+    "agent:2:polish-gasket-lite",
+    "skill:2:sort-beacon",
+    "agent:2:scout-tally",
+    "skill:2:gather-lattice",
+    "skill:2:bind-canvas"
+   ]
+  },
+  {
+   "name": "Pressing flowers",
+   "item_ids": [
+    "plugin:pressing3",
+    "skill:3:bind-stencil-lite",
+    "skill:3:mend-compass-pro",
+    "agent:3:tune-thread",
+    "skill:3:gather-valve",
+    "skill:3:trace-ledger",
+    "skill:3:scout-thread-lite",
+    "skill:3:scout-ribbon",
+    "skill:3:sort-beacon-pro",
+    "skill:3:tune-valve-two",
+    "skill:3:trace-crate",
+    "skill:3:polish-valve-two",
+    "agent:3:sort-plinth",
+    "skill:3:scout-compass",
+    "skill:3:weigh-beacon",
+    "skill:3:chart-lattice-lite",
+    "skill:3:polish-wick"
+   ]
+  },
+  {
+   "name": "Stage lighting cues",
+   "item_ids": [
+    "plugin:stage4",
+    "skill:4:bind-ledger-pro",
+    "skill:4:bind-ledger",
+    "skill:4:tune-gasket-two",
+    "skill:4:label-plinth",
+    "skill:4:tune-plinth",
+    "skill:4:draft-ledger",
+    "agent:4:gather-beacon",
+    "hook:4:sort-canvas",
+    "skill:4:bind-beacon",
+    "skill:4:sweep-anvil",
+    "skill:4:chart-ledger-pro",
+    "skill:4:check-tally",
+    "skill:4:fold-canvas-two"
+   ]
+  },
+  {
+   "name": "Tide table lookups",
+   "item_ids": [
+    "plugin:tide5",
+    "skill:5:trace-compass-lite",
+    "skill:5:trace-plinth",
+    "skill:5:weigh-compass",
+    "agent:5:weigh-tally",
+    "skill:5:scout-valve",
+    "skill:5:check-wick",
+    "skill:5:sort-gasket",
+    "agent:5:weigh-beacon-pro",
+    "skill:5:bind-tally",
+    "hook:5:gather-plinth-lite",
+    "hook:5:sweep-beacon-two",
+    "hook:5:fold-ribbon"
+   ]
+  },
+  {
+   "name": "Bread and fermentation",
+   "item_ids": [
+    "plugin:bread6",
+    "skill:6:sweep-gasket-mini",
+    "skill:6:tune-ribbon-lite",
+    "hook:6:gather-valve-two",
+    "skill:6:weigh-anvil",
+    "skill:6:sweep-canvas-lite",
+    "skill:6:scout-ribbon-two",
+    "agent:6:tune-beacon",
+    "agent:6:scout-thread-two",
+    "skill:6:weigh-lattice-two",
+    "hook:6:mend-lattice-lite",
+    "skill:6:mend-ribbon"
+   ]
+  },
+  {
+   "name": "Orchard pruning notes",
+   "item_ids": [
+    "plugin:orchard7",
+    "agent:7:draft-lattice-mini",
+    "skill:7:sweep-stencil-two",
+    "skill:7:sweep-valve-two",
+    "skill:7:sort-anvil-two",
+    "skill:7:fold-ledger",
+    "skill:7:sort-plinth-pro",
+    "skill:7:scout-wick-pro",
+    "skill:7:scout-ribbon-lite",
+    "skill:7:fold-beacon-pro",
+    "skill:7:polish-plinth-lite"
+   ]
+  },
+  {
+   "name": "Kite building",
+   "item_ids": [
+    "plugin:kite8",
+    "skill:8:sweep-canvas",
+    "skill:8:polish-plinth",
+    "agent:8:chart-tally-pro",
+    "skill:8:polish-beacon-pro",
+    "skill:8:trace-lattice-pro",
+    "hook:8:gather-compass-pro",
+    "skill:8:label-compass-pro",
+    "agent:8:scout-plinth-pro",
+    "skill:8:polish-compass"
+   ]
+  },
+  {
+   "name": "Lantern repair",
+   "item_ids": [
+    "plugin:lantern9",
+    "skill:9:gather-compass",
+    "skill:9:bind-lattice",
+    "skill:9:chart-anvil",
+    "skill:9:bind-anvil",
+    "skill:9:bind-gasket-pro",
+    "skill:9:sort-thread-pro",
+    "skill:9:gather-ribbon",
+    "skill:9:draft-crate"
+   ]
+  },
+  {
+   "name": "Map making",
+   "item_ids": [
+    "plugin:map10",
+    "skill:10:weigh-valve-pro",
+    "skill:10:mend-thread-pro",
+    "skill:10:label-lattice",
+    "skill:10:draft-plinth-mini",
+    "skill:10:scout-crate",
+    "skill:10:sort-compass",
+    "skill:10:mend-crate-lite"
+   ]
+  },
+  {
+   "name": "Chess openings",
+   "item_ids": [
+    "plugin:chess11",
+    "skill:11:mend-ribbon-lite",
+    "skill:11:draft-thread",
+    "skill:11:sweep-lattice-pro",
+    "skill:11:polish-stencil",
+    "skill:11:weigh-ribbon-pro",
+    "hook:11:scout-crate-mini",
+    "skill:11:weigh-lattice"
+   ]
+  },
+  {
+   "name": "Beekeeping log",
+   "item_ids": [
+    "skill:12:draft-anvil-two",
+    "hook:12:fold-stencil",
+    "agent:12:gather-lattice-two",
+    "skill:12:check-lattice",
+    "skill:12:check-stencil",
+    "skill:12:tune-gasket",
+    "hook:12:trace-stencil"
+   ]
+  },
+  {
+   "name": "Compost schedule",
+   "item_ids": [
+    "skill:13:mend-valve-lite",
+    "skill:13:draft-compass-mini",
+    "skill:13:draft-stencil",
+    "skill:13:polish-lattice-lite",
+    "skill:13:gather-tally-two",
+    "skill:13:polish-canvas-two",
+    "skill:13:label-tally-two"
+   ]
+  },
+  {
+   "name": "Glass blowing",
+   "item_ids": [
+    "skill:14:chart-canvas",
+    "skill:14:sort-wick-pro",
+    "skill:14:sweep-ribbon-lite",
+    "hook:14:gather-crate-pro",
+    "skill:14:label-canvas-pro",
+    "hook:14:sweep-tally"
+   ]
+  },
+  {
+   "name": "Marathon pacing",
+   "item_ids": [
+    "skill:15:trace-compass",
+    "skill:15:label-ribbon",
+    "skill:15:weigh-gasket-two",
+    "skill:15:weigh-canvas",
+    "skill:15:label-ledger",
+    "skill:15:tune-ledger"
+   ]
+  },
+  {
+   "name": "Tea tasting",
+   "item_ids": [
+    "skill:16:weigh-wick",
+    "hook:16:label-compass",
+    "skill:16:gather-ledger",
+    "skill:16:check-canvas-two",
+    "skill:16:tune-beacon-two"
+   ]
+  },
+  {
+   "name": "Moth identification",
+   "item_ids": [
+    "hook:17:chart-wick",
+    "skill:17:tune-tally",
+    "skill:17:gather-lattice-mini",
+    "skill:17:weigh-valve-lite",
+    "skill:17:tune-ledger-pro"
+   ]
+  },
+  {
+   "name": "Bridge inspection",
+   "item_ids": [
+    "skill:18:scout-anvil",
+    "skill:18:polish-stencil-two",
+    "skill:18:label-crate-mini",
+    "skill:18:trace-ribbon-mini"
+   ]
+  },
+  {
+   "name": "Lighthouse upkeep",
+   "item_ids": [
+    "skill:19:mend-wick-lite",
+    "skill:19:fold-beacon-mini",
+    "agent:19:polish-compass-lite",
+    "hook:19:bind-tally-pro"
+   ]
+  },
+  {
+   "name": "Feature implementation planning",
+   "item_ids": [
+    "skill:20:tune-anvil",
+    "skill:20:check-ledger-lite",
+    "agent:20:scout-ledger-pro"
+   ]
+  },
+  {
+   "name": "Plan design interview",
+   "item_ids": [
+    "hook:21:trace-gasket-pro",
+    "skill:21:polish-crate-two",
+    "skill:21:mend-plinth"
+   ]
+  },
+  {
+   "name": "Garden irrigation",
+   "item_ids": [
+    "skill:22:check-canvas-pro",
+    "skill:22:draft-ledger-two"
+   ]
+  },
+  {
+   "name": "Vinyl cataloguing",
+   "item_ids": [
+    "skill:23:polish-anvil",
+    "skill:23:chart-stencil"
+   ]
+  },
+  {
+   "name": "Telescope alignment",
+   "item_ids": [
+    "skill:24:check-ribbon-two",
+    "skill:24:tune-thread-lite"
+   ]
+  },
+  {
+   "name": "Ceramic glazes",
+   "item_ids": [
+    "skill:25:bind-lattice-mini"
+   ]
+  },
+  {
+   "name": "Rope knots",
+   "item_ids": [
+    "skill:26:check-compass"
+   ]
+  },
+  {
+   "name": "Weather diary",
+   "item_ids": [
+    "agent:27:mend-ledger"
+   ]
+  },
+  {
+   "name": "Puppet staging",
+   "item_ids": [
+    "skill:28:chart-thread"
+   ]
+  },
+  {
+   "name": "Claude Code hook setup",
+   "item_ids": [
+    "hook:29:tune-lattice",
+    "hook:29:weigh-anvil-pro",
+    "skill:29:polish-crate-lite"
+   ]
+  }
+ ],
+ "costs": {
+  "hook:0:mend-gasket-mini": {
+   "always_on": 48,
+   "on_use": 565
+  },
+  "skill:0:fold-canvas-pro": {
+   "always_on": 82,
+   "on_use": 4199
+  },
+  "agent:0:label-valve": {
+   "always_on": 86,
+   "on_use": 2090
+  },
+  "skill:0:trace-canvas": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:0:gather-crate": {
+   "always_on": 67,
+   "on_use": 2063
+  },
+  "skill:0:label-wick": {
+   "always_on": 50,
+   "on_use": 5281
+  },
+  "skill:0:trace-ribbon-pro": {
+   "always_on": 34,
+   "on_use": 310
+  },
+  "skill:0:check-compass-pro": {
+   "always_on": 71,
+   "on_use": 4443
+  },
+  "skill:0:label-crate-lite": {
+   "always_on": 95,
+   "on_use": 3874
+  },
+  "skill:0:sort-lattice-mini": {
+   "always_on": 53,
+   "on_use": 1949
+  },
+  "skill:0:mend-gasket": {
+   "always_on": 41,
+   "on_use": 2919
+  },
+  "skill:0:fold-beacon": {
+   "always_on": 38,
+   "on_use": 3727
+  },
+  "agent:0:fold-crate-pro": {
+   "always_on": 54,
+   "on_use": 5275
+  },
+  "skill:0:bind-compass": {
+   "always_on": 96,
+   "on_use": 447
+  },
+  "skill:0:mend-canvas": {
+   "always_on": 64,
+   "on_use": 2159
+  },
+  "agent:0:sort-ledger": {
+   "always_on": 59,
+   "on_use": 5261
+  },
+  "agent:0:trace-thread-lite": {
+   "always_on": 38,
+   "on_use": 2509
+  },
+  "hook:0:trace-crate-lite": {
+   "always_on": 26,
+   "on_use": 3233
+  },
+  "skill:0:trace-valve": {
+   "always_on": 47,
+   "on_use": 3710
+  },
+  "skill:0:sort-crate-pro": {
+   "always_on": 36,
+   "on_use": 5071
+  },
+  "skill:0:sort-lattice-two": {
+   "always_on": 93,
+   "on_use": 338
+  },
+  "skill:0:mend-anvil-two": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:0:sort-thread": {
+   "always_on": 24,
+   "on_use": 4654
+  },
+  "skill:0:sort-tally-lite": {
+   "always_on": 97,
+   "on_use": 3411
+  },
+  "skill:0:sort-compass-pro": {
+   "always_on": 32,
+   "on_use": 3585
+  },
+  "skill:0:sort-gasket-lite": {
+   "always_on": 20,
+   "on_use": 2345
+  },
+  "agent:0:bind-crate": {
+   "always_on": 38,
+   "on_use": 2940
+  },
+  "skill:1:bind-anvil-pro": {
+   "always_on": 40,
+   "on_use": 2213
+  },
+  "skill:1:draft-valve": {
+   "always_on": 72,
+   "on_use": 4325
+  },
+  "skill:1:polish-beacon": {
+   "always_on": 75,
+   "on_use": 643
+  },
+  "skill:1:scout-wick": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:1:chart-beacon": {
+   "always_on": null,
+   "on_use": null
+  },
+  "agent:1:polish-tally-lite": {
+   "always_on": 58,
+   "on_use": 3291
+  },
+  "skill:1:trace-ribbon": {
+   "always_on": 54,
+   "on_use": 1210
+  },
+  "skill:1:draft-valve-mini": {
+   "always_on": 77,
+   "on_use": 2131
+  },
+  "skill:1:draft-canvas": {
+   "always_on": 23,
+   "on_use": 1915
+  },
+  "skill:1:scout-ledger": {
+   "always_on": 67,
+   "on_use": 4222
+  },
+  "skill:1:gather-wick-two": {
+   "always_on": 30,
+   "on_use": 2384
+  },
+  "skill:1:tune-valve": {
+   "always_on": 40,
+   "on_use": 1867
+  },
+  "skill:1:sort-plinth-lite": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:1:sort-valve-lite": {
+   "always_on": 89,
+   "on_use": 1595
+  },
+  "skill:1:draft-beacon": {
+   "always_on": 38,
+   "on_use": 1430
+  },
+  "hook:1:bind-compass-lite": {
+   "always_on": 86,
+   "on_use": 2022
+  },
+  "skill:1:trace-ledger-pro": {
+   "always_on": 34,
+   "on_use": 4551
+  },
+  "skill:1:mend-anvil-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "hook:1:draft-compass-lite": {
+   "always_on": 53,
+   "on_use": 3818
+  },
+  "skill:1:mend-tally": {
+   "always_on": 28,
+   "on_use": 4316
+  },
+  "hook:1:trace-anvil": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:1:fold-gasket-lite": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:1:gather-stencil": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:1:chart-gasket-lite": {
+   "always_on": 86,
+   "on_use": 5294
+  },
+  "hook:1:check-anvil": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:2:bind-gasket-lite": {
+   "always_on": 29,
+   "on_use": 2358
+  },
+  "skill:2:tune-crate-mini": {
+   "always_on": 60,
+   "on_use": 4067
+  },
+  "skill:2:sweep-lattice-two": {
+   "always_on": 25,
+   "on_use": 3588
+  },
+  "skill:2:draft-wick": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:2:weigh-stencil": {
+   "always_on": 38,
+   "on_use": 2291
+  },
+  "skill:2:sort-tally": {
+   "always_on": 45,
+   "on_use": 3029
+  },
+  "skill:2:scout-beacon-two": {
+   "always_on": 42,
+   "on_use": 2888
+  },
+  "skill:2:fold-gasket": {
+   "always_on": 88,
+   "on_use": 2986
+  },
+  "skill:2:mend-ledger-mini": {
+   "always_on": 29,
+   "on_use": 598
+  },
+  "skill:2:trace-anvil-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "agent:2:chart-plinth-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:2:tune-canvas": {
+   "always_on": 23,
+   "on_use": 4795
+  },
+  "hook:2:label-compass-lite": {
+   "always_on": 20,
+   "on_use": 4432
+  },
+  "skill:2:trace-gasket": {
+   "always_on": 94,
+   "on_use": 4849
+  },
+  "agent:2:polish-gasket-lite": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:2:sort-beacon": {
+   "always_on": 87,
+   "on_use": 1288
+  },
+  "agent:2:scout-tally": {
+   "always_on": 72,
+   "on_use": 2074
+  },
+  "skill:2:gather-lattice": {
+   "always_on": 97,
+   "on_use": 2705
+  },
+  "skill:2:bind-canvas": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:3:bind-stencil-lite": {
+   "always_on": 82,
+   "on_use": 450
+  },
+  "skill:3:mend-compass-pro": {
+   "always_on": 40,
+   "on_use": 441
+  },
+  "agent:3:tune-thread": {
+   "always_on": 40,
+   "on_use": 4402
+  },
+  "skill:3:gather-valve": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:3:trace-ledger": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:3:scout-thread-lite": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:3:scout-ribbon": {
+   "always_on": 23,
+   "on_use": 4289
+  },
+  "skill:3:sort-beacon-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:3:tune-valve-two": {
+   "always_on": 50,
+   "on_use": 3944
+  },
+  "skill:3:trace-crate": {
+   "always_on": 56,
+   "on_use": 1600
+  },
+  "skill:3:polish-valve-two": {
+   "always_on": 29,
+   "on_use": 4179
+  },
+  "agent:3:sort-plinth": {
+   "always_on": 38,
+   "on_use": 4309
+  },
+  "skill:3:scout-compass": {
+   "always_on": 69,
+   "on_use": 2537
+  },
+  "skill:3:weigh-beacon": {
+   "always_on": 66,
+   "on_use": 4918
+  },
+  "skill:3:chart-lattice-lite": {
+   "always_on": 21,
+   "on_use": 645
+  },
+  "skill:3:polish-wick": {
+   "always_on": 67,
+   "on_use": 1085
+  },
+  "skill:4:bind-ledger-pro": {
+   "always_on": 45,
+   "on_use": 2583
+  },
+  "skill:4:bind-ledger": {
+   "always_on": 77,
+   "on_use": 4756
+  },
+  "skill:4:tune-gasket-two": {
+   "always_on": 91,
+   "on_use": 3677
+  },
+  "skill:4:label-plinth": {
+   "always_on": 84,
+   "on_use": 4175
+  },
+  "skill:4:tune-plinth": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:4:draft-ledger": {
+   "always_on": 43,
+   "on_use": 1697
+  },
+  "agent:4:gather-beacon": {
+   "always_on": 51,
+   "on_use": 4867
+  },
+  "hook:4:sort-canvas": {
+   "always_on": 32,
+   "on_use": 3817
+  },
+  "skill:4:bind-beacon": {
+   "always_on": 66,
+   "on_use": 3927
+  },
+  "skill:4:sweep-anvil": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:4:chart-ledger-pro": {
+   "always_on": 30,
+   "on_use": 842
+  },
+  "skill:4:check-tally": {
+   "always_on": 49,
+   "on_use": 3033
+  },
+  "skill:4:fold-canvas-two": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:5:trace-compass-lite": {
+   "always_on": 88,
+   "on_use": 1154
+  },
+  "skill:5:trace-plinth": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:5:weigh-compass": {
+   "always_on": 49,
+   "on_use": 4008
+  },
+  "agent:5:weigh-tally": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:5:scout-valve": {
+   "always_on": 97,
+   "on_use": 956
+  },
+  "skill:5:check-wick": {
+   "always_on": 35,
+   "on_use": 622
+  },
+  "skill:5:sort-gasket": {
+   "always_on": 98,
+   "on_use": 1136
+  },
+  "agent:5:weigh-beacon-pro": {
+   "always_on": 86,
+   "on_use": 1665
+  },
+  "skill:5:bind-tally": {
+   "always_on": 61,
+   "on_use": 4695
+  },
+  "hook:5:gather-plinth-lite": {
+   "always_on": 96,
+   "on_use": 3894
+  },
+  "hook:5:sweep-beacon-two": {
+   "always_on": 25,
+   "on_use": 1999
+  },
+  "hook:5:fold-ribbon": {
+   "always_on": 93,
+   "on_use": 2192
+  },
+  "skill:6:sweep-gasket-mini": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:6:tune-ribbon-lite": {
+   "always_on": 76,
+   "on_use": 2818
+  },
+  "hook:6:gather-valve-two": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:6:weigh-anvil": {
+   "always_on": 31,
+   "on_use": 3330
+  },
+  "skill:6:sweep-canvas-lite": {
+   "always_on": 80,
+   "on_use": 535
+  },
+  "skill:6:scout-ribbon-two": {
+   "always_on": null,
+   "on_use": null
+  },
+  "agent:6:tune-beacon": {
+   "always_on": null,
+   "on_use": null
+  },
+  "agent:6:scout-thread-two": {
+   "always_on": 83,
+   "on_use": 4127
+  },
+  "skill:6:weigh-lattice-two": {
+   "always_on": 58,
+   "on_use": 3172
+  },
+  "hook:6:mend-lattice-lite": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:6:mend-ribbon": {
+   "always_on": 57,
+   "on_use": 1257
+  },
+  "agent:7:draft-lattice-mini": {
+   "always_on": 91,
+   "on_use": 815
+  },
+  "skill:7:sweep-stencil-two": {
+   "always_on": 73,
+   "on_use": 1624
+  },
+  "skill:7:sweep-valve-two": {
+   "always_on": 80,
+   "on_use": 546
+  },
+  "skill:7:sort-anvil-two": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:7:fold-ledger": {
+   "always_on": 23,
+   "on_use": 2692
+  },
+  "skill:7:sort-plinth-pro": {
+   "always_on": 44,
+   "on_use": 1527
+  },
+  "skill:7:scout-wick-pro": {
+   "always_on": 51,
+   "on_use": 4006
+  },
+  "skill:7:scout-ribbon-lite": {
+   "always_on": 72,
+   "on_use": 4575
+  },
+  "skill:7:fold-beacon-pro": {
+   "always_on": 88,
+   "on_use": 1938
+  },
+  "skill:7:polish-plinth-lite": {
+   "always_on": 42,
+   "on_use": 1154
+  },
+  "skill:8:sweep-canvas": {
+   "always_on": 68,
+   "on_use": 3182
+  },
+  "skill:8:polish-plinth": {
+   "always_on": 26,
+   "on_use": 4533
+  },
+  "agent:8:chart-tally-pro": {
+   "always_on": 54,
+   "on_use": 1868
+  },
+  "skill:8:polish-beacon-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:8:trace-lattice-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "hook:8:gather-compass-pro": {
+   "always_on": 82,
+   "on_use": 3895
+  },
+  "skill:8:label-compass-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "agent:8:scout-plinth-pro": {
+   "always_on": 22,
+   "on_use": 1098
+  },
+  "skill:8:polish-compass": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:9:gather-compass": {
+   "always_on": 44,
+   "on_use": 3699
+  },
+  "skill:9:bind-lattice": {
+   "always_on": 62,
+   "on_use": 4803
+  },
+  "skill:9:chart-anvil": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:9:bind-anvil": {
+   "always_on": 35,
+   "on_use": 5040
+  },
+  "skill:9:bind-gasket-pro": {
+   "always_on": 87,
+   "on_use": 4451
+  },
+  "skill:9:sort-thread-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:9:gather-ribbon": {
+   "always_on": 51,
+   "on_use": 3683
+  },
+  "skill:9:draft-crate": {
+   "always_on": 22,
+   "on_use": 4891
+  },
+  "skill:10:weigh-valve-pro": {
+   "always_on": 30,
+   "on_use": 307
+  },
+  "skill:10:mend-thread-pro": {
+   "always_on": 23,
+   "on_use": 3278
+  },
+  "skill:10:label-lattice": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:10:draft-plinth-mini": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:10:scout-crate": {
+   "always_on": 69,
+   "on_use": 2166
+  },
+  "skill:10:sort-compass": {
+   "always_on": 98,
+   "on_use": 1806
+  },
+  "skill:10:mend-crate-lite": {
+   "always_on": 85,
+   "on_use": 1350
+  },
+  "skill:11:mend-ribbon-lite": {
+   "always_on": 71,
+   "on_use": 2194
+  },
+  "skill:11:draft-thread": {
+   "always_on": 63,
+   "on_use": 3538
+  },
+  "skill:11:sweep-lattice-pro": {
+   "always_on": 24,
+   "on_use": 3915
+  },
+  "skill:11:polish-stencil": {
+   "always_on": 83,
+   "on_use": 1411
+  },
+  "skill:11:weigh-ribbon-pro": {
+   "always_on": 71,
+   "on_use": 1157
+  },
+  "hook:11:scout-crate-mini": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:11:weigh-lattice": {
+   "always_on": 26,
+   "on_use": 4595
+  },
+  "skill:12:draft-anvil-two": {
+   "always_on": 43,
+   "on_use": 2072
+  },
+  "hook:12:fold-stencil": {
+   "always_on": 81,
+   "on_use": 2024
+  },
+  "agent:12:gather-lattice-two": {
+   "always_on": 84,
+   "on_use": 2981
+  },
+  "skill:12:check-lattice": {
+   "always_on": 44,
+   "on_use": 929
+  },
+  "skill:12:check-stencil": {
+   "always_on": 88,
+   "on_use": 3639
+  },
+  "skill:12:tune-gasket": {
+   "always_on": 91,
+   "on_use": 2216
+  },
+  "hook:12:trace-stencil": {
+   "always_on": 50,
+   "on_use": 2869
+  },
+  "skill:13:mend-valve-lite": {
+   "always_on": 35,
+   "on_use": 4479
+  },
+  "skill:13:draft-compass-mini": {
+   "always_on": 85,
+   "on_use": 2673
+  },
+  "skill:13:draft-stencil": {
+   "always_on": 26,
+   "on_use": 1018
+  },
+  "skill:13:polish-lattice-lite": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:13:gather-tally-two": {
+   "always_on": 33,
+   "on_use": 2020
+  },
+  "skill:13:polish-canvas-two": {
+   "always_on": 38,
+   "on_use": 4383
+  },
+  "skill:13:label-tally-two": {
+   "always_on": 69,
+   "on_use": 723
+  },
+  "skill:14:chart-canvas": {
+   "always_on": 46,
+   "on_use": 2075
+  },
+  "skill:14:sort-wick-pro": {
+   "always_on": 76,
+   "on_use": 2375
+  },
+  "skill:14:sweep-ribbon-lite": {
+   "always_on": 85,
+   "on_use": 453
+  },
+  "hook:14:gather-crate-pro": {
+   "always_on": 52,
+   "on_use": 3437
+  },
+  "skill:14:label-canvas-pro": {
+   "always_on": 55,
+   "on_use": 5267
+  },
+  "hook:14:sweep-tally": {
+   "always_on": 68,
+   "on_use": 2943
+  },
+  "skill:15:trace-compass": {
+   "always_on": 32,
+   "on_use": 1953
+  },
+  "skill:15:label-ribbon": {
+   "always_on": 22,
+   "on_use": 998
+  },
+  "skill:15:weigh-gasket-two": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:15:weigh-canvas": {
+   "always_on": 96,
+   "on_use": 1385
+  },
+  "skill:15:label-ledger": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:15:tune-ledger": {
+   "always_on": 47,
+   "on_use": 4140
+  },
+  "skill:16:weigh-wick": {
+   "always_on": null,
+   "on_use": null
+  },
+  "hook:16:label-compass": {
+   "always_on": 78,
+   "on_use": 3668
+  },
+  "skill:16:gather-ledger": {
+   "always_on": 73,
+   "on_use": 4322
+  },
+  "skill:16:check-canvas-two": {
+   "always_on": 71,
+   "on_use": 2371
+  },
+  "skill:16:tune-beacon-two": {
+   "always_on": 32,
+   "on_use": 3441
+  },
+  "hook:17:chart-wick": {
+   "always_on": 90,
+   "on_use": 2249
+  },
+  "skill:17:tune-tally": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:17:gather-lattice-mini": {
+   "always_on": 32,
+   "on_use": 3790
+  },
+  "skill:17:weigh-valve-lite": {
+   "always_on": 86,
+   "on_use": 2185
+  },
+  "skill:17:tune-ledger-pro": {
+   "always_on": 67,
+   "on_use": 4044
+  },
+  "skill:18:scout-anvil": {
+   "always_on": 72,
+   "on_use": 4144
+  },
+  "skill:18:polish-stencil-two": {
+   "always_on": 22,
+   "on_use": 4638
+  },
+  "skill:18:label-crate-mini": {
+   "always_on": 67,
+   "on_use": 3641
+  },
+  "skill:18:trace-ribbon-mini": {
+   "always_on": 22,
+   "on_use": 2893
+  },
+  "skill:19:mend-wick-lite": {
+   "always_on": 21,
+   "on_use": 4635
+  },
+  "skill:19:fold-beacon-mini": {
+   "always_on": 45,
+   "on_use": 572
+  },
+  "agent:19:polish-compass-lite": {
+   "always_on": 49,
+   "on_use": 3928
+  },
+  "hook:19:bind-tally-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:20:tune-anvil": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:20:check-ledger-lite": {
+   "always_on": null,
+   "on_use": null
+  },
+  "agent:20:scout-ledger-pro": {
+   "always_on": 94,
+   "on_use": 547
+  },
+  "hook:21:trace-gasket-pro": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:21:polish-crate-two": {
+   "always_on": 21,
+   "on_use": 2844
+  },
+  "skill:21:mend-plinth": {
+   "always_on": 97,
+   "on_use": 1012
+  },
+  "skill:22:check-canvas-pro": {
+   "always_on": 62,
+   "on_use": 1097
+  },
+  "skill:22:draft-ledger-two": {
+   "always_on": 49,
+   "on_use": 3730
+  },
+  "skill:23:polish-anvil": {
+   "always_on": 80,
+   "on_use": 1282
+  },
+  "skill:23:chart-stencil": {
+   "always_on": 59,
+   "on_use": 563
+  },
+  "skill:24:check-ribbon-two": {
+   "always_on": 72,
+   "on_use": 2610
+  },
+  "skill:24:tune-thread-lite": {
+   "always_on": 46,
+   "on_use": 1376
+  },
+  "skill:25:bind-lattice-mini": {
+   "always_on": 95,
+   "on_use": 628
+  },
+  "skill:26:check-compass": {
+   "always_on": 58,
+   "on_use": 672
+  },
+  "agent:27:mend-ledger": {
+   "always_on": null,
+   "on_use": null
+  },
+  "skill:28:chart-thread": {
+   "always_on": 20,
+   "on_use": 2111
+  },
+  "hook:29:tune-lattice": {
+   "always_on": 41,
+   "on_use": 2436
+  },
+  "hook:29:weigh-anvil-pro": {
+   "always_on": 43,
+   "on_use": 2457
+  },
+  "skill:29:polish-crate-lite": {
+   "always_on": null,
+   "on_use": null
+  }
+ },
+ "warnings": []
+}

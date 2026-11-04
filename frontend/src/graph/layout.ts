@@ -61,7 +61,8 @@ export function layout(nodes: LNode[], links: LLink[], clusters: LCluster[], tal
     .alphaDecay(0.01)
     .force("x", forceX<Disc>(0).strength(0.05 * tall))
     .force("y", forceY<Disc>(0).strength(0.05 / tall))
-    .force("collide", forceCollide<Disc>((d) => d.R + RIM / 2).strength(1).iterations(4));
+    // a phone shows the map small, so its names need more room around each circle
+    .force("collide", forceCollide<Disc>((d) => d.R + (tall > 1.2 ? RIM * 1.7 : RIM) / 2).strength(1).iterations(4));
   for (let i = 0; i < 400; i++) pack.tick();
 
   // Pass B: slots on a spiral inside each circle; hubs (most Relations) first, so they take the middle
