@@ -13,7 +13,7 @@ const area = (r: number) => (r + GAP) ** 2;
 export const circleRadius = (rs: number[]) => K * Math.sqrt(rs.reduce((s, r) => s + area(r), 0)) + PAD;
 
 export type LNode = { id: string; degree: number; r: number; cluster?: LCluster; x?: number; y?: number; vx?: number; vy?: number; sx: number; sy: number };
-export type LCluster = { name: string; members: LNode[]; x: number; y: number; r: number };
+export type LCluster = { name: string; members: LNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number }; // mx, my, fr: mean member position and farthest reach at rest
 export type LLink = { source: LNode; target: LNode; kind: string };
 
 // small deterministic random source (so two runs give the same picture)
@@ -48,7 +48,18 @@ export function applyForces(link: ForceLink<LNode, LLink>, set: Setter) {
   set("contain", contain);
 }
 
-// Sets x, y, sx, sy on every node and x, y, r on every cluster. `tall` is the viewport's height over width, clamped to 1..2.
+// Where a cluster's halo belongs now: its home circle moved by how far the members' mean has moved from rest, and widened
+// (up to 1.4x) when a member is dragged out. At rest this is exactly (c.x, c.y, c.r).
+const reach = (c: LCluster, x: number, y: number) => Math.max(...c.members.map((m) => Math.hypot(m.x! - x, m.y! - y) + m.r));
+export function haloOf(c: LCluster) {
+  const n = c.members.length;
+  let mx = 0, my = 0;
+  for (const m of c.members) { mx += m.x!; my += m.y!; }
+  const x = c.x + mx / n - c.mx, y = c.y + my / n - c.my;
+  return { x, y, r: Math.max(c.r, Math.min(1.4 * c.r, c.r + reach(c, x, y) - c.fr)) };
+}
+
+// Sets x, y, sx, sy on every node and x, y, r, mx, my on every cluster. `tall` is the viewport's height over width, clamped to 1..2.
 export function layout(nodes: LNode[], links: LLink[], clusters: LCluster[], tall: number) {
   // Pass A: circles, largest first (ties by name), the catch-all last so it lands on the rim
   const rand = lcg(0x5eed);
@@ -86,4 +97,9 @@ export function layout(nodes: LNode[], links: LLink[], clusters: LCluster[], tal
   sim.force("link", link);
   applyForces(link, (name, f) => sim.force(name, f as never));
   for (let i = 0; i < 300; i++) sim.tick();
+  for (const c of clusters) {
+    c.mx = c.members.reduce((t, m) => t + m.x!, 0) / c.members.length;
+    c.my = c.members.reduce((t, m) => t + m.y!, 0) / c.members.length;
+    c.fr = reach(c, c.x, c.y);
+  }
 }

@@ -47,7 +47,7 @@ export type GNode = Item & {
 export type GOverlap = { a: GNode; b: GNode; verdict: Exclude<Verdict, "distinct">; reason: string; alpha: number };
 export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot: boolean };
 // la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
-export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; a: number; la: number; lx: number; ly: number; pick: number };
+export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number; a: number; la: number; lx: number; ly: number; pick: number };
 export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; usageWindow: UsageWindow | null; warnings: string[]; offline: boolean };
 
 // Star radius from always-on cost, area-proportional (magnitude by area, not radius). cRef is the scan's 95th percentile,
@@ -84,14 +84,14 @@ export function buildModel(data: Constellation, aspect = 1): Model {
     return n;
   });
   const clusters: Cluster[] = (data.clusters ?? [])
-    .map((c) => ({ name: labelled ? c.name : tidy(c.name), members: c.item_ids.flatMap((id) => byId.get(id) ?? []), x: 0, y: 0, r: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0 }))
+    .map((c) => ({ name: labelled ? c.name : tidy(c.name), members: c.item_ids.flatMap((id) => byId.get(id) ?? []), x: 0, y: 0, r: 0, mx: 0, my: 0, fr: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0 }))
     .filter((c) => c.members.length);
   // Clusters of fewer than 3 Items, and Items in no cluster, share one quiet region called "Other"
   const big = clusters.filter((c) => c.members.length >= 3);
   big.forEach((c) => c.members.forEach((n) => (n.cluster = c)));
   const rest = nodes.filter((n) => !n.cluster);
   if (rest.length) {
-    const other: Cluster = { name: "Other", members: rest, x: 0, y: 0, r: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0 };
+    const other: Cluster = { name: "Other", members: rest, x: 0, y: 0, r: 0, mx: 0, my: 0, fr: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0 };
     rest.forEach((n) => (n.cluster = other));
     big.push(other);
   }

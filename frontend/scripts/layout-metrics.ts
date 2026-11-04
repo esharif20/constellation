@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import { strict as assert } from "node:assert";
 import { buildModel, costRadius, RMAX, RMIN, RUNK, type Constellation, type Model } from "../src/graph/model.ts";
-import { GAP, K } from "../src/graph/layout.ts";
+import { GAP, haloOf, K } from "../src/graph/layout.ts";
 import { chooseSpot, hit, type Box } from "../src/graph/names.ts";
 
 const legacy = process.argv.includes("--legacy");
@@ -96,6 +96,20 @@ function measure(file: string, W: number, H: number) {
     if (Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r + 20) circleClash++;
   }
 
+  // halo: at rest it is the home circle; one member moved by (d, 0) shifts the centre by d / n; the radius stays within 1.4 r
+  let haloBad = 0;
+  if (!legacy) {
+    for (const c of m.clusters) {
+      const h = haloOf(c);
+      if (Math.abs(h.x - c.x) > 1e-9 || Math.abs(h.y - c.y) > 1e-9 || Math.abs(h.r - c.r) > 1e-9) haloBad++;
+      const n = c.members[0], d = 40;
+      n.x! += d;
+      const g = haloOf(c);
+      n.x! -= d;
+      if (Math.abs(g.x - c.x - d / c.members.length) > 1e-6 || Math.abs(g.y - c.y) > 1e-6 || g.r > 1.4 * c.r + 1e-9 || g.r < c.r) haloBad++;
+    }
+  }
+
   // the fitted view, as StarMap's fit() computes it, and the name placer run over it
   const phone = W <= 640, top = phone ? 146 : 72, bottom = phone ? 100 : 56, pad = phone ? 14 : 36;
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -117,7 +131,7 @@ function measure(file: string, W: number, H: number) {
   for (const b of boxes) for (const s of stars) if (hit(b, s)) labelOnStar++;
   let labelClash = 0;
   for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) if (hit(boxes[i], boxes[j])) labelClash++;
-  return { items: m.nodes.length, clusters: m.clusters.length, minDist: +minDist.toFixed(2), starOverlaps: overlaps, inside: +(inside * 100).toFixed(1), circleClash, named: `${named}/${eligible.length}`, namedShare: eligible.length ? named / eligible.length : 1, labelOnStar, labelClash, deterministic: first === second, sizeRule, overlapLinks, slotGap: +slotGap.toFixed(2) };
+  return { items: m.nodes.length, clusters: m.clusters.length, minDist: +minDist.toFixed(2), starOverlaps: overlaps, inside: +(inside * 100).toFixed(1), circleClash, named: `${named}/${eligible.length}`, namedShare: eligible.length ? named / eligible.length : 1, labelOnStar, labelClash, deterministic: first === second, sizeRule, overlapLinks, slotGap: +slotGap.toFixed(2), haloBad };
 }
 
 let failed = false;
@@ -126,7 +140,7 @@ for (const file of ["demo.json", "demo-250.json", "demo-offline.json"]) {
   for (const [W, H] of [[1440, 900], [390, 844]]) {
     const r = measure(file, W, H);
     rows.push({ file, size: `${W}x${H}`, ...r });
-    const bad = r.starOverlaps > 0 || r.inside < 98 || r.circleClash > 0 || r.labelClash > 0 || r.labelOnStar > 0 || r.namedShare < (W <= 640 ? 0.7 : 0.8) || !r.deterministic || r.sizeRule > 0 || r.overlapLinks > 0 || r.slotGap < GAP - 0.5;
+    const bad = r.starOverlaps > 0 || r.inside < 98 || r.circleClash > 0 || r.labelClash > 0 || r.labelOnStar > 0 || r.namedShare < (W <= 640 ? 0.7 : 0.8) || !r.deterministic || r.sizeRule > 0 || r.overlapLinks > 0 || r.slotGap < GAP - 0.5 || r.haloBad > 0;
     if (bad) failed = true;
   }
 }
