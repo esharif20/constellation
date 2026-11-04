@@ -1,0 +1,23 @@
+{
+  "oauthAccount": {"accessToken": "PLANTED_OAUTH_ACCESS", "emailAddress": "PLANTED_EMAIL@example.com"},
+  "userID": "PLANTED_USERID",
+  "mcpServers": {
+    "uservm": {
+      "command": "/opt/PLANTED_PATH/bin/runner",
+      "args": ["--token", "PLANTED_ARG"],
+      "env": {"API_KEY": "PLANTED_ENV_VALUE"}
+    },
+    "userweb": {
+      "type": "sse",
+      "url": "https://PLANTED_USERINFO:pw@api.example.com:8443/PLANTED_PATH/v1?key=PLANTED_QUERY",
+      "headers": {"Authorization": "Bearer PLANTED_HEADER"}
+    },
+    "shellcmd": {"command": "node server.js --secret PLANTED_SHELLARG"}
+  },
+  "projects": {
+    "/Users/PLANTED_USERNAME/work/app": {
+      "history": ["PLANTED_HISTORY"],
+      "mcpServers": {"localsrv": {"type": "http", "url": "https://local.example.com/x?t=PLANTED_QUERY2", "headers": {"X-Key": "PLANTED_HEADER2"}}}
+    }
+  }
+}

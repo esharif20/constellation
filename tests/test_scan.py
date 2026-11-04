@@ -33,15 +33,15 @@ def test_scan_lists_agents_as_items():
 def test_scan_lists_locally_configured_mcp_servers_as_items():
     servers = by_kind(scan(FIXTURE), "mcp_server")
 
-    assert set(servers) == {"localdb", "pserver"}  # pserver ships in the demo plugin
-    assert servers["localdb"].description == "npx -y @example/db-mcp"
+    assert set(servers) == {"localdb", "pserver", "docs"}  # pserver ships in the demo plugin
+    assert servers["localdb"].description == "stdio: npx"  # the command's basename only: args can carry tokens
 
 
-def test_scan_lists_hosted_connectors_as_one_item_each():
-    connectors = by_kind(scan(FIXTURE), "connector")
+def test_a_url_server_is_a_remote_mcp_server_not_a_connector():
+    constellation = scan(FIXTURE)
 
-    assert set(connectors) == {"docs"}
-    assert connectors["docs"].description == "https://mcp.example.com/docs"
+    assert by_kind(constellation, "mcp_server")["docs"].description == "remote http: https://mcp.example.com"
+    assert by_kind(constellation, "connector") == {}  # connectors live in the account, not on disk
 
 
 def test_scan_lists_a_hook_per_handler_across_all_five_lifecycle_events():

@@ -14,6 +14,7 @@ class Item:
     name: str
     description: str
     source: str
+    disabled: bool = False  # a plugin switched off in enabledPlugins, and what it contains: kept on the map, shown dimmed
 
 
 @dataclass(frozen=True)

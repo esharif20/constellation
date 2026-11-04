@@ -33,7 +33,7 @@ def scan(
     if offline:
         llm = counter = verifier = None
     items, warnings, relations, bodies = read_items(config_dir)
-    usages, window, usage_warnings = read_usage(config_dir, items) if usage else ({}, None, [])
+    usages, window, usage_warnings = read_usage(config_dir, items, relations) if usage else ({}, None, [])
     warnings += usage_warnings
     labels: dict[str, str] = {}
     vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
