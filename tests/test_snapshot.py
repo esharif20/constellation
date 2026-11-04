@@ -27,7 +27,7 @@ def test_snapshot_preserves_public_items_with_opaque_ids_and_no_provenance():
     }
     assert snapshot(data) == {
         "items": [
-            {"id": "item-1", "kind": "mcp_server", "name": "Demo server", "description": "Find docs", "source": ""},
+            {"id": "item-1", "kind": "mcp_server", "name": "Demo server", "description": "MCP server", "source": ""},
             {"id": "item-2", "kind": "mcp_tool", "name": "Search", "description": "Search docs", "source": ""},
         ],
         "relations": [],
@@ -70,7 +70,7 @@ def test_snapshot_redacts_every_public_string_and_drops_unexpected_nested_fields
     private = {"usage": {"last_used": "2026-11-04"}, "env": {"TOKEN": secret}, "body": secret, "command": secret}
     data = {
         "items": [
-            {"id": a, "kind": secret, "name": secret, "description": secret, "source": secret, **private},
+            {"id": a, "kind": "skill", "name": secret, "description": secret, "source": secret, **private},
             {"id": b, "kind": "mcp_tool", "name": "Tool", "description": "Safe", "source": secret, **private},
         ],
         "relations": [{"source": a, "target": b, "kind": secret, **private}],
@@ -89,7 +89,7 @@ def test_snapshot_redacts_every_public_string_and_drops_unexpected_nested_fields
     result = snapshot(data)
     assert result == {
         "items": [
-            {"id": "item-1", "kind": "[REDACTED]", "name": "[REDACTED]", "description": "[REDACTED]", "source": ""},
+            {"id": "item-1", "kind": "skill", "name": "[REDACTED]", "description": "[REDACTED]", "source": ""},
             {"id": "item-2", "kind": "mcp_tool", "name": "Tool", "description": "Safe", "source": ""},
         ],
         "relations": [{"source": "item-1", "target": "item-2", "kind": "[REDACTED]"}],
@@ -183,3 +183,108 @@ def test_snapshot_treats_null_optional_collections_as_empty(field):
         "costs": {},
         "overlaps": [],
     }
+
+
+def test_snapshot_replaces_executable_descriptions_with_kind_specific_public_text():
+    data = {
+        "items": [
+            {"id": "a", "kind": "hook", "name": "Start", "description": "run private-command", "source": "local"},
+            {"id": "b", "kind": "mcp_server", "name": "Docs", "description": "launch private-command", "source": "local"},
+            {"id": "c", "kind": "connector", "name": "Search", "description": "connect private-endpoint", "source": "local"},
+        ]
+    }
+    assert [i["description"] for i in snapshot(data)["items"]] == ["Hook", "MCP server", "Connector"]
+
+
+@pytest.mark.parametrize("kind", ["unexpected", "", None, [], {}])
+def test_snapshot_drops_unknown_item_kinds_and_their_references(kind):
+    data = {
+        "items": [
+            {"id": "a", "kind": kind, "name": "Private", "description": "Private", "source": "local"},
+            {"id": "b", "kind": "skill", "name": "Demo", "description": "Safe", "source": "local"},
+        ],
+        "relations": [{"source": "a", "target": "b", "kind": "contains"}],
+        "labels": {"a": "Private"},
+        "clusters": [{"name": "Private", "item_ids": ["a"]}],
+        "costs": {"a": {"always_on": 1, "on_use": 2}},
+        "overlaps": [{"a_id": "a", "b_id": "b", "verdict": "overlap", "reason": "Private"}],
+    }
+    assert snapshot(data) == {
+        "items": [{"id": "item-1", "kind": "skill", "name": "Demo", "description": "Safe", "source": ""}],
+        "relations": [],
+        "labels": {},
+        "clusters": [],
+        "costs": {},
+        "overlaps": [],
+    }
+
+
+@pytest.mark.parametrize(
+    "private",
+    [
+        "/Users/demo-person/private/setup",
+        "/home/demo-person/private/setup",
+        "~/private/setup",
+        r"C:\Users\demo-person\private\setup",
+        "demo.person@example.test",
+        "dev-db.internal.example",
+        "https://demo-user:planted-password@dev-db.internal.example/private",
+        "https://intranet/private",
+        "http://127.0.0.1:8080/private",
+        "localhost",
+    ],
+)
+def test_snapshot_scrubs_public_identifiers_in_every_retained_free_text_field(private):
+    import json
+
+    data = {
+        "items": [{"id": "a", "kind": "skill", "name": private, "description": private, "source": private}],
+        "relations": [{"source": "a", "target": "a", "kind": private}],
+        "labels": {"a": private},
+        "clusters": [{"name": private, "item_ids": ["a"]}],
+        "overlaps": [{"a_id": "a", "b_id": "a", "verdict": private, "reason": private}],
+    }
+    result = snapshot(data)
+    assert result == {
+        "items": [{"id": "item-1", "kind": "skill", "name": "[REDACTED]", "description": "[REDACTED]", "source": ""}],
+        "relations": [{"source": "item-1", "target": "item-1", "kind": "[REDACTED]"}],
+        "labels": {"item-1": "[REDACTED]"},
+        "clusters": [{"name": "[REDACTED]", "item_ids": ["item-1"]}],
+        "costs": {},
+        "overlaps": [{"a_id": "item-1", "b_id": "item-1", "verdict": "[REDACTED]", "reason": "[REDACTED]"}],
+    }
+    assert private not in json.dumps(result)
+
+
+def test_snapshot_removes_all_planted_identifiers_inside_public_prose():
+    import json
+
+    private = [
+        "/Users/demo-person/private/setup",
+        "demo.person@example.test",
+        "dev-db.internal.example",
+        "demo-user",
+        "planted-password",
+    ]
+    text = (
+        "Uses /Users/demo-person/private/setup by demo.person@example.test on dev-db.internal.example "
+        "via HTTPS://demo-user:planted-password@dev-db.internal.example/private"
+    )
+    data = {
+        "items": [{"id": "a", "kind": "skill", "name": text, "description": text, "source": "local"}],
+        "relations": [{"source": "a", "target": "a", "kind": text}],
+        "labels": {"a": text},
+        "clusters": [{"name": text, "item_ids": ["a"]}],
+        "overlaps": [{"a_id": "a", "b_id": "a", "verdict": text, "reason": text}],
+    }
+    result = snapshot(data)
+    expected = "Uses [REDACTED] by [REDACTED] on [REDACTED] via [REDACTED]"
+    assert result["items"][0]["name"] == expected
+    assert result["items"][0]["description"] == expected
+    assert result["relations"][0]["kind"] == expected
+    assert result["labels"]["item-1"] == expected
+    assert result["clusters"][0]["name"] == expected
+    assert result["overlaps"][0]["reason"] == expected
+    assert result["overlaps"][0]["verdict"] == expected
+    for value in private:
+        assert value not in json.dumps(result)
