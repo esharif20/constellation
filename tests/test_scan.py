@@ -140,3 +140,18 @@ def test_without_installed_plugins_json_the_newest_cached_version_wins_and_ids_s
 
     assert [i.description for i in constellation.items if i.name == "helper"] == ["New text."]
     assert len({i.id for i in constellation.items}) == len(constellation.items)
+
+
+def test_skills_synced_from_claude_ai_are_read_too_with_ids_that_do_not_collide(tmp_path):
+    for folder in ("skills/stop-slop", "skills/synced/abc123/stop-slop", "skills/synced/abc123/pdf"):
+        (tmp_path / folder).mkdir(parents=True)
+        (tmp_path / folder / "SKILL.md").write_text(f"---\nname: {folder.rsplit('/', 1)[1]}\ndescription: From {folder}\n---\nBody.\n")
+
+    constellation = scan(tmp_path)
+
+    assert sorted(i.description for i in constellation.items) == [
+        "From skills/stop-slop",
+        "From skills/synced/abc123/pdf",
+        "From skills/synced/abc123/stop-slop",
+    ]
+    assert len({i.id for i in constellation.items}) == 3

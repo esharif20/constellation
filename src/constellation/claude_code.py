@@ -29,7 +29,12 @@ def _frontmatter(path: Path) -> tuple[dict[str, Any], str | None]:
 
 def _read_root(root: Path, scope: str, items: list[Item], warnings: list[str], relations: list[Relation], bodies: dict[str, str]) -> None:
     """Read the Items under one root: the config dir itself, or one plugin dir. `scope` keeps ids unique."""
-    for kind, pattern in (("skill", "skills/*/SKILL.md"), ("agent", "agents/*.md")):
+    # "synced" holds skills synced from claude.ai, one folder deeper; its own id scope stops a synced copy colliding with a local skill.
+    for kind, pattern, extra in (
+        ("skill", "skills/*/SKILL.md", ""),
+        ("skill", "skills/synced/*/*/SKILL.md", "synced/"),
+        ("agent", "agents/*.md", ""),
+    ):
         for path in sorted(root.glob(pattern)):
             meta, problem = _frontmatter(path)
             if problem:
@@ -41,7 +46,7 @@ def _read_root(root: Path, scope: str, items: list[Item], warnings: list[str], r
             if not description:
                 warnings.append(f"skipped {kind} '{name}': no description ({path})")
                 continue
-            items.append(Item(f"{SOURCE}:{kind}:{scope}{name}", kind, name, description, SOURCE))
+            items.append(Item(f"{SOURCE}:{kind}:{scope}{extra}{name}", kind, name, description, SOURCE))
             bodies[items[-1].id] = path.read_text().split("---", 2)[2].strip()  # loaded only when invoked: the on-use text
     mcp_file = root / ".mcp.json"
     if mcp_file.exists():
