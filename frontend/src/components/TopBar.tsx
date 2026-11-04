@@ -6,6 +6,7 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverAnchor, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { searchItems } from "@/graph/search";
 import { groupWarnings, kindName, type GNode, type Model, type WarningGroup } from "@/graph/model";
 
 type Props = {
@@ -36,6 +37,7 @@ function Search({ query, found, onQuery, onChoose, onPreview }: Omit<Props, "mod
   const [active, setActive] = useState("");
   const open = focused && query.trim() !== "";
   const shown = found.slice(0, 8);
+  const why = (n: GNode) => searchItems([n], query)[0]?.why;
 
   // "/" focuses search from anywhere, as in most developer tools
   useEffect(() => {
@@ -86,7 +88,10 @@ function Search({ query, found, onQuery, onChoose, onPreview }: Omit<Props, "mod
           className="glass w-(--radix-popover-trigger-width) p-1"
         >
           <CommandList aria-label="Matching Items">
-            <CommandEmpty className="py-4 text-[13px] text-text-3">No Item matches that name.</CommandEmpty>
+            <CommandEmpty className="px-3 py-4 text-left text-[13px] text-text-3">
+              <p className="text-text-2">No Item matches that</p>
+              <p className="mt-1">Items come from your Claude config; plugins, skills, agents, hooks and MCP servers are shown, not CLI tools</p>
+            </CommandEmpty>
             <CommandGroup className="p-0">
               {shown.map((n) => (
                 <CommandItem key={n.id} value={n.id} onSelect={() => onChoose(n)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 gap-3 rounded-md px-3">
@@ -94,6 +99,7 @@ function Search({ query, found, onQuery, onChoose, onPreview }: Omit<Props, "mod
                   <span className="min-w-0">
                     <span className="block font-medium">{n.name}</span>
                     <span className="block truncate text-xs text-text-3">{n.label || kindName(n.kind)}</span>
+                    <span className="block truncate text-xs text-text-3">Matched: {why(n)}</span>
                   </span>
                 </CommandItem>
               ))}

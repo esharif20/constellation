@@ -1,5 +1,6 @@
 // The Constellation as the API serves it (GET /api/constellation), and the graph model the canvas draws.
 import { layout } from "./layout.ts";
+import { searchItems } from "./search.ts";
 
 export type Item = { id: string; kind: string; name: string; description: string; source: string };
 export type Relation = { source: string; target: string; kind: string };
@@ -125,19 +126,8 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, usageWindow: data.usage_window ?? null, warnings: data.warnings ?? [], offline: offlineNote !== "", offlineNote };
 }
 
-// Search rank: name prefix, then name substring, then label substring; hubs first within a rank.
-export function search(nodes: GNode[], query: string): GNode[] {
-  const s = query.trim().toLowerCase();
-  if (!s) return [];
-  return nodes
-    .flatMap((n) => {
-      const i = n.name.toLowerCase().indexOf(s);
-      const rank = i === 0 ? 0 : i > 0 ? 1 : n.label.toLowerCase().includes(s) ? 2 : -1;
-      return rank < 0 ? [] : [[rank, n] as const];
-    })
-    .sort((a, b) => a[0] - b[0] || b[1].degree - a[1].degree)
-    .map(([, n]) => n);
-}
+// Forgiving search (stopgap until #40/#41); see search.ts for the ranking.
+export const search = (nodes: GNode[], query: string): GNode[] => searchItems(nodes, query, Infinity).map((h) => h.item);
 
 // Arrow-key step: the nearest Item inside a cone around the pressed direction.
 export function step(nodes: GNode[], from: GNode, dx: number, dy: number): GNode | undefined {

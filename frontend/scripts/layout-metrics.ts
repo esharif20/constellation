@@ -7,6 +7,7 @@ import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY
 import { strict as assert } from "node:assert";
 import { buildModel, groupWarnings, costRadius, RMAX, RMIN, RUNK, type Constellation, type Model } from "../src/graph/model.ts";
 import { GAP, haloOf, K } from "../src/graph/layout.ts";
+import { searchItems } from "../src/graph/search.ts";
 import { chooseSpot, hit, type Box } from "../src/graph/names.ts";
 
 const legacy = process.argv.includes("--legacy");
@@ -148,6 +149,24 @@ function measure(file: string, W: number, H: number) {
   let labelClash = 0;
   for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) if (hit(boxes[i], boxes[j])) labelClash++;
   return { items: m.nodes.length, clusters: m.clusters.length, minDist: +minDist.toFixed(2), starOverlaps: overlaps, inside: +(inside * 100).toFixed(1), circleClash, named: `${named}/${eligible.length}`, namedShare: eligible.length ? named / eligible.length : 1, labelOnStar, labelClash, deterministic: first === second, sizeRule, overlapLinks, slotGap: +slotGap.toFixed(2), haloBad };
+}
+
+// forgiving search, on invented Items
+{
+  const mk = (name: string, description: string, kind = "skill") => ({ name, description, kind });
+  const items = [mk("frontend-design", "Build distinctive interfaces"), mk("ponytail", "Lazy senior developer mode"), mk("pony-ride", "Horse booking"), mk("tail-logs", "Follow a log file"), mk("pdf-tools", "Read and fill PDF files"), mk("talk-to-me", "Voice chat helper")];
+  const top = (q: string) => searchItems(items, q)[0]?.item.name;
+  for (const q of ["where is pony tail", "ponytail", "pony-tail", "ponyatil", "Pony Tail?"]) assert.equal(top(q), "ponytail", q);
+  assert.equal(top("frontend design"), "frontend-design");
+  assert.equal(top("find my frontend-design skill"), "frontend-design");
+  assert.equal(top("pdf"), "pdf-tools");
+  assert.equal(top("skill"), "frontend-design"); // a lone filler word is kept
+  assert.equal(searchItems(items, "pony")[0].why, "name starts with it");
+  assert.equal(searchItems(items, "ponyatil")[0].why, 'close to "ponytail"');
+  assert.equal(searchItems(items, "fill files")[0].why, "in description");
+  assert.deepEqual(searchItems(items, "qwxzvkj"), []);
+  assert.deepEqual(searchItems(items, "where is the"), []);
+  assert.ok(searchItems(items, "pony").length <= 8);
 }
 
 let failed = false;
