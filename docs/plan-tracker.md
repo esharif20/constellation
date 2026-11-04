@@ -109,3 +109,8 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Demo: `docs/design/make-demo.mjs` adds invented `usage`, `usage_window`, `hook_weights` to `demo-250.json` from a third seeded stream (existing names, Relations and Overlaps unchanged).
 - #13 reminder: public Snapshots must still drop `usage`/`usage_window` (the inspector shows nothing for them when absent).
 - Not verified: real scans, Safari/Firefox, screen readers.
+
+## #23 taste review (2026-11-04, branch `worktree-agent-a9082504e2a9f29e3`)
+
+- Done: inspector (`--app`) and look-and-fix loop at 1440 and 390 on demo data only; before/after in `docs/design/screenshots/23-*`. Fixes: unlit star names hidden while something is lit (`paint.ts`), atlas marks on empty and failed states, nowrap code pill. No deviations; no new dependencies or assets. Findings that conflict with DESIGN.md or the star-atlas direction, and ideas not built, are recorded in `docs/design/graph-app.md`.
+- Gates: lint, build, `layout:check` (thresholds unchanged) and pytest (453 passed) pass.
