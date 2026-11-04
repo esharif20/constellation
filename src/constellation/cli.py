@@ -12,6 +12,7 @@ from typing import Any
 
 from langgraph.types import Command
 
+from . import origins as origin_sources
 from . import scan
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
@@ -40,6 +41,10 @@ def main(
     scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
     scan_command.add_argument("config_dir", type=Path)
     scan_command.add_argument("--no-usage", action="store_true", help="skip reading local transcripts")
+    scan_command.add_argument("--no-origins", action="store_true", help="do not work out where each Item came from (no lockfile is read)")
+    scan_command.add_argument(
+        "--skill-lock", type=Path, help="the skills installer lockfile to read `source` from (default ~/.agents/.skill-lock.json)"
+    )
     scan_command.add_argument("--out", type=Path, default=Path("constellation.json"))
     scan_command.add_argument(
         "--count-bodies",
@@ -83,6 +88,9 @@ def main(
         print(f"{args.config_dir} is not a directory.", file=sys.stderr)
         return 2
 
+    lockfile = args.skill_lock or origin_sources.DEFAULT_LOCKFILE
+    if not args.no_origins and lockfile.is_file():
+        print(f"read origin from {lockfile} (source field only)", file=sys.stderr)
     sent: list[str] = []
     # An injected llm stands in for the key; otherwise no key means offline, as if --offline were given.
     offline = not args.dry_run and (args.offline or (llm is None and not os.environ.get("ANTHROPIC_API_KEY")))
@@ -138,6 +146,8 @@ def main(
             verifier_model=verifier_model,
             offline=offline,
             usage=not args.no_usage,
+            origins=not args.no_origins,
+            lockfile=args.skill_lock,
         )
     if args.dry_run:
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable

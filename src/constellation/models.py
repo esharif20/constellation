@@ -15,6 +15,7 @@ class Item:
     description: str
     source: str
     disabled: bool = False  # a plugin switched off in enabledPlugins, and what it contains: kept on the map, shown dimmed
+    origin: str | None = None  # the pack, plugin or "claude.ai" it came from; local display data, never sent to a provider (origins.py)
 
 
 @dataclass(frozen=True)

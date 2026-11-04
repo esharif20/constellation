@@ -171,6 +171,7 @@ const RULES: { prefix: string; id: string; kind: WarningKind; title: (n: number)
   { prefix: "could not verify", id: "verify", kind: "degraded", title: (n) => `Partly offline: ${plural(n, "overlap check", "overlap checks")} failed` },
   { prefix: "could not count", id: "count", kind: "degraded", title: () => "Partly offline: token counts failed" },
   { prefix: "could not cluster", id: "cluster", kind: "degraded", title: () => "Partly offline: grouping into clusters failed" },
+  { prefix: "could not read skill lock", id: "lock", kind: "info", title: () => "Skill origins not read", hint: "The skills installer's lockfile was not valid JSON, so packs show no origin. Safe to ignore, or scan with --no-origins." },
   { prefix: "frontmatter is not valid YAML", id: "loose", kind: "info", title: (n) => `${plural(n, "file has", "files have")} loose frontmatter, read anyway`, hint: "Safe to ignore: Claude Code reads them too. To tidy, quote the description." },
   { prefix: "no frontmatter in", id: "bare", kind: "info", title: (n) => `${plural(n, "file has", "files have")} no frontmatter`, hint: "Safe to ignore unless the file should be a skill or agent." },
   { prefix: "usage:", id: "usage", kind: "info", title: () => "Usage reading", hint: "Some transcripts were not read; usage counts may be low." },
