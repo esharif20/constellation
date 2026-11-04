@@ -16,6 +16,11 @@ export type Constellation = {
 export type Verdict = "duplicate" | "wrapper" | "overlap" | "distinct";
 export type Overlap = { a_id: string; b_id: string; verdict: Verdict; reason: string };
 
+export type BriefRow = { id: string; kind: "review_cost" | "remove_duplicate" | "use_underlying"; item_ids: string[]; removes: string | null; reason: string; tokens_saved: number | null };
+export type BriefGroup = { rows: BriefRow[]; unknown: number; unknown_rows: number; frees: number | null };
+export type Checklist = { path: string; ids: string[]; frees: number | null; unknown_rows: number };
+export type BriefData = { cost: BriefGroup & { measured: boolean }; pairs: BriefGroup; checklist?: Checklist };
+
 export type Shape = "dot" | "ring" | "diamond" | "square";
 export type GNode = Item & {
   label: string;

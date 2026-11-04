@@ -4,6 +4,8 @@ Goal: in ten seconds the user sees the 5 most expensive Items and the 5 clearest
 
 Decisions this touches (from `docs/plan-tracker.md`): D4 privacy (redact before anything is shown or written), D11 cost (`always_on` sizes stars; unknown is never 0), #12 Suggestions (`suggest()` ranking and content-derived ids), review's checklist line format and `write_private` (0600). D10 Snapshot (#13) is static, so every new API is optional for the frontend.
 
+Status: implemented and reviewed on `codex/ticket-25`. The checklist/local-only endpoint deviation was approved by the user on 2026-11-04.
+
 ## 1. Where the list logic lives (decision)
 
 In Python, new module `src/constellation/brief.py`, served by `GET /api/brief`. Reasons: it reuses `suggest()`, `_known_costs`, `_ranked`, `redact` and the Suggestion ids that `review` already writes, so the app and `constellation review` agree on order and ids; it is pytest-testable; and the POST endpoint can then accept only an id and look the row up server-side (no client text is ever written). The frontend does no ranking.
@@ -26,17 +28,17 @@ Cost list:
 - `measured` = any known cost. Offline scan: `rows=[]`, `measured=false`, `unknown=len(items)`.
 
 Pairs list:
-- `[s for s in suggest(data)][:top]`: already known savings descending, then unknown, ties by item ids. Only `duplicate` and `wrapper` verdicts (`overlap` is not actionable; it stays on the map).
+- Filter `suggest(data)` to `remove_duplicate` and `use_underlying`, then take `[:top]`: already known savings descending, then unknown, ties by item ids. #20 also supplies `remove_unused`, which is excluded from this pair list. Only `duplicate` and `wrapper` verdicts (`overlap` is not actionable; it stays on the map).
 - `removes`: `use_underlying` -> `a_id` (the wrapper); `remove_duplicate` -> the cheaper known Item (ties by id), `null` if either cost is unknown.
 - Offline: whatever local wrapper checks found; otherwise empty.
 
-`frees` (the counter), one helper `frees(rows, known)`: sum of `known[i]` over the **unique** `removes`/item ids of the rows, so an Item that is both top cost and in a pair counts once; rows with unknown saving are left out and counted in `unknown_rows`. `null` when nothing is known (UI shows "not measured", never "0"). Same helper computes the checklist total.
+`frees` (the counter), one helper `frees(rows, known)`: sum of `known[i]` over the **unique** `removes`/item ids of the rows, so an Item that is both top cost and in a pair counts once; rows with unknown saving are left out and counted in `unknown_rows`. `null` when nothing is known (UI shows "not measured", never "0"). Same helper computes the checklist total using all current rows, including checked rows outside the displayed top five; unresolved/unknown rows remain counted in `unknown_rows`.
 
 ## 3. Endpoints (`server.py`)
 
 `create_app(scan_file, checklist=DEFAULT_CHECKLIST)`; `DEFAULT_CHECKLIST = ~/.cache/constellation/checklist.md` (next to `review.sqlite`); `constellation open --checklist PATH` overrides. Separate from `review --out cleanup.md` so neither refuses or clobbers the other.
 
-- `GET /api/brief`: read the scan file per request (as `/api/constellation`), return `brief(data)` plus `checklist {path, ids, frees}`, ids parsed from the file (`(id xxxxxxxxxxxx)` regex). 404 as `/api/constellation` when the scan is unreadable.
+- `GET /api/brief`: read the scan file per request (as `/api/constellation`), return `brief(data)` plus `checklist {path, ids, frees}`, ids parsed only from the terminal `(id xxxxxxxxxxxx)` marker of complete checklist entries. Normalize embedded line breaks before appending server-selected reasons, so metadata cannot forge another entry. 404 as `/api/constellation` when the scan is unreadable.
 - `POST /api/checklist`, body `{"id": "<12 hex>"}`:
   1. Validate: JSON content type only (415 otherwise), id matches `^[0-9a-f]{12}$` (422), id is a row of the current `brief(data)` (404). The client never supplies text.
   2. Idempotent: if `(id {id})` is already in the file, return 200 with `added: false`.
@@ -57,9 +59,9 @@ New `frontend/src/components/Brief.tsx` (the concurrent #10 agent owns Inspector
 Data: Atlas fetches `api/brief` once after mount (relative URL). Any failure (static Snapshot, old server) -> Brief is not rendered and the map works as now. `checklist` absent -> the add buttons are hidden.
 
 Desktop (> 640px):
-- A `<section aria-labelledby="brief-title">` (NOT `<aside>`: StarMap's `measureInsets` reads the first `aside` as the inspector), `.glass` panel per DESIGN.md "Panel": left 16, top 76, width 340, `max-h` stopping 8px above the legend, own scroll. Coexists with the inspector on the right.
+- A `<section aria-labelledby="brief-title">` (NOT `<aside>`: StarMap's `measureInsets` reads the first `aside` as the inspector), `.glass` panel per DESIGN.md "Panel": left 16, top 76, width 340, `max-h` stopping 8px above the legend, own scroll. Coexists with the inspector on the right at widths of at least 960px. Between 641px and 959px, selection collapses the Brief and reopening it clears the inspector; resizing into this range also collapses/reframes. This preserves visible space for the selected pair. The phone sheet breakpoint remains 640px.
 - Title "Where your context goes" (`section` style). Two groups, each a heading with its counter line and up to 5 rows:
-  - "Most expensive, always on": row = kind glyph, name (body, truncate), tokens in `mono` right-aligned; footnote `N Items with unknown cost are not ranked` when `unknown > 0`; offline: "Cost was not measured in this scan." in italic text-3.
+  - "Most expensive, always on": row = kind glyph, name (body, truncate), tokens in `mono` right-aligned; a static, aria-hidden bar compares each known cost with the largest server-ranked row (user-requested visualization; zero has zero width); footnote `N Items with unknown cost are not ranked` when `unknown > 0`; offline: "Cost was not measured in this scan." in italic text-3.
   - "Duplicates and wrappers": row = `A and B` (duplicate) or `A wraps B`, verdict word in caption, saving `~415` or italic "unknown".
   - Counter under each heading: `Removing these 5 frees ~12,400 tokens per session (estimate)`; `+ 2 with unknown cost, not counted` when any. `frees == null` -> "Saving not measured".
 - Each row: the main area is a ghost button (min-h 40) that flies to the star; a trailing 36px icon button `+` with `aria-label="Add {name} to cleanup checklist"`. After a 200 response it becomes a check icon, `aria-pressed`/disabled, label "On checklist". Rows already in `checklist.ids` start as added.
@@ -118,5 +120,5 @@ Frontend: `npm run lint`, `build`, `layout:check`; screenshots from `demo.json`,
 ## Risks and open points
 
 - `GET /api/constellation` gains the Host check too; this is a behaviour change (blocks DNS rebinding reads), flagged for the reviewer.
-- Deviation candidate: the plan had no web write endpoint ("web endpoints (#10/#11)" were read-only). This adds one, limited to a private file outside the setup. Record in the tracker and confirm with the user before step 3.
+- Deviation candidate: the plan had no web write endpoint ("web endpoints (#10/#11)" were read-only). This adds one, limited to a private file outside the setup. Approved by the user on 2026-11-04 and recorded in the tracker; no additional confirmation is needed.
 - The removed Item for a duplicate with unknown cost is undecided (`removes: null`); the checklist line still says "remove one of these two".
