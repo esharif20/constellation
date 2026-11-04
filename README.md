@@ -59,5 +59,42 @@ wrapper Overlaps, token costs already in the cache (others show as unknown), and
 embedder is installed (otherwise clustering is skipped with a note). Labels are empty and the file's warnings say the run was offline.
 `--offline` cannot be combined with `--count-bodies`, which sends text to Anthropic.
 
+### Report
+
+```
+constellation report                  # reads constellation.json; no network, no API key, no cost
+constellation report scan.json --top 5 --all
+constellation report --cleanup cleanup.md   # also writes a markdown checklist (new file only; --force overwrites)
+```
+
+Plain text, 80 columns, colour only on a terminal (and not when `NO_COLOR` is set). Items without a measured cost are counted as unknown,
+never as 0. Descriptions and reasons pass through the same pattern redaction as the scan file; the file does not record your secrets, so
+known-secret matching is not applied. `--cleanup` writes only that file (0600) and Constellation never edits your config.
+
+```
+Constellation report
+  Items: 8 (agent 1, command 1, hook 1, mcp 1, skill 4)
+  Relations: 1   Clusters: 2
+
+Most expensive Items (always-on tokens) -----------------------------------
+ 1      420  ##########  deploy (skill)
+      cluster deploy · purpose ships code to production
+      Ship the current branch to production with the release checklist.
+ 2      415  ##########  ship (skill)
+ 3      180  ####        release-notes (skill)
+  Total always-on: 1,210 tokens across 6 Items; 2 Items have unknown cost
+  (not counted as 0).
+
+Overlaps ------------------------------------------------------------------
+  duplicate (1)
+    deploy (skill) and ship (skill)
+      The two have identical instructions under different names, so keeping
+      both only costs tokens.
+  wrapper (1)
+    reviewer (agent) wraps review (skill)
+```
+
+(Abridged from `tests/fixtures/scan.json`; the full output is `tests/fixtures/report.txt`.)
+
 The API key goes in a `.env` file in the folder you run the command from (it is gitignored), as one line with no quotes:
 `ANTHROPIC_API_KEY=sk-ant-...`. Run `chmod 600 .env` so only you can read it. A variable already set in your shell wins over the file.

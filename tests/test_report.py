@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from constellation.cli import main
-from constellation.report import NOTE, render_cleanup, render_report
+from constellation.report import NOTE, _fit, render_cleanup, render_report
 
 FIXTURE = Path(__file__).parent / "fixtures" / "scan.json"
 SECRET = "".join(["ghp_", "aB3dE5gH" * 4, "7jK9"])
@@ -301,3 +301,20 @@ def test_golden_report(data, name, kwargs):
 
 def test_golden_cleanup(data):
     assert render_cleanup(data, top=3) == (FIXTURE.parent / "cleanup.md").read_text()
+
+
+def test_fit_keeps_text_that_exactly_fits():
+    assert _fit("abc", 3) == "abc" and _fit("abcd", 3) == "ab…"
+
+
+def test_empty_states_are_plain_lines_in_report_and_cleanup(data):
+    data["costs"], data["overlaps"] = None, []
+    assert "  Token costs were not measured in this scan." in report(data).splitlines()
+    assert "  None found." in report(data).splitlines()
+    assert render_cleanup(data, top=3).splitlines()[-1] == "Token costs were not measured."
+    assert "None found." in render_cleanup(data, top=3).splitlines()
+
+
+def test_second_id_of_an_unknown_overlap_falls_back_to_the_id(data):
+    data["overlaps"] = [{"a_id": "skill:ship", "b_id": "gone:2", "verdict": "duplicate", "reason": "x"}]
+    assert "ship (skill) and gone:2" in report(data)

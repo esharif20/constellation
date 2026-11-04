@@ -65,10 +65,9 @@ def render_report(data: dict[str, Any], *, top: int, color: bool, width: int, sh
         out.append("  Token costs were not measured in this scan.")
     cluster_of = {i: c["name"] for c in data.get("clusters") or [] for i in c["item_ids"]}
     labels = data.get("labels") or {}
-    biggest = known[ranked[0]["id"]] if ranked else 0
     for rank, item in enumerate(ranked[:top], 1):
         tokens = known[item["id"]]
-        bar = ("█" if color else "#") * (max(1, round(tokens / biggest * _BAR)) if tokens else 0)
+        bar = ("█" if color else "#") * (max(1, round(tokens / known[ranked[0]["id"]] * _BAR)) if tokens else 0)
         head = f"{rank:>2}  {tokens:>7,}  {bar:<{_BAR}}  "
         out.append(head + _fit(names[item["id"]], width - len(head)))
         notes = [f"{k} {v}" for k, v in (("cluster", cluster_of.get(item["id"])), ("purpose", labels.get(item["id"]))) if v]
