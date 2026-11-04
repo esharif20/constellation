@@ -120,7 +120,7 @@ def test_clusters_need_no_model_and_are_named_after_the_member_nearest_the_centr
 
     constellation = scan(tmp_path, embedder=FakeEmbedder(MID))
 
-    assert {frozenset(c.item_ids): c.name for c in constellation.clusters} == {frozenset(f"claude-code:skill:{n}" for n in MID): "mid-b"}
+    assert {frozenset(c.item_ids): c.name for c in constellation.clusters} == {frozenset(f"claude-code:skill:{n}" for n in MID): "mid"}
 
 
 def test_the_models_labels_never_enter_the_embedding_text(tmp_path):
@@ -219,3 +219,53 @@ def test_ten_or_more_items_are_centred_on_their_mean():
 
     assert centred is True
     assert vectors["id00"] == pytest.approx([-0.7071, 0.7071], abs=1e-3)
+
+
+def _together(names, root, labels=None, vectors=None):
+    """One cluster of invented skills with identical vectors, so the name is the only thing under test. Offline unless labelled."""
+    root = root / str(len(list(root.iterdir())))  # a fresh config dir per call
+    root.mkdir()
+    for n in names:
+        _skill(root, n, "Does a thing")
+    embedder = FakeEmbedder(vectors or {n: [1.0, 0.0, 0.0] for n in names})
+    [cluster] = scan(root, llm=FakeLLM(labels) if labels else None, embedder=embedder).clusters
+    return cluster.name
+
+
+def test_a_shared_name_token_names_the_cluster_offline(tmp_path):
+    assert _together(["ask-pat", "setup-pat-skills", "loop-me"], tmp_path) == "pat"
+
+
+def test_the_most_common_token_comes_first_and_tokens_are_counted_once_per_member(tmp_path):
+    assert _together(["alpha-review", "beta-review", "gamma-review", "delta"], tmp_path) == "review"
+    assert _together(["pat-pat-one", "pat-two", "xx-x"], tmp_path) == "pat"  # a repeat inside one name is one vote
+
+
+def test_two_tokens_join_by_count_then_first_appearance_and_a_third_is_dropped(tmp_path):
+    names = ["git_deploy_mon", "git:deploy:mon", "git deploy mon", "git/deploy/zzz"]  # separators: _ : space /
+    assert _together(names, tmp_path) == "git deploy"
+    assert _together(["aaa-bbb", "ccc-bbb", "aaa-bbb-x", "bbb-q"], tmp_path) == "bbb aaa"
+
+
+def test_no_shared_token_falls_back_to_the_nearest_member_name(tmp_path):
+    vectors = {"alpha-one": [1.0, 0.3, 0.0], "beta-two": [1.0, 0.0, 0.0], "gamma-three": [1.0, -0.3, 0.0]}
+    assert _together(list(vectors), tmp_path, vectors=vectors) == "beta-two"
+
+
+def test_a_label_still_wins_over_a_shared_token(tmp_path):
+    assert _together(["ask-pat", "setup-pat", "loop-pat"], tmp_path, {"ask-pat": "Pat helpers"}) == "Pat helpers"
+
+
+def test_a_token_in_exactly_a_third_of_the_members_qualifies_and_one_fewer_does_not(tmp_path):
+    others = ["b1-x1y", "c2-x2y", "d3-x3y", "e4-x4y", "f5-x5y", "g6-x6y"]
+    assert _together(["zzz-aaa", "zzz-bbb", "zzz-ccc", *others], tmp_path) == "zzz"  # 3 of 9 = ceil(9/3)
+    assert _together(["zzz-aaa", "zzz-bbb", "ccc-ccc", *others], tmp_path) != "zzz"  # 2 of 9
+    assert _together(["zzz-aaa", "zzz-bbb", *others[:5]], tmp_path) != "zzz"  # 2 of 7: ceil(7/3) = 3
+    assert _together(["zzz-aaa", "zzz-bbb", *others[:4]], tmp_path) == "zzz"  # 2 of 6: the floor of 2 still applies
+
+
+def test_stop_words_and_short_tokens_never_name_a_cluster_but_ai_and_ui_may(tmp_path):
+    assert _together(["the-skill-a", "the-skill-b", "my-setup-x"], tmp_path) in {"the-skill-a", "the-skill-b", "my-setup-x"}
+    assert _together(["ab-one", "ab-two"], tmp_path) in {"ab-one", "ab-two"}
+    assert _together(["ai-one", "ai-two"], tmp_path) == "ai"
+    assert _together(["ui-one", "ui-two"], tmp_path) == "ui"
