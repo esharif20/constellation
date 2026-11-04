@@ -125,3 +125,8 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - Done: inspector (`--app`) and look-and-fix loop at 1440 and 390 on demo data only; before/after in `docs/design/screenshots/23-*`. Fixes: unlit star names hidden while something is lit (`paint.ts`), atlas marks on empty and failed states, nowrap code pill. No deviations; no new dependencies or assets. Findings that conflict with DESIGN.md or the star-atlas direction, and ideas not built, are recorded in `docs/design/graph-app.md`.
 - Gates: lint, build, `layout:check` (thresholds unchanged) and pytest (453 passed) pass.
+
+## #29 checklist hardening (2026-11-04, branch `claude/ticket-29`)
+
+- Checklist adds now append one whole line with `O_APPEND` (no truncate, so a hand edit is never lost); a re-add chmods the file to 0600; the cache directory is created 0700; the path guard rejects any `.claude` folder, not only `~/.claude`.
+- Plan behaviour kept (no code change): a duplicate whose cost is unknown has `removes=null`, saves nothing countable, and its row says "unknown".

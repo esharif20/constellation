@@ -1,10 +1,13 @@
+import os
 import re
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from .report import _known_costs, _names, _ranked, _saving, write_private
+from .report import _known_costs, _names, _ranked, _saving
 from .suggestions import Suggestion, _make, suggest
+
+HEADER = "Constellation never edits your config. Every change below is yours to make by hand.\n\n# Constellation cleanup checklist\n\n"
 
 
 def checklist_ids(text: str) -> list[str]:
@@ -21,16 +24,24 @@ def append_line(path: Path, s: Suggestion) -> bool:
     try:
         text = path.read_text()
     except FileNotFoundError:
-        text = (
-            "Constellation never edits your config. Every change below is yours to make by hand.\n\n# Constellation cleanup checklist\n\n"
-        )
+        text = ""
     if s.id in checklist_ids(text):
+        if path.exists():
+            path.chmod(0o600)  # a loose file is tightened even when nothing is added
         return False
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     reason = " ".join(s.reason.splitlines())
-    if not text.endswith("\n"):
-        text += "\n"
-    write_private(path, text + f"- [ ] {reason} {_saving(s)} (id {s.id})\n")
+    line = f"- [ ] {reason} {_saving(s)} (id {s.id})\n"
+    if not text:
+        line = f"{HEADER}{line}"
+    elif not text.endswith("\n"):
+        line = f"\n{line}"
+    # O_APPEND, never truncate: a user's edit made since the read above survives, and one write keeps the line whole.
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT
+    fd = os.open(path, flags, 0o600)  # pragma: no mutate
+    os.chmod(path, 0o600)  # the mode above applies only to a new file
+    with os.fdopen(fd, "a") as f:
+        f.write(line)
     return True
 
 
