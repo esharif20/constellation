@@ -15,7 +15,7 @@ type Props = {
   preview: GNode | null; // an Item hovered in the inspector or search list
   matches: Set<GNode> | null;
   panelWidth: number; // px the inspector covers on the right (0 on phones, where it is a bottom sheet)
-  briefOpen: boolean;
+  leftPanel: "brief" | "chat" | null;
   cluster: Cluster | null; // the focused cluster: the camera flies to it, the rest of the sky dims
   onSelect: (n: GNode | null) => void;
   onCluster: (c: Cluster | null) => void; // a name was clicked (enter or hop), or the reader left by clicking away or zooming out
@@ -36,7 +36,7 @@ function measureInsets(view: Painter["view"]) {
     if (panel.width > W * 0.8) view.bottom = Math.max(view.bottom, H - panel.top + 8); // phone: a bottom sheet
     else view.right = W - panel.left + 8;
   }
-  const brief = edge('section[aria-labelledby="brief-title"]');
+  const brief = edge('section[aria-labelledby="brief-title"], section[aria-labelledby="chat-title"]');
   if (brief) {
     if (W <= 640) view.bottom = Math.max(view.bottom, H - brief.top + 8);
     else view.left = brief.right + 8;
@@ -49,15 +49,12 @@ function measureInsets(view: Painter["view"]) {
   }
 }
 
-function fit(g: ForceGraphMethods<GNode, GLink>, painter: Painter, model: Model) {
+function fittedView(painter: Painter, model: Model): View {
   measureInsets(painter.view);
-  const v = fitView(model.nodes, model.clusters, painter.view, innerWidth, innerHeight);
-  g.zoom(v.k, 0);
-  g.centerAt(v.x, v.y, 0);
-  painter.view.fitK = v.k;
+  return fitView(model.nodes, model.clusters, painter.view, innerWidth, innerHeight);
 }
 
-export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, panelWidth, briefOpen, cluster, onSelect, onCluster }, ref) {
+export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, panelWidth, leftPanel, cluster, onSelect, onCluster }, ref) {
   const fg = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined);
   const wrap = useRef<HTMLDivElement>(null);
   const painter = useMemo(() => makePainter(model, reduced()), [model]);
@@ -93,13 +90,12 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   const [cool, setCool] = useState(0);
   // The warm-up runs on the first frame, after the data lands, so the first rest is when the final layout can be fitted
   // (the stars are still unlit then, so the camera move is never seen).
-  const [range, setRange] = useState<[number, number]>([0.05, 40]); // zoom limits, relative to the fitted zoom once known
+  const [fitted, setFitted] = useState<View | null>(null);
+  const range = fitted ? [fitted.k * 0.6, fitted.k * 10] : [0.05, 40];
   const first = useRef(true);
   const onEngineStop = useCallback(() => {
     if (first.current && fg.current) {
-      fit(fg.current, painter, model);
-      setRange([painter.view.fitK * 0.6, painter.view.fitK * 10]);
-      setReady(true);
+      setFitted(fittedView(painter, model));
     }
     first.current = false;
     setCool(0);
@@ -149,6 +145,13 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     wake();
   }, [focus, land, wake]);
   useEffect(() => () => cancelAnimationFrame(cam.current.raf), []);
+  // Apply the fit after force-graph receives its new zoom bounds; every camera move still uses the single flight owner.
+  useEffect(() => {
+    if (!fitted) return;
+    painter.view.fitK = fitted.k;
+    fly(fitted, true);
+    setReady(true);
+  }, [fitted, fly, painter]);
 
   // Focus a cluster (or leave it): dims start now, the card has mounted, so measure the insets a frame later and fly to the
   // framed halo (read once: the target is frozen, the camera does not chase a dragged member) or back to the fitted view.
@@ -219,11 +222,11 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     measureInsets(painter.view);
     const id = setTimeout(() => {
       measureInsets(painter.view);
-      if (!selected && !focus.cluster && !focus.flying && fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) fit(fg.current, painter, model);
+      if (!selected && !focus.cluster && !focus.flying && fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) setFitted(fittedView(painter, model));
       wake();
     }, 460);
     return () => clearTimeout(id);
-  }, [selected, briefOpen, focus, painter, model, wake]);
+  }, [selected, leftPanel, focus, painter, model, wake]);
 
   useEffect(() => {
     const onResize = () => {
@@ -231,7 +234,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
       // a map still at its fitted view follows the window; one the reader has moved stays put
       requestAnimationFrame(() => {
         if (focus.cluster) { measureInsets(painter.view); aimRef.current(true); }
-        else if (fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) fit(fg.current, painter, model);
+        else if (fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) setFitted(fittedView(painter, model));
         wake();
       });
     };

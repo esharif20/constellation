@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Legend } from "@/components/Legend";
 import { Brief } from "@/components/Brief";
+import { Chat, type ChatAction } from "@/components/Chat";
 import { ClusterCard } from "@/components/ClusterCard";
 import { StarMap, type StarMapHandle } from "@/components/StarMap";
 import { TopBar } from "@/components/TopBar";
@@ -24,6 +25,8 @@ export default function Atlas({ model }: { model: Model }) {
     const onPhone = matchMedia("(max-width: 640px)").matches; // a first visit on a phone starts collapsed so the map stays visible
     try { const saved = localStorage.getItem("constellation.brief"); return saved ? saved === "open" : !onPhone; } catch { return !onPhone; }
   });
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMatches, setChatMatches] = useState<Set<GNode> | null>(null);
   const [selected, setSelected] = useState<GNode | null>(null);
   // Cluster focus. The left slot has one occupant: the cluster card, the Brief or the chat. `card` outlives `cluster` while the card leaves.
   const [cluster, setCluster] = useState<Cluster | null>(() => hashCluster(model));
@@ -36,8 +39,9 @@ export default function Atlas({ model }: { model: Model }) {
   const [phone, setPhone] = useState(() => matchMedia("(max-width: 640px)").matches);
   const [narrow, setNarrow] = useState(() => matchMedia("(width < 960px)").matches);
   const found = useMemo(() => search(model.nodes, query), [model, query]);
-  const matches = useMemo(() => (query.trim() ? new Set(found) : null), [found, query]);
-  const showBrief = !!brief && briefOpen && !(narrow && selected) && !cluster;
+  const matches = useMemo(() => (query.trim() ? new Set(found) : chatMatches), [found, query, chatMatches]);
+  const showBrief = !!brief && briefOpen && !chatOpen && !(narrow && selected) && !cluster;
+  const showInspector = !(narrow && chatOpen);
   if (cluster && card !== cluster) setCard(cluster);
   if (!cluster && card && narrow && selected) setCard(null);
 
@@ -52,6 +56,7 @@ export default function Atlas({ model }: { model: Model }) {
 
   const openBrief = useCallback((open: boolean) => {
     setBriefOpen(open);
+    if (open) setChatOpen(false);
     if (open && narrow) { setSelected(null); setPreview(null); }
     try { localStorage.setItem("constellation.brief", open ? "open" : "closed"); } catch { /* Storage is optional. */ }
   }, [narrow]);
@@ -87,6 +92,7 @@ export default function Atlas({ model }: { model: Model }) {
     else { history.pushState({ pushed: true }, "", url); pushed.current = true; }
     const s = clusterSummary(c, model);
     setLive(`${c.name}, ${s.count} Items, ${s.known == null ? "cost unknown" : `${s.known.toLocaleString()} tokens known, ${s.unknown} unknown`}`);
+    setChatOpen(false);
     setCluster(c);
     setByKeyboard(keyboard);
     if (narrow) { setSelected(null); setPreview(null); }
@@ -101,8 +107,19 @@ export default function Atlas({ model }: { model: Model }) {
     pushed.current = false;
   }, []);
 
+  const openChat = useCallback((open: boolean) => {
+    setChatOpen(open);
+    setPreview(null);
+    if (open) setCard(null);
+    if (open && cluster) {
+      if (selected) map.current?.holdCamera();
+      leave(true);
+    }
+    if (selected) requestAnimationFrame(() => map.current?.glideTo(selected, framedPair.current));
+  }, [selected, cluster, leave]);
+
   useEffect(() => {
-    const on = (e: PopStateEvent) => { pushed.current = !!e.state?.pushed; setCluster(hashCluster(model)); };
+    const on = (e: PopStateEvent) => { pushed.current = !!e.state?.pushed; const c = hashCluster(model); if (c) setChatOpen(false); setCluster(c); };
     addEventListener("popstate", on);
     return () => removeEventListener("popstate", on);
   }, [model]);
@@ -152,12 +169,21 @@ export default function Atlas({ model }: { model: Model }) {
     const onKey = (e: KeyboardEvent) => {
       const typing = e.target instanceof Element && !!e.target.closest('input, textarea, select, [contenteditable="true"]');
       if (typing || e.defaultPrevented) return;
-      if (e.key === "b" && !e.metaKey && !e.ctrlKey && !e.altKey && brief) { e.preventDefault(); if (cluster) leave(); openBrief(cluster ? true : !briefOpen); } // opening the Brief leaves focus
-      if (e.key === "Escape") { if (cluster && !selected) leave(); else close(); } // search and Brief handle their own Escape first
+      if (e.key === "b" && !e.metaKey && !e.ctrlKey && !e.altKey && brief) { e.preventDefault(); if (cluster) leave(); openBrief(cluster || chatOpen ? true : !briefOpen); } // opening the Brief leaves focus
+      if (e.key === "Escape") { if (chatOpen) openChat(false); else if (cluster && !selected) leave(); else close(); } // search and Brief handle their own Escape first
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
-  }, [close, brief, briefOpen, openBrief, cluster, selected, leave]);
+  }, [close, brief, briefOpen, openBrief, cluster, selected, leave, chatOpen, openChat]);
+
+  const applyChatActions = (actions: ChatAction[]) => {
+    const ids = new Set(actions.flatMap((action) => action.item_ids));
+    setQuery("");
+    setChatMatches(ids.size ? new Set(model.nodes.filter((n) => ids.has(n.id))) : null);
+    const focus = actions.find((action) => action.kind === "focus" && action.item_ids.length);
+    const node = focus && model.nodes.find((n) => n.id === focus.item_ids[0]);
+    if (node) select(node);
+  };
 
   const back = () => { leave(); map.current?.focusCanvas(); };
   const onCluster = (c: Cluster | null, keyboard?: boolean) => (c ? enter(c, keyboard) : back());
@@ -175,13 +201,14 @@ export default function Atlas({ model }: { model: Model }) {
         cluster={cluster}
         onCluster={onCluster}
       />
-      {card && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} />}
-      {brief && <Brief data={brief} model={model} open={showBrief} hidden={(phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} />}
+      {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} />}
+      {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} />}
+      <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={selectById} />
       </div>
-      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} panelWidth={phone ? 0 : PANEL} briefOpen={showBrief} cluster={cluster} onSelect={select} onCluster={onCluster} />
-      <Legend model={model} hidden={!!selected || showBrief} />
+      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} />
+      <Legend model={model} hidden={!!selected || showBrief || chatOpen} />
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
-      {selected && (
+      {selected && showInspector && (
         <Suspense fallback={null}>
           <Inspector model={model} item={selected} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} />
         </Suspense>

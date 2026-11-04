@@ -2,15 +2,17 @@ import json
 import re
 import threading
 import webbrowser
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .brief import append_line, brief, checklist_ids, frees
+from .chat import LocalChat
 from .report import _known_costs
 from .suggestions import Suggestion
 
@@ -24,6 +26,19 @@ _CHECKLIST_LOCK = threading.Lock()
 class ChecklistEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str = Field(pattern=r"^[0-9a-f]{12}$")
+
+
+class ChatRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    question: str = Field(min_length=1, max_length=1000)
+    selected_ids: list[str] = Field(default_factory=list, max_length=8)
+
+    @field_validator("question")
+    @classmethod
+    def nonblank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("question must not be blank")
+        return value
 
 
 def local_only(request: Request) -> None:
@@ -54,6 +69,19 @@ def create_app(scan_file: Path, checklist: Path | None = None) -> FastAPI:
     checklist = DEFAULT_CHECKLIST if checklist is None else checklist
     _checklist_path(checklist, scan_file)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+    @app.middleware("http")
+    async def limit_chat_body(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        if request.method == "POST" and request.url.path == "/api/chat":
+            if "transfer-encoding" in request.headers:
+                return JSONResponse({"detail": "Content-Length is required; chunked chat requests are not supported"}, status_code=411)
+            try:
+                length = int(request.headers.get("content-length", "0"))
+            except ValueError:
+                return JSONResponse({"detail": "Invalid Content-Length"}, status_code=400)
+            if length > 16384:
+                return JSONResponse({"detail": "Chat request exceeds 16384 bytes"}, status_code=413)
+        return await call_next(request)
 
     @app.get("/api/constellation", dependencies=[Depends(local_only)])
     def constellation() -> Response:
@@ -112,6 +140,31 @@ def create_app(scan_file: Path, checklist: Path | None = None) -> FastAPI:
         except (OSError, ValueError) as error:
             raise HTTPException(500, f"Could not write checklist {checklist}: {error}") from None
         return {"added": added, **state}
+
+    chat = LocalChat()
+
+    @app.post("/api/chat", dependencies=[Depends(local_only)])
+    def ask_chat(entry: ChatRequest) -> dict[str, Any]:
+        try:
+            data = json.loads(scan_file.read_text())
+            if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+                raise ValueError
+            if any(
+                not isinstance(item, dict) or any(not isinstance(item.get(k), str) for k in ("id", "name", "kind", "description"))
+                for item in data["items"]
+            ):
+                raise ValueError
+            ids = {item["id"] for item in data["items"]}
+            if len(ids) != len(data["items"]):
+                raise ValueError
+        except (OSError, ValueError, TypeError, KeyError):
+            raise HTTPException(404, "The saved scan could not be read") from None
+        if any(id_ not in ids for id_ in entry.selected_ids):
+            raise HTTPException(404, "That Item is not in the current scan")
+        try:
+            return chat.answer(data, entry.question, entry.selected_ids)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            raise HTTPException(404, "The saved scan could not be read") from None
 
     app.mount("/", StaticFiles(directory=STATIC, html=True))  # last: the API route above wins
     return app

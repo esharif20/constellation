@@ -1,0 +1,9 @@
+# SQLite retrieval for free-first chat
+
+Checked 2026-11-04. User selected free-first chat, a 16GB unified-memory baseline, and optional local generation later.
+
+- [SQLite FTS5](https://www.sqlite.org/fts5.html) provides tokenized full-text matching and BM25 ranking. The project's uv Python runtime reports SQLite 3.47.1; an in-memory FTS5 create/insert/MATCH/BM25 query succeeded using invented metadata. No new dependency or disk index was installed.
+- [sqlite-vec](https://alexgarcia.xyz/sqlite-vec/) is a local vector-search extension with Python bindings and MIT/Apache-2 licensing. Its current documentation includes pre-release versions; verify a suitable stable release and platform loading before adding a dependency. [Python guidance](https://alexgarcia.xyz/sqlite-vec/python.html) notes SQLite extension-loading support is build dependent on macOS.
+- A vector store does not create embeddings. Semantic retrieval still needs a local embedding model and model/version-specific stored vectors. Existing embeddings.py already uses BAAI/bge-small-en-v1.5 for scan metadata, but cluster.item_vectors() may mean-center those vectors for clustering. Do not reuse centered vectors as retrieval embeddings without validating the query transform; use consistent uncentered document/query embeddings for any later search experiment.
+- For this app's demonstrated few-hundred-Item scale, an in-memory FTS5 baseline avoids another service, model download and persistent copy of metadata. This is an engineering choice, not a measured speed comparison. The database implementation alone does not make matches more semantically accurate.
+- If curated paraphrase tests show lexical misses, compare hybrid FTS5 + local embeddings/sqlite-vec against the baseline on the same invented queries. Keep exact names/ids strong; measure top-k relevance and latency before adopting vectors. No automatic downloads, no hosted embeddings, no transcripts or file bodies in either index.
