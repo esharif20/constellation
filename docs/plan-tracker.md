@@ -50,6 +50,13 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Sections: counts, top Items by always-on cost (unknown cost is never counted as 0), Overlaps by verdict, warnings. Suggestions (#7) are left out until that ticket lands. Descriptions, reasons and warnings go through `redact()` by pattern rules only (the scan file records no secrets).
 - Tests: `tests/test_report.py` plus golden outputs under `tests/fixtures/`; `report.py` is in mutmut `only_mutate` with zero survivors.
 
+## #21 session-start weight (2026-11-04, branch `worktree-agent-ab5aa8a9f3d2a3f9a`)
+
+- `hooks.py` sizes SessionStart and UserPromptSubmit hooks statically, running nothing: literal `echo`/`printf` text, or a script file at an absolute path (or `${CLAUDE_PLUGIN_ROOT}`) that resolves inside the config dir (symlinks out are unknown). Anything with shell expansion, chaining, redirection, a relative or missing path, or an `mcp_tool` hook is `unknown`, never 0.
+- Result: `Constellation.hook_weights` (Item id -> `Weight(bytes, tokens)`, additive). Bytes are always shown (free, local). Tokens only with `--count-bodies` (or already cached; offline reads the cache only), through the existing guarded counter and cache via `costs.count_texts`, so an unchanged setup makes zero calls and the planted secret never reaches the counter.
+- Report: a "Session-start weight" section per hook plus a lower-bound total. Hook `Cost` stays unknown (hook node size is unchanged). Script size is a proxy for what a script injects, not its runtime output.
+- Open: the Item inspector (#10) display is frontend work, not done here. `hooks.py` is in mutmut `only_mutate`, zero survivors.
+
 ## #7 Suggestions with approve/skip and resume (2026-11-04, branch `ticket-7-impl`)
 
 - `constellation review [FILE] [--out cleanup.md] [--force]` runs after a scan, on the saved JSON only (no network, key or cost). `suggestions.py` turns duplicate and wrapper Overlaps into Suggestions (content-derived ids, largest known saving first, unknown savings never 0). `review.py` is the LangGraph graph: one `interrupt()` per undecided Suggestion, answers merged by a reducer, state saved by the official `SqliteSaver` (new dependency `langgraph-checkpoint-sqlite`, pinned `>=3.1,<3.1.3` so the release is over two weeks old).

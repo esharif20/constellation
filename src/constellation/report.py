@@ -46,6 +46,24 @@ def _wrap(text: str, width: int, indent: str, first: str | None = None) -> str:
     return textwrap.fill(text, width, initial_indent=indent if first is None else first, subsequent_indent=indent)
 
 
+def _session_start(data: dict[str, Any], names: dict[str, str], width: int, color: bool) -> list[str]:
+    """What prompt-time hooks inject before you type, read from files without running anything; empty when the scan had none."""
+    weights = data.get("hook_weights") or {}
+    if not weights:
+        return []
+    out = [_heading("Session-start weight (hooks, nothing run)", width, color)]
+    for id_ in sorted(weights, key=lambda i: names.get(i, i)):
+        w = weights[id_]
+        size = "unknown" if w["bytes"] is None else f"{w['bytes']:,} B" + (f", {w['tokens']:,} tokens" if w["tokens"] is not None else "")
+        out.append(_wrap(f"{names.get(id_, id_)}: {size}", width, "      ", "  - "))
+    known = [w for w in weights.values() if w["bytes"] is not None]
+    tokens = [w["tokens"] for w in known if w["tokens"] is not None]
+    size = sum(w["bytes"] for w in known)
+    total = f"At least {size:,} bytes across {len(known)} of {len(weights)} hooks (lower bound; the rest are unknown)."
+    total += f" At least {sum(tokens):,} tokens." if tokens else " Tokens not counted (use --count-bodies)."
+    return [*out, "\n" + _wrap(total, width, "  ")]
+
+
 def _pairs(data: dict[str, Any], verdict: str) -> list[tuple[str, str, str]]:
     names = _names(data)
     found = [
@@ -87,6 +105,8 @@ def render_report(data: dict[str, Any], *, top: int, color: bool, width: int, sh
         f"Total always-on: {sum(known.values()):,} tokens across {len(known)} Items; {unknown} Items have unknown cost (not counted as 0)."
     )
     out.append("\n" + _wrap(total, width, "  "))
+
+    out += _session_start(data, names, width, color)
 
     out.append(_heading("Overlaps", width, color))
     shown = VERDICTS + (("distinct",) if show_all else ())

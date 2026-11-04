@@ -42,17 +42,9 @@ def _texts(item: Item, body: str | None) -> tuple[str | None, str | None]:
     return f"{item.name}: {item.description}", body
 
 
-def measure(
-    items: Iterable[Item], bodies: dict[str, str], counter: TokenCounter | None, known: Iterable[str], cache_path: Path | None = None
-) -> tuple[dict[str, Cost], list[str]]:
-    """`counter` must be the guarded one: it redacts what it is given, and turns a provider failure into a ProviderError.
-    With no counter (offline) only what is already cached is reported; the rest is unknown."""
-    # shortcut: the cache key ignores the model, so switching counting models needs the cache file deleted.
-    path = cache_path or DEFAULT_CACHE
-    known = tuple(known)
-    pairs = {i.id: _texts(i, bodies.get(i.id)) for i in items}
-    cache = load_cache(path)
-    missing = {cache_key(t, known): t for pair in pairs.values() for t in pair if t is not None and cache_key(t, known) not in cache}
+def _fill(cache: dict[str, Any], texts: Iterable[str], counter: TokenCounter | None, known: tuple[str, ...], path: Path) -> list[str]:
+    """Counts the texts the cache lacks (one batch) into `cache` and saves it. `counter` must be the guarded one."""
+    missing = {cache_key(t, known): t for t in texts if cache_key(t, known) not in cache}
     warnings: list[str] = []
     if missing and counter:
         try:
@@ -64,5 +56,29 @@ def measure(
                 save_cache(path, cache)
             except OSError as error:  # the counts are paid for and kept in memory; only the next scan loses them
                 warnings.append(f"could not save the token-count cache: {error}")
+    return warnings
+
+
+def count_texts(
+    texts: dict[str, str], counter: TokenCounter | None, known: Iterable[str], cache_path: Path | None = None
+) -> tuple[dict[str, int | None], list[str]]:
+    """Tokens per key, from the same cache and guarded counter as `measure`; None where uncounted (no counter, or the count failed)."""
+    known = tuple(known)
+    cache = load_cache(cache_path or DEFAULT_CACHE)
+    warnings = _fill(cache, texts.values(), counter, known, cache_path or DEFAULT_CACHE)
+    return {k: cache.get(cache_key(t, known)) for k, t in texts.items()}, warnings
+
+
+def measure(
+    items: Iterable[Item], bodies: dict[str, str], counter: TokenCounter | None, known: Iterable[str], cache_path: Path | None = None
+) -> tuple[dict[str, Cost], list[str]]:
+    """`counter` must be the guarded one: it redacts what it is given, and turns a provider failure into a ProviderError.
+    With no counter (offline) only what is already cached is reported; the rest is unknown."""
+    # shortcut: the cache key ignores the model, so switching counting models needs the cache file deleted.
+    path = cache_path or DEFAULT_CACHE
+    known = tuple(known)
+    pairs = {i.id: _texts(i, bodies.get(i.id)) for i in items}
+    cache = load_cache(path)
+    warnings = _fill(cache, (t for pair in pairs.values() for t in pair if t is not None), counter, known, path)
     counted = {id_: [None if t is None else cache.get(cache_key(t, known)) for t in pair] for id_, pair in pairs.items()}
     return {id_: Cost(always_on, on_use) for id_, (always_on, on_use) in counted.items()}, warnings

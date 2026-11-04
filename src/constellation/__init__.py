@@ -4,8 +4,9 @@ from pathlib import Path
 from .classify import classify
 from .claude_code import read_items, read_secrets
 from .cluster import cluster, item_vectors
-from .costs import measure
-from .models import LLM, Cluster, Constellation, Cost, Embedder, TokenCounter
+from .costs import count_texts, measure
+from .hooks import static_hook_texts
+from .models import LLM, Cluster, Constellation, Cost, Embedder, TokenCounter, Weight
 from .overlaps import candidates, exact_duplicates, verify, wrappers
 from .redact import ProviderError, guarded, guarded_count, guarded_embed
 
@@ -45,10 +46,17 @@ def scan(
         except ProviderError as error:
             warnings.append(f"could not cluster items: {error}")
     costs: dict[str, Cost] = {}
+    guarded_counter = guarded_count(counter, secrets) if counter else None
     if counter or offline:
-        guarded_counter = guarded_count(counter, secrets) if counter else None
         costs, cost_warnings = measure(items, bodies if count_bodies else {}, guarded_counter, secrets, cost_cache)
         warnings += cost_warnings
+    hook_texts = static_hook_texts(config_dir, items)
+    weights = {id_: Weight(None if t is None else len(t.encode()), None) for id_, t in hook_texts.items()}
+    if count_bodies and (counter or offline):  # hook text is file text, so it follows the same opt-in as skill bodies
+        known_texts = {id_: t for id_, t in hook_texts.items() if t is not None}
+        tokens, hook_warnings = count_texts(known_texts, guarded_counter, secrets, cost_cache)
+        weights |= {id_: Weight(weights[id_].bytes, n) for id_, n in tokens.items()}
+        warnings += hook_warnings
     overlaps = [*exact_duplicates(items, bodies), *wrappers(items, bodies)]
     if verifier:
         decided = {frozenset((o.a_id, o.b_id)) for o in overlaps}
@@ -61,7 +69,7 @@ def scan(
     if offline:
         warnings.append("Offline: no labels or model-checked Overlaps; token costs shown only if already cached.")
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))
-    return Constellation(items, warnings, relations, labels, clusters, costs, overlaps)
+    return Constellation(items, warnings, relations, labels, clusters, costs, overlaps, weights)
 
 
 __all__ = ["scan", "Cluster", "Constellation", "Item"]
