@@ -2,12 +2,9 @@ import { XIcon } from "lucide-react";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { kindName, relName, type GNode, type Model } from "@/graph/model";
+import { kindName, relName, type GNode, type GOverlap, type Model } from "@/graph/model";
 
 type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void };
-
-// null means not measured (an offline scan, or a count that failed): say so, never show 0
-const tokens = (v: number | null) => (v == null ? "unknown" : v.toLocaleString());
 
 // Non-modal on purpose: the map stays live beside it. A side panel on desktop, a bottom sheet on phones.
 export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose }, ref) {
@@ -49,12 +46,7 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
           <dd className="font-serif text-[17px] leading-tight tracking-[0.01em] italic">{item.cluster?.name ?? "Not clustered"}</dd>
         </dl>
 
-        {item.cost && (
-          <div className="mt-6 grid grid-cols-2 gap-3" aria-label="Context cost">
-            <Stat value={item.cost.always_on} unit="tokens every session" />
-            <Stat value={item.cost.on_use} unit="tokens when used" />
-          </div>
-        )}
+        <Cost item={item} />
 
         <p className="mt-6 max-w-[65ch] text-sm leading-[1.55] text-text-2 whitespace-pre-wrap [overflow-wrap:anywhere]">{item.description || "No description."}</p>
         <p className="mt-3 font-mono text-xs leading-[1.45] text-text-3 [overflow-wrap:anywhere]">{item.source}</p>
@@ -69,33 +61,87 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
             <ul className="-mx-2 flex flex-col">
               {others.sort((a, b) => a.name.localeCompare(b.name)).map((o) => (
                 <li key={o.id}>
-                  <Button
-                    variant="ghost"
-                    onClick={() => onSelect(o)}
-                    onMouseEnter={() => onPreview(o)}
-                    onMouseLeave={() => onPreview(null)}
-                    onFocus={() => onPreview(o)}
-                    onBlur={() => onPreview(null)}
-                    className="h-auto min-h-10 w-full justify-start gap-3 rounded-md px-2 py-1 text-left text-sm font-normal text-foreground whitespace-normal"
-                  >
-                    <span className="glyph" data-kind={o.kind} />
-                    <span className="[overflow-wrap:anywhere]">{o.name}</span>
-                  </Button>
+                  <ItemButton item={o} onSelect={onSelect} onPreview={onPreview} />
                 </li>
               ))}
             </ul>
           </section>
         ))}
+        <Overlaps item={item} model={model} onSelect={onSelect} onPreview={onPreview} />
       </div>
     </aside>
   );
 });
 
-function Stat({ value, unit }: { value: number | null; unit: string }) {
+const plain = (v: number | null) => (v == null ? <i className="text-text-3">unknown</i> : <>{v.toLocaleString()} tokens</>);
+
+// Unknown (null or no entry) is said out loud, never shown as 0. Hooks have no static output; on-use needs --count-bodies.
+function Cost({ item }: { item: GNode }) {
+  const c = item.cost, hook = item.kind === "hook";
   return (
-    <div className="rounded-lg border bg-surface-2 px-4 py-3">
-      <b className={value == null ? "block text-base font-normal text-text-3 italic" : "block font-mono text-xl leading-[1.2] font-normal tracking-[-0.01em] tabular-nums"}>{tokens(value)}</b>
-      <span className="text-xs text-text-3">{unit}</span>
-    </div>
+    <section className="mt-6" aria-label="Context cost">
+      <h3 className="mb-2 text-xs font-medium tracking-[0.02em] text-text-3">Context cost</h3>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border bg-surface-2 px-4 py-3 text-[13px]">
+        <dt className="text-text-3">Always-on</dt>
+        <dd className="text-right font-mono tabular-nums">{plain(c?.always_on ?? null)}</dd>
+        <dt className="text-text-3">On use</dt>
+        <dd className="text-right font-mono tabular-nums">{plain(c?.on_use ?? null)}</dd>
+      </dl>
+      {hook ? (
+        <p className="mt-2 text-xs text-text-3">Hook output is only known when it runs.</p>
+      ) : (
+        c?.on_use == null && <p className="mt-2 text-xs text-text-3">Run <code className="font-mono">constellation scan --count-bodies</code> to measure.</p>
+      )}
+    </section>
+  );
+}
+
+type Rows = { title: string; rows: { other: GNode; reason: string }[] };
+const GROUPS = ["Duplicate of", "Wraps", "Wrapped by", "Overlaps with"];
+
+function Overlaps({ item, model, onSelect, onPreview }: Pick<Props, "model" | "item" | "onSelect" | "onPreview">) {
+  const title = (o: GOverlap) => (o.verdict === "duplicate" ? GROUPS[0] : o.verdict === "wrapper" ? (o.a === item ? GROUPS[1] : GROUPS[2]) : GROUPS[3]);
+  const groups: Rows[] = GROUPS.map((t) => ({
+    title: t,
+    rows: (model.overlapsOf.get(item) ?? []).filter((o) => title(o) === t).map((o) => ({ other: o.a === item ? o.b : o.a, reason: o.reason })),
+  })).filter((g) => g.rows.length);
+  if (!groups.length) return null;
+  return (
+    <>
+      <Separator className="mt-6" />
+      {groups.map((g) => (
+        <section key={g.title} className="mt-4">
+          <h3 className="mb-1 text-xs font-medium tracking-[0.02em] text-text-3">
+            {g.title} <span className="ml-1 font-mono tabular-nums">{g.rows.length}</span>
+          </h3>
+          <ul className="-mx-2 flex flex-col">
+            {g.rows.map(({ other, reason }) => (
+              <li key={other.id}>
+                <ItemButton item={other} onSelect={onSelect} onPreview={onPreview} />
+                <p className="px-2 pb-1 pl-[34px] text-[13px] leading-[1.45] text-text-2 [overflow-wrap:anywhere]">{reason}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </>
+  );
+}
+
+// A partner Item: click glides to it, hover or focus previews it on the map.
+function ItemButton({ item, onSelect, onPreview }: Pick<Props, "item" | "onSelect" | "onPreview">) {
+  return (
+    <Button
+      variant="ghost"
+      onClick={() => onSelect(item)}
+      onMouseEnter={() => onPreview(item)}
+      onMouseLeave={() => onPreview(null)}
+      onFocus={() => onPreview(item)}
+      onBlur={() => onPreview(null)}
+      className="h-auto min-h-10 w-full justify-start gap-3 rounded-md px-2 py-1 text-left text-sm font-normal text-foreground whitespace-normal"
+    >
+      <span className="glyph" data-kind={item.kind} />
+      <span className="[overflow-wrap:anywhere]">{item.name}</span>
+    </Button>
   );
 }
