@@ -39,6 +39,9 @@ def main(
         help="also count each skill's full text (sends redacted bodies to Anthropic's counting endpoint)",
     )
     scan_command.add_argument("--dry-run", action="store_true", help="print what would be sent to the providers; send nothing")
+    scan_command.add_argument(
+        "--offline", action="store_true", help="make no paid or network calls: no labels or verifier, cached token costs only"
+    )
     scan_command.add_argument("--no-verify", action="store_true", help="skip the stronger model that labels candidate Overlaps")
     open_command = commands.add_parser("open", help="serve a constellation JSON file as a graph in the browser")
     open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
@@ -54,19 +57,33 @@ def main(
         return 2
 
     sent: list[str] = []
-    if args.dry_run:
+    # An injected llm stands in for the key; otherwise no key means offline, as if --offline were given.
+    offline = not args.dry_run and (args.offline or (llm is None and not os.environ.get("ANTHROPIC_API_KEY")))
+    if offline and args.count_bodies:
+        print("--count-bodies sends skill text to Anthropic, so it cannot run offline.", file=sys.stderr)
+        return 2
+    label_model = verifier_model = ""
+    if offline:
+        if not args.offline:
+            print(
+                "ANTHROPIC_API_KEY is not set: running offline (no labels or verifier; use --dry-run to see what a real run sends).",
+                file=sys.stderr,
+            )
+        embedder = embedder or _local_embedder()
+        if embedder is None:
+            print("Clustering skipped: install the local embedder with `uv sync --extra local`.", file=sys.stderr)
+    elif args.dry_run:
         # These sit behind scan()'s redaction, so what is printed is exactly what a real run would send.
         local = embedder or _local_embedder()  # the local embedder sends nothing anywhere, so the dry run may really use it
         llm, embedder, counter = _record_prompt(sent), _record_texts(sent, local), _record_counts(sent)
         verifier = _record_verify(sent)
     else:
         if llm is None:
-            if not os.environ.get("ANTHROPIC_API_KEY"):
-                print("ANTHROPIC_API_KEY is not set; export it or use --dry-run.", file=sys.stderr)
-                return 2
             try:
-                from .anthropic_llm import VERIFIER_MODEL, anthropic_counter, anthropic_llm
+                from .anthropic_llm import MODEL, VERIFIER_MODEL, anthropic_counter, anthropic_llm
 
+                label_model = MODEL
+                verifier_model = VERIFIER_MODEL
                 llm, counter = anthropic_llm(), counter or anthropic_counter()
                 verifier = verifier or anthropic_llm(model=VERIFIER_MODEL, max_tokens=2048)
             except ImportError:
@@ -78,7 +95,7 @@ def main(
             embedder = fastembed_embedder()
 
     with tempfile.TemporaryDirectory() as scratch:  # a dry run must not write the real token-count cache
-        cache = Path(scratch) / "counts.json" if args.dry_run else None
+        cache = Path(scratch) / "counts.json" if args.dry_run else None  # likewise the label and verdict caches below
         result = scan(
             args.config_dir,
             llm=llm,
@@ -89,6 +106,10 @@ def main(
             verifier=None if args.no_verify else verifier,
             verdict_cache=Path(scratch) / "verdicts.json" if args.dry_run else None,
             on_verify=None if args.dry_run else _announce,
+            label_cache=Path(scratch) / "labels.json" if args.dry_run else None,
+            label_model=label_model,
+            verifier_model=verifier_model,
+            offline=offline,
         )
     if args.dry_run:
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
@@ -98,7 +119,7 @@ def main(
             if warning.startswith("could not cluster items"):
                 print(warning, file=sys.stderr)
         return 0
-    if result.items and not result.labels:  # every model call failed: report why instead of writing a half-empty file
+    if result.items and not result.labels and not offline:  # every model call failed: report why instead of writing a half-empty file
         first = next((w for w in result.warnings if FAILED_PREFIX in w), "unknown")
         print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1

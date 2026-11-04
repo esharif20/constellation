@@ -142,3 +142,15 @@ def test_without_a_path_the_default_cache_location_is_used(config, tmp_path, mon
     run(config, FakeVerifier(), None)
 
     assert default.exists()
+
+
+def test_a_different_verifier_model_is_not_served_the_old_models_verdicts(config, tmp_path):
+    cache = tmp_path / "verdicts.json"
+    embedder = FakeEmbedder({"PDF": [1.0, 0.0, 0.0]})
+    scan(config, embedder=embedder, verifier=FakeVerifier(default=verdict("overlap", "same")), verdict_cache=cache, verifier_model="a")
+    same, other = FakeVerifier(), FakeVerifier()
+
+    scan(config, embedder=embedder, verifier=same, verdict_cache=cache, verifier_model="a")
+    scan(config, embedder=embedder, verifier=other, verdict_cache=cache, verifier_model="b")
+
+    assert same.prompts == [] and len(other.prompts) == 1

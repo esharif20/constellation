@@ -9,6 +9,7 @@ from fakes import FakeCounter
 
 from constellation import scan
 from constellation.anthropic_llm import anthropic_counter
+from constellation.costs import cache_key
 from constellation.models import Cost
 
 FIXTURE = Path(__file__).parent / "fixtures" / "claude_config"
@@ -140,3 +141,9 @@ def test_by_default_no_skill_body_is_counted_so_none_leaves_the_machine_and_on_u
 
     assert not any("Full instructions" in t or "You are a code reviewer" in t for t in counter.texts)
     assert cost_of(result, "skill", "alpha") == Cost(always_on=7, on_use=None)
+
+
+def test_the_cache_key_is_the_plain_hash_without_a_salt_and_differs_with_one():
+    assert cache_key("text", ()) == hashlib.sha256(b"text").hexdigest()  # keeps token-count cache files from older versions valid
+    assert len({cache_key("text", ()), cache_key("text", (), "model-a"), cache_key("text", (), "model-b")}) == 3
+    assert cache_key("a", (), "b") != cache_key("", (), "ab")  # the salt is separated from the text

@@ -13,8 +13,10 @@ from .redact import ProviderError, redact
 DEFAULT_CACHE = Path.home() / ".cache" / "constellation" / "token-counts.json"
 
 
-def _key(text: str, known: Iterable[str]) -> str:
-    return hashlib.sha256(redact(text, known).encode()).hexdigest()  # keyed on what a provider would see, so no secret reaches the file
+def cache_key(text: str, known: Iterable[str], salt: str = "") -> str:
+    """Keyed on what a provider would see, so no secret reaches the file. `salt` (a model id) keeps answers from another model apart;
+    empty leaves the plain hash, so existing cache files stay valid."""
+    return hashlib.sha256((f"{salt}\0" if salt else "").encode() + redact(text, known).encode()).hexdigest()
 
 
 def load_cache(path: Path) -> dict[str, Any]:
@@ -41,17 +43,18 @@ def _texts(item: Item, body: str | None) -> tuple[str | None, str | None]:
 
 
 def measure(
-    items: Iterable[Item], bodies: dict[str, str], counter: TokenCounter, known: Iterable[str], cache_path: Path | None = None
+    items: Iterable[Item], bodies: dict[str, str], counter: TokenCounter | None, known: Iterable[str], cache_path: Path | None = None
 ) -> tuple[dict[str, Cost], list[str]]:
-    """`counter` must be the guarded one: it redacts what it is given, and turns a provider failure into a ProviderError."""
+    """`counter` must be the guarded one: it redacts what it is given, and turns a provider failure into a ProviderError.
+    With no counter (offline) only what is already cached is reported; the rest is unknown."""
     # shortcut: the cache key ignores the model, so switching counting models needs the cache file deleted.
     path = cache_path or DEFAULT_CACHE
     known = tuple(known)
     pairs = {i.id: _texts(i, bodies.get(i.id)) for i in items}
     cache = load_cache(path)
-    missing = {_key(t, known): t for pair in pairs.values() for t in pair if t is not None and _key(t, known) not in cache}
+    missing = {cache_key(t, known): t for pair in pairs.values() for t in pair if t is not None and cache_key(t, known) not in cache}
     warnings: list[str] = []
-    if missing:
+    if missing and counter:
         try:
             cache |= dict(zip(missing, counter(list(missing.values())), strict=True))
         except ProviderError as error:
@@ -61,5 +64,5 @@ def measure(
                 save_cache(path, cache)
             except OSError as error:  # the counts are paid for and kept in memory; only the next scan loses them
                 warnings.append(f"could not save the token-count cache: {error}")
-    counted = {id_: [None if t is None else cache.get(_key(t, known)) for t in pair] for id_, pair in pairs.items()}
+    counted = {id_: [None if t is None else cache.get(cache_key(t, known)) for t in pair] for id_, pair in pairs.items()}
     return {id_: Cost(always_on, on_use) for id_, (always_on, on_use) in counted.items()}, warnings
