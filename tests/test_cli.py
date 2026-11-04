@@ -57,14 +57,6 @@ def test_scan_writes_redacted_private_json(config, tmp_path):
     assert stat.S_IMODE(out.stat().st_mode) == 0o600
 
 
-def test_missing_api_key_exits_2_and_writes_nothing(config, tmp_path, capsys):
-    out = tmp_path / "out.json"
-
-    assert main(["scan", str(config), "--out", str(out)]) == 2
-    assert "ANTHROPIC_API_KEY" in capsys.readouterr().err
-    assert not out.exists()
-
-
 def test_a_folder_that_does_not_exist_is_an_error_not_an_empty_scan(tmp_path, capsys):
     code = main(["scan", str(tmp_path / "nope"), "--dry-run"])
 

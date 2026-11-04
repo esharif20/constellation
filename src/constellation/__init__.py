@@ -21,15 +21,22 @@ def scan(
     verifier: LLM | None = None,
     verdict_cache: Path | None = None,
     on_verify: Callable[[int, int], None] | None = None,
+    label_cache: Path | None = None,
+    label_model: str = "",
+    verifier_model: str = "",
+    offline: bool = False,
 ) -> Constellation:
+    """`offline` makes no provider calls: any llm, counter and verifier given are ignored, and costs come from the cache alone."""
+    if offline:
+        llm = counter = verifier = None
     items, warnings, relations, bodies = read_items(config_dir)
     labels: dict[str, str] = {}
     vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
     clusters: list[Cluster] = []
     # The only place providers are called from: both are wrapped here, so everything they receive is redacted first.
-    secrets = read_secrets(config_dir) if llm or embedder or counter or verifier else set()
+    secrets = read_secrets(config_dir) if llm or embedder or counter or verifier or offline else set()
     if llm:
-        labels, label_warnings = classify(items, guarded(llm, secrets))
+        labels, label_warnings = classify(items, guarded(llm, secrets), secrets, label_cache, label_model)
         warnings += sorted(label_warnings)  # branches finish in any order; sorted keeps the output repeatable
     if embedder:  # clusters are built from name and description alone, so they need no model
         try:
@@ -38,16 +45,21 @@ def scan(
         except ProviderError as error:
             warnings.append(f"could not cluster items: {error}")
     costs: dict[str, Cost] = {}
-    if counter:
-        costs, cost_warnings = measure(items, bodies if count_bodies else {}, guarded_count(counter, secrets), secrets, cost_cache)
+    if counter or offline:
+        guarded_counter = guarded_count(counter, secrets) if counter else None
+        costs, cost_warnings = measure(items, bodies if count_bodies else {}, guarded_counter, secrets, cost_cache)
         warnings += cost_warnings
     overlaps = [*exact_duplicates(items, bodies), *wrappers(items, bodies)]
     if verifier:
         decided = {frozenset((o.a_id, o.b_id)) for o in overlaps}
         pairs, cap_warnings = candidates(items, vectors, decided)
-        verdicts, verify_warnings = verify(pairs, items, bodies, guarded(verifier, secrets), secrets, verdict_cache, on_verify)
+        verdicts, verify_warnings = verify(
+            pairs, items, bodies, guarded(verifier, secrets), secrets, verdict_cache, on_verify, verifier_model
+        )
         overlaps += verdicts
         warnings += sorted(cap_warnings + verify_warnings)  # branches finish in any order; sorted keeps the output repeatable
+    if offline:
+        warnings.append("Offline: no labels or model-checked Overlaps; token costs shown only if already cached.")
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))
     return Constellation(items, warnings, relations, labels, clusters, costs, overlaps)
 

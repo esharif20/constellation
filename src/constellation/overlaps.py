@@ -16,9 +16,9 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
 from .cluster import dot
-from .costs import load_cache, save_cache
+from .costs import cache_key, load_cache, save_cache
 from .models import LLM, Item, Overlap
-from .redact import ProviderError, redact
+from .redact import ProviderError
 
 
 def _normalise(body: str) -> str:
@@ -195,9 +195,11 @@ def verify(
     known: Iterable[str] = (),
     cache_path: Path | None = None,
     announce: Callable[[int, int], None] | None = None,
+    salt: str = "",
 ) -> tuple[list[Overlap], list[str]]:
     """Layer 4: the stronger model labels each pair. `llm` must be the guarded one: it redacts and turns failures into ProviderError.
-    `known` are the secrets, used so the cache key is the hash of the redacted prompt and no secret reaches the file."""
+    `known` are the secrets, used so the cache key is the hash of the redacted prompt and no secret reaches the file.
+    `salt` is the verifier's model id, so changing the model does not reuse the old model's verdicts."""
     known = tuple(known)
     path = cache_path or DEFAULT_CACHE
     cache = load_cache(path)
@@ -207,7 +209,7 @@ def verify(
     for a_id, b_id in pairs:
         a, b = by_id[a_id], by_id[b_id]
         prompt = _prompt(a, b, bodies)
-        key = hashlib.sha256(redact(prompt, known).encode()).hexdigest()
+        key = cache_key(prompt, known, salt)
         if key in cache and (cached := _parse(str(cache[key]))):
             overlaps.append(_overlap(a, b, cached))
         else:

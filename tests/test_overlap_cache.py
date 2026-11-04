@@ -5,6 +5,8 @@ import pytest
 from fakes import FakeEmbedder, FakeVerifier, pairs, verdict, write_skill
 
 from constellation import overlaps, scan
+from constellation.claude_code import read_items
+from constellation.overlaps import verify
 
 
 @pytest.fixture
@@ -142,3 +144,27 @@ def test_without_a_path_the_default_cache_location_is_used(config, tmp_path, mon
     run(config, FakeVerifier(), None)
 
     assert default.exists()
+
+
+def test_a_different_verifier_model_is_not_served_the_old_models_verdicts(config, tmp_path):
+    cache = tmp_path / "verdicts.json"
+    embedder = FakeEmbedder({"PDF": [1.0, 0.0, 0.0]})
+    scan(config, embedder=embedder, verifier=FakeVerifier(default=verdict("overlap", "same")), verdict_cache=cache, verifier_model="a")
+    same, other = FakeVerifier(), FakeVerifier()
+
+    scan(config, embedder=embedder, verifier=same, verdict_cache=cache, verifier_model="a")
+    scan(config, embedder=embedder, verifier=other, verdict_cache=cache, verifier_model="b")
+
+    assert same.prompts == [] and len(other.prompts) == 1
+
+
+def test_the_default_salt_is_no_salt(config, tmp_path):
+    items, _, _, bodies = read_items(config)
+    pair = [(items[0].id, items[1].id)]
+    cache = tmp_path / "verdicts.json"
+    verify(pair, items, bodies, FakeVerifier(default=verdict("overlap", "same")), cache_path=cache)
+    verifier = FakeVerifier()
+
+    verify(pair, items, bodies, verifier, cache_path=cache, salt="")
+
+    assert verifier.prompts == []
