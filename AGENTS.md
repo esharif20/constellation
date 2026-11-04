@@ -18,7 +18,14 @@ Project: Constellation, a local FastAPI + LangGraph app that scans a Claude Code
 - Final report: branch, what changed, gate results, what you did not verify.
 
 ## Skills note
-The skill names below (`/tdd`, `frontend-design`, `shadcn`, etc.) are Claude Code plugins. Codex does not have them: use the written design docs instead (`docs/design/DESIGN.md` for UI tokens and type, `docs/design/graph-app.md`, `docs/plans/*`). UI work is done by Claude; Codex takes Python tickets.
+The skill names below are Claude Code plugin names. See `docs/agents/codex-skills.md` for installed Codex equivalents and remaining gaps. Use the available skills alongside the written design docs (`docs/design/DESIGN.md` for UI tokens and type, `docs/design/graph-app.md`, `docs/plans/*`). UI work is done by Claude; Codex takes Python tickets.
+
+## Subagent cost
+
+When delegating, choose each subagent’s model and reasoning effort to fit task complexity, priority, and importance to the overall goal. Use cheaper models and lower effort for routine work; reserve stronger models and higher effort for difficult or critical work. Apply this rule to any agents those subagents deploy.
+
+For parallel repo work, give each subagent an isolated worktree and branch with explicit file ownership. Review and validate its commit before merging it into the ticket branch; subagents must preserve other agents' changes.
+
 
 ## Agent skills
 

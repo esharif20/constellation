@@ -9,6 +9,7 @@ from .hooks import static_hook_texts
 from .models import LLM, Cluster, Constellation, Cost, Embedder, TokenCounter, Weight
 from .overlaps import candidates, exact_duplicates, verify, wrappers
 from .redact import ProviderError, guarded, guarded_count, guarded_embed
+from .usage import read_usage
 
 
 def scan(
@@ -26,11 +27,14 @@ def scan(
     label_model: str = "",
     verifier_model: str = "",
     offline: bool = False,
+    usage: bool = True,
 ) -> Constellation:
     """`offline` makes no provider calls: any llm, counter and verifier given are ignored, and costs come from the cache alone."""
     if offline:
         llm = counter = verifier = None
     items, warnings, relations, bodies = read_items(config_dir)
+    usages, window, usage_warnings = read_usage(config_dir, items) if usage else ({}, None, [])
+    warnings += usage_warnings
     labels: dict[str, str] = {}
     vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
     clusters: list[Cluster] = []
@@ -69,7 +73,9 @@ def scan(
     if offline:
         warnings.append("Offline: no labels or model-checked Overlaps; token costs shown only if already cached.")
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))
-    return Constellation(items, warnings, relations, labels, clusters, costs, overlaps, weights)
+    return Constellation(
+        items, warnings, relations, labels, clusters, costs, overlaps, usage=usages, usage_window=window, hook_weights=weights
+    )
 
 
 __all__ = ["scan", "Cluster", "Constellation", "Item"]

@@ -23,6 +23,9 @@ Most expensive Items (always-on tokens) ----------------------------------------
   Total always-on: 1,210 tokens across 6 Items; 2 Items have unknown cost (not
   counted as 0).
 
+Never used (in the transcripts scanned) ----------------------------------------
+  Usage was not read in this scan.
+
 Overlaps -----------------------------------------------------------------------
   duplicate (1)
     deploy (skill) and ship (skill)

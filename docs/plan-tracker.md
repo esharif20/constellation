@@ -79,3 +79,14 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Merged to main: #24 (design system), #10 canvas half and panel half (needs closing comment after review).
 - Plans written, not built: `docs/plans/first-screen.md` (#25), `docs/plans/usage.md` (#20; #13 must drop or coarsen usage dates in the public Snapshot).
 - Order to finish: #25, #20 (Opus security review of the diff), #21 (in flight), #9, #11, then #12, #13, #23; defer #14, #15, #18, #22.
+
+## #20 usage from transcripts (2026-11-04, branch `codex/ticket-20`)
+
+- Implemented: local streaming `usage.py`, additive `usage` and `usage_window` fields, `scan --no-usage`, saved-JSON unused Suggestions and report/checklist sections. Usage runs before providers, including offline, and never feeds their inputs or caches.
+- Fixture tests cover matching, deduplication, dates, size boundaries, malformed shapes, symlinks, provider isolation, unchanged paid caches, and planted secrets across JSON, report, checklist, review DB and recording providers. No real transcripts were read.
+- Security review caught excluded `memory/` and `tool-results/` subtrees, recursive JSON, strict shape checks and positional model compatibility; these are fixed. **Deviation approved by the user (2026-11-04):** replace path-based traversal with pinned directory descriptors (`O_DIRECTORY | O_NOFOLLOW`, relative child opens and `scandir(fd)`) to close the reproduced ancestor-directory swap race. The plan is amended, with swap and descriptor-cleanup regression tests.
+- #13 follow-up: public Snapshots must drop `usage` and `usage_window`, or coarsen dates. Frontend usage display remains a separate ticket.
+- Agent instructions now require cost-aware model/effort selection and isolated worktree/branch ownership for parallel repo work. Installed five missing upstream Codex skills and documented sources, adaptations and gaps in `docs/agents/codex-skills.md`; browser runtime and the original dataviz package remain unverified.
+
+- Final gates: `uv run --all-extras` Ruff check, format check, mypy and pytest passed (397 passed, 2 paid/eval tests deselected); mutation run passed (2,382 killed), and `mutmut results` printed nothing. Independent security re-review found no remaining actionable traversal issue after FIFO rejection and read-failure cleanup tests. Real-setup plausibility, frontend gates, browser runtime and an external Opus review were not verified.
+- Mutation review: the plan-required prefilter marker does not suppress invocation-token literal mutations (confirmed generated and killed). Removing the entire filter could broaden malformed-line diagnostics, so its speed-only equivalence claim applies only to invocation results, not warning totals. Other exemptions cover the prescribed digest length, an unused initial key, and redundant entry symlink flags after explicit rejection. Actual descriptor-open flags have no exemption.

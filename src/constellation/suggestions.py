@@ -4,19 +4,21 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from .redact import redact
-from .report import _known_costs, _names
+from .report import _known_costs, _names, _never_used
 
 
 @dataclass(frozen=True)
 class Suggestion:
     id: str  # content-derived, so a decision still applies after a re-scan
-    kind: Literal["remove_duplicate", "use_underlying"]
+    kind: Literal["remove_duplicate", "use_underlying", "remove_unused"]
     item_ids: tuple[str, ...]
     reason: str  # plain English, redacted
     tokens_saved: int | None  # None = unknown, never 0
 
 
-def _make(kind: Literal["remove_duplicate", "use_underlying"], item_ids: tuple[str, ...], reason: str, saved: int | None) -> Suggestion:
+def _make(
+    kind: Literal["remove_duplicate", "use_underlying", "remove_unused"], item_ids: tuple[str, ...], reason: str, saved: int | None
+) -> Suggestion:
     digest = hashlib.sha256((kind + "\0" + "\0".join(item_ids)).encode()).hexdigest()[:12]
     return Suggestion(digest, kind, item_ids, redact(reason), saved)
 
@@ -46,8 +48,20 @@ def _wrappers(data: dict[str, Any]) -> list[Suggestion]:
     return found
 
 
-# #20 (transcript usage) adds an "unused always-on Item" generator here.
-GENERATORS: list[Callable[[dict[str, Any]], list[Suggestion]]] = [_duplicates, _wrappers]
+def _unused(data: dict[str, Any]) -> list[Suggestion]:
+    names, known = _names(data), _known_costs(data)
+    found = []
+    for item in _never_used(data):
+        id_ = item["id"]
+        window = data["usage_window"]
+        reason = f"{names[id_]} was never seen in {window['files']} transcripts ({window['first']} to {window['last']})."
+        if id_ in known:
+            reason += f" It costs {known[id_]} always-on tokens every session."
+        found.append(_make("remove_unused", (id_,), reason, known.get(id_)))
+    return found
+
+
+GENERATORS: list[Callable[[dict[str, Any]], list[Suggestion]]] = [_duplicates, _wrappers, _unused]
 
 
 def suggest(data: dict[str, Any]) -> list[Suggestion]:

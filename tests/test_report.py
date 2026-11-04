@@ -311,7 +311,7 @@ def test_empty_states_are_plain_lines_in_report_and_cleanup(data):
     data["costs"], data["overlaps"] = None, []
     assert "  Token costs were not measured in this scan." in report(data).splitlines()
     assert "  None found." in report(data).splitlines()
-    assert render_cleanup(data, top=3).splitlines()[-1] == "Token costs were not measured."
+    assert "Token costs were not measured." in render_cleanup(data, top=3).splitlines()
     assert "None found." in render_cleanup(data, top=3).splitlines()
 
 

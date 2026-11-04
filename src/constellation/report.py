@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import textwrap
 from pathlib import Path
@@ -74,6 +75,36 @@ def _pairs(data: dict[str, Any], verdict: str) -> list[tuple[str, str, str]]:
     return sorted(found)
 
 
+def _never_used(data: dict[str, Any]) -> list[dict[str, Any]]:
+    window = data.get("usage_window")
+    if not window or not window["files"]:
+        return []
+    usage, known = data.get("usage") or {}, _known_costs(data)
+    items = [
+        i
+        for i in data["items"]
+        if i["kind"] in {"skill", "agent", "mcp_server", "connector"} and i["id"] in usage and usage[i["id"]]["count"] == 0
+    ]
+    return sorted(items, key=lambda i: (-known[i["id"]] if i["id"] in known else math.inf, i["name"], i["id"]))
+
+
+def _usage_note(data: dict[str, Any]) -> str:
+    window = data.get("usage_window")
+    if not window:
+        return "Usage was not read in this scan."
+    if not window["files"]:
+        return "No transcripts found."
+    return (
+        f"Covers {window['files']} transcript files from {window['first']} to {window['last']}. "
+        "Sessions Claude Code has already deleted are not counted, so 'never seen' only covers these."
+    )
+
+
+def _unused_rows(data: dict[str, Any], top: int) -> list[str]:
+    names, known = _names(data), _known_costs(data)
+    return [f"{names[i['id']]}  {str(known[i['id']]) + ' tokens' if i['id'] in known else 'unknown cost'}" for i in _never_used(data)[:top]]
+
+
 def render_report(data: dict[str, Any], *, top: int, color: bool, width: int, show_all: bool) -> str:
     items, names = data["items"], _names(data)
     known = _known_costs(data)
@@ -105,6 +136,10 @@ def render_report(data: dict[str, Any], *, top: int, color: bool, width: int, sh
         f"Total always-on: {sum(known.values()):,} tokens across {len(known)} Items; {unknown} Items have unknown cost (not counted as 0)."
     )
     out.append("\n" + _wrap(total, width, "  "))
+
+    out.append(_heading("Never used (in the transcripts scanned)", width, color))
+    out.append(_wrap(redact(_usage_note(data)), width, "  "))
+    out += [_wrap(redact(row), width, "  ") for row in _unused_rows(data, top)]
 
     out += _session_start(data, names, width, color)
 
@@ -163,4 +198,6 @@ def render_cleanup(data: dict[str, Any], *, top: int, approved: list[Suggestion]
     lines += [f"- [ ] {names[i['id']]}: {known[i['id']]:,} tokens every session. Is it worth it?" for i in _ranked(data, known)[:top]] or [
         "Token costs were not measured."
     ]
+    lines += ["", "## Never used", "", redact(_usage_note(data))]
+    lines += [f"- [ ] {redact(row)}" for row in _unused_rows(data, top)]
     return "\n".join(lines) + "\n"

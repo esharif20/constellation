@@ -15,6 +15,9 @@
   Total always-on: 1,210 tokens across 6 Items; 2 Items have
   unknown cost (not counted as 0).
 
+[1mNever used (in the transcripts scanned)[0m [2m────────────────────[0m
+  Usage was not read in this scan.
+
 [1mOverlaps[0m [2m───────────────────────────────────────────────────[0m
 [31m  duplicate (1)[0m
     deploy (skill) and ship (skill)

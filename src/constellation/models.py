@@ -52,6 +52,20 @@ class Overlap:
     reason: str  # one plain-English line
 
 
+@dataclass(frozen=True)
+class Usage:
+    count: int
+    last_used: str | None
+
+
+@dataclass(frozen=True)
+class UsageWindow:
+    files: int
+    first: str | None
+    last: str | None
+    skipped: int
+
+
 @dataclass
 class Constellation:
     items: list[Item] = field(default_factory=list)
@@ -62,3 +76,5 @@ class Constellation:
     costs: dict[str, Cost] = field(default_factory=dict)  # Item id -> Context cost, set when scan() gets a token counter
     overlaps: list[Overlap] = field(default_factory=list)  # sorted by (a_id, b_id)
     hook_weights: dict[str, Weight] = field(default_factory=dict)  # hook Item id -> what it injects at SessionStart / UserPromptSubmit
+    usage: dict[str, Usage] = field(default_factory=dict)
+    usage_window: UsageWindow | None = None

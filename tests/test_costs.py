@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fakes import FakeCounter
+from fakes import FakeCounter, write_skill
 
 from constellation import scan
 from constellation.anthropic_llm import anthropic_counter
@@ -147,3 +147,29 @@ def test_the_cache_key_is_the_plain_hash_without_a_salt_and_differs_with_one():
     assert cache_key("text", ()) == hashlib.sha256(b"text").hexdigest()  # keeps token-count cache files from older versions valid
     assert len({cache_key("text", ()), cache_key("text", (), "model-a"), cache_key("text", (), "model-b")}) == 3
     assert cache_key("a", (), "b") != cache_key("", (), "ab")  # the salt is separated from the text
+
+
+@pytest.mark.parametrize("counts", [[], [1, 2]])
+def test_scan_rejects_missing_or_extra_counts_without_writing_a_cache(tmp_path, counts):
+    config = tmp_path / "config"
+    write_skill(config, "invented", "fixture instructions", description="fixture description")
+    cache = tmp_path / "counts.json"
+
+    with pytest.raises(ValueError, match="zip"):
+        scan(config, counter=lambda texts: counts, cost_cache=cache)
+
+    assert not cache.exists()
+
+
+def test_scan_keeps_counts_and_returns_a_text_warning_when_cache_cannot_be_saved(tmp_path):
+    config = tmp_path / "config"
+    write_skill(config, "invented", "fixture instructions", description="fixture description")
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+
+    result = scan(config, counter=lambda texts: [23], cost_cache=blocked)
+
+    assert cost_of(result, "skill", "invented") == Cost(23, None)
+    assert len(result.warnings) == 1
+    assert isinstance(result.warnings[0], str)
+    assert result.warnings[0].startswith("could not save the token-count cache:")

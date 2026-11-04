@@ -6,7 +6,7 @@ is held in memory beyond the line being parsed.
 
 Decisions that touch this ticket: Cost rule (zero paid calls; local work first), Privacy invariant (only kinds, names and
 descriptions go to a provider), D5 Suggestions (#7 generator hook in `suggestions.py`), #19 report (`render_report` is
-pure and works on the saved JSON), D11 (always-on cost is the ranking key). No deviation from the plan is needed. One open
+pure and works on the saved JSON), D11 (always-on cost is the ranking key). The directory traversal amendment below was approved by the user on 2026-11-04. One open
 point for #13: a public Snapshot must drop `usage` and `usage_window` (see "Later tickets").
 
 ## 1. Where transcripts live (observed layout, names only)
@@ -84,8 +84,10 @@ present (count 0 when never seen).
 ### Streaming parse (the privacy-critical loop)
 
 ```
-for path in _transcripts(projects):                       # §5 scope guards
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)       # ELOOP -> skipped += 1
+for location in _transcripts(config_dir):                 # §5 pinned-directory scope guards
+    if location is None: skipped += 1; continue
+    parent, name = location
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
     if os.fstat(fd).st_size > FILE_CAP: skip              # FILE_CAP = 256 MiB
     with os.fdopen(fd, "rb") as f:
         while line := f.readline(LINE_CAP + 1):           # LINE_CAP = 8 MiB
@@ -134,7 +136,7 @@ Rules for the implementer:
 - `_transcripts` uses `os.scandir`. It descends only into entries where `is_dir(follow_symlinks=False)` is true. It
   takes `*.jsonl` entries where `is_file(follow_symlinks=False)` is true, and only at the two depths in §1. Sorted, so
   the result is the same every run.
-- `O_NOFOLLOW` on open is the second guard against a symlink swapped in after scandir.
+- **Approved security amendment (2026-11-04):** path-based discovery followed by a final-component `O_NOFOLLOW` open leaves a race when an ancestor is replaced with a symlink. Open the supplied config directory, then each child directory relative to its pinned parent descriptor with `O_RDONLY | O_DIRECTORY | O_NOFOLLOW`. Enumerate with `os.scandir(fd)` and open transcript basenames relative to the pinned directory with `dir_fd` and `O_NONBLOCK`. Validate the opened descriptor is a regular file before reading so a file swapped to a FIFO cannot block the scan. Hold ancestors while yielding a transcript location; close every directory descriptor in `finally`. Missing/unreadable children are skipped locally so siblings are still read. The same two depths and exclusions apply; in particular `memory/` and `tool-results/` subtrees are excluded. No raw path below `projects/` leaves the reader.
 - The reader never reads the environment: `usage.py` imports neither `os.environ` nor `Path.home`, and test T13 traps
   both.
 - No writes anywhere. No cache: re-reading is cheap, and a cache would be a second copy of usage on disk.
@@ -207,14 +209,14 @@ the real `Path.home() / ".claude"`.
 mutants:
 - The cap boundary tests (T9, T10) kill `>` vs `>=` and the cap constants. Patch the module constants; do not use real
   256 MiB files.
-- The prefilter literals are killed by T1 and T2. If the prefilter itself is mutated away, only speed changes, which is
-  equivalent behaviour. Mark that line `# pragma: no mutate (prefilter only; json path decides)` and name it in the
+- The prefilter literals are killed by T1 and T2. If the prefilter itself is removed, invocation results are unchanged, but irrelevant malformed lines may add diagnostics; do not claim equivalence of warning totals. Mark that line `# pragma: no mutate (prefilter only; json path decides)` and name it in the
   review.
 - `digest_size=8` mutants are equivalent. Mark them with a reason.
-- Mutating `O_NOFOLLOW` away is killed only if scandir lets a symlink through. scandir already filters symlinks, so the
-  flag is defence in depth. Mark it `# pragma: no mutate (defence in depth behind scandir filter)` and keep the race-free
-  guard anyway.
+- The approved directory/file swap tests kill removal of `O_NOFOLLOW` from directory and transcript opens. These opens have no mutation exemption. `follow_symlinks=False` on entry type checks remains defence in depth after explicit symlink rejection; its helper exemptions state that reason.
 - Every other `# pragma: no mutate` needs a one-line reason, and the reviewer checks each one.
+
+- T21 Approved amendment: swap `projects`, the encoded-cwd directory, session directory, `subagents`, or the final transcript to an outside symlink just before `os.open`; no outside invocation is credited and the rejection is counted.
+- T22 Directory descriptors close after traversal, including skipped or unreadable children; unrelated siblings continue to be read.
 
 ## 8. Opus review checklist (security-sensitive diff)
 

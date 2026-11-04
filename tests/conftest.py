@@ -11,3 +11,21 @@ def private_default_caches(tmp_path_factory, monkeypatch):
         # import_module: `constellation.classify` as an attribute is the re-exported function, not the module
         monkeypatch.setattr(importlib.import_module(f"constellation.{module}"), "DEFAULT_CACHE", root / f"{name}.json")
     monkeypatch.setattr(importlib.import_module("constellation.review"), "DEFAULT_CHECKPOINT", root / "review.sqlite")
+
+
+@pytest.fixture(autouse=True)
+def no_real_transcripts(monkeypatch):
+    from pathlib import Path
+
+    import constellation
+    import constellation.usage as usage
+
+    forbidden = (Path.home() / ".claude").resolve()
+    original = usage.read_usage
+
+    def guarded(config_dir, items):
+        assert not Path(config_dir).resolve().is_relative_to(forbidden), "real transcripts forbidden"
+        return original(config_dir, items)
+
+    monkeypatch.setattr(usage, "read_usage", guarded)
+    monkeypatch.setattr(constellation, "read_usage", guarded)

@@ -39,6 +39,7 @@ def main(
     commands = parser.add_subparsers(dest="command", required=True)
     scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
     scan_command.add_argument("config_dir", type=Path)
+    scan_command.add_argument("--no-usage", action="store_true", help="skip reading local transcripts")
     scan_command.add_argument("--out", type=Path, default=Path("constellation.json"))
     scan_command.add_argument(
         "--count-bodies",
@@ -135,6 +136,7 @@ def main(
             label_model=label_model,
             verifier_model=verifier_model,
             offline=offline,
+            usage=not args.no_usage,
         )
     if args.dry_run:
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
