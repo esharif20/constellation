@@ -6,13 +6,14 @@ import { step, type GLink, type GNode, type Model } from "@/graph/model";
 import { FEEL, makePainter, type Painter } from "@/graph/paint";
 import { cn } from "@/lib/utils";
 
-export type StarMapHandle = { glideTo: (n: GNode) => void; focusCanvas: () => void };
+export type StarMapHandle = { glideTo: (n: GNode, other?: GNode) => void; focusCanvas: () => void };
 type Props = {
   model: Model;
   selected: GNode | null;
   preview: GNode | null; // an Item hovered in the inspector or search list
   matches: Set<GNode> | null;
   panelWidth: number; // px the inspector covers on the right (0 on phones, where it is a bottom sheet)
+  briefOpen: boolean;
   onSelect: (n: GNode | null) => void;
 };
 
@@ -23,7 +24,7 @@ function measureInsets(view: Painter["view"]) {
   const W = innerWidth, H = innerHeight;
   const edge = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
   view.top = (edge("header")?.bottom ?? 0) + 8;
-  view.bottom = view.right = 0;
+  view.bottom = view.right = view.left = 0;
   const legend = document.querySelector('ul[aria-label="Legend"]');
   if (legend && parseFloat(getComputedStyle(legend).opacity) > 0.5) view.bottom = H - legend.getBoundingClientRect().top + 8;
   const panel = edge("aside");
@@ -31,12 +32,17 @@ function measureInsets(view: Painter["view"]) {
     if (panel.width > W * 0.8) view.bottom = Math.max(view.bottom, H - panel.top + 8); // phone: a bottom sheet
     else view.right = W - panel.left + 8;
   }
+  const brief = edge('section[aria-labelledby="brief-title"]');
+  if (brief) {
+    if (W <= 640) view.bottom = Math.max(view.bottom, H - brief.top + 8);
+    else view.left = brief.right + 8;
+  }
 }
 
 // Fit every star into the sky left free by the chrome, so a phone gets a tall, full map rather than empty bands.
 function fit(g: ForceGraphMethods<GNode, GLink>, painter: Painter, model: Model) {
   measureInsets(painter.view);
-  const { top, bottom, right } = painter.view, W = innerWidth, H = innerHeight, pad = W <= 640 ? 14 : 36;
+  const { top, bottom, right, left } = painter.view, W = innerWidth, H = innerHeight, pad = W <= 640 ? 14 : 36;
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   // the circles' bounds (not just the stars), so halos are not clipped
   for (const n of model.nodes) {
@@ -47,14 +53,14 @@ function fit(g: ForceGraphMethods<GNode, GLink>, painter: Painter, model: Model)
     x0 = Math.min(x0, c.x - c.r); x1 = Math.max(x1, c.x + c.r);
     y0 = Math.min(y0, c.y - c.r); y1 = Math.max(y1, c.y + c.r);
   }
-  const L = pad, R = W - right - pad, T = top + pad / 2, B = H - bottom - pad / 2;
+  const L = left + pad, R = W - right - pad, T = top + pad / 2, B = H - bottom - pad / 2;
   const k = Math.min(3, (R - L) / Math.max(1, x1 - x0), (B - T) / Math.max(1, y1 - y0));
   g.zoom(k, 0);
   g.centerAt((x0 + x1) / 2 - ((L + R) / 2 - W / 2) / k, (y0 + y1) / 2 - ((T + B) / 2 - H / 2) / k, 0);
   painter.view.fitK = k;
 }
 
-export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, panelWidth, onSelect }, ref) {
+export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, panelWidth, briefOpen, onSelect }, ref) {
   const fg = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined);
   const wrap = useRef<HTMLDivElement>(null);
   const painter = useMemo(() => makePainter(model, reduced()), [model]);
@@ -142,9 +148,13 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   // the chrome moves with the selection (the panel slides in), so measure again once it has settled
   useEffect(() => {
     measureInsets(painter.view);
-    const id = setTimeout(() => { measureInsets(painter.view); wake(); }, 460);
+    const id = setTimeout(() => {
+      measureInsets(painter.view);
+      if (!selected && fg.current && Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05) fit(fg.current, painter, model);
+      wake();
+    }, 460);
     return () => clearTimeout(id);
-  }, [selected, painter, wake]);
+  }, [selected, briefOpen, painter, model, wake]);
 
   useEffect(() => {
     const onResize = () => {
@@ -169,12 +179,17 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   }, [model]);
 
   useImperativeHandle(ref, () => ({
-    glideTo(n) {
-      const g = fg.current!, ms = reduced() ? 0 : FEEL.glideMs, k = Math.max(zoomK.current, painter.view.fitK * 1.6); // always closer than the fitted view, so neighbours get names
+    glideTo(n, other) {
+      const g = fg.current!, ms = reduced() ? 0 : FEEL.glideMs;
+      measureInsets(painter.view);
       const phone = innerWidth <= 640;
+      const left = phone ? 0 : painter.view.left, right = phone ? 0 : panelWidth + 16;
+      const top = painter.view.top, bottom = phone ? innerHeight * 0.58 + 8 : painter.view.bottom;
+      let k = Math.max(zoomK.current, painter.view.fitK * 1.6); // always closer than the fitted view, so neighbours get names
+      if (other) k = Math.min(k, Math.max(80, innerWidth - left - right - 80) / Math.max(1, Math.abs(n.x! - other.x!)), Math.max(80, innerHeight - top - bottom - 64) / Math.max(1, Math.abs(n.y! - other.y!)));
       // keep the Item clear of the inspector: left of the panel on desktop, above the sheet on phones
-      const dx = phone ? 0 : (panelWidth + 16) / 2 / k, dy = phone ? (innerHeight * 0.26) / k : 0;
-      g.centerAt(n.x! + dx, n.y! + dy, ms);
+      const dx = (right - left) / 2 / k, dy = (bottom - top) / 2 / k;
+      g.centerAt((n.x! + (other?.x ?? n.x!)) / 2 + dx, (n.y! + (other?.y ?? n.y!)) / 2 + dy, ms);
       g.zoom(k, ms);
       wake();
     },
