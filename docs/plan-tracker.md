@@ -92,3 +92,8 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Mutation review: the plan-required prefilter marker does not suppress invocation-token literal mutations (confirmed generated and killed). Removing the entire filter could broaden malformed-line diagnostics, so its speed-only equivalence claim applies only to invocation results, not warning totals. Other exemptions cover the prescribed digest length, an unused initial key, and redundant entry symlink flags after explicit rejection. Actual descriptor-open flags have no exemption.
 
 - Follow-up using Matt Pocock’s code-review skill: parallel Standards and Spec reviews ran in isolated worktrees. Standards found no actionable issue; Spec found one P2: an entry metadata error ended traversal of healthy siblings. Fixed by catching errors per entry; public `scan()` regressions cover `is_symlink`, `is_file` and `is_dir` failures. No remaining actionable review findings. Matt Pocock’s TDD, implement and code-review skill installations and metadata were rechecked; no duplicate installation was needed.
+
+## #11 chat preparation (2026-11-04, branch `codex/ticket-11`)
+
+- Proposed contract in `docs/plans/chat.md`; no implementation or provider calls yet. Retrieval and graph actions use known Item ids and public API tests with a fake model.
+- Integrate after #25's server/UI changes; Expansion delegates to #9. Real-model chat needs an explicit privacy/cost decision about redacted questions and per-interaction calls, since the existing policy only permits Item metadata/short local signals and changed-Item costs.
