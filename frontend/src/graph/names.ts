@@ -39,3 +39,31 @@ export function chooseSpot(o: In): Spot | null {
   }
   return best;
 }
+
+// Canvas Item names: at most `max` chars, one "…" (U+2026) when cut; trailing separators go so the mark sits on a word (labels.md 7).
+export const cutName = (s: string, max = 22) => (s.length <= max ? s : `${s.slice(0, max - 1).replace(/[-_ .:/]+$/, "")}…`);
+
+// Where the hover tooltip goes (labels.md 9). Anchor: the star's screen centre and radius. Pointer order right, left, above,
+// below; touch order above, below, right, left (the finger covers the star and what is under it). The first side that fits
+// wins, else the side with most room, clamped into bounds. Pure, so layout:check runs the same code.
+export type Side = "right" | "left" | "above" | "below";
+export type Bounds = { x0: number; y0: number; x1: number; y1: number };
+export const TIP_GAP = 12;
+export function placeTip(a: { x: number; y: number; r: number }, s: { w: number; h: number }, b: Bounds, touch: boolean): { x: number; y: number; side: Side } {
+  const d = a.r + TIP_GAP, clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const cx = clamp(a.x - s.w / 2, b.x0, Math.max(b.x0, b.x1 - s.w)), cy = clamp(a.y - s.h / 2, b.y0, Math.max(b.y0, b.y1 - s.h));
+  const at = {
+    right: { x: a.x + d, y: cy, room: b.x1 - (a.x + d) - s.w },
+    left: { x: a.x - d - s.w, y: cy, room: a.x - d - s.w - b.x0 },
+    above: { x: cx, y: a.y - d - s.h, room: a.y - d - s.h - b.y0 },
+    below: { x: cx, y: a.y + d, room: b.y1 - (a.y + d) - s.h },
+  };
+  const order: Side[] = touch ? ["above", "below", "right", "left"] : ["right", "left", "above", "below"];
+  const side = order.find((k) => at[k].room >= 0) ?? order.reduce((p, q) => (at[q].room > at[p].room ? q : p));
+  const t = at[side];
+  return { x: clamp(t.x, b.x0, Math.max(b.x0, b.x1 - s.w)), y: clamp(t.y, b.y0, Math.max(b.y0, b.y1 - s.h)), side };
+}
+
+// The zoom (relative to the fitted view) at which an Item's name starts to show: hubs at the fitted view, leaves from 1.3x, and a
+// heavy star (known cost at or above the scan's 90th percentile, `heavyR` in the model) rides with a degree-4 hub. Unknown cost gets no boost.
+export const labelStart = (degree: number, r: number, unknown: boolean, heavyR: number) => 1.3 - Math.min(0.9, Math.max((degree - 1) * 0.15, !unknown && r >= heavyR ? 0.45 : 0));

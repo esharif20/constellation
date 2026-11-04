@@ -5,7 +5,8 @@ import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import { flightMs, flightPath } from "@/graph/flight";
 import { applyForces, fitView, focusView, haloOf, type LLink, type LNode, type View } from "@/graph/layout";
 import { step, type Cluster, type GLink, type GNode, type Model } from "@/graph/model";
-import { makePainter, type Painter } from "@/graph/paint";
+import { FEEL, hoverRadius, makePainter, type Painter } from "@/graph/paint";
+import { Hover, type Tip } from "@/components/Hover";
 import { cn } from "@/lib/utils";
 
 export type StarMapHandle = { glideTo: (n: GNode, other?: GNode) => void; focusCanvas: () => void; holdCamera: () => void }; // holdCamera: the next focus change leaves without its own flight (a glide follows)
@@ -27,7 +28,7 @@ const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 function measureInsets(view: Painter["view"]) {
   const W = innerWidth, H = innerHeight;
   const edge = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
-  view.top = (edge("header")?.bottom ?? 0) + 8;
+  view.top = Math.max(edge("header")?.bottom ?? 0, edge('div[role="status"].glass')?.bottom ?? 0) + 8; // the highlight chip counts too, when shown
   view.bottom = view.right = view.left = 0;
   const legend = document.querySelector('ul[aria-label="Legend"]');
   if (legend && parseFloat(getComputedStyle(legend).opacity) > 0.5) view.bottom = H - legend.getBoundingClientRect().top + 8;
@@ -58,7 +59,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   const fg = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined);
   const wrap = useRef<HTMLDivElement>(null);
   const painter = useMemo(() => makePainter(model, reduced()), [model]);
-  useEffect(() => { if (import.meta.env.DEV) Object.assign(window, { __cx: { model, painter } }); }, [model, painter]); // dev only: the screenshot harness reads it
+  useEffect(() => { if (import.meta.env.DEV) Object.assign(window, { __cx: { model, painter, zoom: () => fg.current?.zoom(), at: (n: GNode) => fg.current?.graph2ScreenCoords(n.x!, n.y!) } }); }, [model, painter]); // dev only: the screenshot harness reads it
   const [size, setSize] = useState({ w: innerWidth, h: innerHeight });
   const [ready, setReady] = useState(false); // the first fit is done: the camera may fly
   const [data, setData] = useState<{ nodes: GNode[]; links: GLink[] }>({ nodes: [], links: [] });
@@ -102,10 +103,44 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     wake();
   }, [painter, model, wake]);
 
+  // Hover tooltip (docs/design/labels.md 9). Hover lives in refs; React state changes only when the shown Item does.
+  // n: the star whose tooltip is up; timer: dwell; warmUntil: a tooltip was up until now + 300 ms, so the next star's shows at once;
+  // rest: re-show timer after the camera stops; touch: the last pointer was a finger; at: the last pointer position
+  const [tip, setTip] = useState<Tip | null>(null);
+  const tipRef = useRef({ n: null as GNode | null, timer: 0, warmUntil: 0, rest: 0, touch: false, x: 0, y: 0, cam: { k: 0, x: 0, y: 0 } });
+  const hideTip = useCallback(() => {
+    const t = tipRef.current;
+    clearTimeout(t.timer);
+    if (!t.n) return;
+    t.n = null;
+    t.warmUntil = performance.now() + FEEL.tipWarm;
+    if (t.touch) { focus.hover = null; wake(); }
+    setTip(null);
+  }, [focus, wake]);
+  const showTip = useCallback((n: GNode, touch: boolean) => {
+    const g = fg.current;
+    if (!g || focus.flying || n === focus.selected || n.a < 0.3) return;
+    measureInsets(painter.view); // the chip and panels may have moved since the last measure
+    const c = g.graph2ScreenCoords(n.x!, n.y!);
+    tipRef.current.n = n;
+    setTip({ n, x: c.x, y: c.y, r: hoverRadius(n, g.zoom()), touch });
+  }, [focus, painter]);
+  // dwell 120 ms on a star, or at once when a tooltip was just up; leaving hides at once
+  const hoverTip = useCallback((n: GNode | null) => {
+    const t = tipRef.current;
+    clearTimeout(t.timer);
+    if (!n) return hideTip();
+    if (t.n === n) return;
+    t.timer = window.setTimeout(() => showTip(n, false), performance.now() < t.warmUntil ? 0 : FEEL.tipDelay);
+  }, [hideTip, showTip]);
+  useEffect(() => () => { clearTimeout(tipRef.current.timer); clearTimeout(tipRef.current.rest); }, []);
+
   useEffect(() => {
     Object.assign(focus, { selected, preview, matches });
+    measureInsets(painter.view); // a highlight chip appears with a new match set
+    if (tipRef.current.n === selected) hideTip(); // the Inspector shows the selected star
     wake();
-  }, [focus, selected, preview, matches, wake]);
+  }, [focus, painter, selected, preview, matches, wake, hideTip]);
 
   // One camera owner. Everything that moves the camera by itself (enter, exit, hop, glide) goes through fly(), a single rAF
   // loop on d3's smooth zoom-and-pan path; force-graph's own zoom(k, ms) and centerAt(x, y, ms) are two uncoupled tweens
@@ -271,6 +306,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   // Arrow keys step to the nearest Item in that direction; with nothing selected they start nearest the centre.
   function onKeyDown(e: KeyboardEvent) {
     if (e.key !== "Escape") stopCamera();
+    hideTip(); // keyboard: no tooltip; the live region carries the cost
     const dir = ({ ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] } as Record<string, number[]>)[e.key];
     if (!dir) return;
     e.preventDefault();
@@ -289,6 +325,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   const onBackground = (e: MouseEvent) => {
     const g = fg.current, box = wrap.current?.getBoundingClientRect();
     if (!g || !box) return;
+    hideTip();
     const x = e.clientX - box.left, y = e.clientY - box.top, named = painter.clusterAt(x, y);
     if (named) return onCluster(named);
     if (cluster && !selected) {
@@ -299,6 +336,9 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   };
   const hoverRaf = useRef(0);
   const onPointerMove = (e: PointerEvent) => {
+    tipRef.current.touch = e.pointerType === "touch";
+    tipRef.current.x = e.clientX;
+    tipRef.current.y = e.clientY;
     if (hoverRaf.current || e.pointerType === "touch") return;
     const x = e.clientX, y = e.clientY;
     hoverRaf.current = requestAnimationFrame(() => {
@@ -312,9 +352,11 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   };
 
   return (
+    <>
     <div
       ref={wrap}
       onPointerMove={onPointerMove}
+      onPointerDown={(e) => { tipRef.current.touch = e.pointerType === "touch"; }}
       tabIndex={0}
       role="application"
       aria-label="Constellation graph. Arrow keys move between Items, slash searches, Escape closes the inspector."
@@ -346,17 +388,46 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
         linkPointerAreaPaint={() => {}} // links are not interactive: one under a cluster name would swallow the click that enters it
         onRenderFramePre={painter.pre}
         onRenderFramePost={painter.post}
-        onNodeHover={(n) => { focus.hover = n ?? null; wake(); }}
-        onNodeDrag={(n) => { focus.hover = n; setCool(Infinity); }}
+        onNodeHover={(n) => {
+          focus.hover = n ?? null;
+          wake();
+          if (!tipRef.current.touch) hoverTip(n ?? null); // a finger's tooltip comes from its taps (onNodeClick)
+        }}
+        onNodeDrag={(n) => { focus.hover = n; hideTip(); setCool(Infinity); }}
         onNodeDragEnd={() => { focus.hover = null; setCool(150); wake(); }}
-        onNodeClick={(n) => onSelect(n)}
+        onNodeClick={(n) => {
+          const t = tipRef.current;
+          if (t.touch && n !== selected && t.n !== n) { // first tap: light its neighbours and show the tooltip; the second tap opens it
+            focus.hover = n;
+            wake();
+            showTip(n, true);
+            return;
+          }
+          hideTip();
+          onSelect(n);
+        }}
         onBackgroundClick={onBackground}
         onZoom={(t) => {
+          const c = tipRef.current.cam;
+          if (Math.abs(t.k - c.k) > 1e-6 || Math.abs(t.x - c.x) > 0.01 || Math.abs(t.y - c.y) > 0.01) { // the camera really moved (wake() re-sets the same zoom)
+            c.k = t.k; c.x = t.x; c.y = t.y;
+            hideTip();
+            clearTimeout(tipRef.current.rest); // 150 ms after it rests, a pointer still on the star gets the tooltip again, placed afresh
+            tipRef.current.rest = window.setTimeout(() => {
+              const h = focus.hover, g = fg.current, r = tipRef.current;
+              if (!h || !g || r.touch || r.n || focus.flying) return;
+              const p = g.graph2ScreenCoords(h.x!, h.y!);
+              if (Math.hypot(p.x - r.x, p.y - r.y) <= hoverRadius(h, g.zoom()) + 6) showTip(h, false);
+            }, 150);
+          }
           zoomK.current = t.k;
+          wake(); // names ease in and out over time now, so a zoom that has stopped may still have a fade to finish
           // pulling back past half the focus zoom leaves focus where the reader already is (no flight)
           if (cluster && !focus.flying && cam.current.kFocus && t.k < 0.5 * cam.current.kFocus) { noFlight.current = true; onCluster(null); }
         }}
       />
     </div>
+    {tip && <Hover key={tip.n.id} tip={tip} model={model} painter={painter} wake={wake} />}
+    </>
   );
 });

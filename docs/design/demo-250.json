@@ -1672,6 +1672,36 @@
    "name": "polish-crate-lite",
    "description": "Use when the task involves polish crate-lite. Keeps the work small.",
    "source": "~/.claude/skills/polish-crate-lite"
+  },
+  {
+   "id": "skill:extra:quarterly-ledger-reconciliation-helper",
+   "kind": "skill",
+   "name": "quarterly-ledger-reconciliation-helper",
+   "description": "Use when closing the quarter and matching ledgers.",
+   "source": "~/.claude/skills/quarterly-ledger-reconciliation-helper"
+  },
+  {
+   "id": "agent:extra:lighthouse-lamp-maintenance-scheduler",
+   "kind": "agent",
+   "name": "lighthouse-lamp-maintenance-scheduler",
+   "description": "Plans lamp upkeep rounds around the tides.",
+   "source": "~/.claude/agents/lighthouse-lamp-maintenance-scheduler"
+  },
+  {
+   "id": "plugin:extra:idle-beekeeping-bundle",
+   "kind": "plugin",
+   "name": "idle-beekeeping-bundle",
+   "description": "A bundle for hive inspection, switched off.",
+   "disabled": true,
+   "source": "~/.claude/plugins/idle-beekeeping-bundle"
+  },
+  {
+   "id": "skill:extra:idle-hive-inspector",
+   "kind": "skill",
+   "name": "idle-hive-inspector",
+   "description": "Use when inspecting a hive. Switched off with its plugin.",
+   "disabled": true,
+   "source": "~/.claude/skills/idle-hive-inspector"
   }
  ],
  "relations": [
@@ -2129,6 +2159,11 @@
    "source": "hook:17:chart-wick",
    "target": "skill:24:tune-thread-lite",
    "kind": "triggers"
+  },
+  {
+   "source": "plugin:extra:idle-beekeeping-bundle",
+   "target": "skill:extra:idle-hive-inspector",
+   "kind": "contains"
   }
  ],
  "labels": {
@@ -2370,7 +2405,11 @@
   "skill:28:chart-thread": "chart thread for puppet staging",
   "hook:29:tune-lattice": "tune lattice for claude code hook setup",
   "hook:29:weigh-anvil-pro": "weigh anvil-pro for claude code hook setup",
-  "skill:29:polish-crate-lite": "polish crate-lite for claude code hook setup"
+  "skill:29:polish-crate-lite": "polish crate-lite for claude code hook setup",
+  "skill:extra:quarterly-ledger-reconciliation-helper": "Use when closing the quarter and matching ledgers",
+  "agent:extra:lighthouse-lamp-maintenance-scheduler": "Plans lamp upkeep rounds around the tides",
+  "plugin:extra:idle-beekeeping-bundle": "A bundle for hive inspection, switched off",
+  "skill:extra:idle-hive-inspector": "Use when inspecting a hive. Switched off with its plugin"
  },
  "clusters": [
   {
@@ -2459,7 +2498,9 @@
     "skill:2:sort-beacon",
     "agent:2:scout-tally",
     "skill:2:gather-lattice",
-    "skill:2:bind-canvas"
+    "skill:2:bind-canvas",
+    "skill:extra:quarterly-ledger-reconciliation-helper",
+    "agent:extra:lighthouse-lamp-maintenance-scheduler"
    ]
   },
   {
@@ -2481,7 +2522,9 @@
     "skill:3:scout-compass",
     "skill:3:weigh-beacon",
     "skill:3:chart-lattice-lite",
-    "skill:3:polish-wick"
+    "skill:3:polish-wick",
+    "plugin:extra:idle-beekeeping-bundle",
+    "skill:extra:idle-hive-inspector"
    ]
   },
   {
@@ -3719,6 +3762,22 @@
   "plugin:chess11": {
    "always_on": 48,
    "on_use": null
+  },
+  "skill:extra:quarterly-ledger-reconciliation-helper": {
+   "always_on": 410,
+   "on_use": 2600
+  },
+  "agent:extra:lighthouse-lamp-maintenance-scheduler": {
+   "always_on": 150,
+   "on_use": 900
+  },
+  "plugin:extra:idle-beekeeping-bundle": {
+   "always_on": 90,
+   "on_use": null
+  },
+  "skill:extra:idle-hive-inspector": {
+   "always_on": 60,
+   "on_use": 700
   }
  },
  "overlaps": [
@@ -3937,6 +3996,12 @@
    "b_id": "skill:9:gather-compass",
    "verdict": "duplicate",
    "reason": "Same steps and trigger wording; one could go (draft-crate and gather-compass)."
+  },
+  {
+   "a_id": "skill:2:bind-gasket-lite",
+   "b_id": "skill:extra:quarterly-ledger-reconciliation-helper",
+   "verdict": "duplicate",
+   "reason": "Same steps and trigger wording; one could go."
   }
  ],
  "hook_weights": {
@@ -4849,6 +4914,18 @@
   "skill:29:polish-crate-lite": {
    "count": 11,
    "last_used": "2026-10-23"
+  },
+  "skill:extra:quarterly-ledger-reconciliation-helper": {
+   "count": 3,
+   "last_used": "2026-11-02"
+  },
+  "agent:extra:lighthouse-lamp-maintenance-scheduler": {
+   "count": 3,
+   "last_used": "2026-11-02"
+  },
+  "skill:extra:idle-hive-inspector": {
+   "count": 0,
+   "last_used": null
   }
  },
  "usage_window": {
