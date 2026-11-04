@@ -1,11 +1,12 @@
 import { Command as CommandPrimitive } from "cmdk";
-import { SearchIcon, TriangleAlertIcon } from "lucide-react";
+import { CheckIcon, CloudOffIcon, CopyIcon, InfoIcon, SearchIcon, TriangleAlertIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverAnchor, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
-import { kindName, type GNode, type Model } from "@/graph/model";
+import { cn } from "@/lib/utils";
+import { groupWarnings, kindName, type GNode, type Model, type WarningGroup } from "@/graph/model";
 
 type Props = {
   model: Model;
@@ -20,7 +21,7 @@ export function TopBar({ model, query, found, onQuery, onChoose, onPreview }: Pr
   return (
     <header className="pointer-events-none fixed inset-x-4 top-3 flex flex-wrap items-center gap-x-4 gap-y-2 sm:inset-x-6 sm:top-4 sm:flex-nowrap">
       <h1 className="font-serif text-[22px] leading-none tracking-[0.01em] italic sm:text-2 [text-shadow:0_0_18px_rgb(150_170_255/0.35)] ">Constellation</h1>
-      <p className="text-xs text-text-2 tabular-nums sm:text-[13px]">
+      <p className="text-xs text-text-2 tabular-nums sm:text-[13px]" title={model.offlineNote || undefined}>
         {model.nodes.length} items, {model.links.length} relations, {model.clusters.length} clusters{model.offline && ", offline scan"}
       </p>
       <Warnings warnings={model.warnings} />
@@ -104,24 +105,82 @@ function Search({ query, found, onQuery, onChoose, onPreview }: Omit<Props, "mod
   );
 }
 
+const ICON = { actionable: TriangleAlertIcon, degraded: CloudOffIcon, info: InfoIcon };
+const SHOWN = 5;
+
 function Warnings({ warnings }: { warnings: string[] }) {
-  if (!warnings.length) return null;
+  const groups = groupWarnings(warnings);
+  if (!groups.length) return null;
+  const look = groups.filter((g) => g.kind !== "info").reduce((n, g) => n + g.items.length, 0);
+  const notes = groups.length - groups.filter((g) => g.kind !== "info").length;
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="glass pointer-events-auto ml-auto h-11 rounded-lg border-warn/30 px-4 text-warn hover:bg-warn/10 hover:text-warn aria-expanded:bg-warn/10 sm:order-last sm:ml-0 sm:h-10">
-          <TriangleAlertIcon data-icon="inline-start" aria-hidden />
-          {warnings.length} warning{warnings.length > 1 ? "s" : ""}
+        <Button variant="outline" className={cn("glass pointer-events-auto ml-auto h-11 rounded-lg px-4 sm:order-last sm:ml-0 sm:h-10", look ? "border-warn/30 text-warn hover:bg-warn/10 hover:text-warn aria-expanded:bg-warn/10" : "text-text-2")}>
+          {look ? <TriangleAlertIcon data-icon="inline-start" aria-hidden /> : <InfoIcon data-icon="inline-start" aria-hidden />}
+          {look ? `${look} to look at` : `${notes} note${notes > 1 ? "s" : ""}`}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={8} className="glass w-[min(420px,calc(100vw-2rem))]">
         <PopoverHeader>
           <PopoverTitle>Scan warnings</PopoverTitle>
         </PopoverHeader>
-        <ul className="mt-2 flex max-h-[50vh] list-disc flex-col gap-2 overflow-y-auto pl-4 text-[13px] leading-[1.6] text-text-2">
-          {warnings.map((w, i) => <li key={i}>{w}</li>)}
-        </ul>
+        <div className="mt-2 flex max-h-[60vh] flex-col gap-3 overflow-y-auto text-[13px] leading-[1.6] text-text-2">
+          {groups.map((g) => g.kind === "info" ? <Group key={g.id} g={g} collapsed /> : <Group key={g.id} g={g} />)}
+        </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function Group({ g, collapsed }: { g: WarningGroup; collapsed?: boolean }) {
+  const Icon = ICON[g.kind];
+  const head = (
+    <span className="inline-flex items-start gap-2 font-medium text-foreground">
+      <Icon className={cn("mt-1 size-3.5 shrink-0", g.kind === "info" ? "text-text-3" : "text-warn")} aria-hidden />
+      <span>{g.title(g.items.length)}</span>
+    </span>
+  );
+  const body = (
+    <div className="mt-1 pl-[22px]">
+      {g.hint && <p className="text-text-3">{g.hint}</p>}
+      <ul className="mt-1 flex flex-col gap-1">
+        {g.items.slice(0, SHOWN).map((it, i) => (
+          <li key={i} className="flex items-center gap-1">
+            <code className="min-w-0 flex-1 break-all font-mono text-xs">{it.text}</code>
+            {it.path && <CopyPath path={it.path} />}
+          </li>
+        ))}
+      </ul>
+      {g.items.length > SHOWN && <p className="mt-1 text-text-3">and {g.items.length - SHOWN} more</p>}
+    </div>
+  );
+  return collapsed ? (
+    <details className="group">
+      <summary className="cursor-pointer list-none">{head}</summary>
+      {body}
+    </details>
+  ) : (
+    <section>
+      {head}
+      {body}
+    </section>
+  );
+}
+
+function CopyPath({ path }: { path: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={`Copy path ${path}`}
+      className="size-8 shrink-0 text-text-3 sm:size-7"
+      onClick={() => {
+        void navigator.clipboard?.writeText(path).then(() => { setDone(true); setTimeout(() => setDone(false), 1200); });
+      }}
+    >
+      {done ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
+    </Button>
   );
 }

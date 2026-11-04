@@ -48,7 +48,7 @@ export type GOverlap = { a: GNode; b: GNode; verdict: Exclude<Verdict, "distinct
 export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot: boolean };
 // la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
 export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number; a: number; la: number; lx: number; ly: number; pick: number };
-export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; usageWindow: UsageWindow | null; warnings: string[]; offline: boolean };
+export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; usageWindow: UsageWindow | null; warnings: string[]; offline: boolean; offlineNote: string };
 
 // Star radius from always-on cost, area-proportional (magnitude by area, not radius). cRef is the scan's 95th percentile,
 // so one huge MCP server cannot shrink everything else. Unknown cost gets its own middling size (and is drawn hollow).
@@ -120,8 +120,9 @@ export function buildModel(data: Constellation, aspect = 1): Model {
     overlapsOf.get(b)!.push(g);
     return [g];
   });
+  const offlineNote = (data.warnings ?? []).find((w) => w.startsWith("Offline")) ?? "";
   layout(nodes, links, clusters, tall);
-  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, usageWindow: data.usage_window ?? null, warnings: data.warnings ?? [], offline: (data.warnings ?? []).some((w) => w.startsWith("Offline")) };
+  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, usageWindow: data.usage_window ?? null, warnings: data.warnings ?? [], offline: offlineNote !== "", offlineNote };
 }
 
 // Search rank: name prefix, then name substring, then label substring; hubs first within a rank.
@@ -150,4 +151,39 @@ export function step(nodes: GNode[], from: GNode, dx: number, dy: number): GNode
     if (score < bestScore) { best = n; bestScore = score; }
   }
   return best;
+}
+
+// Warnings grouped for the top bar. Keyed on the message prefixes the Python side emits; tests/test_warning_contract.py pins them.
+// "Offline" is a mode (Model.offline), not a warning, so it is left out. "actionable": the user can fix it; "degraded": a paid
+// step failed and the map is partly offline; "info": safe to ignore.
+export type WarningKind = "actionable" | "degraded" | "info";
+export type WarningItem = { text: string; path?: string };
+export type WarningGroup = { id: string; kind: WarningKind; title: (n: number) => string; hint?: string; items: WarningItem[] };
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const RULES: { prefix: string; id: string; kind: WarningKind; title: (n: number) => string; hint?: string }[] = [
+  { prefix: "skipped ", id: "missing", kind: "actionable", title: (n) => `Not on the map: ${plural(n, "file is", "files are")} missing a name or description`, hint: "Add the missing field to the file's frontmatter." },
+  { prefix: "could not save the", id: "cache", kind: "actionable", title: () => "Cache not writable: the next scan will pay again", hint: "Check the folder is writable." },
+  { prefix: "could not label", id: "label", kind: "degraded", title: (n) => `Partly offline: ${plural(n, "label", "labels")} failed` },
+  { prefix: "could not verify", id: "verify", kind: "degraded", title: (n) => `Partly offline: ${plural(n, "overlap check", "overlap checks")} failed` },
+  { prefix: "could not count", id: "count", kind: "degraded", title: () => "Partly offline: token counts failed" },
+  { prefix: "could not cluster", id: "cluster", kind: "degraded", title: () => "Partly offline: grouping into clusters failed" },
+  { prefix: "frontmatter is not valid YAML", id: "loose", kind: "info", title: (n) => `${plural(n, "file has", "files have")} loose frontmatter, read anyway`, hint: "Safe to ignore: Claude Code reads them too. To tidy, quote the description." },
+  { prefix: "no frontmatter in", id: "bare", kind: "info", title: (n) => `${plural(n, "file has", "files have")} no frontmatter`, hint: "Safe to ignore unless the file should be a skill or agent." },
+  { prefix: "usage:", id: "usage", kind: "info", title: () => "Usage reading", hint: "Some transcripts were not read; usage counts may be low." },
+];
+
+export function groupWarnings(warnings: string[]): WarningGroup[] {
+  const groups = new Map<string, WarningGroup>();
+  for (const w of warnings) {
+    if (w.startsWith("Offline")) continue;
+    const rule = RULES.find((r) => w.startsWith(r.prefix)) ?? { prefix: "", id: "other", kind: "info" as const, title: () => "Other notes" };
+    const g = groups.get(rule.id) ?? { id: rule.id, kind: rule.kind, title: rule.title, hint: rule.hint, items: [] };
+    const m = /^(.*?) \((~?\/[^()]*)\)$/.exec(w);
+    const bare = rule.id === "bare" ? w.slice(rule.prefix.length).trim() : null;
+    g.items.push(bare ? { text: bare, path: bare } : m ? { text: rule.id === "missing" ? `${m[1].replace(/^skipped /, "")} (${m[2]})` : m[2], path: m[2] } : { text: w });
+    groups.set(rule.id, g);
+  }
+  const order = { actionable: 0, degraded: 1, info: 2 };
+  return [...groups.values()].sort((a, b) => order[a.kind] - order[b.kind]);
 }

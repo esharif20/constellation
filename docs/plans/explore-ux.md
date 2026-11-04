@@ -46,8 +46,12 @@ warning already names it). The counts-only script answers which, without printin
 Save as `/tmp/cc_counts.py`, read it, run `python3 -I /tmp/cc_counts.py`. It never prints keys, names, paths or values.
 ```python
 import json, pathlib as P
-h = P.Path.home(); c = h / ".claude"; j = lambda p: json.loads(p.read_text()) if p.exists() else {}
-cj = j(h / ".claude.json"); ip = j(c / "plugins/installed_plugins.json").get("plugins", {})
+
+h = P.Path.home()
+c = h / ".claude"
+j = lambda p: json.loads(p.read_text()) if p.exists() else {}
+cj = j(h / ".claude.json")
+ip = j(c / "plugins/installed_plugins.json").get("plugins", {})
 paths = [P.Path(e["installPath"]) for v in ip.values() for e in v if "installPath" in e]
 man = [p for p in paths if (p / ".claude-plugin/plugin.json").exists()]
 print("user_scope_mcp", len(cj.get("mcpServers", {})))

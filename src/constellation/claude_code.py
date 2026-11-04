@@ -13,17 +13,25 @@ from .models import Item, Relation
 SOURCE = "claude-code"
 
 
+def _shown(path: Path) -> str:
+    """The path as shown in warnings: the home folder written as `~`, so the scan JSON never holds the username."""
+    try:
+        return f"~/{path.relative_to(Path.home())}"
+    except ValueError:
+        return str(path)
+
+
 def _frontmatter(path: Path) -> tuple[dict[str, Any], str | None]:
     """The file's frontmatter, and a warning if it was not clean. Real files are not always valid YAML (an unquoted ': ' in a
     description), and Claude Code still loads them, so fall back to reading name and description line by line."""
     parts = path.read_text().split("---", 2)
     if len(parts) < 3:
-        return {}, f"no frontmatter in {path}"
+        return {}, f"no frontmatter in {_shown(path)}"
     try:
         meta = yaml.safe_load(parts[1])
     except yaml.YAMLError:
         lines = {m[1]: m[2].strip() for m in re.finditer(r"^(name|description):[ \t]*(.*)$", parts[1], re.MULTILINE)}
-        return lines, f"frontmatter is not valid YAML, read name and description leniently ({path})"
+        return lines, f"frontmatter is not valid YAML, read name and description leniently ({_shown(path)})"
     return (meta if isinstance(meta, dict) else {}), None
 
 
@@ -41,10 +49,10 @@ def _read_root(root: Path, scope: str, items: list[Item], warnings: list[str], r
                 warnings.append(problem)
             name, description = meta.get("name"), meta.get("description")
             if not name:
-                warnings.append(f"skipped {kind} with no name ({path})")
+                warnings.append(f"skipped {kind} with no name ({_shown(path)})")
                 continue
             if not description:
-                warnings.append(f"skipped {kind} '{name}': no description ({path})")
+                warnings.append(f"skipped {kind} '{name}': no description ({_shown(path)})")
                 continue
             items.append(Item(f"{SOURCE}:{kind}:{scope}{extra}{name}", kind, name, description, SOURCE))
             bodies[items[-1].id] = path.read_text().split("---", 2)[2].strip()  # loaded only when invoked: the on-use text

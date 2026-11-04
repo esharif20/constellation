@@ -148,3 +148,10 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - `layout:check` adds `haloBad` (rest equals home; one member moved by d shifts the centre by d / n; radius within [r, 1.4 r]); all existing thresholds untouched and passing.
 - Gates: lint, build, layout:check, pytest (469 passed). Dragging a hub on `demo-250.json` checked by eye with agent-browser: halo and name move with the members.
 - Not verified: a before/after pair on the old build (the stashed rerun did not drag), touch drag, phone width.
+
+## #35 warnings: ~ paths, grouping, Offline as a mode (2026-11-04, branch `claude/ticket-35`)
+
+- Done, per `docs/plans/explore-ux.md` section B: `_shown(path)` in `claude_code.py` writes home paths as `~/...` in the frontmatter and skip warnings (a test pins that the scan holds no home folder). `groupWarnings` in `model.ts` groups by stable message prefix into actionable, degraded and info groups; the top bar button says "N to look at" (actionable + degraded only), info groups sit collapsed, up to 5 items with "and N more" and a copy-path button (`~` form). "Offline" is a mode: `Model.offlineNote` is the tooltip on "offline scan" and it never counts as a warning.
+- Contract test `tests/test_warning_contract.py` pins the prefixes (emitted by `scan()` for the file-based ones, literal-in-source for provider/usage ones) and that `model.ts` still names each one. `layout:check` asserts `groupWarnings` on invented strings.
+- Public Snapshot untouched (it already drops warnings). Warnings from other modules that quote an OS error with an absolute path (cache save failures) are not rewritten: not in the plan's source list. No deviations.
+- Not verified: other themes/real long path lists; screenshots only on demo data with injected warnings at 1440 and 390.
