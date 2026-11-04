@@ -1,0 +1,8 @@
+{
+  "name": "constellation",
+  "version": "0.1.0",
+  "description": "Scan a Claude Code setup, show its CLI report and open the local graph.",
+  "author": {
+    "name": "esharif20"
+  }
+}
