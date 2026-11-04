@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import os
 import textwrap
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -88,6 +89,13 @@ def _never_used(data: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(items, key=lambda i: (-known[i["id"]] if i["id"] in known else math.inf, i["name"], i["id"]))
 
 
+def _span(window: dict[str, Any], template: str) -> str:
+    if not window["first"]:  # the reader sets first and last together
+        return ""
+    days = (date.fromisoformat(window["last"]) - date.fromisoformat(window["first"])).days + 1
+    return template.format(window["first"], window["last"], days)
+
+
 def _usage_note(data: dict[str, Any]) -> str:
     window = data.get("usage_window")
     if not window:
@@ -95,8 +103,9 @@ def _usage_note(data: dict[str, Any]) -> str:
     if not window["files"]:
         return "No transcripts found."
     return (
-        f"Covers {window['files']} transcript files from {window['first']} to {window['last']}. "
-        "Sessions Claude Code has already deleted are not counted, so 'never seen' only covers these."
+        f"Covers {window['files']} transcript files{_span(window, ' from {0} to {1} ({2} days)')}; "
+        f"{window['skipped']} files skipped. "
+        "Claude Code deletes old transcripts, so 'never seen' covers only these files and is not proof an Item is unused."
     )
 
 

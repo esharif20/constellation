@@ -17,7 +17,10 @@ export default function Atlas({ model }: { model: Model }) {
   const framedPair = useRef<GNode | undefined>(undefined);
   const pill = useRef<HTMLButtonElement>(null);
   const [brief, setBrief] = useState<BriefData | null>(null);
-  const [briefOpen, setBriefOpen] = useState(() => { try { return localStorage.getItem("constellation.brief") !== "closed"; } catch { return true; } });
+  const [briefOpen, setBriefOpen] = useState(() => {
+    const onPhone = matchMedia("(max-width: 640px)").matches; // a first visit on a phone starts collapsed so the map stays visible
+    try { const saved = localStorage.getItem("constellation.brief"); return saved ? saved === "open" : !onPhone; } catch { return !onPhone; }
+  });
   const [selected, setSelected] = useState<GNode | null>(null);
   const [preview, setPreview] = useState<GNode | null>(null);
   const [query, setQuery] = useState("");

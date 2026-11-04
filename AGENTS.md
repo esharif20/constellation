@@ -2,6 +2,11 @@
 
 Project: Constellation, a local FastAPI + LangGraph app that scans a Claude Code setup into an explorable graph. Spec is GitHub issue #1; each ticket is a sub-issue. Read `GLOSSARY.md`, `docs/plan-tracker.md` and the ticket's plan in `docs/plans/` BEFORE writing code. Python 3.13 with **uv** only (`uv run`, `uv add`; never pip). Minimal code: no abstraction, option or feature the ticket did not ask for.
 
+## Who works where (Codex and Claude share this repo)
+- Each agent works in its own git worktree on its own branch, one ticket per agent. Never edit files in another agent's worktree or branch.
+- Two agents should not be on the same ticket. If it happens anyway, use the same branch (and worktree) and resolve merge conflicts there, not across branches.
+- Before starting a ticket, check `git branch --list 'codex/*' 'worktree-agent-*'` and `git log main..<branch>` so you do not duplicate finished work. Merge to `main` only with all gates green; pull before pushing.
+
 ## Hard rules (privacy and cost)
 - Never read, print or send the `.env` file or any secret. Never read the real `~/.claude` (tests use fixtures and temp dirs; `tests/conftest.py` redirects caches). Never read the process environment for secrets.
 - Privacy invariant: only Item kinds, names and descriptions (plus short local signals) are ever sent to a provider, always after redaction (`guarded*` wrappers in `src/constellation/__init__.py`). File bodies and transcript text never leave the machine, except the opt-in `--count-bodies`. Anything that would send more needs the user's approval first.
