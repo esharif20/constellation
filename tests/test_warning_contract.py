@@ -17,6 +17,7 @@ PREFIXES = {
     "could not count": "degraded",
     "could not cluster": "degraded",
     "could not save the": "cache",
+    "could not read skill lock": "lock",
 }
 
 
@@ -59,7 +60,15 @@ def test_every_warning_prefix_the_viewer_groups_on_is_still_emitted_and_still_na
     # The rest need a provider or the filesystem to fail; pin their literal text in the source instead.
     source = "".join(p.read_text() for p in (ROOT / "src" / "constellation").glob("*.py"))
     viewer = (REPO / "frontend" / "src" / "graph" / "model.ts").read_text()
-    for prefix in ("usage: ", "could not label", "could not verify", "could not count", "could not cluster", "could not save the"):
+    for prefix in (
+        "usage: ",
+        "could not label",
+        "could not verify",
+        "could not count",
+        "could not cluster",
+        "could not save the",
+        "could not read skill lock",
+    ):
         assert prefix in source, prefix
     for prefix in PREFIXES:
         assert f'"{prefix}' in viewer, prefix

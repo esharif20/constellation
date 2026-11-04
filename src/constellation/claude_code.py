@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 import yaml
 
 from .models import Item, Relation
+from .origins import Found, find, read_lock
+from .origins import clean as clean_origin
 from .redact import redact
 
 SOURCE = "claude-code"
@@ -172,7 +174,15 @@ def _inside(root: Path, pattern: str, scope: str, warnings: list[str]) -> Iterat
 
 
 def _read_root(
-    root: Path, scope: str, items: list[Item], warnings: list[str], relations: list[Relation], bodies: dict[str, str], secrets: set[str]
+    root: Path,
+    scope: str,
+    items: list[Item],
+    warnings: list[str],
+    relations: list[Relation],
+    bodies: dict[str, str],
+    secrets: set[str],
+    lock: dict[str, str] | None,
+    config_dir: Path,
 ) -> None:
     """Read the Items under one root: the config dir itself, or one plugin dir. `scope` keeps ids unique."""
     # "synced" holds skills synced from claude.ai, one folder deeper; its own id scope stops a synced copy colliding with a local skill.
@@ -192,7 +202,11 @@ def _read_root(
             if not description:
                 warnings.append(f"skipped {kind} '{name}': no description ({_shown(path)})")
                 continue
-            items.append(Item(f"{SOURCE}:{kind}:{scope}{extra}{name}", kind, name, description, SOURCE))
+            # lock None = origins off; a plugin's contents get the plugin name in read_items, so only user skills look further.
+            origin = (
+                None if lock is None or scope else "claude.ai" if extra else find(Found(path.parent, config_dir, kind, meta, lock, secrets))
+            )
+            items.append(Item(f"{SOURCE}:{kind}:{scope}{extra}{name}", kind, name, description, SOURCE, origin=origin))
             bodies[items[-1].id] = path.read_text().split("---", 2)[2].strip()  # loaded only when invoked: the on-use text
     for path in _inside(root, "commands/*.md", scope, warnings):
         parsed = _command(path, warnings)
@@ -266,15 +280,20 @@ def _plugin_manifests(config_dir: Path) -> list[Path]:
     return list(newest.values())
 
 
-def read_items(config_dir: Path) -> tuple[list[Item], list[str], list[Relation], dict[str, str]]:
+def read_items(config_dir: Path, lockfile: Path | None = None) -> tuple[list[Item], list[str], list[Relation], dict[str, str]]:
+    """`lockfile` is the skills CLI's lockfile; None turns origins off (no origin is set and the file is never opened)."""
     items: list[Item] = []
     warnings: list[str] = []
     relations: list[Relation] = []
     bodies: dict[str, str] = {}  # skill/agent Item id -> file text after the frontmatter
     config_dir = Path(config_dir)
     secrets = read_secrets(config_dir)
+    lock = None
+    if lockfile is not None:
+        lock, lock_warnings = read_lock(lockfile, secrets)
+        warnings += lock_warnings
     _read_claude_json(config_dir, items, warnings, secrets)  # first, so a hook can link to a user-scope server
-    _read_root(config_dir, "", items, warnings, relations, bodies, secrets)
+    _read_root(config_dir, "", items, warnings, relations, bodies, secrets, lock, config_dir)
     enabled = _json_or_empty(config_dir / "settings.json").get("enabledPlugins", {})
     keys, clean = _installed(config_dir)
     if not clean:
@@ -288,8 +307,10 @@ def read_items(config_dir: Path) -> tuple[list[Item], list[str], list[Relation],
         items.append(plugin)
         first = len(items)
         _plugin_servers(meta, root, f"{meta['name']}/", items, warnings, secrets)
-        _read_root(root, f"{meta['name']}/", items, warnings, relations, bodies, secrets)
+        _read_root(root, f"{meta['name']}/", items, warnings, relations, bodies, secrets, lock, config_dir)
         relations += [Relation(plugin.id, item.id, "contains") for item in items[first:]]
+        if lock is not None and (origin := clean_origin(meta["name"], secrets)):
+            items[first - 1 :] = [replace(i, origin=origin) for i in items[first - 1 :]]
         key = keys.get(root) or f"{meta['name']}@{root.parent.parent.name}"
         if isinstance(enabled, dict) and enabled.get(key) is False:  # off in settings: still on the map, flagged, with its contents
             items[first - 1 :] = [replace(i, disabled=True) for i in items[first - 1 :]]

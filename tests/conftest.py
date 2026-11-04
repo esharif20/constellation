@@ -30,3 +30,22 @@ def no_real_transcripts(monkeypatch):
 
     monkeypatch.setattr(usage, "read_usage", guarded)
     monkeypatch.setattr(constellation, "read_usage", guarded)
+
+
+@pytest.fixture(autouse=True)
+def no_real_lockfile(tmp_path_factory, monkeypatch):
+    """No test may read the real ~/.agents: the default lockfile is an absent tmp path, and a read under the real one fails loudly."""
+    from pathlib import Path
+
+    import constellation.claude_code as claude_code
+    import constellation.origins as origins
+
+    forbidden = (Path.home() / ".agents").resolve()
+    original = origins.read_lock
+    monkeypatch.setattr(origins, "DEFAULT_LOCKFILE", tmp_path_factory.mktemp("no-agents") / ".skill-lock.json")
+
+    def guarded(path, secrets):
+        assert not Path(path).resolve().is_relative_to(forbidden), "real ~/.agents forbidden"
+        return original(path, secrets)
+
+    monkeypatch.setattr(claude_code, "read_lock", guarded)

@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
+from . import origins as origin_sources
 from .classify import classify
 from .claude_code import read_items, read_secrets
 from .cluster import cluster, item_vectors
@@ -28,11 +29,14 @@ def scan(
     verifier_model: str = "",
     offline: bool = False,
     usage: bool = True,
+    origins: bool = True,
+    lockfile: Path | None = None,
 ) -> Constellation:
-    """`offline` makes no provider calls: any llm, counter and verifier given are ignored, and costs come from the cache alone."""
+    """`origins` reads where each Item came from, locally (the lockfile's `source` field only, at `lockfile`, else the skills CLI's own).
+    `offline` makes no provider calls: any llm, counter and verifier given are ignored, and costs come from the cache alone."""
     if offline:
         llm = counter = verifier = None
-    items, warnings, relations, bodies = read_items(config_dir)
+    items, warnings, relations, bodies = read_items(config_dir, (lockfile or origin_sources.DEFAULT_LOCKFILE) if origins else None)
     usages, window, usage_warnings = read_usage(config_dir, items, relations) if usage else ({}, None, [])
     warnings += usage_warnings
     labels: dict[str, str] = {}

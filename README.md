@@ -43,6 +43,7 @@ constellation scan ~/.claude --dry-run > prompts.txt   # read-only; prints exact
 constellation scan ~/.claude                   # writes constellation.json (mode 0600, descriptions redacted)
 constellation scan ~/.claude --offline         # no paid or network calls: no labels or verifier, cached token costs only
 constellation scan ~/.claude --no-verify       # skip the stronger model that labels candidate Overlaps
+constellation scan ~/.claude --no-origins      # do not work out where Items came from (no skills lockfile is opened)
 uv run --extra local pytest -m eval -s         # slow clustering quality check with the real embedder
 uv run pytest -m eval -s tests/eval/test_overlap_quality.py   # scores the Overlap verifier on 20 invented pairs (real model, a few cents)
 ```
@@ -60,6 +61,27 @@ Offline: `--offline`, or simply no `ANTHROPIC_API_KEY`, makes no paid or network
 wrapper Overlaps, token costs already in the cache (others show as unknown), and clusters named after their nearest Item when the local
 embedder is installed (otherwise clustering is skipped with a note). Labels are empty and the file's warnings say the run was offline.
 `--offline` cannot be combined with `--count-bodies`, which sends text to Anthropic.
+
+### Files Constellation reads
+
+Everything is read locally. "Taken" is all that leaves the file; the rest is parsed in memory and forgotten. Nothing here is ever edited.
+
+| File | Taken from it | Leaves the machine? |
+| --- | --- | --- |
+| `<config>/skills/*/SKILL.md`, `skills/synced/*/*/SKILL.md`, `agents/*.md`, `commands/*.md` | name, description (commands: first line), and an optional `repository` / `repo` line for the origin. The body is kept in memory only for local checks | Name and description, redacted, to the model. Bodies only with `--count-bodies` |
+| `<config>/settings.json` and plugin `hooks/hooks.json` | hook events, matchers and commands; `enabledPlugins`; `env` values (to redact them elsewhere) | Hook command text as a description, redacted |
+| `<config>/.mcp.json`, plugin `.mcp.json` and `plugin.json` MCP entries | each server's name, transport and command basename or URL host (never args, env, headers, paths) | The shape string, redacted |
+| `<config>/plugins/installed_plugins.json`, `plugins/cache/*/*/*/.claude-plugin/plugin.json` | plugin install paths, name, description | Name and description, redacted |
+| `~/.claude.json` (beside the config dir, or inside it) | the `mcpServers` of user and project scope, shape only. The file also holds OAuth tokens: nothing else is kept | The shape string, redacted |
+| `<config>/.credentials.json`, `<config>/.env` | secret values only, so they can be scrubbed from everything else | No |
+| `<config>/projects/**/*.jsonl` transcripts (skipped with `--no-usage`) | Item names matched to tool calls, counts and the date | No |
+| `~/.agents/.skill-lock.json` (change with `--skill-lock`; skipped with `--no-origins`) | the `source` of each skill entry only, shortened to 60 safe characters. `sourceUrl`, hashes and dates are never read into anything | No: an origin is never sent to a model, never in a public export |
+| `.env` in the working directory | `ANTHROPIC_API_KEY` for the run | Only as the API credential |
+| `~/.cache/constellation/*.json` (0600) | Constellation's own caches of labels, Overlap verdicts and token counts | No |
+
+Origins: a plugin's contents show the plugin name, skills synced from claude.ai show `claude.ai`, and a user skill takes the lockfile `source`, else
+the folder name of the installer it is symlinked from (for example `agents`), else a `repository` line in its own frontmatter. The scan prints
+`read origin from <file> (source field only)` when it opens a lockfile.
 
 ### Report
 
