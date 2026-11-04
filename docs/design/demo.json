@@ -1479,5 +1479,43 @@
       "always_on": 39,
       "on_use": 4079
     }
-  }
+  },
+  "overlaps": [
+    {
+      "a_id": "skill:lumen:audit-contrast",
+      "b_id": "skill:lumen:focus-rings",
+      "verdict": "overlap",
+      "reason": "Both check colour and focus states on the same screens."
+    },
+    {
+      "a_id": "skill:quill:changelog-draft",
+      "b_id": "skill:quill:release-notes",
+      "verdict": "duplicate",
+      "reason": "Same steps and trigger wording; one could go."
+    },
+    {
+      "a_id": "skill:harbour:smoke-check",
+      "b_id": "skill:sentinel:suggest-tests",
+      "verdict": "overlap",
+      "reason": "Both propose quick checks before a change goes out."
+    },
+    {
+      "a_id": "skill:redgreen:refactor-safely",
+      "b_id": "skill:redgreen:make-it-pass",
+      "verdict": "wrapper",
+      "reason": "Mostly a thin call into make-it-pass followed by a cleanup."
+    },
+    {
+      "a_id": "skill:sieve:chart-draft",
+      "b_id": "skill:prism:slide-outline",
+      "verdict": "distinct",
+      "reason": "Both draw pictures but for different audiences."
+    },
+    {
+      "a_id": "skill:atlas:explain-file",
+      "b_id": "skill:margin:summarise-paper",
+      "verdict": "overlap",
+      "reason": "Both summarise a long document into a few lines."
+    }
+  ]
 }

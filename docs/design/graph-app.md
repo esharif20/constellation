@@ -39,7 +39,9 @@ A star atlas at night: Items are stars, clusters are constellations named the wa
 
 ## Encoding
 
-Node radius = 3.2 + 1.9 sqrt(degree), capped. On zoom the drawn radius grows with k until 2.5 then sublinearly, so zooming reads names rather than giant discs. Context cost is shown in the inspector as two figures (always-on, on-use) when `costs` is present; it does not yet drive size (see rough edges).
+Node radius comes from always-on cost, area-proportional: `r = clamp(2.6, 9, 9 * sqrt(always_on / cRef))`, cRef = the scan's 95th percentile, so one huge MCP server cannot shrink the rest. Unknown cost (null or no entry; in a real scan every hook) is **not zero**: a hollow, dashed outline (2px dashes, 1.3px line), no white core, glow x 0.4, radius 4.5. Zero is a filled star at the floor size. A plugin ring turns dashed and keeps its centre dot. Fill versus hollow carries it, so it survives colour-blindness. On zoom the drawn radius grows with k until 2.5 then sublinearly, so zooming reads names rather than giant discs.
+
+Overlaps (`duplicate`, `wrapper`, `overlap`; `distinct` is dropped) are quadratic arcs in one colour (`PALETTE.overlap`, magenta, outside the d3 simulation so they never move the layout). Verdict is pattern and width: duplicate solid 2px, wrapper dashed 1.5px with an open arrowhead at the wrapped Item, overlap dotted 1.2px. At rest only duplicate and wrapper show (0.55 alpha; 0.28 across clusters); `overlap` shows only when an end is focused. Focus lights that Item's arcs (+0.5px, verdict text at the apex, partners stay named) and fades the rest. Not in the app yet: the Inspector cost/Overlap content and the Legend entries (phase 2, after the #24 restyle).
 
 ## Motion language
 
@@ -66,7 +68,7 @@ Tuning lives in `FEEL` (paint.ts) and the force setup in StarMap.tsx.
 
 What changed, in the order the work was prioritised. Numbers come from `demo-250.json` (239 Items, 24 clusters after merging the small ones, 56% of Items without a Relation) unless stated.
 
-**Layout (the main complaint on a real scan).** Half the Items have no Relations, so the old force layout let them drift between clusters. Every Item now has a fixed home (`layout.ts`): cluster circles are packed first (radius from member count, a clear rim between circles for the name), then members take evenly spaced phyllotaxis slots inside their circle, hubs in the middle. Clusters under 3 Items and unclustered Items share one region named "Other". Forces only tidy around the homes (slot pull, same-cluster links, collide, a contain force), the layout is settled before the first paint and is deterministic (seeded, no `Math.random`). A dragged Item springs back to its slot because slots never move; hubs are pulled 0.25 so they come home too. Cross-cluster links are long and weak and drawn at 45% alpha so they stay in the background. On wide screens the packing spreads sideways, on tall ones downwards.
+**Layout (the main complaint on a real scan).** Half the Items have no Relations, so the old force layout let them drift between clusters. Every Item now has a fixed home (`layout.ts`): cluster circles are packed first (radius from member count, a clear rim between circles for the name), then members take phyllotaxis slots inside their circle, each claiming area (r + 3)^2 so large stars get room (K = 1.45), hubs in the middle. The circle radius comes from the sum of those areas. Clusters under 3 Items and unclustered Items share one region named "Other". Forces only tidy around the homes (slot pull, same-cluster links, collide, a contain force), the layout is settled before the first paint and is deterministic (seeded, no `Math.random`). A dragged Item springs back to its slot because slots never move; hubs are pulled 0.25 so they come home too. Cross-cluster links are long and weak and drawn at 45% alpha so they stay in the background. On wide screens the packing spreads sideways, on tall ones downwards.
 
 | `npm run layout:check` | old force layout (replica) | new slot layout |
 |---|---|---|
@@ -116,7 +118,7 @@ The phone ratio is 74%, below the 80% asked for desktop, so the phone threshold 
 ## What remains
 
 1. Culling off-screen Items and links, a label grid for more than 300 candidates, and one sprite per halo (all in `docs/plans/graph-layout.md` section 4): not done, 250 Items paint fine; profile at 1000 before building.
-2. Context cost does not yet encode on the map (ticket #10).
+2. Inspector and Legend cost/Overlap content is phase 2 of #10, after #24. The phone name count on demo-250 is fragile in K (14 of 19 names at K 1.45; 13 at 1.4 or 1.5), because the greedy placer is not monotonic.
 3. No re-layout on resize (the fit follows the window while the view is still fitted; the packing shape is chosen at load).
 4. Cluster names at 24+ clusters on a phone: a quarter wait for zoom.
 5. `playwright`-style tests for drag spring-back and the idle pause are manual scripts, not in CI.

@@ -4,7 +4,9 @@
 // so the numbers before and after can be compared.
 import { readFileSync } from "node:fs";
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
-import { buildModel, type Constellation, type Model } from "../src/graph/model.ts";
+import { strict as assert } from "node:assert";
+import { buildModel, costRadius, RMAX, RMIN, RUNK, type Constellation, type Model } from "../src/graph/model.ts";
+import { GAP, K } from "../src/graph/layout.ts";
 import { chooseSpot, hit, type Box } from "../src/graph/names.ts";
 
 const legacy = process.argv.includes("--legacy");
@@ -47,6 +49,14 @@ function legacyLayout(m: Model, tall: number) {
   }
 }
 
+// costRadius self-check: floor, cap, area proportionality, unknown
+assert.equal(costRadius(0, 100), RMIN);
+assert.equal(costRadius(100, 100), RMAX);
+assert.equal(costRadius(1e6, 100), RMAX);
+assert.equal(costRadius(null, 100), RUNK);
+assert.equal(costRadius(undefined, 100), RUNK);
+assert.ok(Math.abs(costRadius(100, 100) / costRadius(25, 100) - 2) < 1e-9); // 4x the cost, 2x the radius
+
 function measure(file: string, W: number, H: number) {
   const tall = Math.max(0.55, Math.min(2, H / W));
   const m = buildModel(load(file), H / W);
@@ -61,7 +71,25 @@ function measure(file: string, W: number, H: number) {
     minDist = Math.min(minDist, d);
     if (d < a.r + b.r + 1) overlaps++;
   }
-  const inside = m.nodes.filter((n) => !n.cluster || Math.hypot(n.x! - n.cluster.x, n.y! - n.cluster.y) <= n.cluster.r).length / m.nodes.length;
+  const inside = m.nodes.filter((n) => !n.cluster || Math.hypot(n.x! - n.cluster.x, n.y! - n.cluster.y) + n.r <= n.cluster.r + 0.5).length / m.nodes.length;
+  // size rule: known r in [RMIN, RMAX], unknown exactly RUNK, and r never falls as cost rises
+  const known = m.nodes.filter((n) => !n.unknown).sort((a, b) => a.cost!.always_on! - b.cost!.always_on!);
+  let sizeRule = m.nodes.filter((n) => (n.unknown ? n.r !== RUNK : n.r < RMIN || n.r > RMAX)).length;
+  for (let i = 1; i < known.length; i++) if (known[i].r < known[i - 1].r) sizeRule++;
+  const data = load(file), wantOverlaps = (data.overlaps ?? []).filter((o) => o.verdict !== "distinct" && m.nodes.some((n) => n.id === o.a_id) && m.nodes.some((n) => n.id === o.b_id)).length;
+  const overlapLinks = m.overlaps.length === wantOverlaps ? 0 : 1;
+  // slot gap: clear space between two slots of one cluster, before any force runs (replays the spiral in layout.ts)
+  let slotGap = Infinity;
+  for (const c of m.clusters) {
+    const slots: { x: number; y: number; r: number }[] = [];
+    let used = 0;
+    [...c.members].sort((a, b) => b.degree - a.degree || a.id.localeCompare(b.id)).forEach((n, i) => {
+      const area = (n.r + GAP) ** 2, rad = K * Math.sqrt(used + area / 2), t = i * 2.39996;
+      used += area;
+      slots.push({ x: Math.cos(t) * rad, y: Math.sin(t) * rad, r: n.r });
+    });
+    for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) slotGap = Math.min(slotGap, Math.hypot(slots[i].x - slots[j].x, slots[i].y - slots[j].y) - slots[i].r - slots[j].r);
+  }
   let circleClash = 0;
   for (let i = 0; i < m.clusters.length; i++) for (let j = i + 1; j < m.clusters.length; j++) {
     const a = m.clusters[i], b = m.clusters[j];
@@ -89,16 +117,16 @@ function measure(file: string, W: number, H: number) {
   for (const b of boxes) for (const s of stars) if (hit(b, s)) labelOnStar++;
   let labelClash = 0;
   for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) if (hit(boxes[i], boxes[j])) labelClash++;
-  return { items: m.nodes.length, clusters: m.clusters.length, minDist: +minDist.toFixed(2), starOverlaps: overlaps, inside: +(inside * 100).toFixed(1), circleClash, named: `${named}/${eligible.length}`, namedShare: eligible.length ? named / eligible.length : 1, labelOnStar, labelClash, deterministic: first === second };
+  return { items: m.nodes.length, clusters: m.clusters.length, minDist: +minDist.toFixed(2), starOverlaps: overlaps, inside: +(inside * 100).toFixed(1), circleClash, named: `${named}/${eligible.length}`, namedShare: eligible.length ? named / eligible.length : 1, labelOnStar, labelClash, deterministic: first === second, sizeRule, overlapLinks, slotGap: +slotGap.toFixed(2) };
 }
 
 let failed = false;
 const rows: Record<string, unknown>[] = [];
-for (const file of ["demo.json", "demo-250.json"]) {
+for (const file of ["demo.json", "demo-250.json", "demo-offline.json"]) {
   for (const [W, H] of [[1440, 900], [390, 844]]) {
     const r = measure(file, W, H);
     rows.push({ file, size: `${W}x${H}`, ...r });
-    const bad = r.starOverlaps > 0 || r.inside < 98 || r.circleClash > 0 || r.labelClash > 0 || r.labelOnStar > 0 || r.namedShare < (W <= 640 ? 0.7 : 0.8) || !r.deterministic;
+    const bad = r.starOverlaps > 0 || r.inside < 98 || r.circleClash > 0 || r.labelClash > 0 || r.labelOnStar > 0 || r.namedShare < (W <= 640 ? 0.7 : 0.8) || !r.deterministic || r.sizeRule > 0 || r.overlapLinks > 0 || r.slotGap < GAP - 0.5;
     if (bad) failed = true;
   }
 }
