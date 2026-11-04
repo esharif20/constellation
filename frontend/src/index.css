@@ -82,7 +82,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   :root { --t-fast: 0ms; --t: 0ms; --t-slow: 0ms; }
-  *, *::before, *::after { animation-duration: 0ms !important; transition-duration: 0ms !important; }
+  *, *::before, *::after { animation-duration: 0ms !important; animation-delay: 0ms !important; transition-duration: 0ms !important; }
 }
 
 @theme inline {
@@ -134,9 +134,13 @@
   --ease-out-soft: var(--ease-out);
   --animate-panel-in: panel-in var(--t-slow) var(--ease-out);
   --animate-sheet-in: sheet-in var(--t-slow) var(--ease-out);
+  --animate-card-in: card-in var(--t) var(--ease-out) 300ms backwards; /* waits for ~30% of the camera flight */
+  --animate-card-out: card-out var(--t-fast) var(--ease-in) forwards;
 }
 
 @keyframes panel-in { from { opacity: 0; transform: translateX(16px); } }
+@keyframes card-in { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes card-out { to { opacity: 0; transform: translateX(-8px); } }
 @keyframes sheet-in { from { transform: translateY(100%); } }
 @keyframes pulse-star { 50% { transform: scale(0.6); opacity: 0.5; } }
 

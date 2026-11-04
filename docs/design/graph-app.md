@@ -154,3 +154,7 @@ Run with the `design-taste-frontend` app-screen inspector (`inspect.mjs --app`, 
 - Search results popover can cover stars in the top-right corner; it is a normal popover and closes on Escape. Left.
 - Not done (reference ideas, each needs new UI or a product decision): interactive legend filter, size-by switch, ranked side lists beyond the Brief, hop depth keys, label density slider, bridge Items. The Brief figures are bare numbers; the section caption says tokens. Left.
 - Not verified: keyboard focus ring screenshots for every control, real touch, Safari and Firefox.
+
+## Cluster focus (ticket #38)
+
+Spec in `cluster-focus.md`. Clicking a cluster name (or choosing it in the "N clusters" list, or opening `#cluster=<slug>`) flies the camera in on one rAF loop (d3 `interpolateZoom`, rho 1.2, in-out cubic, 700 to 1300 ms), dims everything else (stars 0.12, halos 0.2, Relation links 0.06, Overlaps of the cluster all shown), names the members with their always-on cost, and mounts the left card. Frame time of one enter flight on `demo-250.json` (dev `performance.mark`, headless Chrome, 1440x900): median 1.1 ms, p95 2.4 ms, max 5.8 ms; budget 8 ms. Screenshots were reviewed at 1440, 700 and 390 px, reduced motion, keyboard and a mid-flight screencast, on demo data only.

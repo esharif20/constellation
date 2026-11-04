@@ -47,7 +47,7 @@ export type GNode = Item & {
 export type GOverlap = { a: GNode; b: GNode; verdict: Exclude<Verdict, "distinct">; reason: string; alpha: number };
 export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot: boolean };
 // la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
-export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number; a: number; la: number; lx: number; ly: number; pick: number };
+export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number; a: number; la: number; lx: number; ly: number; pick: number; slug: string; box: [number, number, number, number]; hit: boolean }; // slug: the #cluster= deep link; box/hit: where its name was last drawn on screen (paint.ts post), for clicks
 export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; usageWindow: UsageWindow | null; warnings: string[]; offline: boolean; offlineNote: string };
 
 // Star radius from always-on cost, area-proportional (magnitude by area, not radius). cRef is the scan's 95th percentile,
@@ -70,6 +70,8 @@ const REL_NAME: Record<string, [string, string]> = {
 };
 export const relName = (kind: string, out: boolean) => (REL_NAME[kind] ?? [kind, `${kind} (from)`])[out ? 0 : 1];
 
+const newBox = (): Cluster["box"] => [0, 0, 0, 0];
+
 // Without labels (an offline scan) a cluster is named after its first Item, which is often kebab-case: read it as words.
 const tidy = (s: string) => s.replace(/[-_]+/g, " ");
 
@@ -84,18 +86,26 @@ export function buildModel(data: Constellation, aspect = 1): Model {
     return n;
   });
   const clusters: Cluster[] = (data.clusters ?? [])
-    .map((c) => ({ name: labelled ? c.name : tidy(c.name), members: c.item_ids.flatMap((id) => byId.get(id) ?? []), x: 0, y: 0, r: 0, mx: 0, my: 0, fr: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0 }))
+    .map((c) => ({ name: labelled ? c.name : tidy(c.name), members: c.item_ids.flatMap((id) => byId.get(id) ?? []), x: 0, y: 0, r: 0, mx: 0, my: 0, fr: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0, slug: "", box: newBox(), hit: false }))
     .filter((c) => c.members.length);
   // Clusters of fewer than 3 Items, and Items in no cluster, share one quiet region called "Other"
   const big = clusters.filter((c) => c.members.length >= 3);
   big.forEach((c) => c.members.forEach((n) => (n.cluster = c)));
   const rest = nodes.filter((n) => !n.cluster);
   if (rest.length) {
-    const other: Cluster = { name: "Other", members: rest, x: 0, y: 0, r: 0, mx: 0, my: 0, fr: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0 };
+    const other: Cluster = { name: "Other", members: rest, x: 0, y: 0, r: 0, mx: 0, my: 0, fr: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0, slug: "", box: newBox(), hit: false };
     rest.forEach((n) => (n.cluster = other));
     big.push(other);
   }
   clusters.splice(0, clusters.length, ...big);
+  const slugs = new Set<string>();
+  for (const c of clusters) {
+    const base = c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "cluster";
+    let slug = base;
+    for (let i = 2; slugs.has(slug); i++) slug = `${base}-${i}`;
+    slugs.add(slug);
+    c.slug = slug;
+  }
   const neighbours = new Map(nodes.map((n) => [n, new Set<GNode>()]));
   const links: GLink[] = (data.relations ?? []).flatMap((r) => {
     const source = byId.get(r.source), target = byId.get(r.target);
@@ -187,3 +197,36 @@ export function groupWarnings(warnings: string[]): WarningGroup[] {
   const order = { actionable: 0, degraded: 1, info: 2 };
   return [...groups.values()].sort((a, b) => order[a.kind] - order[b.kind]);
 }
+
+// What a cluster costs, for the card. Unknown cost is never added in and never shown as 0: `known` is null when no member has a cost.
+export type ClusterSummary = {
+  count: number;
+  kinds: [string, number][]; // by count desc, then kind name
+  known: number | null; // sum of known always-on costs
+  unknown: number; // members whose cost is unknown
+  top: GNode[]; // the 3 costliest members with a known cost, cost desc then name
+  overlaps: GOverlap[]; // Overlaps with both ends inside
+  unused: { tracked: number; unseen: number } | null; // only Items of tracked kinds (a usage entry) count; null without a usage window
+};
+export function clusterSummary(c: Cluster, model: Pick<Model, "overlaps" | "usageWindow">): ClusterSummary {
+  const kinds = new Map<string, number>();
+  let known: number | null = null, unknown = 0, tracked = 0, unseen = 0;
+  for (const n of c.members) {
+    kinds.set(n.kind, (kinds.get(n.kind) ?? 0) + 1);
+    if (n.unknown) unknown++;
+    else known = (known ?? 0) + n.cost!.always_on!;
+    if (n.usage) { tracked++; if (n.usage.count === 0) unseen++; }
+  }
+  const top = c.members.filter((n) => !n.unknown).sort((a, b) => b.cost!.always_on! - a.cost!.always_on! || a.name.localeCompare(b.name)).slice(0, 3);
+  return {
+    count: c.members.length,
+    kinds: [...kinds].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])),
+    known, unknown, top,
+    overlaps: model.overlaps.filter((o) => o.a.cluster === c && o.b.cluster === c),
+    unused: model.usageWindow && tracked > 0 ? { tracked, unseen } : null,
+  };
+}
+
+// Focus order for member names: known cost first (high to low), then hubs, then name.
+export const rankMembers = (c: Cluster): GNode[] =>
+  [...c.members].sort((a, b) => (a.unknown ? 1 : 0) - (b.unknown ? 1 : 0) || (b.cost?.always_on ?? 0) - (a.cost?.always_on ?? 0) || b.degree - a.degree || a.name.localeCompare(b.name));
