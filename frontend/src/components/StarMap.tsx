@@ -1,4 +1,4 @@
-import { forceCollide, forceX, forceY, type ForceLink, type ForceManyBody } from "d3-force";
+import { forceCollide, type ForceLink, type ForceManyBody } from "d3-force";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import { step, type GLink, type GNode, type Model } from "@/graph/model";
@@ -17,15 +17,10 @@ type Props = {
 
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Gently pulls each node toward its cluster centroid so clusters read as regions.
-function clusterPull(model: Model, strength: number) {
+// Pulls every Item toward its layout slot (model.ts), so clusters stay tidy and a dragged Item springs back home.
+function slotPull(nodes: GNode[], strength: number) {
   const force = (alpha: number) => {
-    for (const c of model.clusters) {
-      let x = 0, y = 0;
-      for (const n of c.members) { x += n.x!; y += n.y!; }
-      x /= c.members.length; y /= c.members.length;
-      for (const n of c.members) { n.vx! += (x - n.x!) * strength * alpha; n.vy! += (y - n.y!) * strength * alpha; }
-    }
+    for (const n of nodes) { n.vx! += (n.sx - n.x!) * strength * alpha; n.vy! += (n.sy - n.y!) * strength * alpha; }
   };
   force.initialize = () => {};
   return force;
@@ -129,15 +124,13 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   // Forces go in before the data so the warm-up ticks run with them and the first paint is already settled.
   useEffect(() => {
     const g = fg.current!;
-    (g.d3Force("link") as ForceLink<GNode, GLink>).distance((l) => (l.kind === "contains" ? 34 : 60)).strength(0.5);
-    (g.d3Force("charge") as ForceManyBody<GNode>).strength(-55).distanceMax(320);
+    // Slots decide the layout; Relations only add a soft spring whose rest length is the slot distance, so a dragged
+    // Item tugs its neighbours without bending the clusters.
+    (g.d3Force("link") as ForceLink<GNode, GLink>).distance((l) => Math.max(20, Math.hypot(l.source.sx - l.target.sx, l.source.sy - l.target.sy))).strength(0.3);
+    (g.d3Force("charge") as ForceManyBody<GNode>).strength(-6).distanceMax(60);
     g.d3Force("center", null);
     g.d3Force("collide", forceCollide<GNode>((n) => n.r + 3));
-    // on a tall screen, pull harder across than down so the layout fills the height instead of leaving empty sky
-    const tall = Math.max(1, Math.min(2, innerHeight / innerWidth));
-    g.d3Force("x", forceX<GNode>().strength(0.06 * tall));
-    g.d3Force("y", forceY<GNode>().strength(0.06 / tall));
-    g.d3Force("cluster", clusterPull(model, 0.12));
+    g.d3Force("slot", slotPull(model.nodes, 0.3));
     setData({ nodes: model.nodes, links: model.links });
   }, [model]);
 
@@ -191,7 +184,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
         onEngineStop={onEngineStop}
         warmupTicks={500}
         cooldownTicks={cool}
-        d3AlphaDecay={0.025}
+        d3AlphaDecay={0.04}
         d3VelocityDecay={0.3}
         minZoom={0.15}
         maxZoom={8}
