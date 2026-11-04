@@ -13,6 +13,26 @@ uv run mutmut run && uv run mutmut results   # mutation tests for the redaction 
 
 Tests never read a real Claude config: they use `tests/fixtures/` or a temporary directory.
 
+### Graph app (frontend)
+
+Vite, React, TypeScript, Tailwind and shadcn/ui in `frontend/`; the graph is `react-force-graph-2d`. Node 22 or newer.
+
+```
+npm --prefix frontend install
+npm --prefix frontend run build    # typechecks, then writes the app to src/constellation/static/ (gitignored)
+npm --prefix frontend run lint
+```
+
+`constellation open` serves that build and exits with a hint if it is missing. For live editing, run the API and the
+Vite dev server side by side; the dev server proxies `/api` to port 8765 (or `CONSTELLATION_PORT`):
+
+```
+uv run constellation open docs/design/demo.json --no-browser   # invented demo data, safe to screenshot
+npm --prefix frontend run dev
+```
+
+Design language and the refinement checklist: `docs/design/graph-app.md`.
+
 ## Using it
 
 ```
