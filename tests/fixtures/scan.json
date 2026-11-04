@@ -1,0 +1,34 @@
+{
+  "items": [
+    {"id": "skill:deploy", "kind": "skill", "name": "deploy", "description": "Ship the current branch to production with the release checklist.", "source": "skills/deploy/SKILL.md"},
+    {"id": "skill:ship", "kind": "skill", "name": "ship", "description": "Ship the current branch to production with the release checklist.", "source": "skills/ship/SKILL.md"},
+    {"id": "skill:release-notes", "kind": "skill", "name": "release-notes", "description": "Draft release notes from merged pull requests.", "source": "skills/release-notes/SKILL.md"},
+    {"id": "skill:review", "kind": "skill", "name": "review", "description": "Review a diff for bugs and style.", "source": "skills/review/SKILL.md"},
+    {"id": "agent:reviewer", "kind": "agent", "name": "reviewer", "description": "Code review helper that calls the review skill.", "source": "agents/reviewer.md"},
+    {"id": "command:changelog", "kind": "command", "name": "changelog", "description": "Write the changelog entry.", "source": "commands/changelog.md"},
+    {"id": "hook:format", "kind": "hook", "name": "format-on-save", "description": "Run the formatter after every edit.", "source": "settings.json"},
+    {"id": "mcp:github", "kind": "mcp", "name": "github", "description": "GitHub server.", "source": "settings.json"}
+  ],
+  "warnings": ["mcp server github: tool list unavailable, cost unknown", "could not read skills/broken/SKILL.md: invalid frontmatter"],
+  "relations": [{"source": "agent:reviewer", "target": "skill:review", "kind": "triggers"}],
+  "labels": {"skill:deploy": "ships code to production", "skill:ship": "ships code to production", "skill:review": "reviews diffs"},
+  "clusters": [
+    {"name": "deploy", "item_ids": ["skill:deploy", "skill:ship"]},
+    {"name": "review", "item_ids": ["skill:review", "agent:reviewer"]}
+  ],
+  "costs": {
+    "skill:deploy": {"always_on": 420, "on_use": null},
+    "skill:ship": {"always_on": 415, "on_use": null},
+    "skill:release-notes": {"always_on": 180, "on_use": null},
+    "skill:review": {"always_on": 95, "on_use": null},
+    "agent:reviewer": {"always_on": 60, "on_use": null},
+    "command:changelog": {"always_on": 40, "on_use": null},
+    "hook:format": {"always_on": null, "on_use": null}
+  },
+  "overlaps": [
+    {"a_id": "skill:release-notes", "b_id": "command:changelog", "verdict": "overlap", "reason": "Both turn merged work into a written summary for readers, with slightly different formats."},
+    {"a_id": "skill:deploy", "b_id": "skill:ship", "verdict": "duplicate", "reason": "The two have identical instructions under different names, so keeping both only costs tokens."},
+    {"a_id": "agent:reviewer", "b_id": "skill:review", "verdict": "wrapper", "reason": "The reviewer agent only forwards to the review skill."},
+    {"a_id": "skill:review", "b_id": "skill:release-notes", "verdict": "distinct", "reason": "One reads diffs, the other writes prose."}
+  ]
+}

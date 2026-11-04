@@ -2,6 +2,7 @@ import argparse
 import importlib.util
 import json
 import os
+import shutil
 import sys
 import tempfile
 from collections.abc import Callable, Sequence
@@ -16,6 +17,7 @@ from .env import load_env
 from .models import LLM, Constellation, Embedder, TokenCounter
 from .overlaps import estimate_cost
 from .redact import redact
+from .report import render_cleanup, render_report
 
 Serve = Callable[[Any, int, bool], None]  # app, port, open the browser
 
@@ -47,7 +49,17 @@ def main(
     open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     open_command.add_argument("--port", type=int, default=8765)
     open_command.add_argument("--no-browser", action="store_true")
+    report_command = commands.add_parser(
+        "report", help="print a plain-text report of a saved scan (reads the file only; no network, no cost)"
+    )
+    report_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    report_command.add_argument("--top", type=int, default=15, help="how many Items to list by always-on cost")
+    report_command.add_argument("--all", action="store_true", help="also list distinct pairs")
+    report_command.add_argument("--cleanup", type=Path, help="also write a markdown checklist of cleanup candidates to this new file")
+    report_command.add_argument("--force", action="store_true", help="let --cleanup overwrite an existing file")
     args = parser.parse_args(argv)
+    if args.command == "report":
+        return _report(args)  # reads the file only, so it skips load_env
     if args.command == "open":
         return _open(args, serve)  # serving never needs the API key, so it skips load_env
     load_env()  # a .env file in the working directory may hold ANTHROPIC_API_KEY
@@ -124,6 +136,30 @@ def main(
         print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1
     _write(result, args.out, read_secrets(args.config_dir))
+    return 0
+
+
+def _report(args: argparse.Namespace) -> int:
+    try:
+        data = json.loads(args.file.read_text())
+    except (OSError, ValueError):
+        data = None
+    if not isinstance(data, dict) or not isinstance(
+        data.get("items"), list
+    ):  # shortcut: only the top-level shape is checked, not each field
+        print(f"{args.file} is missing or not a constellation scan; run `constellation scan` first.", file=sys.stderr)
+        return 2
+    if args.cleanup and args.cleanup.exists() and not args.force:
+        print(f"{args.cleanup} already exists; pass --force to overwrite it.", file=sys.stderr)
+        return 2
+    color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    width = max(40, min(shutil.get_terminal_size().columns, 100))
+    print(render_report(data, top=args.top, color=color, width=width, show_all=args.all), end="")
+    if args.cleanup:
+        fd = os.open(args.cleanup, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.chmod(args.cleanup, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(render_cleanup(data, top=args.top))
     return 0
 
 
