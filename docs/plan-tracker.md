@@ -429,3 +429,12 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - **Owner APPROVED** the project-label rule: `--project` folder name, else the folder name with the encoded home prefix stripped; the username is never shown. The earlier deviation is closed. Low tier and the paid scope verdict stay not built.
 - Contract only, no logic: `Item.scope`/`Item.project`, `ProjectUsage`, `Constellation.projects`/`usage_by_project`/`current_project`, `scan(project=)`, `read_items(project=)`, `read_usage(project=)` returning a 4th `ProjectUsage` (empty), `Suggestion.project`/`confidence`. Defaults keep behaviour unchanged; brief rows now carry `project`/`confidence` as None. Test proves defaults and that `snapshot()` drops the new keys.
+
+## #59 repo scan, ticket B (2026-11-04, branch `claude/pp-b-repo`)
+
+- `scan --project PATH` (must be a directory, else exit 2 "--project must be a directory."). `read_items(project=)` reads `PATH/.claude` (skills, agents, commands, `settings.json` hooks) and `PATH/.mcp.json` as ids `claude-code:<kind>:project/<name>` with `scope="project"`; `local/<n>/` MCP servers also get `scope="project"`. `read_secrets(config_dir, project)` adds the repo's settings env and `.mcp.json` env values; `scan()` and the CLI writer pass `project` to it.
+- Warnings from the repo show `<project>/...` (the repo path is swapped for the placeholder after the read, whether it printed as `~/...` or absolute). Fixed the existing leak: the skipped-command warning now uses `_shown(path)` instead of the raw path.
+- Symlinks: `.claude`, `.mcp.json` and `settings.json`/`hooks.json`/`.mcp.json` inside a root (plugin or project) that resolve outside it are refused with a fixed warning (`_contained`).
+- #72: a hook with no (or non-string) `command` is skipped with the fixed warning `skipped a hook in <scope>settings.json: it has no command`; an unreadable or invalid hooks file is a fixed warning, not a crash.
+- Plugin `SKILL.md` step 2 now passes `--project=PROJECT_DIRECTORY` (the session working dir) as one more quoted literal; still `--offline --no-usage`.
+- **Integration for the merge (not done here, belongs to ticket A's `__init__` wiring):** `Item.project` stays None on project Items because the key `p1..pN` comes from `read_usage`; after A merges, `scan()` should stamp `project=current_project` on `scope == "project"` Items from `--project` (not on `local/<n>/` servers). `claude_code.py` is not a mutmut target.

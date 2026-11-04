@@ -47,6 +47,7 @@ def main(
         "--skill-lock", type=Path, help="the skills installer lockfile to read `source` from (default ~/.agents/.skill-lock.json)"
     )
     scan_command.add_argument("--out", type=Path, default=Path("constellation.json"))
+    scan_command.add_argument("--project", type=Path, help="also read this repo's .claude/ folder and .mcp.json as project-scope Items")
     scan_command.add_argument(
         "--count-bodies",
         action="store_true",
@@ -93,6 +94,10 @@ def main(
 
     if not args.config_dir.is_dir():
         print(f"{args.config_dir} is not a directory.", file=sys.stderr)
+        return 2
+
+    if args.project is not None and not args.project.is_dir():
+        print("--project must be a directory.", file=sys.stderr)
         return 2
 
     lockfile = args.skill_lock or origin_sources.DEFAULT_LOCKFILE
@@ -155,6 +160,7 @@ def main(
             usage=not args.no_usage,
             origins=not args.no_origins,
             lockfile=args.skill_lock,
+            project=args.project,
         )
     if args.dry_run:
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
@@ -168,7 +174,7 @@ def main(
         first = next((w for w in result.warnings if FAILED_PREFIX in w), "unknown")
         print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1
-    _write(result, args.out, read_secrets(args.config_dir))
+    _write(result, args.out, read_secrets(args.config_dir, args.project))
     return 0
 
 
