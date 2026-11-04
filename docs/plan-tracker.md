@@ -324,3 +324,9 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Deviations from `explore-ux.md` section C (all smaller, none changes privacy or cost): a 0600 disk cache was added (the plan said none; the issue comment approved it); no cluster-name/"Did you mean" results yet (typo tier covers names); label is not indexed (not in the scan Items).
 - Eval (`tests/eval/test_search_quality.py`, 33 invented queries over 20 invented Items, real fastembed, `uv run --all-extras pytest -m eval -s`): precision@3 words-only 0.798, hybrid 0.904; all three nonsense queries return nothing.
 - No provider call, no paid call, no body or transcript text involved; the privacy invariant is unchanged.
+
+## #37 label design: approved deviations from DESIGN.md (user, 2026-11-04)
+
+- A hovered Item's canvas name is 12 px at weight 550 (DESIGN.md says 13 px / 600), hidden while its tooltip shows.
+- Cluster names show below 1.45x zoom and hide above 1.55x (no gradual fade): a half-faded name fails AA.
+- Canvas names are cut with a single "…" character.
