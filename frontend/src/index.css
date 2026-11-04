@@ -2,8 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@font-face { font-family: "Instrument Serif"; src: url(./assets/fonts/instrument-serif-normal.woff2) format("woff2"); font-style: normal; font-display: swap; }
-@font-face { font-family: "Instrument Serif"; src: url(./assets/fonts/instrument-serif-italic.woff2) format("woff2"); font-style: italic; font-display: swap; }
 
 @custom-variant dark (&:is(.dark *));
 
@@ -13,9 +11,22 @@
   color-scheme: dark;
   --night: #070a17;
   --night-lift: #10173a;
-  --text: #e9ecf8;
-  --text-2: #a7aecb;
-  --text-3: #8a93b6; /* 5.7:1 or better on the night sky and on the panels, so small tertiary text passes WCAG AA */
+  --surface-0: #010102;
+  --surface-1: #0f1011;
+  --surface-2: #141516;
+  --surface-3: #18191a;
+  --surface-4: #191a1b;
+  --line-1: #23252a;
+  --line-2: #34343a;
+  --line-3: #3e3e44;
+  --text: #f7f8f8;
+  --text-2: #d0d6e0;
+  --text-3: #8a8f98; /* 5.1:1 or better on the sky and the panels */
+  --text-4: #62666d; /* disabled and decorative only, never readable text */
+  --indigo: #5e6ad2;
+  --indigo-press: #5560cc; /* deviation from Linear (#828fff): white on #828fff fails AA */
+  --indigo-bright: #828fff; /* focus ring and accent text only */
+  --indigo-tint: rgb(94 106 210 / 0.16);
   --warn: #f3c46b;
 
   /* kind: three validated hues (all-pairs CVD dE >= 10 on --night); structural kinds share starlight and differ by shape */
@@ -38,26 +49,28 @@
   /* shadcn semantic tokens */
   --background: var(--night);
   --foreground: var(--text);
-  --card: rgb(12 16 36 / 0.88);
+  --card: rgb(15 16 17 / 0.94);
   --card-foreground: var(--text);
-  --popover: rgb(12 16 36 / 0.9);
+  --popover: rgb(15 16 17 / 0.94);
   --popover-foreground: var(--text);
-  --primary: var(--text);
-  --primary-foreground: var(--night);
-  --secondary: rgb(150 165 230 / 0.1);
+  --primary: var(--indigo);
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-3);
   --secondary-foreground: var(--text);
-  --muted: rgb(150 165 230 / 0.08);
+  --muted: var(--surface-2);
   --muted-foreground: var(--text-2);
-  --accent: rgb(150 165 230 / 0.1);
+  --accent: var(--surface-3);
   --accent-foreground: var(--text);
   --destructive: #ff7b7b;
-  --border: rgb(150 165 230 / 0.14);
-  --input: rgb(150 165 230 / 0.18);
-  --ring: #b8c4ff;
-  --radius: 0.75rem;
+  --border: var(--line-1);
+  --input: var(--line-2);
+  --ring: var(--indigo-bright);
+  --radius: 8px;
+  --shadow-float: 0 16px 48px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.04);
 
-  --font-serif-stack: "Instrument Serif", "Iowan Old Style", Charter, Georgia, serif;
-  --font-sans-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", sans-serif;
+  --font-serif-stack: "Newsreader", "Iowan Old Style", Charter, Georgia, serif;
+  --font-sans-stack: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono-stack: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* motion: one curve family, three durations */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -75,6 +88,21 @@
   --font-sans: var(--font-sans-stack);
   --font-serif: var(--font-serif-stack);
   --font-heading: var(--font-serif-stack);
+  --font-mono: var(--font-mono-stack);
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+  --color-line-1: var(--line-1);
+  --color-line-2: var(--line-2);
+  --color-line-3: var(--line-3);
+  --color-text-2: var(--text-2);
+  --color-text-4: var(--text-4);
+  --color-indigo: var(--indigo);
+  --color-indigo-press: var(--indigo-press);
+  --color-indigo-bright: var(--indigo-bright);
+  --color-indigo-tint: var(--indigo-tint);
   --color-night: var(--night);
   --color-text-3: var(--text-3);
   --color-warn: var(--warn);
@@ -96,11 +124,11 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
   --ease-out-soft: var(--ease-out);
   --animate-panel-in: panel-in var(--t-slow) var(--ease-out);
   --animate-sheet-in: sheet-in var(--t-slow) var(--ease-out);
@@ -115,6 +143,7 @@
   html, body, #root { height: 100%; overflow: hidden; }
   body {
     @apply text-foreground font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
     background: radial-gradient(120% 90% at 50% 38%, var(--night-lift) 0%, var(--night) 62%);
     background-color: var(--night);
   }
@@ -134,6 +163,6 @@
   .edge-key { flex: none; display: inline-block; width: 18px; border-top: 1px dashed var(--edge-alt); }
   .edge-key[data-kind="contains"] { border-top: 1px solid rgb(150 168 235 / 0.55); }
   .edge-key[data-kind="uses"] { border-top-style: dotted; }
-  .glass { background: var(--card); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); }
+  .glass { background: var(--card); backdrop-filter: blur(16px) saturate(1.1); -webkit-backdrop-filter: blur(16px) saturate(1.1); }
   .pulse-star { width: 10px; height: 10px; border-radius: 50%; background: var(--k-skill); box-shadow: 0 0 18px 4px rgb(111 168 255 / 0.6); animation: pulse-star 1.6s ease-in-out infinite; }
 }

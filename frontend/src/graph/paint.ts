@@ -52,7 +52,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
 
   // stars light up outward from the centre, once
   const start = performance.now();
-  const introEnd = start + FEEL.introMs * 1.4 + 400;
+  let introEnd = start + FEEL.introMs * 1.4 + 400;
   const far = Math.max(1, ...model.nodes.map((n) => Math.hypot(n.x ?? 0, n.y ?? 0)));
   for (const n of model.nodes) n.born = reducedMotion ? 0 : start + (Math.hypot(n.x ?? 0, n.y ?? 0) / far) * FEEL.introMs * 0.7 + Math.random() * 120;
 
@@ -219,6 +219,10 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   // spots around its halo and takes the first that clears every star, every placed label and the chrome; when
   // none is free it fades out instead of sitting on a star.
   const widths = new Map<Cluster, { size: number; w: number; scale: number }>();
+  // Canvas-only fonts are never fetched by the DOM: request them, then drop widths measured in the fallback face and repaint.
+  void Promise.all([document.fonts.load("italic 400 13px Newsreader"), document.fonts.load("600 13px 'Inter Variable'")])
+    .then(() => document.fonts.ready)
+    .then(() => { widths.clear(); introEnd = performance.now() + 400; });
 
   function post(ctx: CanvasRenderingContext2D) {
     const sc = screen(ctx), z = sc.k / view.fitK;
