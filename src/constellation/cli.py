@@ -18,6 +18,7 @@ from .claude_code import read_secrets
 from .env import load_env
 from .models import LLM, Constellation, Embedder, TokenCounter
 from .overlaps import estimate_cost
+from .public_export import NOTICE, write_snapshot
 from .redact import redact
 from .report import render_cleanup, render_report, write_private
 from .review import build_review_graph, open_checkpointer, thread_id
@@ -64,6 +65,10 @@ def main(
     report_command.add_argument("--all", action="store_true", help="also list distinct pairs")
     report_command.add_argument("--cleanup", type=Path, help="also write a markdown checklist of cleanup candidates to this new file")
     report_command.add_argument("--force", action="store_true", help="let --cleanup overwrite an existing file")
+    export_command = commands.add_parser("export", help="write a read-only public Snapshot; does NOT anonymise free text")
+    export_command.add_argument("--public", action="store_true", required=True)
+    export_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    export_command.add_argument("--out", type=Path, required=True, help="new output directory; never overwrites or publishes")
     review_command = commands.add_parser(
         "review", help="go through Suggestions one at a time and write the approved ones to a checklist (no network, no cost)"
     )
@@ -71,6 +76,8 @@ def main(
     review_command.add_argument("--out", type=Path, default=Path("cleanup.md"), help="the checklist to write")
     review_command.add_argument("--force", action="store_true", help="overwrite an existing checklist")
     args = parser.parse_args(argv)
+    if args.command == "export":
+        return _export(args)
     if args.command == "review":
         return _review(args, decide)  # reads the scan file only, so it skips load_env
     if args.command == "report":
@@ -166,6 +173,22 @@ def _load_scan(file: Path) -> dict[str, Any] | None:
         print(f"{file} is missing or not a constellation scan; run `constellation scan` first.", file=sys.stderr)
         return None
     return data
+
+
+def _export(args: argparse.Namespace) -> int:
+    data = _load_scan(args.file)
+    if data is None:
+        return 2
+    try:
+        write_snapshot(data, args.out)
+    except FileExistsError:
+        print("Output already exists; choose a new directory.", file=sys.stderr)
+        return 2
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        print("Could not export: check the saved scan, frontend build and output directory.", file=sys.stderr)
+        return 2
+    print(NOTICE)
+    return 0
 
 
 def _ask_stdin(suggestion: Suggestion) -> str:

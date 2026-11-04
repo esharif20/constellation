@@ -98,6 +98,33 @@ Overlaps ------------------------------------------------------------------
 
 (Abridged from `tests/fixtures/scan.json`; the full output is `tests/fixtures/report.txt`.)
 
+### Public Snapshot
+
+Build the frontend once, then export a saved scan to a **new** directory:
+
+```sh
+npm --prefix frontend ci
+npm --prefix frontend run build
+uv run --all-extras constellation export --public scan.json --out public-snapshot
+```
+
+**This does NOT anonymise free text.** Review every retained name, description,
+label and reason before publishing. Pattern scrubbing has known limits: bare
+usernames and machine names, unquoted paths with spaces, obfuscated emails,
+public hostnames outside URLs/emails, `//server/share`, and `$HOME`/`%USERPROFILE%`
+forms. The same warning and limits are included in the output's `README.txt`.
+
+The directory contains the static graph, its built assets and scrubbed data at
+`api/constellation`. It can be served by an ordinary static file server; it needs
+no FastAPI backend. Existing output paths, including symlinks, are refused.
+Nothing is published automatically. The source scan and Claude setup are unchanged.
+
+Only saved data is exported. Already captured `mcp_tool` Items are retained;
+no live MCP server or provider is called. Chat and checklist writes are unavailable,
+and search uses its local fallback without sending queries to a backend. Live
+pre-expansion and canned-chat UI integration remain separate #13 work while the
+corresponding modules are owned by other agents.
+
 ### Claude Code plugin (preview)
 
 From this repository, load the thin plugin for one session:
