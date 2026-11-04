@@ -5,9 +5,10 @@ from typing import Any
 from .models import LLM, TokenCounter
 
 MODEL = "claude-haiku-5-5"
+VERIFIER_MODEL = "claude-sonnet-5-5"  # stronger and dearer: used only to compare pairs of Items
 
 
-def anthropic_llm(client: Any = None) -> LLM:
+def anthropic_llm(client: Any = None, model: str = MODEL, max_tokens: int = 1024) -> LLM:
     if client is None:
         from anthropic import Anthropic  # imported here: only installed with the `llm` extra
 
@@ -15,7 +16,7 @@ def anthropic_llm(client: Any = None) -> LLM:
 
     def call(prompt: str) -> str:
         response = client.messages.create(
-            model=MODEL, max_tokens=1024, output_config={"effort": "low"}, messages=[{"role": "user", "content": prompt}]
+            model=model, max_tokens=max_tokens, output_config={"effort": "low"}, messages=[{"role": "user", "content": prompt}]
         )
         return next((b.text for b in response.content if b.type == "text"), "")  # skip thinking blocks
 

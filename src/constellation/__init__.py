@@ -1,10 +1,12 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from .classify import classify
 from .claude_code import read_items, read_secrets
-from .cluster import cluster
+from .cluster import cluster, item_vectors
 from .costs import measure
 from .models import LLM, Cluster, Constellation, Cost, Embedder, TokenCounter
+from .overlaps import candidates, exact_duplicates, verify, wrappers
 from .redact import ProviderError, guarded, guarded_count, guarded_embed
 
 
@@ -15,25 +17,38 @@ def scan(
     cluster_threshold: float | None = None,
     counter: TokenCounter | None = None,
     cost_cache: Path | None = None,
+    verifier: LLM | None = None,
+    verdict_cache: Path | None = None,
+    on_verify: Callable[[int, int], None] | None = None,
 ) -> Constellation:
     items, warnings, relations, bodies = read_items(config_dir)
     labels: dict[str, str] = {}
+    vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
     clusters: list[Cluster] = []
     # The only place providers are called from: both are wrapped here, so everything they receive is redacted first.
-    secrets = read_secrets(config_dir) if llm or embedder or counter else set()
+    secrets = read_secrets(config_dir) if llm or embedder or counter or verifier else set()
     if llm:
         labels, label_warnings = classify(items, guarded(llm, secrets))
         warnings += sorted(label_warnings)  # branches finish in any order; sorted keeps the output repeatable
     if embedder:  # clusters are built from name and description alone, so they need no model
         try:
-            clusters = cluster(items, labels, guarded_embed(embedder, secrets), cluster_threshold)
+            vectors, centred = item_vectors(items, guarded_embed(embedder, secrets))
+            clusters = cluster(items, labels, vectors, centred, cluster_threshold)
         except ProviderError as error:
             warnings.append(f"could not cluster items: {error}")
     costs: dict[str, Cost] = {}
     if counter:
         costs, cost_warnings = measure(items, bodies, guarded_count(counter, secrets), secrets, cost_cache)
         warnings += cost_warnings
-    return Constellation(items, warnings, relations, labels, clusters, costs)
+    overlaps = [*exact_duplicates(items, bodies), *wrappers(items, bodies)]
+    if verifier:
+        decided = {frozenset((o.a_id, o.b_id)) for o in overlaps}
+        pairs, cap_warnings = candidates(items, vectors, decided)
+        verdicts, verify_warnings = verify(pairs, items, bodies, guarded(verifier, secrets), secrets, verdict_cache, on_verify)
+        overlaps += verdicts
+        warnings += sorted(cap_warnings + verify_warnings)  # branches finish in any order; sorted keeps the output repeatable
+    overlaps.sort(key=lambda o: (o.a_id, o.b_id))
+    return Constellation(items, warnings, relations, labels, clusters, costs, overlaps)
 
 
 __all__ = ["scan", "Cluster", "Constellation", "Item"]

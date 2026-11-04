@@ -15,6 +15,11 @@ def _t(*parts: str) -> str:
 SECRET = _t("ghp_", "aB3dE5gH" * 4, "7jK9")
 
 
+@pytest.fixture(autouse=True)
+def no_local_embedder(monkeypatch):
+    monkeypatch.setattr("constellation.cli._local_embedder", lambda: None)  # a dry run must not load the real model in the fast tests
+
+
 @pytest.fixture
 def config(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)  # so load_env never finds the real project .env
@@ -47,7 +52,7 @@ def test_scan_writes_redacted_private_json(config, tmp_path):
     assert code == 0
     assert [i["name"] for i in data["items"]] == ["leaky"]
     assert list(data["labels"].values()) == ["ships code"]
-    assert {"warnings", "clusters"} <= data.keys()
+    assert {"warnings", "clusters", "overlaps"} <= data.keys()
     assert SECRET not in out.read_text()
     assert stat.S_IMODE(out.stat().st_mode) == 0o600
 

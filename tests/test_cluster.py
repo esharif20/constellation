@@ -195,3 +195,27 @@ def test_a_hook_is_embedded_by_its_name_only_because_its_description_is_just_a_c
 
     assert "PostToolUse:Bash" in embedder.texts and "docs: Writes documentation" in embedder.texts
     assert not any("run-the-thing" in text for text in embedder.texts)
+
+
+def test_item_vectors_returns_unit_vectors_by_id_and_whether_they_were_centred():
+    from constellation.cluster import item_vectors
+    from constellation.models import Item
+
+    items = [Item(f"id{n}", "skill", f"s{n}", "d", "claude-code") for n in range(2)]
+
+    vectors, centred = item_vectors(items, lambda texts: [[3.0, 4.0], [0.0, 2.0]])
+
+    assert vectors == {"id0": [0.6, 0.8], "id1": [0.0, 1.0]}
+    assert centred is False
+
+
+def test_ten_or_more_items_are_centred_on_their_mean():
+    from constellation.cluster import item_vectors
+    from constellation.models import Item
+
+    items = [Item(f"id{n:02}", "skill", f"s{n}", "d", "claude-code") for n in range(10)]
+
+    vectors, centred = item_vectors(items, lambda texts: [[1.0, 0.0] if n % 2 else [0.0, 1.0] for n in range(10)])
+
+    assert centred is True
+    assert vectors["id00"] == pytest.approx([-0.7071, 0.7071], abs=1e-3)

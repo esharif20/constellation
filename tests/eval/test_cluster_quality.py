@@ -9,7 +9,7 @@ from itertools import combinations
 
 import pytest
 
-from constellation.cluster import cluster
+from constellation.cluster import cluster, item_vectors
 from constellation.models import Item
 
 GROUPS = {
@@ -64,7 +64,7 @@ def _pairs(groups):
 
 def _scores(embed, threshold):
     items = [Item(f"{g}/{n}", "skill", n, d, "claude-code") for g, rows in GROUPS.items() for n, d in rows]
-    found = _pairs(c.item_ids for c in cluster(items, {}, embed, threshold))
+    found = _pairs(c.item_ids for c in cluster(items, {}, *item_vectors(items, embed), threshold))
     truth = _pairs([f"{g}/{n}" for n, _ in rows] for g, rows in GROUPS.items())
     precision = len(found & truth) / len(found) if found else 1.0
     recall = len(found & truth) / len(truth)

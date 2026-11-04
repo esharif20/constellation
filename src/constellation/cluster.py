@@ -24,7 +24,7 @@ def _centre(vectors: list[list[float]]) -> list[list[float]]:
     return [_unit([x - mean[k] for k, x in enumerate(v)]) for v in vectors]
 
 
-def _dot(a: list[float], b: list[float]) -> float:
+def dot(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b, strict=True))  # strict: embeddings of mixed dimensions are an error, not a silent truncation
 
 
@@ -34,21 +34,31 @@ class _Group:
     members: list[int] = field(default_factory=list)
 
 
-def cluster(items: list[Item], labels: dict[str, str], embed: Embedder, threshold: float | None = None) -> list[Cluster]:
-    """Greedy leader clustering on name and description only (labels just name the clusters): each Item joins the closest
-    cluster centre at or above `threshold`, else starts a new cluster. The default threshold depends on whether the vectors were centred."""
+def item_vectors(items: list[Item], embed: Embedder) -> tuple[dict[str, list[float]], bool]:
+    """Unit vectors by Item id, mean-centred when there are enough Items, and whether they were centred. Embeds name and
+    description only; scan() embeds once and shares the result with the clusters and the Overlap candidates."""
     items = sorted(items, key=lambda i: i.id)  # greedy clustering depends on order, so fix the order
     # a hook's description is a shell command, which clusters by shape rather than meaning, so hooks are embedded by name (event:matcher)
     vectors = [_unit(v) for v in embed([i.name if i.kind == "hook" else f"{i.name}: {i.description}" for i in items])]
     centred = len(vectors) >= MIN_ITEMS_TO_CENTRE
     if centred:
         vectors = _centre(vectors)
+    return {i.id: v for i, v in zip(items, vectors, strict=True)}, centred
+
+
+def cluster(
+    items: list[Item], labels: dict[str, str], by_id: dict[str, list[float]], centred: bool, threshold: float | None = None
+) -> list[Cluster]:
+    """Greedy leader clustering on name and description only (labels just name the clusters): each Item joins the closest
+    cluster centre at or above `threshold`, else starts a new cluster. The default threshold depends on whether the vectors were centred."""
+    items = sorted(items, key=lambda i: i.id)
+    vectors = [by_id[i.id] for i in items]
     if threshold is None:
         threshold = CENTRED_THRESHOLD if centred else RAW_THRESHOLD
     groups: list[_Group] = []
     for index, vector in enumerate(vectors):
-        best = max(groups, key=lambda g: _dot(_unit(g.total), vector), default=None)
-        if best is not None and _dot(_unit(best.total), vector) >= threshold:
+        best = max(groups, key=lambda g: dot(_unit(g.total), vector), default=None)
+        if best is not None and dot(_unit(best.total), vector) >= threshold:
             best.total = list(map(add, best.total, vector))
             best.members.append(index)
         else:
@@ -56,7 +66,7 @@ def cluster(items: list[Item], labels: dict[str, str], embed: Embedder, threshol
     clusters = []
     for group in groups:
         centre = _unit(group.total)
-        by_closeness = sorted(group.members, key=lambda i: -_dot(centre, vectors[i]))  # sorted is stable, so ties keep item order
+        by_closeness = sorted(group.members, key=lambda i: -dot(centre, vectors[i]))  # sorted is stable, so ties keep item order
         labelled = next((i for i in by_closeness if items[i].id in labels), None)
         name = labels[items[labelled].id] if labelled is not None else items[by_closeness[0]].name
         clusters.append(Cluster(name, tuple(items[i].id for i in group.members)))

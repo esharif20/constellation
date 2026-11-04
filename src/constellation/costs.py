@@ -5,6 +5,7 @@ import json
 import os
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from .models import Cost, Item, TokenCounter
 from .redact import ProviderError, redact
@@ -16,15 +17,17 @@ def _key(text: str, known: Iterable[str]) -> str:
     return hashlib.sha256(redact(text, known).encode()).hexdigest()  # keyed on what a provider would see, so no secret reaches the file
 
 
-def _load(path: Path) -> dict[str, int]:
+def load_cache(path: Path) -> dict[str, Any]:
+    """A JSON cache file keyed by content hash; shared with the Overlap verdict cache."""
     try:
-        cache: dict[str, int] = json.loads(path.read_text())
-        return cache
-    except (OSError, ValueError):  # missing or corrupt: start over, the counts are re-fetchable
+        cache = json.loads(path.read_text())
+    except (OSError, ValueError):  # missing or corrupt: start over, the entries are re-fetchable
         return {}
+    return cache if isinstance(cache, dict) else {}
 
 
-def _save(path: Path, cache: dict[str, int]) -> None:
+def save_cache(path: Path, cache: dict[str, Any]) -> None:
+    """Written with mode 0600 (it is derived from the user's setup), creating the directory if needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as file:
         file.write(json.dumps(cache))
@@ -45,7 +48,7 @@ def measure(
     path = cache_path or DEFAULT_CACHE
     known = tuple(known)
     pairs = {i.id: _texts(i, bodies.get(i.id)) for i in items}
-    cache = _load(path)
+    cache = load_cache(path)
     missing = {_key(t, known): t for pair in pairs.values() for t in pair if t is not None and _key(t, known) not in cache}
     warnings: list[str] = []
     if missing:
@@ -55,7 +58,7 @@ def measure(
             warnings.append(f"could not count context cost: {error}")
         else:
             try:
-                _save(path, cache)
+                save_cache(path, cache)
             except OSError as error:  # the counts are paid for and kept in memory; only the next scan loses them
                 warnings.append(f"could not save the token-count cache: {error}")
     counted = {id_: [None if t is None else cache.get(_key(t, known)) for t in pair] for id_, pair in pairs.items()}
