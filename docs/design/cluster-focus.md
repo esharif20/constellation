@@ -148,7 +148,7 @@ it; picking a member swaps to the 58dvh Inspector sheet with "Back to Documents"
 - **Exit** by: card Back button, breadcrumb root, Escape, browser Back, a background click outside the focused halo
   (`hypot(screen - haloCentre) > halo.r * k`) with nothing selected, or pinching/wheeling out below `0.5 * kFocus` after landing
   (state change only, no flight: the reader is already pulling back). A background click inside the halo only deselects.
-- **Escape order**: search popover (input handles it) -> Brief (own handler) -> Inspector -> cluster focus.
+- **Escape order**: search popover (input handles it) -> Brief (own handler) -> chat -> Inspector -> cluster focus -> the highlight (search or chat chip). Escape on the map (`close()`) and a click on empty sky both clear the highlight, so one of them always returns the whole map to normal (#49).
 - **History**: enter = `pushState({cluster: slug}, "", "#cluster=" + slug)`; hop = `replaceState` (no history spam); exit by UI =
   `history.back()` when our entry is on top, else `replaceState` without hash; `popstate` sets state without pushing. Slug =
   lowercased name, non-alphanumerics to `-`, collisions get `-2`. Works in a static Snapshot (hash only).

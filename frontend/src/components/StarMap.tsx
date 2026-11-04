@@ -63,6 +63,10 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   const [size, setSize] = useState({ w: innerWidth, h: innerHeight });
   const [ready, setReady] = useState(false); // the first fit is done: the camera may fly
   const [data, setData] = useState<{ nodes: GNode[]; links: GLink[] }>({ nodes: [], links: [] });
+  const dragging = useRef(false); // a node drag keeps its star lit even when the pointer strays off the canvas
+  const nameClick = useRef(false); // pointerup already entered a cluster; the rAF click force-graph fires after it must not act
+  const onClusterRef = useRef(onCluster);
+  useEffect(() => { onClusterRef.current = onCluster; });
   const zoomK = useRef(1);
   const aimRef = useRef<(instant?: boolean) => void>(() => {});
   const focus = painter.focus;
@@ -70,12 +74,15 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   // The canvas only repaints while something moves. wake() keeps it painting until every fade has settled
   // (painter.busy), poking force-graph's own redraw flag through a same-value zoom.
   const loop = useRef(0);
+  // While a button is down, d3-zoom has a gesture open, so a same-value zoom() poke marks it a drag and force-graph drops the click
+  const pressed = useRef(false);
   const wake = useCallback(() => {
     if (loop.current) return;
     let quiet = 2;
     const tick = () => {
       const g = fg.current;
       if (!g) return void (loop.current = 0);
+      if (pressed.current) return void (loop.current = requestAnimationFrame(tick)); // repaint resumes on release
       g.zoom(g.zoom());
       quiet = painter.busy() ? 2 : quiet - 1;
       loop.current = quiet >= 0 ? requestAnimationFrame(tick) : 0;
@@ -248,9 +255,33 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     const stop = () => { cancelAnimationFrame(z.raf); z.raf = 0; };
     el.addEventListener("wheel", onWheel, { capture: true, passive: false });
     const down = () => { stop(); stopCamera(); };
-    el.addEventListener("pointerdown", down);
-    return () => { el.removeEventListener("wheel", onWheel, { capture: true }); el.removeEventListener("pointerdown", down); stop(); };
-  }, [painter, stopCamera]);
+    // A name click is owned here: force-graph drops any click that moved a pixel and lets a star under the 44 px box win.
+    let start: { x: number; y: number; name: Cluster } | null = null;
+    const pos = (e: globalThis.PointerEvent) => { const b = el.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; };
+    const release = () => { pressed.current = false; };
+    const pdown = (e: globalThis.PointerEvent) => {
+      pressed.current = true;
+      down();
+      nameClick.current = false;
+      const p = pos(e), name = e.button === 0 ? painter.clusterAt(p.x, p.y) : null;
+      start = name ? { ...p, name } : null;
+    };
+    const pup = (e: globalThis.PointerEvent) => {
+      const s = start;
+      start = null;
+      if (!s) return;
+      const p = pos(e), tol = e.pointerType === "touch" || matchMedia("(pointer: coarse)").matches ? 10 : 6;
+      if (Math.hypot(p.x - s.x, p.y - s.y) > tol || painter.clusterAt(p.x, p.y) !== s.name) return;
+      nameClick.current = true;
+      hideTip();
+      onClusterRef.current(s.name);
+    };
+    el.addEventListener("pointerdown", pdown);
+    el.addEventListener("pointerup", pup, true);
+    addEventListener("pointerup", release, true);
+    addEventListener("pointercancel", release, true);
+    return () => { el.removeEventListener("wheel", onWheel, { capture: true }); el.removeEventListener("pointerdown", pdown); el.removeEventListener("pointerup", pup, true); removeEventListener("pointerup", release, true); removeEventListener("pointercancel", release, true); stop(); };
+  }, [painter, stopCamera, hideTip]);
 
   // the chrome moves with the selection (the panel slides in), so measure again once it has settled
   useEffect(() => {
@@ -325,6 +356,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   const onBackground = (e: MouseEvent) => {
     const g = fg.current, box = wrap.current?.getBoundingClientRect();
     if (!g || !box) return;
+    if (nameClick.current) { nameClick.current = false; return; }
     hideTip();
     const x = e.clientX - box.left, y = e.clientY - box.top, named = painter.clusterAt(x, y);
     if (named) return onCluster(named);
@@ -356,6 +388,14 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     <div
       ref={wrap}
       onPointerMove={onPointerMove}
+      onPointerLeave={() => { // the chrome sits above the canvas, so force-graph never hears the pointer go (hoverObj stays on the star)
+        if (dragging.current) return;
+        focus.hover = null;
+        focus.nameHover = null;
+        if (wrap.current) wrap.current.style.cursor = "";
+        hideTip();
+        wake();
+      }}
       onPointerDown={(e) => { tipRef.current.touch = e.pointerType === "touch"; }}
       tabIndex={0}
       role="application"
@@ -393,9 +433,10 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
           wake();
           if (!tipRef.current.touch) hoverTip(n ?? null); // a finger's tooltip comes from its taps (onNodeClick)
         }}
-        onNodeDrag={(n) => { focus.hover = n; hideTip(); setCool(Infinity); }}
-        onNodeDragEnd={() => { focus.hover = null; setCool(150); wake(); }}
+        onNodeDrag={(n) => { dragging.current = true; focus.hover = n; hideTip(); setCool(Infinity); }}
+        onNodeDragEnd={() => { dragging.current = false; focus.hover = null; setCool(150); wake(); }}
         onNodeClick={(n) => {
+          if (nameClick.current) { nameClick.current = false; return; }
           const t = tipRef.current;
           if (t.touch && n !== selected && t.n !== n) { // first tap: light its neighbours and show the tooltip; the second tap opens it
             focus.hover = n;

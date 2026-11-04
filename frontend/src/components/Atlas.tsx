@@ -50,7 +50,7 @@ export default function Atlas({ model }: { model: Model }) {
   // One owner for the highlighted set: search wins while a query is typed, otherwise the last chat answer. The chip names it and clears it.
   const highlight = query.trim() ? { from: "search" as const, count: found.length } : chatMatches ? { from: "chat" as const, count: chatMatches.size } : null;
   const matches = useMemo(() => (query.trim() ? new Set(found) : chatMatches), [found, query, chatMatches]);
-  const clearHighlight = () => { setQuery(""); setChatMatches(null); };
+  const clearHighlight = useCallback(() => { setQuery(""); setChatMatches(null); }, []);
   const showBrief = !!brief && briefOpen && !chatOpen && !(narrow && selected) && !cluster;
   const showInspector = !(narrow && chatOpen);
   if (!chatOpen && chatMatches) setChatMatches(null); // chat highlights end with the chat
@@ -107,12 +107,14 @@ export default function Atlas({ model }: { model: Model }) {
     setChatOpen(false);
     setCluster(c);
     setByKeyboard(keyboard);
-    if (narrow) { setSelected(null); setPreview(null); }
+    setPreview(null); // the row that set it unmounts under a still pointer, so no mouseleave comes
+    if (narrow) setSelected(null);
   }, [cluster, model, narrow]);
 
   // `swap`: leaving to go somewhere else, so the history entry is replaced rather than gone back from
   const leave = useCallback((swap = false) => {
     setCluster(null);
+    setPreview(null);
     setLive("Whole map");
     if (pushed.current && !swap) history.back();
     else history.replaceState(null, "", location.pathname + location.search);
@@ -140,6 +142,7 @@ export default function Atlas({ model }: { model: Model }) {
     if (n && cluster && n.cluster !== cluster) { map.current?.holdCamera(); leave(true); } // an Item outside the cluster: leave focus and glide there in one flight
     setSelected(n);
     setPreview(null);
+    if (!n) clearHighlight(); // the only null caller is a click on empty sky: back to the normal view
     framedPair.current = undefined;
     if (n) {
       if (narrow) {
@@ -147,7 +150,7 @@ export default function Atlas({ model }: { model: Model }) {
         requestAnimationFrame(() => map.current?.glideTo(n));
       } else map.current?.glideTo(n);
     }
-  }, [narrow, openBrief, cluster, leave]);
+  }, [narrow, openBrief, cluster, leave, clearHighlight]);
 
   const selectById = (id: string) => {
     const node = model.nodes.find((n) => n.id === id);
@@ -177,8 +180,9 @@ export default function Atlas({ model }: { model: Model }) {
   const close = useCallback(() => {
     setSelected(null);
     setPreview(null);
+    clearHighlight();
     map.current?.focusCanvas();
-  }, []);
+  }, [clearHighlight]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
