@@ -1,3 +1,25 @@
+# Rules for any coding agent (Codex, Claude, others)
+
+Project: Constellation, a local FastAPI + LangGraph app that scans a Claude Code setup into an explorable graph. Spec is GitHub issue #1; each ticket is a sub-issue. Read `GLOSSARY.md`, `docs/plan-tracker.md` and the ticket's plan in `docs/plans/` BEFORE writing code. Python 3.13 with **uv** only (`uv run`, `uv add`; never pip). Minimal code: no abstraction, option or feature the ticket did not ask for.
+
+## Hard rules (privacy and cost)
+- Never read, print or send the `.env` file or any secret. Never read the real `~/.claude` (tests use fixtures and temp dirs; `tests/conftest.py` redirects caches). Never read the process environment for secrets.
+- Privacy invariant: only Item kinds, names and descriptions (plus short local signals) are ever sent to a provider, always after redaction (`guarded*` wrappers in `src/constellation/__init__.py`). File bodies and transcript text never leave the machine, except the opt-in `--count-bodies`. Anything that would send more needs the user's approval first.
+- Cost rule: free by default. Local work first; paid calls only for new or changed Items, cached by hash of the redacted text in 0600 files; an unwritable cache is a warning, not a crash.
+- Never commit real scan data, real setup names, or screenshots of a real scan. Demo data only (`docs/design/demo*.json`).
+- The app never edits the user's Claude setup.
+
+## Workflow
+- Work on a branch named `codex/ticket-<n>`; never push to `main`; do not close issues. Commit with a clear message. The user or Claude merges after review.
+- Gates before you say done (all must pass, same as CI): `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy`, `uv run pytest -q` (use `--all-extras` locally), and the mutation gate `uv run mutmut run` then `uv run mutmut results` must print nothing (zero survivors). Frontend: `cd frontend && npm run lint && npm run build && npm run layout:check`.
+- Tests go through the public seams (`scan()`, `render_report`, `cli.main`, the HTTP API), test-first, with fixtures; kill mutants with boundary tests.
+- macOS quirk: if imports break after uv rebuilds, run `chflags nohidden .venv/lib/python3.13/site-packages/*.pth`.
+- Update `docs/plan-tracker.md` (status, any deviation from the plan with the reason) in the same commit. If the right choice differs from the plan, stop and say so instead of building on it.
+- Final report: branch, what changed, gate results, what you did not verify.
+
+## Skills note
+The skill names below (`/tdd`, `frontend-design`, `shadcn`, etc.) are Claude Code plugins. Codex does not have them: use the written design docs instead (`docs/design/DESIGN.md` for UI tokens and type, `docs/design/graph-app.md`, `docs/plans/*`). UI work is done by Claude; Codex takes Python tickets.
+
 ## Agent skills
 
 ### Issue tracker
