@@ -101,3 +101,11 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Gates: Ruff check/format, mypy, 453 tests (2 paid/eval tests deselected), mutmut (2,541 killed; results empty), frontend lint/build/layout all passed. Demo-only browser checks include 1440px, 700px and 390px, add/error states, offline/unknown/static fallback, keyboard/pill, pair selection and resizing. Root verified compiled UI against the real local Python API using only copied demo data and a temporary private checklist; no page errors.
 - Not verified: real scans, Safari/Firefox, real touch or screen readers, and an external Opus review. No paid calls or real setup reads were used.
 - User authorized review/merge: #20 was fast-forwarded into local `main` at `aac28a4`; #25 is ready for the same local merge. Nothing was pushed to main and no issue was closed. #11's contract, #12's plugin preview and #13's Snapshot privacy foundation remain isolated on their ticket branches until their remaining decisions/integrations are resolved.
+
+## Inspector usage and session-start weight (2026-11-04, branch `worktree-agent-a1538319abfe9e181`)
+
+- Frontend only. `model.ts` gets optional `usage`, `usage_window`, `hook_weights` types; `Inspector.tsx` gets a Usage panel: "N uses, last D" or "Never seen in the N transcripts scanned" (count 0, from the window), "not tracked" for kinds with no usage entry (hooks, plugins; different from 0), and for prompt-time hooks a Session-start weight row (bytes; tokens or "tokens not counted"; "unknown" when bytes unknown, never 0).
+- Unused-by-cost list in the Brief: **skipped by design**. `first-screen.md` keeps `remove_unused` out of the Brief pair list and the Brief API (`brief()`) carries no unused rows; adding one needs a server and plan change (a follow-up ticket), not a client-side ranking.
+- Demo: `docs/design/make-demo.mjs` adds invented `usage`, `usage_window`, `hook_weights` to `demo-250.json` from a third seeded stream (existing names, Relations and Overlaps unchanged).
+- #13 reminder: public Snapshots must still drop `usage`/`usage_window` (the inspector shows nothing for them when absent).
+- Not verified: real scans, Safari/Firefox, screen readers.

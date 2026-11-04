@@ -3939,5 +3939,923 @@
    "reason": "Same steps and trigger wording; one could go (draft-crate and gather-compass)."
   }
  ],
+ "hook_weights": {
+  "hook:0:mend-gasket-mini": {
+   "bytes": null,
+   "tokens": null
+  },
+  "hook:0:trace-crate-lite": {
+   "bytes": 2732,
+   "tokens": 759
+  },
+  "hook:1:bind-compass-lite": {
+   "bytes": 3136,
+   "tokens": null
+  },
+  "hook:1:draft-compass-lite": {
+   "bytes": 2800,
+   "tokens": null
+  },
+  "hook:1:trace-anvil": {
+   "bytes": 599,
+   "tokens": 166
+  },
+  "hook:1:check-anvil": {
+   "bytes": 893,
+   "tokens": 248
+  },
+  "hook:2:label-compass-lite": {
+   "bytes": 2966,
+   "tokens": 824
+  },
+  "hook:4:sort-canvas": {
+   "bytes": 470,
+   "tokens": 131
+  },
+  "hook:5:gather-plinth-lite": {
+   "bytes": null,
+   "tokens": null
+  },
+  "hook:5:sweep-beacon-two": {
+   "bytes": null,
+   "tokens": null
+  },
+  "hook:5:fold-ribbon": {
+   "bytes": 656,
+   "tokens": null
+  },
+  "hook:6:gather-valve-two": {
+   "bytes": 1747,
+   "tokens": 485
+  },
+  "hook:6:mend-lattice-lite": {
+   "bytes": 3526,
+   "tokens": 979
+  },
+  "hook:8:gather-compass-pro": {
+   "bytes": 921,
+   "tokens": 256
+  },
+  "hook:11:scout-crate-mini": {
+   "bytes": 4628,
+   "tokens": 1286
+  },
+  "hook:12:fold-stencil": {
+   "bytes": null,
+   "tokens": null
+  },
+  "hook:12:trace-stencil": {
+   "bytes": 4546,
+   "tokens": null
+  },
+  "hook:14:gather-crate-pro": {
+   "bytes": 1887,
+   "tokens": 524
+  },
+  "hook:14:sweep-tally": {
+   "bytes": 688,
+   "tokens": null
+  },
+  "hook:16:label-compass": {
+   "bytes": 3924,
+   "tokens": 1090
+  },
+  "hook:17:chart-wick": {
+   "bytes": 1837,
+   "tokens": null
+  },
+  "hook:19:bind-tally-pro": {
+   "bytes": null,
+   "tokens": null
+  },
+  "hook:21:trace-gasket-pro": {
+   "bytes": 3278,
+   "tokens": null
+  },
+  "hook:29:tune-lattice": {
+   "bytes": 5085,
+   "tokens": 1413
+  },
+  "hook:29:weigh-anvil-pro": {
+   "bytes": 5303,
+   "tokens": 1473
+  }
+ },
+ "usage": {
+  "skill:0:fold-canvas-pro": {
+   "count": 18,
+   "last_used": "2026-10-14"
+  },
+  "agent:0:label-valve": {
+   "count": 11,
+   "last_used": "2026-10-29"
+  },
+  "skill:0:trace-canvas": {
+   "count": 7,
+   "last_used": "2026-11-02"
+  },
+  "skill:0:gather-crate": {
+   "count": 4,
+   "last_used": "2026-10-29"
+  },
+  "skill:0:label-wick": {
+   "count": 1,
+   "last_used": "2026-10-23"
+  },
+  "skill:0:trace-ribbon-pro": {
+   "count": 44,
+   "last_used": "2026-10-14"
+  },
+  "skill:0:check-compass-pro": {
+   "count": 12,
+   "last_used": "2026-11-02"
+  },
+  "skill:0:label-crate-lite": {
+   "count": 31,
+   "last_used": "2026-10-20"
+  },
+  "skill:0:sort-lattice-mini": {
+   "count": 7,
+   "last_used": "2026-10-26"
+  },
+  "skill:0:mend-gasket": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:0:fold-beacon": {
+   "count": 5,
+   "last_used": "2026-10-19"
+  },
+  "agent:0:fold-crate-pro": {
+   "count": 36,
+   "last_used": "2026-10-31"
+  },
+  "skill:0:bind-compass": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:0:mend-canvas": {
+   "count": 6,
+   "last_used": "2026-10-19"
+  },
+  "agent:0:sort-ledger": {
+   "count": 2,
+   "last_used": "2026-10-27"
+  },
+  "agent:0:trace-thread-lite": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:0:trace-valve": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:0:sort-crate-pro": {
+   "count": 2,
+   "last_used": "2026-10-31"
+  },
+  "skill:0:sort-lattice-two": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:0:mend-anvil-two": {
+   "count": 25,
+   "last_used": "2026-11-02"
+  },
+  "skill:0:sort-thread": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:0:sort-tally-lite": {
+   "count": 13,
+   "last_used": "2026-10-23"
+  },
+  "skill:0:sort-compass-pro": {
+   "count": 33,
+   "last_used": "2026-10-16"
+  },
+  "skill:0:sort-gasket-lite": {
+   "count": 5,
+   "last_used": "2026-10-23"
+  },
+  "agent:0:bind-crate": {
+   "count": 17,
+   "last_used": "2026-10-06"
+  },
+  "skill:1:bind-anvil-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:1:draft-valve": {
+   "count": 5,
+   "last_used": "2026-10-31"
+  },
+  "skill:1:polish-beacon": {
+   "count": 3,
+   "last_used": "2026-10-08"
+  },
+  "skill:1:scout-wick": {
+   "count": 27,
+   "last_used": "2026-10-16"
+  },
+  "skill:1:chart-beacon": {
+   "count": 0,
+   "last_used": null
+  },
+  "agent:1:polish-tally-lite": {
+   "count": 6,
+   "last_used": "2026-11-03"
+  },
+  "skill:1:trace-ribbon": {
+   "count": 28,
+   "last_used": "2026-10-24"
+  },
+  "skill:1:draft-valve-mini": {
+   "count": 3,
+   "last_used": "2026-10-24"
+  },
+  "skill:1:draft-canvas": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:1:scout-ledger": {
+   "count": 47,
+   "last_used": "2026-10-17"
+  },
+  "skill:1:gather-wick-two": {
+   "count": 1,
+   "last_used": "2026-10-10"
+  },
+  "skill:1:tune-valve": {
+   "count": 23,
+   "last_used": "2026-10-23"
+  },
+  "skill:1:sort-plinth-lite": {
+   "count": 3,
+   "last_used": "2026-10-11"
+  },
+  "skill:1:sort-valve-lite": {
+   "count": 49,
+   "last_used": "2026-10-19"
+  },
+  "skill:1:draft-beacon": {
+   "count": 27,
+   "last_used": "2026-10-24"
+  },
+  "skill:1:trace-ledger-pro": {
+   "count": 35,
+   "last_used": "2026-10-19"
+  },
+  "skill:1:mend-anvil-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:1:mend-tally": {
+   "count": 9,
+   "last_used": "2026-11-02"
+  },
+  "skill:1:fold-gasket-lite": {
+   "count": 33,
+   "last_used": "2026-10-17"
+  },
+  "skill:1:gather-stencil": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:1:chart-gasket-lite": {
+   "count": 2,
+   "last_used": "2026-11-03"
+  },
+  "skill:2:bind-gasket-lite": {
+   "count": 14,
+   "last_used": "2026-10-06"
+  },
+  "skill:2:tune-crate-mini": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:2:sweep-lattice-two": {
+   "count": 37,
+   "last_used": "2026-11-02"
+  },
+  "skill:2:draft-wick": {
+   "count": 12,
+   "last_used": "2026-10-26"
+  },
+  "skill:2:weigh-stencil": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:2:sort-tally": {
+   "count": 23,
+   "last_used": "2026-10-12"
+  },
+  "skill:2:scout-beacon-two": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:2:fold-gasket": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:2:mend-ledger-mini": {
+   "count": 58,
+   "last_used": "2026-10-07"
+  },
+  "skill:2:trace-anvil-pro": {
+   "count": 10,
+   "last_used": "2026-10-16"
+  },
+  "agent:2:chart-plinth-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:2:tune-canvas": {
+   "count": 25,
+   "last_used": "2026-10-27"
+  },
+  "skill:2:trace-gasket": {
+   "count": 2,
+   "last_used": "2026-10-24"
+  },
+  "agent:2:polish-gasket-lite": {
+   "count": 1,
+   "last_used": "2026-10-31"
+  },
+  "skill:2:sort-beacon": {
+   "count": 0,
+   "last_used": null
+  },
+  "agent:2:scout-tally": {
+   "count": 1,
+   "last_used": "2026-11-02"
+  },
+  "skill:2:gather-lattice": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:2:bind-canvas": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:3:bind-stencil-lite": {
+   "count": 3,
+   "last_used": "2026-10-15"
+  },
+  "skill:3:mend-compass-pro": {
+   "count": 1,
+   "last_used": "2026-10-16"
+  },
+  "agent:3:tune-thread": {
+   "count": 4,
+   "last_used": "2026-10-14"
+  },
+  "skill:3:gather-valve": {
+   "count": 30,
+   "last_used": "2026-10-27"
+  },
+  "skill:3:trace-ledger": {
+   "count": 2,
+   "last_used": "2026-10-31"
+  },
+  "skill:3:scout-thread-lite": {
+   "count": 3,
+   "last_used": "2026-11-03"
+  },
+  "skill:3:scout-ribbon": {
+   "count": 10,
+   "last_used": "2026-11-04"
+  },
+  "skill:3:sort-beacon-pro": {
+   "count": 20,
+   "last_used": "2026-10-23"
+  },
+  "skill:3:tune-valve-two": {
+   "count": 49,
+   "last_used": "2026-11-04"
+  },
+  "skill:3:trace-crate": {
+   "count": 34,
+   "last_used": "2026-10-31"
+  },
+  "skill:3:polish-valve-two": {
+   "count": 6,
+   "last_used": "2026-10-17"
+  },
+  "agent:3:sort-plinth": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:3:scout-compass": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:3:weigh-beacon": {
+   "count": 29,
+   "last_used": "2026-11-03"
+  },
+  "skill:3:chart-lattice-lite": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:3:polish-wick": {
+   "count": 40,
+   "last_used": "2026-11-01"
+  },
+  "skill:4:bind-ledger-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:4:bind-ledger": {
+   "count": 36,
+   "last_used": "2026-10-17"
+  },
+  "skill:4:tune-gasket-two": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:4:label-plinth": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:4:tune-plinth": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:4:draft-ledger": {
+   "count": 6,
+   "last_used": "2026-10-27"
+  },
+  "agent:4:gather-beacon": {
+   "count": 27,
+   "last_used": "2026-10-16"
+  },
+  "skill:4:bind-beacon": {
+   "count": 3,
+   "last_used": "2026-10-30"
+  },
+  "skill:4:sweep-anvil": {
+   "count": 19,
+   "last_used": "2026-11-03"
+  },
+  "skill:4:chart-ledger-pro": {
+   "count": 24,
+   "last_used": "2026-11-02"
+  },
+  "skill:4:check-tally": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:4:fold-canvas-two": {
+   "count": 26,
+   "last_used": "2026-10-28"
+  },
+  "skill:5:trace-compass-lite": {
+   "count": 34,
+   "last_used": "2026-10-29"
+  },
+  "skill:5:trace-plinth": {
+   "count": 22,
+   "last_used": "2026-10-31"
+  },
+  "skill:5:weigh-compass": {
+   "count": 9,
+   "last_used": "2026-10-12"
+  },
+  "agent:5:weigh-tally": {
+   "count": 4,
+   "last_used": "2026-10-15"
+  },
+  "skill:5:scout-valve": {
+   "count": 3,
+   "last_used": "2026-10-08"
+  },
+  "skill:5:check-wick": {
+   "count": 24,
+   "last_used": "2026-10-28"
+  },
+  "skill:5:sort-gasket": {
+   "count": 0,
+   "last_used": null
+  },
+  "agent:5:weigh-beacon-pro": {
+   "count": 3,
+   "last_used": "2026-10-22"
+  },
+  "skill:5:bind-tally": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:6:sweep-gasket-mini": {
+   "count": 21,
+   "last_used": "2026-11-04"
+  },
+  "skill:6:tune-ribbon-lite": {
+   "count": 14,
+   "last_used": "2026-10-20"
+  },
+  "skill:6:weigh-anvil": {
+   "count": 6,
+   "last_used": "2026-10-09"
+  },
+  "skill:6:sweep-canvas-lite": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:6:scout-ribbon-two": {
+   "count": 10,
+   "last_used": "2026-10-17"
+  },
+  "agent:6:tune-beacon": {
+   "count": 7,
+   "last_used": "2026-10-13"
+  },
+  "agent:6:scout-thread-two": {
+   "count": 21,
+   "last_used": "2026-10-20"
+  },
+  "skill:6:weigh-lattice-two": {
+   "count": 8,
+   "last_used": "2026-10-18"
+  },
+  "skill:6:mend-ribbon": {
+   "count": 12,
+   "last_used": "2026-10-15"
+  },
+  "agent:7:draft-lattice-mini": {
+   "count": 13,
+   "last_used": "2026-10-12"
+  },
+  "skill:7:sweep-stencil-two": {
+   "count": 10,
+   "last_used": "2026-10-18"
+  },
+  "skill:7:sweep-valve-two": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:7:sort-anvil-two": {
+   "count": 3,
+   "last_used": "2026-11-01"
+  },
+  "skill:7:fold-ledger": {
+   "count": 13,
+   "last_used": "2026-10-08"
+  },
+  "skill:7:sort-plinth-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:7:scout-wick-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:7:scout-ribbon-lite": {
+   "count": 21,
+   "last_used": "2026-10-31"
+  },
+  "skill:7:fold-beacon-pro": {
+   "count": 1,
+   "last_used": "2026-10-18"
+  },
+  "skill:7:polish-plinth-lite": {
+   "count": 11,
+   "last_used": "2026-10-08"
+  },
+  "skill:8:sweep-canvas": {
+   "count": 1,
+   "last_used": "2026-10-29"
+  },
+  "skill:8:polish-plinth": {
+   "count": 2,
+   "last_used": "2026-11-04"
+  },
+  "agent:8:chart-tally-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:8:polish-beacon-pro": {
+   "count": 28,
+   "last_used": "2026-10-20"
+  },
+  "skill:8:trace-lattice-pro": {
+   "count": 5,
+   "last_used": "2026-10-21"
+  },
+  "skill:8:label-compass-pro": {
+   "count": 11,
+   "last_used": "2026-10-27"
+  },
+  "agent:8:scout-plinth-pro": {
+   "count": 6,
+   "last_used": "2026-10-14"
+  },
+  "skill:8:polish-compass": {
+   "count": 6,
+   "last_used": "2026-10-19"
+  },
+  "skill:9:gather-compass": {
+   "count": 30,
+   "last_used": "2026-11-01"
+  },
+  "skill:9:bind-lattice": {
+   "count": 4,
+   "last_used": "2026-10-22"
+  },
+  "skill:9:chart-anvil": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:9:bind-anvil": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:9:bind-gasket-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:9:sort-thread-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:9:gather-ribbon": {
+   "count": 12,
+   "last_used": "2026-10-28"
+  },
+  "skill:9:draft-crate": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:10:weigh-valve-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:10:mend-thread-pro": {
+   "count": 24,
+   "last_used": "2026-10-12"
+  },
+  "skill:10:label-lattice": {
+   "count": 18,
+   "last_used": "2026-11-03"
+  },
+  "skill:10:draft-plinth-mini": {
+   "count": 36,
+   "last_used": "2026-10-22"
+  },
+  "skill:10:scout-crate": {
+   "count": 7,
+   "last_used": "2026-10-12"
+  },
+  "skill:10:sort-compass": {
+   "count": 2,
+   "last_used": "2026-10-09"
+  },
+  "skill:10:mend-crate-lite": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:11:mend-ribbon-lite": {
+   "count": 16,
+   "last_used": "2026-10-08"
+  },
+  "skill:11:draft-thread": {
+   "count": 18,
+   "last_used": "2026-10-08"
+  },
+  "skill:11:sweep-lattice-pro": {
+   "count": 39,
+   "last_used": "2026-10-27"
+  },
+  "skill:11:polish-stencil": {
+   "count": 5,
+   "last_used": "2026-11-01"
+  },
+  "skill:11:weigh-ribbon-pro": {
+   "count": 16,
+   "last_used": "2026-11-04"
+  },
+  "skill:11:weigh-lattice": {
+   "count": 22,
+   "last_used": "2026-10-31"
+  },
+  "skill:12:draft-anvil-two": {
+   "count": 11,
+   "last_used": "2026-10-31"
+  },
+  "agent:12:gather-lattice-two": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:12:check-lattice": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:12:check-stencil": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:12:tune-gasket": {
+   "count": 20,
+   "last_used": "2026-11-02"
+  },
+  "skill:13:mend-valve-lite": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:13:draft-compass-mini": {
+   "count": 1,
+   "last_used": "2026-10-20"
+  },
+  "skill:13:draft-stencil": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:13:polish-lattice-lite": {
+   "count": 35,
+   "last_used": "2026-10-20"
+  },
+  "skill:13:gather-tally-two": {
+   "count": 33,
+   "last_used": "2026-11-01"
+  },
+  "skill:13:polish-canvas-two": {
+   "count": 11,
+   "last_used": "2026-10-06"
+  },
+  "skill:13:label-tally-two": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:14:chart-canvas": {
+   "count": 2,
+   "last_used": "2026-10-25"
+  },
+  "skill:14:sort-wick-pro": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:14:sweep-ribbon-lite": {
+   "count": 3,
+   "last_used": "2026-10-20"
+  },
+  "skill:14:label-canvas-pro": {
+   "count": 34,
+   "last_used": "2026-10-26"
+  },
+  "skill:15:trace-compass": {
+   "count": 12,
+   "last_used": "2026-10-11"
+  },
+  "skill:15:label-ribbon": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:15:weigh-gasket-two": {
+   "count": 42,
+   "last_used": "2026-10-17"
+  },
+  "skill:15:weigh-canvas": {
+   "count": 3,
+   "last_used": "2026-10-20"
+  },
+  "skill:15:label-ledger": {
+   "count": 25,
+   "last_used": "2026-10-13"
+  },
+  "skill:15:tune-ledger": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:16:weigh-wick": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:16:gather-ledger": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:16:check-canvas-two": {
+   "count": 31,
+   "last_used": "2026-10-15"
+  },
+  "skill:16:tune-beacon-two": {
+   "count": 36,
+   "last_used": "2026-10-08"
+  },
+  "skill:17:tune-tally": {
+   "count": 16,
+   "last_used": "2026-10-31"
+  },
+  "skill:17:gather-lattice-mini": {
+   "count": 10,
+   "last_used": "2026-10-23"
+  },
+  "skill:17:weigh-valve-lite": {
+   "count": 39,
+   "last_used": "2026-11-03"
+  },
+  "skill:17:tune-ledger-pro": {
+   "count": 31,
+   "last_used": "2026-10-20"
+  },
+  "skill:18:scout-anvil": {
+   "count": 7,
+   "last_used": "2026-10-08"
+  },
+  "skill:18:polish-stencil-two": {
+   "count": 6,
+   "last_used": "2026-10-07"
+  },
+  "skill:18:label-crate-mini": {
+   "count": 43,
+   "last_used": "2026-10-24"
+  },
+  "skill:18:trace-ribbon-mini": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:19:mend-wick-lite": {
+   "count": 10,
+   "last_used": "2026-10-15"
+  },
+  "skill:19:fold-beacon-mini": {
+   "count": 19,
+   "last_used": "2026-11-04"
+  },
+  "agent:19:polish-compass-lite": {
+   "count": 5,
+   "last_used": "2026-10-22"
+  },
+  "skill:20:tune-anvil": {
+   "count": 1,
+   "last_used": "2026-10-10"
+  },
+  "skill:20:check-ledger-lite": {
+   "count": 38,
+   "last_used": "2026-11-02"
+  },
+  "agent:20:scout-ledger-pro": {
+   "count": 2,
+   "last_used": "2026-10-20"
+  },
+  "skill:21:polish-crate-two": {
+   "count": 2,
+   "last_used": "2026-10-14"
+  },
+  "skill:21:mend-plinth": {
+   "count": 6,
+   "last_used": "2026-10-16"
+  },
+  "skill:22:check-canvas-pro": {
+   "count": 12,
+   "last_used": "2026-10-13"
+  },
+  "skill:22:draft-ledger-two": {
+   "count": 11,
+   "last_used": "2026-10-20"
+  },
+  "skill:23:polish-anvil": {
+   "count": 55,
+   "last_used": "2026-10-15"
+  },
+  "skill:23:chart-stencil": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:24:check-ribbon-two": {
+   "count": 6,
+   "last_used": "2026-10-18"
+  },
+  "skill:24:tune-thread-lite": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:25:bind-lattice-mini": {
+   "count": 29,
+   "last_used": "2026-11-04"
+  },
+  "skill:26:check-compass": {
+   "count": 0,
+   "last_used": null
+  },
+  "agent:27:mend-ledger": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:28:chart-thread": {
+   "count": 0,
+   "last_used": null
+  },
+  "skill:29:polish-crate-lite": {
+   "count": 11,
+   "last_used": "2026-10-23"
+  }
+ },
+ "usage_window": {
+  "files": 132,
+  "first": "2026-10-05",
+  "last": "2026-11-04",
+  "skipped": 0
+ },
  "warnings": []
 }
