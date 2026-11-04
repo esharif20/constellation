@@ -6,7 +6,8 @@ import { kindName, relName, type GNode, type Model } from "@/graph/model";
 
 type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void };
 
-const tokens = (v: number | null) => (v == null ? "Unknown" : v.toLocaleString());
+// null means not measured (an offline scan, or a count that failed): say so, never show 0
+const tokens = (v: number | null) => (v == null ? "unknown" : v.toLocaleString());
 
 // Non-modal on purpose: the map stays live beside it. A side panel on desktop, a bottom sheet on phones.
 export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose }, ref) {
@@ -50,8 +51,8 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
 
         {item.cost && (
           <div className="mt-6 grid grid-cols-2 gap-3" aria-label="Context cost">
-            <Stat value={tokens(item.cost.always_on)} unit="tokens every session" />
-            <Stat value={tokens(item.cost.on_use)} unit="tokens when used" />
+            <Stat value={item.cost.always_on} unit="tokens every session" />
+            <Stat value={item.cost.on_use} unit="tokens when used" />
           </div>
         )}
 
@@ -90,10 +91,10 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
   );
 });
 
-function Stat({ value, unit }: { value: string; unit: string }) {
+function Stat({ value, unit }: { value: number | null; unit: string }) {
   return (
     <div className="rounded-lg border px-4 py-3">
-      <b className="block text-xl font-medium tracking-[-0.01em] tabular-nums">{value}</b>
+      <b className={value == null ? "block text-xl font-normal text-muted-foreground italic" : "block text-xl font-medium tracking-[-0.01em] tabular-nums"}>{tokens(value)}</b>
       <span className="text-xs text-muted-foreground">{unit}</span>
     </div>
   );

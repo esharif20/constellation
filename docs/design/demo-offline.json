@@ -1,0 +1,1439 @@
+{
+  "items": [
+    {
+      "id": "plugin:lumen",
+      "kind": "plugin",
+      "name": "lumen",
+      "description": "A bundle of skills for polishing interface details.",
+      "source": "~/.claude/plugins/lumen/plugin.json"
+    },
+    {
+      "id": "skill:lumen:tune-spacing",
+      "kind": "skill",
+      "name": "tune-spacing",
+      "description": "Use when the task involves tune spacing. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/lumen/skills/tune-spacing/SKILL.md"
+    },
+    {
+      "id": "skill:lumen:pick-palette",
+      "kind": "skill",
+      "name": "pick-palette",
+      "description": "Use when the task involves pick palette. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/lumen/skills/pick-palette/SKILL.md"
+    },
+    {
+      "id": "skill:lumen:audit-contrast",
+      "kind": "skill",
+      "name": "audit-contrast",
+      "description": "Use when the task involves audit contrast. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/lumen/skills/audit-contrast/SKILL.md"
+    },
+    {
+      "id": "skill:lumen:motion-pass",
+      "kind": "skill",
+      "name": "motion-pass",
+      "description": "Use when the task involves motion pass. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/lumen/skills/motion-pass/SKILL.md"
+    },
+    {
+      "id": "skill:lumen:icon-sweep",
+      "kind": "skill",
+      "name": "icon-sweep",
+      "description": "Use when the task involves icon sweep. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/lumen/skills/icon-sweep/SKILL.md"
+    },
+    {
+      "id": "skill:lumen:type-scale",
+      "kind": "skill",
+      "name": "type-scale",
+      "description": "Use when the task involves type scale. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/lumen/skills/type-scale/SKILL.md"
+    },
+    {
+      "id": "skill:lumen:focus-rings",
+      "kind": "skill",
+      "name": "focus-rings",
+      "description": "Use when the task involves focus rings. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/lumen/skills/focus-rings/SKILL.md"
+    },
+    {
+      "id": "skill:lumen:empty-states",
+      "kind": "skill",
+      "name": "empty-states",
+      "description": "Use when the task involves empty states. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/lumen/skills/empty-states/SKILL.md"
+    },
+    {
+      "id": "plugin:quill",
+      "kind": "plugin",
+      "name": "quill",
+      "description": "A bundle of skills for writing and editing prose.",
+      "source": "~/.claude/plugins/quill/plugin.json"
+    },
+    {
+      "id": "skill:quill:tighten-prose",
+      "kind": "skill",
+      "name": "tighten-prose",
+      "description": "Use when the task involves tighten prose. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/quill/skills/tighten-prose/SKILL.md"
+    },
+    {
+      "id": "skill:quill:outline-essay",
+      "kind": "skill",
+      "name": "outline-essay",
+      "description": "Use when the task involves outline essay. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/quill/skills/outline-essay/SKILL.md"
+    },
+    {
+      "id": "skill:quill:cite-sources",
+      "kind": "skill",
+      "name": "cite-sources",
+      "description": "Use when the task involves cite sources. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/quill/skills/cite-sources/SKILL.md"
+    },
+    {
+      "id": "skill:quill:plain-english",
+      "kind": "skill",
+      "name": "plain-english",
+      "description": "Use when the task involves plain english. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/quill/skills/plain-english/SKILL.md"
+    },
+    {
+      "id": "skill:quill:release-notes",
+      "kind": "skill",
+      "name": "release-notes",
+      "description": "Use when the task involves release notes. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/quill/skills/release-notes/SKILL.md"
+    },
+    {
+      "id": "skill:quill:changelog-draft",
+      "kind": "skill",
+      "name": "changelog-draft",
+      "description": "Use when the task involves changelog draft. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/quill/skills/changelog-draft/SKILL.md"
+    },
+    {
+      "id": "plugin:sentinel",
+      "kind": "plugin",
+      "name": "sentinel",
+      "description": "A bundle of skills for reviewing pull requests.",
+      "source": "~/.claude/plugins/sentinel/plugin.json"
+    },
+    {
+      "id": "skill:sentinel:review-diff",
+      "kind": "skill",
+      "name": "review-diff",
+      "description": "Use when the task involves review diff. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sentinel/skills/review-diff/SKILL.md"
+    },
+    {
+      "id": "skill:sentinel:spot-regressions",
+      "kind": "skill",
+      "name": "spot-regressions",
+      "description": "Use when the task involves spot regressions. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sentinel/skills/spot-regressions/SKILL.md"
+    },
+    {
+      "id": "skill:sentinel:check-naming",
+      "kind": "skill",
+      "name": "check-naming",
+      "description": "Use when the task involves check naming. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sentinel/skills/check-naming/SKILL.md"
+    },
+    {
+      "id": "skill:sentinel:flag-dead-code",
+      "kind": "skill",
+      "name": "flag-dead-code",
+      "description": "Use when the task involves flag dead code. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sentinel/skills/flag-dead-code/SKILL.md"
+    },
+    {
+      "id": "skill:sentinel:suggest-tests",
+      "kind": "skill",
+      "name": "suggest-tests",
+      "description": "Use when the task involves suggest tests. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sentinel/skills/suggest-tests/SKILL.md"
+    },
+    {
+      "id": "plugin:redgreen",
+      "kind": "plugin",
+      "name": "redgreen",
+      "description": "A bundle of skills for test-first development.",
+      "source": "~/.claude/plugins/redgreen/plugin.json"
+    },
+    {
+      "id": "skill:redgreen:write-failing-test",
+      "kind": "skill",
+      "name": "write-failing-test",
+      "description": "Use when the task involves write failing test. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/redgreen/skills/write-failing-test/SKILL.md"
+    },
+    {
+      "id": "skill:redgreen:make-it-pass",
+      "kind": "skill",
+      "name": "make-it-pass",
+      "description": "Use when the task involves make it pass. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/redgreen/skills/make-it-pass/SKILL.md"
+    },
+    {
+      "id": "skill:redgreen:refactor-safely",
+      "kind": "skill",
+      "name": "refactor-safely",
+      "description": "Use when the task involves refactor safely. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/redgreen/skills/refactor-safely/SKILL.md"
+    },
+    {
+      "id": "skill:redgreen:mutation-sweep",
+      "kind": "skill",
+      "name": "mutation-sweep",
+      "description": "Use when the task involves mutation sweep. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/redgreen/skills/mutation-sweep/SKILL.md"
+    },
+    {
+      "id": "skill:redgreen:fixture-builder",
+      "kind": "skill",
+      "name": "fixture-builder",
+      "description": "Use when the task involves fixture builder. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/redgreen/skills/fixture-builder/SKILL.md"
+    },
+    {
+      "id": "skill:redgreen:flake-hunter",
+      "kind": "skill",
+      "name": "flake-hunter",
+      "description": "Use when the task involves flake hunter. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/redgreen/skills/flake-hunter/SKILL.md"
+    },
+    {
+      "id": "plugin:harbour",
+      "kind": "plugin",
+      "name": "harbour",
+      "description": "A bundle of skills for shipping and deploys.",
+      "source": "~/.claude/plugins/harbour/plugin.json"
+    },
+    {
+      "id": "skill:harbour:cut-release",
+      "kind": "skill",
+      "name": "cut-release",
+      "description": "Use when the task involves cut release. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/harbour/skills/cut-release/SKILL.md"
+    },
+    {
+      "id": "skill:harbour:tag-version",
+      "kind": "skill",
+      "name": "tag-version",
+      "description": "Use when the task involves tag version. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/harbour/skills/tag-version/SKILL.md"
+    },
+    {
+      "id": "skill:harbour:deploy-preview",
+      "kind": "skill",
+      "name": "deploy-preview",
+      "description": "Use when the task involves deploy preview. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/harbour/skills/deploy-preview/SKILL.md"
+    },
+    {
+      "id": "skill:harbour:rollback-plan",
+      "kind": "skill",
+      "name": "rollback-plan",
+      "description": "Use when the task involves rollback plan. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/harbour/skills/rollback-plan/SKILL.md"
+    },
+    {
+      "id": "skill:harbour:smoke-check",
+      "kind": "skill",
+      "name": "smoke-check",
+      "description": "Use when the task involves smoke check. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/harbour/skills/smoke-check/SKILL.md"
+    },
+    {
+      "id": "plugin:atlas",
+      "kind": "plugin",
+      "name": "atlas",
+      "description": "A bundle of skills for exploring a codebase.",
+      "source": "~/.claude/plugins/atlas/plugin.json"
+    },
+    {
+      "id": "skill:atlas:map-modules",
+      "kind": "skill",
+      "name": "map-modules",
+      "description": "Use when the task involves map modules. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/atlas/skills/map-modules/SKILL.md"
+    },
+    {
+      "id": "skill:atlas:trace-call",
+      "kind": "skill",
+      "name": "trace-call",
+      "description": "Use when the task involves trace call. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/atlas/skills/trace-call/SKILL.md"
+    },
+    {
+      "id": "skill:atlas:find-owner",
+      "kind": "skill",
+      "name": "find-owner",
+      "description": "Use when the task involves find owner. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/atlas/skills/find-owner/SKILL.md"
+    },
+    {
+      "id": "skill:atlas:explain-file",
+      "kind": "skill",
+      "name": "explain-file",
+      "description": "Use when the task involves explain file. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/atlas/skills/explain-file/SKILL.md"
+    },
+    {
+      "id": "skill:atlas:dependency-tour",
+      "kind": "skill",
+      "name": "dependency-tour",
+      "description": "Use when the task involves dependency tour. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/atlas/skills/dependency-tour/SKILL.md"
+    },
+    {
+      "id": "plugin:margin",
+      "kind": "plugin",
+      "name": "margin",
+      "description": "A bundle of skills for notes and study cards.",
+      "source": "~/.claude/plugins/margin/plugin.json"
+    },
+    {
+      "id": "skill:margin:lecture-notes",
+      "kind": "skill",
+      "name": "lecture-notes",
+      "description": "Use when the task involves lecture notes. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/margin/skills/lecture-notes/SKILL.md"
+    },
+    {
+      "id": "skill:margin:flashcard-deck",
+      "kind": "skill",
+      "name": "flashcard-deck",
+      "description": "Use when the task involves flashcard deck. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/margin/skills/flashcard-deck/SKILL.md"
+    },
+    {
+      "id": "skill:margin:summarise-paper",
+      "kind": "skill",
+      "name": "summarise-paper",
+      "description": "Use when the task involves summarise paper. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/margin/skills/summarise-paper/SKILL.md"
+    },
+    {
+      "id": "skill:margin:glossary-builder",
+      "kind": "skill",
+      "name": "glossary-builder",
+      "description": "Use when the task involves glossary builder. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/margin/skills/glossary-builder/SKILL.md"
+    },
+    {
+      "id": "plugin:sieve",
+      "kind": "plugin",
+      "name": "sieve",
+      "description": "A bundle of skills for data wrangling.",
+      "source": "~/.claude/plugins/sieve/plugin.json"
+    },
+    {
+      "id": "skill:sieve:clean-csv",
+      "kind": "skill",
+      "name": "clean-csv",
+      "description": "Use when the task involves clean csv. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sieve/skills/clean-csv/SKILL.md"
+    },
+    {
+      "id": "skill:sieve:profile-table",
+      "kind": "skill",
+      "name": "profile-table",
+      "description": "Use when the task involves profile table. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sieve/skills/profile-table/SKILL.md"
+    },
+    {
+      "id": "skill:sieve:chart-draft",
+      "kind": "skill",
+      "name": "chart-draft",
+      "description": "Use when the task involves chart draft. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sieve/skills/chart-draft/SKILL.md"
+    },
+    {
+      "id": "skill:sieve:sql-explain",
+      "kind": "skill",
+      "name": "sql-explain",
+      "description": "Use when the task involves sql explain. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sieve/skills/sql-explain/SKILL.md"
+    },
+    {
+      "id": "skill:sieve:join-checker",
+      "kind": "skill",
+      "name": "join-checker",
+      "description": "Use when the task involves join checker. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/sieve/skills/join-checker/SKILL.md"
+    },
+    {
+      "id": "plugin:bastion",
+      "kind": "plugin",
+      "name": "bastion",
+      "description": "A bundle of skills for security hygiene.",
+      "source": "~/.claude/plugins/bastion/plugin.json"
+    },
+    {
+      "id": "skill:bastion:secret-scan",
+      "kind": "skill",
+      "name": "secret-scan",
+      "description": "Use when the task involves secret scan. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/bastion/skills/secret-scan/SKILL.md"
+    },
+    {
+      "id": "skill:bastion:dependency-audit",
+      "kind": "skill",
+      "name": "dependency-audit",
+      "description": "Use when the task involves dependency audit. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/bastion/skills/dependency-audit/SKILL.md"
+    },
+    {
+      "id": "skill:bastion:threat-sketch",
+      "kind": "skill",
+      "name": "threat-sketch",
+      "description": "Use when the task involves threat sketch. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/bastion/skills/threat-sketch/SKILL.md"
+    },
+    {
+      "id": "plugin:prism",
+      "kind": "plugin",
+      "name": "prism",
+      "description": "A bundle of skills for diagrams and visuals.",
+      "source": "~/.claude/plugins/prism/plugin.json"
+    },
+    {
+      "id": "skill:prism:sequence-diagram",
+      "kind": "skill",
+      "name": "sequence-diagram",
+      "description": "Use when the task involves sequence diagram. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/prism/skills/sequence-diagram/SKILL.md"
+    },
+    {
+      "id": "skill:prism:architecture-sketch",
+      "kind": "skill",
+      "name": "architecture-sketch",
+      "description": "Use when the task involves architecture sketch. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/prism/skills/architecture-sketch/SKILL.md"
+    },
+    {
+      "id": "skill:prism:slide-outline",
+      "kind": "skill",
+      "name": "slide-outline",
+      "description": "Use when the task involves slide outline. Keeps the work small and checks the result.",
+      "source": "~/.claude/plugins/prism/skills/slide-outline/SKILL.md"
+    },
+    {
+      "id": "hook:format-on-save",
+      "kind": "hook",
+      "name": "format-on-save",
+      "description": "Runs on a session event to format on save.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "hook:lint-before-commit",
+      "kind": "hook",
+      "name": "lint-before-commit",
+      "description": "Runs on a session event to lint before commit.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "hook:block-force-push",
+      "kind": "hook",
+      "name": "block-force-push",
+      "description": "Runs on a session event to block force push.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "hook:notify-on-finish",
+      "kind": "hook",
+      "name": "notify-on-finish",
+      "description": "Runs on a session event to notify on finish.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "hook:log-tool-calls",
+      "kind": "hook",
+      "name": "log-tool-calls",
+      "description": "Runs on a session event to log tool calls.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "hook:guard-env-files",
+      "kind": "hook",
+      "name": "guard-env-files",
+      "description": "Runs on a session event to guard env files.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "hook:run-tests-on-stop",
+      "kind": "hook",
+      "name": "run-tests-on-stop",
+      "description": "Runs on a session event to run tests on stop.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "hook:trim-whitespace",
+      "kind": "hook",
+      "name": "trim-whitespace",
+      "description": "Runs on a session event to trim whitespace.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "hook:session-banner",
+      "kind": "hook",
+      "name": "session-banner",
+      "description": "Runs on a session event to session banner.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "hook:warn-large-diff",
+      "kind": "hook",
+      "name": "warn-large-diff",
+      "description": "Runs on a session event to warn large diff.",
+      "source": "~/.claude/settings.json"
+    },
+    {
+      "id": "agent:scout",
+      "kind": "agent",
+      "name": "scout",
+      "description": "Explores a codebase and reports back.",
+      "source": "~/.claude/agents/scout.md"
+    },
+    {
+      "id": "agent:critic",
+      "kind": "agent",
+      "name": "critic",
+      "description": "Reviews a change against standards.",
+      "source": "~/.claude/agents/critic.md"
+    },
+    {
+      "id": "agent:scribe",
+      "kind": "agent",
+      "name": "scribe",
+      "description": "Drafts documentation from code.",
+      "source": "~/.claude/agents/scribe.md"
+    },
+    {
+      "id": "agent:pilot",
+      "kind": "agent",
+      "name": "pilot",
+      "description": "Runs a multi-step plan.",
+      "source": "~/.claude/agents/pilot.md"
+    },
+    {
+      "id": "agent:auditor",
+      "kind": "agent",
+      "name": "auditor",
+      "description": "Checks a setup for risky hooks.",
+      "source": "~/.claude/agents/auditor.md"
+    },
+    {
+      "id": "agent:cartographer",
+      "kind": "agent",
+      "name": "cartographer",
+      "description": "Maps module boundaries.",
+      "source": "~/.claude/agents/cartographer.md"
+    },
+    {
+      "id": "skill:quick-commit",
+      "kind": "skill",
+      "name": "quick-commit",
+      "description": "Small helper: quick commit.",
+      "source": "~/.claude/skills/quick-commit/SKILL.md"
+    },
+    {
+      "id": "skill:explain-error",
+      "kind": "skill",
+      "name": "explain-error",
+      "description": "Small helper: explain error.",
+      "source": "~/.claude/skills/explain-error/SKILL.md"
+    },
+    {
+      "id": "skill:rename-symbol",
+      "kind": "skill",
+      "name": "rename-symbol",
+      "description": "Small helper: rename symbol.",
+      "source": "~/.claude/skills/rename-symbol/SKILL.md"
+    },
+    {
+      "id": "skill:todo-sweep",
+      "kind": "skill",
+      "name": "todo-sweep",
+      "description": "Small helper: todo sweep.",
+      "source": "~/.claude/skills/todo-sweep/SKILL.md"
+    },
+    {
+      "id": "skill:regex-helper",
+      "kind": "skill",
+      "name": "regex-helper",
+      "description": "Small helper: regex helper.",
+      "source": "~/.claude/skills/regex-helper/SKILL.md"
+    },
+    {
+      "id": "skill:unit-convert",
+      "kind": "skill",
+      "name": "unit-convert",
+      "description": "Small helper: unit convert.",
+      "source": "~/.claude/skills/unit-convert/SKILL.md"
+    },
+    {
+      "id": "skill:timezone-math",
+      "kind": "skill",
+      "name": "timezone-math",
+      "description": "Small helper: timezone math.",
+      "source": "~/.claude/skills/timezone-math/SKILL.md"
+    },
+    {
+      "id": "skill:json-shape",
+      "kind": "skill",
+      "name": "json-shape",
+      "description": "Small helper: json shape.",
+      "source": "~/.claude/skills/json-shape/SKILL.md"
+    },
+    {
+      "id": "skill:yaml-lint",
+      "kind": "skill",
+      "name": "yaml-lint",
+      "description": "Small helper: yaml lint.",
+      "source": "~/.claude/skills/yaml-lint/SKILL.md"
+    },
+    {
+      "id": "skill:port-finder",
+      "kind": "skill",
+      "name": "port-finder",
+      "description": "Small helper: port finder.",
+      "source": "~/.claude/skills/port-finder/SKILL.md"
+    },
+    {
+      "id": "skill:branch-tidy",
+      "kind": "skill",
+      "name": "branch-tidy",
+      "description": "Small helper: branch tidy.",
+      "source": "~/.claude/skills/branch-tidy/SKILL.md"
+    },
+    {
+      "id": "skill:screenshot-diff",
+      "kind": "skill",
+      "name": "screenshot-diff",
+      "description": "Small helper: screenshot diff.",
+      "source": "~/.claude/skills/screenshot-diff/SKILL.md"
+    },
+    {
+      "id": "mcp_server:orrery",
+      "kind": "mcp_server",
+      "name": "orrery",
+      "description": "Local MCP server that answers questions about project files.",
+      "source": "~/.claude.json"
+    },
+    {
+      "id": "connector:inkwell",
+      "kind": "connector",
+      "name": "inkwell",
+      "description": "Connector to a hosted notes service.",
+      "source": "claude.ai connector"
+    }
+  ],
+  "relations": [
+    {
+      "source": "plugin:lumen",
+      "target": "skill:lumen:tune-spacing",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:lumen",
+      "target": "skill:lumen:pick-palette",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:lumen",
+      "target": "skill:lumen:audit-contrast",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:lumen",
+      "target": "skill:lumen:motion-pass",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:lumen",
+      "target": "skill:lumen:icon-sweep",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:lumen",
+      "target": "skill:lumen:type-scale",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:lumen",
+      "target": "skill:lumen:focus-rings",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:lumen",
+      "target": "skill:lumen:empty-states",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:quill",
+      "target": "skill:quill:tighten-prose",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:quill",
+      "target": "skill:quill:outline-essay",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:quill",
+      "target": "skill:quill:cite-sources",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:quill",
+      "target": "skill:quill:plain-english",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:quill",
+      "target": "skill:quill:release-notes",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:quill",
+      "target": "skill:quill:changelog-draft",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sentinel",
+      "target": "skill:sentinel:review-diff",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sentinel",
+      "target": "skill:sentinel:spot-regressions",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sentinel",
+      "target": "skill:sentinel:check-naming",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sentinel",
+      "target": "skill:sentinel:flag-dead-code",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sentinel",
+      "target": "skill:sentinel:suggest-tests",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:redgreen",
+      "target": "skill:redgreen:write-failing-test",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:redgreen",
+      "target": "skill:redgreen:make-it-pass",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:redgreen",
+      "target": "skill:redgreen:refactor-safely",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:redgreen",
+      "target": "skill:redgreen:mutation-sweep",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:redgreen",
+      "target": "skill:redgreen:fixture-builder",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:redgreen",
+      "target": "skill:redgreen:flake-hunter",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:harbour",
+      "target": "skill:harbour:cut-release",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:harbour",
+      "target": "skill:harbour:tag-version",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:harbour",
+      "target": "skill:harbour:deploy-preview",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:harbour",
+      "target": "skill:harbour:rollback-plan",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:harbour",
+      "target": "skill:harbour:smoke-check",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:atlas",
+      "target": "skill:atlas:map-modules",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:atlas",
+      "target": "skill:atlas:trace-call",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:atlas",
+      "target": "skill:atlas:find-owner",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:atlas",
+      "target": "skill:atlas:explain-file",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:atlas",
+      "target": "skill:atlas:dependency-tour",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:margin",
+      "target": "skill:margin:lecture-notes",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:margin",
+      "target": "skill:margin:flashcard-deck",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:margin",
+      "target": "skill:margin:summarise-paper",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:margin",
+      "target": "skill:margin:glossary-builder",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sieve",
+      "target": "skill:sieve:clean-csv",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sieve",
+      "target": "skill:sieve:profile-table",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sieve",
+      "target": "skill:sieve:chart-draft",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sieve",
+      "target": "skill:sieve:sql-explain",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:sieve",
+      "target": "skill:sieve:join-checker",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:bastion",
+      "target": "skill:bastion:secret-scan",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:bastion",
+      "target": "skill:bastion:dependency-audit",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:bastion",
+      "target": "skill:bastion:threat-sketch",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:prism",
+      "target": "skill:prism:sequence-diagram",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:prism",
+      "target": "skill:prism:architecture-sketch",
+      "kind": "contains"
+    },
+    {
+      "source": "plugin:prism",
+      "target": "skill:prism:slide-outline",
+      "kind": "contains"
+    },
+    {
+      "source": "hook:run-tests-on-stop",
+      "target": "skill:redgreen:make-it-pass",
+      "kind": "triggers"
+    },
+    {
+      "source": "hook:lint-before-commit",
+      "target": "skill:sentinel:check-naming",
+      "kind": "triggers"
+    },
+    {
+      "source": "agent:critic",
+      "target": "skill:sentinel:review-diff",
+      "kind": "uses"
+    },
+    {
+      "source": "agent:scout",
+      "target": "skill:atlas:map-modules",
+      "kind": "uses"
+    },
+    {
+      "source": "agent:scout",
+      "target": "mcp_server:orrery",
+      "kind": "uses"
+    },
+    {
+      "source": "agent:cartographer",
+      "target": "skill:atlas:dependency-tour",
+      "kind": "uses"
+    },
+    {
+      "source": "agent:scribe",
+      "target": "connector:inkwell",
+      "kind": "uses"
+    }
+  ],
+  "labels": {},
+  "clusters": [
+    {
+      "name": "lumen",
+      "item_ids": [
+        "plugin:lumen",
+        "skill:lumen:tune-spacing",
+        "skill:lumen:pick-palette",
+        "skill:lumen:audit-contrast",
+        "skill:lumen:motion-pass",
+        "skill:lumen:icon-sweep",
+        "skill:lumen:type-scale",
+        "skill:lumen:focus-rings",
+        "skill:lumen:empty-states",
+        "hook:format-on-save",
+        "agent:scout"
+      ]
+    },
+    {
+      "name": "quill",
+      "item_ids": [
+        "plugin:quill",
+        "skill:quill:tighten-prose",
+        "skill:quill:outline-essay",
+        "skill:quill:cite-sources",
+        "skill:quill:plain-english",
+        "skill:quill:release-notes",
+        "skill:quill:changelog-draft",
+        "hook:lint-before-commit",
+        "skill:json-shape",
+        "skill:screenshot-diff"
+      ]
+    },
+    {
+      "name": "sentinel",
+      "item_ids": [
+        "plugin:sentinel",
+        "skill:sentinel:review-diff",
+        "skill:sentinel:spot-regressions",
+        "skill:sentinel:check-naming",
+        "skill:sentinel:flag-dead-code",
+        "skill:sentinel:suggest-tests",
+        "hook:block-force-push",
+        "agent:auditor",
+        "skill:port-finder"
+      ]
+    },
+    {
+      "name": "redgreen",
+      "item_ids": [
+        "plugin:redgreen",
+        "skill:redgreen:write-failing-test",
+        "skill:redgreen:make-it-pass",
+        "skill:redgreen:refactor-safely",
+        "skill:redgreen:mutation-sweep",
+        "skill:redgreen:fixture-builder",
+        "skill:redgreen:flake-hunter",
+        "hook:notify-on-finish",
+        "agent:critic",
+        "skill:yaml-lint"
+      ]
+    },
+    {
+      "name": "harbour",
+      "item_ids": [
+        "plugin:harbour",
+        "skill:harbour:cut-release",
+        "skill:harbour:tag-version",
+        "skill:harbour:deploy-preview",
+        "skill:harbour:rollback-plan",
+        "skill:harbour:smoke-check",
+        "hook:log-tool-calls"
+      ]
+    },
+    {
+      "name": "atlas",
+      "item_ids": [
+        "plugin:atlas",
+        "skill:atlas:map-modules",
+        "skill:atlas:trace-call",
+        "skill:atlas:find-owner",
+        "skill:atlas:explain-file",
+        "skill:atlas:dependency-tour",
+        "hook:guard-env-files",
+        "agent:cartographer",
+        "skill:timezone-math",
+        "mcp_server:orrery"
+      ]
+    },
+    {
+      "name": "margin",
+      "item_ids": [
+        "plugin:margin",
+        "skill:margin:lecture-notes",
+        "skill:margin:flashcard-deck",
+        "skill:margin:summarise-paper",
+        "skill:margin:glossary-builder",
+        "hook:run-tests-on-stop",
+        "agent:scribe",
+        "skill:branch-tidy",
+        "connector:inkwell"
+      ]
+    },
+    {
+      "name": "sieve",
+      "item_ids": [
+        "plugin:sieve",
+        "skill:sieve:clean-csv",
+        "skill:sieve:profile-table",
+        "skill:sieve:chart-draft",
+        "skill:sieve:sql-explain",
+        "skill:sieve:join-checker",
+        "hook:trim-whitespace"
+      ]
+    },
+    {
+      "name": "bastion",
+      "item_ids": [
+        "plugin:bastion",
+        "skill:bastion:secret-scan",
+        "skill:bastion:dependency-audit",
+        "skill:bastion:threat-sketch",
+        "hook:session-banner"
+      ]
+    },
+    {
+      "name": "prism",
+      "item_ids": [
+        "plugin:prism",
+        "skill:prism:sequence-diagram",
+        "skill:prism:architecture-sketch",
+        "skill:prism:slide-outline",
+        "hook:warn-large-diff",
+        "agent:pilot"
+      ]
+    },
+    {
+      "name": "quick-commit",
+      "item_ids": [
+        "skill:quick-commit",
+        "skill:explain-error",
+        "skill:rename-symbol"
+      ]
+    },
+    {
+      "name": "todo-sweep",
+      "item_ids": [
+        "skill:todo-sweep",
+        "skill:regex-helper",
+        "skill:unit-convert"
+      ]
+    }
+  ],
+  "costs": {
+    "plugin:lumen": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:lumen:tune-spacing": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:lumen:pick-palette": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:lumen:audit-contrast": {
+      "always_on": 24,
+      "on_use": 993
+    },
+    "skill:lumen:motion-pass": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:lumen:icon-sweep": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:lumen:type-scale": {
+      "always_on": 92,
+      "on_use": 875
+    },
+    "skill:lumen:focus-rings": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:lumen:empty-states": {
+      "always_on": null,
+      "on_use": null
+    },
+    "plugin:quill": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:quill:tighten-prose": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:quill:outline-essay": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:quill:cite-sources": {
+      "always_on": 48,
+      "on_use": 1143
+    },
+    "skill:quill:plain-english": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:quill:release-notes": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:quill:changelog-draft": {
+      "always_on": 33,
+      "on_use": 2228
+    },
+    "plugin:sentinel": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:sentinel:review-diff": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:sentinel:spot-regressions": {
+      "always_on": 92,
+      "on_use": 906
+    },
+    "skill:sentinel:check-naming": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:sentinel:flag-dead-code": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:sentinel:suggest-tests": {
+      "always_on": 46,
+      "on_use": 781
+    },
+    "plugin:redgreen": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:redgreen:write-failing-test": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:redgreen:make-it-pass": {
+      "always_on": 55,
+      "on_use": 3833
+    },
+    "skill:redgreen:refactor-safely": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:redgreen:mutation-sweep": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:redgreen:fixture-builder": {
+      "always_on": 57,
+      "on_use": 4989
+    },
+    "skill:redgreen:flake-hunter": {
+      "always_on": null,
+      "on_use": null
+    },
+    "plugin:harbour": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:harbour:cut-release": {
+      "always_on": 41,
+      "on_use": 1244
+    },
+    "skill:harbour:tag-version": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:harbour:deploy-preview": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:harbour:rollback-plan": {
+      "always_on": 65,
+      "on_use": 1198
+    },
+    "skill:harbour:smoke-check": {
+      "always_on": null,
+      "on_use": null
+    },
+    "plugin:atlas": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:atlas:map-modules": {
+      "always_on": 90,
+      "on_use": 888
+    },
+    "skill:atlas:trace-call": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:atlas:find-owner": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:atlas:explain-file": {
+      "always_on": 86,
+      "on_use": 3902
+    },
+    "skill:atlas:dependency-tour": {
+      "always_on": null,
+      "on_use": null
+    },
+    "plugin:margin": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:margin:lecture-notes": {
+      "always_on": 77,
+      "on_use": 5196
+    },
+    "skill:margin:flashcard-deck": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:margin:summarise-paper": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:margin:glossary-builder": {
+      "always_on": 49,
+      "on_use": 1872
+    },
+    "plugin:sieve": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:sieve:clean-csv": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:sieve:profile-table": {
+      "always_on": 28,
+      "on_use": 5105
+    },
+    "skill:sieve:chart-draft": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:sieve:sql-explain": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:sieve:join-checker": {
+      "always_on": 111,
+      "on_use": 4076
+    },
+    "plugin:bastion": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:bastion:secret-scan": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:bastion:dependency-audit": {
+      "always_on": 27,
+      "on_use": 1367
+    },
+    "skill:bastion:threat-sketch": {
+      "always_on": null,
+      "on_use": null
+    },
+    "plugin:prism": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:prism:sequence-diagram": {
+      "always_on": 39,
+      "on_use": 3202
+    },
+    "skill:prism:architecture-sketch": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:prism:slide-outline": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:format-on-save": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:lint-before-commit": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:block-force-push": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:notify-on-finish": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:log-tool-calls": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:guard-env-files": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:run-tests-on-stop": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:trim-whitespace": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:session-banner": {
+      "always_on": null,
+      "on_use": null
+    },
+    "hook:warn-large-diff": {
+      "always_on": null,
+      "on_use": null
+    },
+    "agent:scout": {
+      "always_on": null,
+      "on_use": null
+    },
+    "agent:critic": {
+      "always_on": null,
+      "on_use": null
+    },
+    "agent:scribe": {
+      "always_on": 91,
+      "on_use": 2970
+    },
+    "agent:pilot": {
+      "always_on": null,
+      "on_use": null
+    },
+    "agent:auditor": {
+      "always_on": null,
+      "on_use": null
+    },
+    "agent:cartographer": {
+      "always_on": 81,
+      "on_use": 5150
+    },
+    "skill:quick-commit": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:explain-error": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:rename-symbol": {
+      "always_on": 25,
+      "on_use": 6146
+    },
+    "skill:todo-sweep": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:regex-helper": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:unit-convert": {
+      "always_on": 20,
+      "on_use": 4182
+    },
+    "skill:timezone-math": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:json-shape": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:yaml-lint": {
+      "always_on": 116,
+      "on_use": 2754
+    },
+    "skill:port-finder": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:branch-tidy": {
+      "always_on": null,
+      "on_use": null
+    },
+    "skill:screenshot-diff": {
+      "always_on": 39,
+      "on_use": 4079
+    },
+    "mcp_server:orrery": {
+      "always_on": null,
+      "on_use": null
+    },
+    "connector:inkwell": {
+      "always_on": null,
+      "on_use": null
+    }
+  },
+  "warnings": [
+    "Offline: no labels or model-checked Overlaps; token costs shown only if already cached."
+  ]
+}

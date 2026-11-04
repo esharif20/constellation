@@ -15,7 +15,7 @@
   --night-lift: #10173a;
   --text: #e9ecf8;
   --text-2: #a7aecb;
-  --text-3: #737c9e;
+  --text-3: #8a93b6; /* 5.7:1 or better on the night sky and on the panels, so small tertiary text passes WCAG AA */
   --warn: #f3c46b;
 
   /* kind: three validated hues (all-pairs CVD dE >= 10 on --night); structural kinds share starlight and differ by shape */
