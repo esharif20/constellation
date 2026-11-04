@@ -120,3 +120,8 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - 5. Window dates come from each record's top-level `timestamp` only (every line is parsed for it); undated windows print no `None to None`.
 - Gates: Ruff check/format, mypy, 459 tests (2 paid/eval deselected), mutmut 2,573 killed, results empty. No paid calls; no real transcripts read.
 - Not verified: the real record shapes. After merge the user reruns a real scan to confirm the malformed count drops to zero or near it.
+
+## #23 taste review (2026-11-04, branch `worktree-agent-a9082504e2a9f29e3`)
+
+- Done: inspector (`--app`) and look-and-fix loop at 1440 and 390 on demo data only; before/after in `docs/design/screenshots/23-*`. Fixes: unlit star names hidden while something is lit (`paint.ts`), atlas marks on empty and failed states, nowrap code pill. No deviations; no new dependencies or assets. Findings that conflict with DESIGN.md or the star-atlas direction, and ideas not built, are recorded in `docs/design/graph-app.md`.
+- Gates: lint, build, `layout:check` (thresholds unchanged) and pytest (453 passed) pass.
