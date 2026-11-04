@@ -12,12 +12,43 @@ from pathlib import Path
 from typing import Any, BinaryIO
 
 from .models import Item, ProjectUsage, Relation, Usage, UsageWindow
+from .redact import redact
 
 FILE_CAP = 256 * 1024 * 1024
 LINE_CAP = 8 * 1024 * 1024
 PROJECTS = "projects"
 SUBAGENTS = "subagents"
 TRACKED = {"skill", "agent", "mcp_server", "connector"}
+LABEL_CAP = 60
+
+
+def _encode(path: Path) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "-", str(path))  # Claude Code's folder naming (assumed); a mismatch only costs a label
+
+
+def _label(folder: str, number: int, project: Path | None) -> str:
+    """Local-only display label; never the username (home prefix removed) and always redacted."""
+    if project is not None and folder == _encode(project.resolve()):
+        shown = project.resolve().name
+    else:
+        home = _encode(Path.home()) + "-"
+        shown = (folder.removeprefix(home) if folder.startswith(home) else folder).strip("-")
+    return redact(shown)[:LABEL_CAP] or f"project {number}"
+
+
+def _bump(old: Usage, day: str | None) -> Usage:
+    used = max(old.last_used, day) if old.last_used and day else old.last_used or day
+    return Usage(old.count + 1, used)
+
+
+def _projects(credited: dict[str, dict[str, Usage]], folders: set[str], project: Path | None) -> ProjectUsage:
+    """Folder names turn into ordinals p1..pN here; only keys, labels (local) and Usage leave this module."""
+    current = _encode(project.resolve()) if project is not None else None
+    kept = sorted({f for per in credited.values() for f in per} | ({current} & folders if current else set()))
+    keys = {folder: f"p{n}" for n, folder in enumerate(kept, 1)}
+    labels = {keys[folder]: _label(folder, n, project) for n, folder in enumerate(kept, 1)}
+    by_project = {id_: {keys[f]: u for f, u in per.items()} for id_, per in credited.items()}
+    return ProjectUsage(labels, by_project, keys.get(current) if current else None)
 
 
 def _day(value: Any) -> str | None:
@@ -160,7 +191,7 @@ def _directory(name: str | Path, parent: int | None = None) -> Iterator[int]:
         os.close(fd)
 
 
-def _walk(parent: int, depth: int) -> Iterator[tuple[int, str] | str | None]:
+def _walk(parent: int, depth: int, folder: str = "") -> Iterator[tuple[int, str, str] | str | None]:
     """Only project/main files (depth 1) and session/subagents files (depth 3)."""
     try:
         with os.scandir(parent) as stream:
@@ -170,21 +201,21 @@ def _walk(parent: int, depth: int) -> Iterator[tuple[int, str] | str | None]:
                 if entry.is_symlink():
                     yield "symlink"
                 elif depth in {1, 3} and entry.name.endswith(".jsonl") and _is_file(entry):
-                    yield parent, entry.name
+                    yield parent, entry.name, folder
                 elif depth < 3 and _is_dir(entry):
                     if depth == 1 and entry.name in {"memory", "tool-results"}:
                         continue
                     if depth == 2 and entry.name != SUBAGENTS:
                         continue
                     with _directory(entry.name, parent) as child:
-                        yield from _walk(child, depth + 1)
+                        yield from _walk(child, depth + 1, entry.name if depth == 0 else folder)
             except OSError:
                 yield None
     except OSError:
         yield None
 
 
-def _transcripts(config_dir: Path) -> Iterator[tuple[int, str] | str | None]:
+def _transcripts(config_dir: Path) -> Iterator[tuple[int, str, str] | str | None]:
     # Keep every ancestor pinned; subsequent opens resolve only one child component.
     with _directory(config_dir) as config:
         with _directory(PROJECTS, config) as projects:
@@ -209,6 +240,8 @@ def read_usage(
         return usage, UsageWindow(0, None, None, 0), [], ProjectUsage()
     index = _index(items, relations)
     seen: set[bytes] = set()
+    folders: set[str] = set()
+    credited: dict[str, dict[str, Usage]] = {}  # Item id -> project folder -> Usage; folders become opaque keys at the end
     ambiguous: set[tuple[str, ...]] = set()
     files = skipped = malformed = oversize = big = symlinks = 0
     first = last = None
@@ -219,7 +252,7 @@ def read_usage(
                 symlinks += path == "symlink"
                 continue
             try:
-                parent, name = path
+                parent, name, folder = path
                 fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
                 with os.fdopen(fd, "rb") as stream:
                     info = os.fstat(stream.fileno())
@@ -228,6 +261,7 @@ def read_usage(
                         big += stat.S_ISREG(info.st_mode)  # in this branch a regular file is a too-big one
                         continue
                     files += 1
+                    folders.add(folder)
                     while line := stream.readline(LINE_CAP + 1):
                         if len(line) > LINE_CAP and not line.endswith(b"\n"):
                             _drain(stream)
@@ -248,9 +282,9 @@ def read_usage(
                             seen.add(key)
                             ambiguous.update(group for group in ids.values() if group)
                             for id_ in ids:
-                                old = usage[id_]
-                                used = max(old.last_used, used_day) if old.last_used and used_day else old.last_used or used_day
-                                usage[id_] = Usage(old.count + 1, used)
+                                usage[id_] = _bump(usage[id_], used_day)
+                                per = credited.setdefault(id_, {})
+                                per[folder] = _bump(per.get(folder, Usage(0, None)), used_day)
                         del line
             except OSError:
                 skipped += 1
@@ -264,4 +298,4 @@ def read_usage(
         )
     if ambiguous:
         warnings.append(f"usage: {len(ambiguous)} invocation names matched more than one Item; each was credited")
-    return usage, UsageWindow(files, first, last, skipped), warnings, ProjectUsage()
+    return usage, UsageWindow(files, first, last, skipped), warnings, _projects(credited, folders, project)

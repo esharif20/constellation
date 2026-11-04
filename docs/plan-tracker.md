@@ -429,3 +429,8 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - **Owner APPROVED** the project-label rule: `--project` folder name, else the folder name with the encoded home prefix stripped; the username is never shown. The earlier deviation is closed. Low tier and the paid scope verdict stay not built.
 - Contract only, no logic: `Item.scope`/`Item.project`, `ProjectUsage`, `Constellation.projects`/`usage_by_project`/`current_project`, `scan(project=)`, `read_items(project=)`, `read_usage(project=)` returning a 4th `ProjectUsage` (empty), `Suggestion.project`/`confidence`. Defaults keep behaviour unchanged; brief rows now carry `project`/`confidence` as None. Test proves defaults and that `snapshot()` drops the new keys.
+
+## #43 per-project usage (ticket A, branch `claude/pp-a-usage`)
+
+- `read_usage` now yields the depth-1 folder name from `_walk` (in memory only) and credits `by_project[id][folder]` beside the global `usage` (same day, dedup still global). Folders become opaque ordinals `p1..pN` in sorted folder order at the end; only folders with a credited invocation, plus the `--project` folder when it exists under `projects/`, get a key. Label: `PATH.name` for the current project, else the folder minus the encoded home prefix, then `redact()`, capped at 60, `project N` fallback. No plan deviation.
+- `Path.home()` is now read (only to strip the prefix), so `test_reader_does_not_consult_environment` stubs `Path.home` to a fixed invented path instead of forbidding it; `os.environ` stays forbidden. New tests: `tests/test_usage_projects.py` (invented folders, tmp HOME; planted `zzsecretclient` absent from warnings, report, suggestions, Snapshot, provider prompts).
