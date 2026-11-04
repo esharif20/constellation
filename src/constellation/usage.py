@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from .models import Item, Relation, Usage, UsageWindow
+from .models import Item, ProjectUsage, Relation, Usage, UsageWindow
 
 FILE_CAP = 256 * 1024 * 1024
 LINE_CAP = 8 * 1024 * 1024
@@ -197,14 +197,16 @@ def _drain(stream: BinaryIO) -> None:
             return
 
 
-def read_usage(config_dir: Path, items: list[Item], relations: list[Relation]) -> tuple[dict[str, Usage], UsageWindow, list[str]]:
+def read_usage(
+    config_dir: Path, items: list[Item], relations: list[Relation], project: Path | None = None
+) -> tuple[dict[str, Usage], UsageWindow, list[str], ProjectUsage]:
     usage = {i.id: Usage(0, None) for i in items if i.kind in TRACKED}
     config_dir = config_dir.resolve()  # a symlinked config dir is the user's choice; pin its real target once
     projects = config_dir / PROJECTS
     if projects.is_symlink():
-        return usage, UsageWindow(0, None, None, 1), ["usage: projects folder is a symlink; not read"]
+        return usage, UsageWindow(0, None, None, 1), ["usage: projects folder is a symlink; not read"], ProjectUsage()
     if not projects.exists():
-        return usage, UsageWindow(0, None, None, 0), []
+        return usage, UsageWindow(0, None, None, 0), [], ProjectUsage()
     index = _index(items, relations)
     seen: set[bytes] = set()
     ambiguous: set[tuple[str, ...]] = set()
@@ -262,4 +264,4 @@ def read_usage(config_dir: Path, items: list[Item], relations: list[Relation]) -
         )
     if ambiguous:
         warnings.append(f"usage: {len(ambiguous)} invocation names matched more than one Item; each was credited")
-    return usage, UsageWindow(files, first, last, skipped), warnings
+    return usage, UsageWindow(files, first, last, skipped), warnings, ProjectUsage()

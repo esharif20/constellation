@@ -7,7 +7,7 @@ from .claude_code import read_items, read_secrets
 from .cluster import cluster, item_vectors
 from .costs import count_texts, measure
 from .hooks import static_hook_texts
-from .models import LLM, Cluster, Constellation, Cost, Embedder, TokenCounter, Weight
+from .models import LLM, Cluster, Constellation, Cost, Embedder, ProjectUsage, TokenCounter, Weight
 from .overlaps import candidates, exact_duplicates, verify, wrappers
 from .redact import ProviderError, guarded, guarded_count, guarded_embed
 from .usage import read_usage
@@ -31,13 +31,16 @@ def scan(
     usage: bool = True,
     origins: bool = True,
     lockfile: Path | None = None,
+    project: Path | None = None,
 ) -> Constellation:
     """`origins` reads where each Item came from, locally (the lockfile's `source` field only, at `lockfile`, else the skills CLI's own).
     `offline` makes no provider calls: any llm, counter and verifier given are ignored, and costs come from the cache alone."""
     if offline:
         llm = counter = verifier = None
-    items, warnings, relations, bodies = read_items(config_dir, (lockfile or origin_sources.DEFAULT_LOCKFILE) if origins else None)
-    usages, window, usage_warnings = read_usage(config_dir, items, relations) if usage else ({}, None, [])
+    items, warnings, relations, bodies = read_items(config_dir, (lockfile or origin_sources.DEFAULT_LOCKFILE) if origins else None, project)
+    usages, window, usage_warnings, by_project = (
+        read_usage(config_dir, items, relations, project) if usage else ({}, None, [], ProjectUsage())
+    )
     warnings += usage_warnings
     labels: dict[str, str] = {}
     vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
@@ -78,7 +81,19 @@ def scan(
         warnings.append("Offline: no labels or model-checked Overlaps; token costs shown only if already cached.")
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))
     return Constellation(
-        items, warnings, relations, labels, clusters, costs, overlaps, usage=usages, usage_window=window, hook_weights=weights
+        items,
+        warnings,
+        relations,
+        labels,
+        clusters,
+        costs,
+        overlaps,
+        usage=usages,
+        usage_window=window,
+        hook_weights=weights,
+        projects=by_project.projects,
+        usage_by_project=by_project.by_project,
+        current_project=by_project.current,
     )
 
 
