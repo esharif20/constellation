@@ -12,27 +12,28 @@ from .redact import redact
 
 DEFAULT_LOCKFILE = Path.home() / ".agents" / ".skill-lock.json"  # the skills CLI's lockfile; the scan reads its `source` fields only
 CAP = 60
-_SAFE = re.compile(r"[\w.@/-]+")
+# owner/repo, up to three ASCII segments, none starting with a dot; "@" only as an npm-style scope prefix, so "user@host" and paths fail.
+_SAFE = re.compile(r"@?[\w-][\w.-]*(?:/[\w-][\w.-]*){0,2}", re.ASCII)
 LOCK_WARNING = "could not read skill lock: unreadable or not valid JSON"
 
 
 def clean(value: object, secrets: set[str]) -> str | None:
-    """A short pack-like name, or None. Anything with a secret, a path-like segment or odd characters is dropped, never repaired."""
+    """A short pack-like name, or None. The whole value is checked first and dropped if too long, redacted or odd: never truncated."""
     if not isinstance(value, str):
         return None
-    value = value.strip()[:CAP]
-    if redact(value, secrets) != value or not _SAFE.fullmatch(value):
+    value = value.strip()
+    if len(value) > CAP or redact(value, secrets) != value or not _SAFE.fullmatch(value):
         return None
-    return value if all(part not in ("", ".", "..") for part in value.split("/")) else None
+    return value
 
 
 def read_lock(path: Path, secrets: set[str]) -> tuple[dict[str, str], list[str]]:
     """skill folder name -> source, from `skills[name]["source"]` only. The rest of the file is parsed in memory and forgotten."""
-    if not path.is_file():
-        return {}, []
     try:
+        if not path.is_file():
+            return {}, []
         data: Any = json.loads(path.read_text())
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return {}, [LOCK_WARNING]
     skills = data.get("skills") if isinstance(data, dict) else None
     found = {
@@ -55,18 +56,30 @@ class Found:
     secrets: set[str]
 
 
+def _linked(f: Found) -> Path | None:
+    """Where a user skill folder points when it is a symlink to somewhere outside the config dir (how an installer links it in)."""
+    if f.kind != "skill" or not f.folder.is_symlink():
+        return None
+    target = f.folder.resolve()
+    return None if target.is_relative_to(f.config_dir.resolve()) else target
+
+
 def from_lockfile(f: Found) -> str | None:
-    return (f.lock.get(f.folder.resolve().name) or f.lock.get(f.folder.name)) if f.kind == "skill" else None
+    """Only a linked skill is looked up, so a plain folder that shares a name with a lock entry gets nothing."""
+    target = _linked(f)
+    return (f.lock.get(target.name) or f.lock.get(f.folder.name)) if target else None
 
 
 def from_symlink(f: Found) -> str | None:
-    """A skill folder outside the config dir, linked in from `<installer>/skills/<name>`: the installer folder name, no leading dot."""
-    if f.kind != "skill":
+    """A skill linked in from `~/.<installer>/skills/<name>`: the installer folder name without its dot. Other folders (which may
+    be private names) and home itself give nothing."""
+    target = _linked(f)
+    if not target or target.parent.name != "skills":
         return None
-    target = f.folder.resolve()
-    if target.is_relative_to(f.config_dir.resolve()) or target.parent.name != "skills":
+    installer = target.parent.parent
+    if installer.parent != Path.home().resolve() or not installer.name.startswith("."):
         return None
-    return clean(target.parent.parent.name.lstrip("."), f.secrets)
+    return clean(installer.name.lstrip("."), f.secrets)
 
 
 def from_frontmatter(f: Found) -> str | None:

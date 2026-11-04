@@ -13,6 +13,7 @@ PLANT = "sk-ant-PLANTED"
 @pytest.fixture(autouse=True)
 def quiet(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))  # Path.home() is the invented home the tests build under
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr("constellation.cli._local_embedder", lambda: None)
 
@@ -68,20 +69,40 @@ def test_lockfile_is_found_by_the_name_of_the_folder_the_link_points_at(tmp_path
 )
 def test_an_unsafe_or_wrong_typed_source_is_dropped(tmp_path, source):
     config, lock = _setup(tmp_path)
-    _lock(lock, {"plain": {"source": source}})
+    _lock(lock, {"pat-one": {"source": source}})
 
-    assert _origins(scan(config, offline=True, lockfile=lock))["plain"] is None
+    assert _origins(scan(config, offline=True, lockfile=lock))["pat-one"] == "agents"  # no lock origin; falls to the installer name
 
 
-def test_a_long_source_is_capped_at_60_characters(tmp_path):
+def test_a_source_of_60_characters_is_kept_and_61_is_dropped_whole_never_truncated(tmp_path):
     config, lock = _setup(tmp_path)
-    _lock(lock, {"plain": {"source": "a" * 61}})
+    _lock(lock, {"pat-one": {"source": "a" * 60}, "pat-two": {"source": "a" * 61}})
 
-    assert _origins(scan(config, offline=True, lockfile=lock))["plain"] == "a" * 60
+    got = _origins(scan(config, offline=True, lockfile=lock))
+
+    assert got["pat-one"] == "a" * 60
+    assert got["pat-two"] == "agents"
+
+
+def _crossing_secrets():
+    return ["ghp_" + "aB3dE5gH" * 4 + "7jK9", "sk-ant-" + "A1b2C3d4" * 4, "plainsecretvalue"]
+
+
+@pytest.mark.parametrize("secret", _crossing_secrets())
+@pytest.mark.parametrize("lead", [20, 40, 57])
+def test_a_secret_crossing_the_cap_leaves_no_fragment(tmp_path, secret, lead):
+    config, lock = _setup(tmp_path)
+    (config / "settings.json").write_text(json.dumps({"env": {"K": "plainsecretvalue"}}))
+    _lock(lock, {"pat-one": {"source": "a" * lead + secret}})
+
+    result = scan(config, offline=True, lockfile=lock)
+
+    assert _origins(result)["pat-one"] == "agents"
+    assert secret[:8] not in json.dumps(result, default=lambda o: o.__dict__)
 
 
 @pytest.mark.parametrize(
-    "text", ["not json", "[1]", '{"skills": 3}', '{"skills": {"plain": "x"}}', '{"skills": {"plain": {"source": {}}}}']
+    "text", ["not json", "[1]", '{"skills": 3}', '{"skills": {"pat-one": "x"}}', '{"skills": {"pat-one": {"source": {}}}}']
 )
 def test_an_unknown_lockfile_shape_gives_no_origin_and_no_crash(tmp_path, text):
     config, lock = _setup(tmp_path)
@@ -89,7 +110,7 @@ def test_an_unknown_lockfile_shape_gives_no_origin_and_no_crash(tmp_path, text):
 
     result = scan(config, offline=True, lockfile=lock)
 
-    assert _origins(result)["plain"] is None
+    assert _origins(result)["pat-one"] == "agents"
     assert text.startswith("not json") == any(w == "could not read skill lock: unreadable or not valid JSON" for w in result.warnings)
 
 
@@ -101,17 +122,28 @@ def test_a_missing_lockfile_is_silent(tmp_path):
     assert not any("skill lock" in w for w in result.warnings)
 
 
-def test_no_origins_skips_every_origin_and_never_opens_the_lockfile(tmp_path):
+def test_no_origins_skips_every_origin_and_never_reads_the_lockfile(tmp_path, monkeypatch):
     config, lock = _setup(tmp_path)
     _lock(lock, {"pat-one": {"source": "pat/skills"}})
-    lock.chmod(0)  # reading it would fail loudly
-    try:
-        result = scan(config, offline=True, lockfile=lock, origins=False)
-    finally:
-        lock.chmod(0o600)
+
+    def boom(*args):
+        raise AssertionError("the lockfile was read")
+
+    monkeypatch.setattr("constellation.claude_code.read_lock", boom)
+    result = scan(config, offline=True, lockfile=lock, origins=False)
 
     assert {i.origin for i in result.items} == {None}
-    assert not result.warnings or not any("skill lock" in w for w in result.warnings)
+
+
+def test_the_conftest_guard_refuses_the_real_agents_folder():
+    import os
+    import pwd
+    from pathlib import Path
+
+    import constellation.origins as origins
+
+    with pytest.raises(AssertionError, match="forbidden"):
+        origins.read_lock(Path(pwd.getpwuid(os.getuid()).pw_dir).resolve() / ".agents" / ".skill-lock.json", set())
 
 
 def test_a_symlinked_skill_with_no_lockfile_falls_back_to_the_installer_folder_name(tmp_path):
@@ -122,14 +154,15 @@ def test_a_symlinked_skill_with_no_lockfile_falls_back_to_the_installer_folder_n
 
 def test_a_symlink_back_into_the_config_dir_has_no_origin(tmp_path):
     config, lock = _setup(tmp_path)
-    (config / "skills" / "alias").symlink_to(config / "skills" / "plain")
+    (config / "skills" / "zalias").symlink_to(config / "skills" / "plain")  # sorts last, so its Item is the one read
 
     assert _origins(scan(config, offline=True, lockfile=lock)).get("plain") is None
 
 
 def test_frontmatter_repository_is_the_last_fallback_and_urls_reduce_to_owner_repo(tmp_path):
     config, lock = _setup(tmp_path)
-    _skill(config / "skills", "a", extra="repository: https://github.com/owner/repo.git\n")
+    _skill(lock.parent / "skills", "a", extra="repository: https://github.com/owner/repo.git\n")
+    (config / "skills" / "a").symlink_to(lock.parent / "skills" / "a")
     _skill(config / "skills", "b", extra="repo: owner/other\n")
     _skill(config / "skills", "c", extra="repository: 7\n")
     _lock(lock, {"a": {"source": "from/lock"}})
@@ -139,10 +172,10 @@ def test_frontmatter_repository_is_the_last_fallback_and_urls_reduce_to_owner_re
     assert got["a"] == "from/lock"  # the lockfile outranks the frontmatter
     assert got["b"] == "owner/other"
     assert got["c"] is None
-    (config / "skills" / "a" / "SKILL.md").unlink()
-    _skill(config / "skills", "a", extra="repository: https://github.com/owner/repo.git\n")
     lock.unlink()
-    assert _origins(scan(config, offline=True, lockfile=lock))["a"] == "owner/repo"
+    assert _origins(scan(config, offline=True, lockfile=lock))["a"] == "agents"  # the installer folder outranks the frontmatter
+    _skill(config / "skills", "d", extra="repository: https://github.com/owner/repo.git\n")
+    assert _origins(scan(config, offline=True, lockfile=lock))["d"] == "owner/repo"
 
 
 def test_plugin_contents_and_the_plugin_itself_carry_the_plugin_name_and_synced_skills_say_claude_ai(tmp_path):
@@ -224,9 +257,9 @@ def test_the_public_snapshot_drops_origin():
 def test_a_source_equal_to_a_configured_secret_is_dropped(tmp_path):
     config, lock = _setup(tmp_path)
     (config / "settings.json").write_text(json.dumps({"env": {"K": "plainsecretvalue"}}))
-    _lock(lock, {"plain": {"source": "plainsecretvalue"}})
+    _lock(lock, {"pat-one": {"source": "plainsecretvalue"}})
 
-    assert _origins(scan(config, offline=True, lockfile=lock))["plain"] is None
+    assert _origins(scan(config, offline=True, lockfile=lock))["pat-one"] == "agents"
 
 
 def test_the_lockfile_is_for_skills_not_agents(tmp_path):
@@ -262,8 +295,8 @@ def test_a_link_must_point_at_an_installer_skills_folder_outside_the_config_dir(
 
 def test_the_installer_name_loses_only_its_leading_dots(tmp_path):
     config, lock = _setup(tmp_path)
-    _skill(tmp_path / ".Xpack" / "skills", "thing")
-    (config / "skills" / "thing").symlink_to(tmp_path / ".Xpack" / "skills" / "thing")
+    _skill(tmp_path / "home" / ".Xpack" / "skills", "thing")
+    (config / "skills" / "thing").symlink_to(tmp_path / "home" / ".Xpack" / "skills" / "thing")
 
     assert _origins(scan(config, offline=True, lockfile=lock))["thing"] == "Xpack"
 
@@ -273,3 +306,96 @@ def test_a_repository_url_loses_only_slashes_and_the_git_suffix(tmp_path):
     _skill(config / "skills", "u", extra="repository: https://host.example/Xowner/repoX/\n")
 
     assert _origins(scan(config, offline=True, lockfile=lock))["u"] == "Xowner/repoX"
+
+
+def test_a_plain_folder_sharing_a_name_with_a_lock_entry_gets_nothing_from_the_lockfile(tmp_path):
+    config, lock = _setup(tmp_path)
+    _lock(lock, {"plain": {"source": "not/mine"}})
+
+    assert _origins(scan(config, offline=True, lockfile=lock))["plain"] is None
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "\u0440at/skills",
+        "\uff50at/skills",
+        "x-access-token@github.com/o/r",
+        ".ssh/id_rsa",
+        "Users/eshan/dev/private",
+        "a/b/c/d",
+        "a@b",
+        "@",
+    ],
+)
+def test_lookalike_credential_and_path_shaped_sources_are_dropped(tmp_path, source):
+    config, lock = _setup(tmp_path)
+    _lock(lock, {"pat-one": {"source": source}})
+
+    assert _origins(scan(config, offline=True, lockfile=lock))["pat-one"] == "agents"
+
+
+def test_an_npm_scope_prefix_is_allowed(tmp_path):
+    config, lock = _setup(tmp_path)
+    _lock(lock, {"pat-one": {"source": "@scope/pkg"}})
+
+    assert _origins(scan(config, offline=True, lockfile=lock))["pat-one"] == "@scope/pkg"
+
+
+def test_the_symlink_fallback_names_only_a_dot_folder_directly_under_home(tmp_path):
+    config, lock = _setup(tmp_path)
+    home = tmp_path / "home"
+    for where in (home / "work" / "acme-internal", home / ".deep" / "er", home):
+        _skill(where / "skills", f"s-{where.name}")
+        (config / "skills" / f"s-{where.name}").symlink_to(where / "skills" / f"s-{where.name}")
+
+    got = _origins(scan(config, offline=True, lockfile=lock))
+
+    assert [got[n] for n in ("s-acme-internal", "s-er", "s-home")] == [None, None, None]
+    assert set(got.values()) <= {None, "agents"}
+
+
+def test_a_lockfile_nested_past_the_recursion_limit_warns_and_does_not_crash(tmp_path):
+    config, lock = _setup(tmp_path)
+    lock.write_text("[" * 200000)
+
+    result = scan(config, offline=True, lockfile=lock)
+
+    assert "could not read skill lock: unreadable or not valid JSON" in result.warnings
+    assert _origins(result)["pat-one"] == "agents"
+
+
+def test_a_lockfile_that_cannot_be_read_warns_and_does_not_crash(tmp_path):
+    config, lock = _setup(tmp_path)
+    lock.mkdir()  # a directory is not a regular file: no warning, no crash
+    assert not any("skill lock" in w for w in scan(config, offline=True, lockfile=lock).warnings)
+    lock.rmdir()
+    lock.write_text("{}")
+    lock.chmod(0)
+    try:
+        result = scan(config, offline=True, lockfile=lock)
+    finally:
+        lock.chmod(0o600)
+
+    assert "could not read skill lock: unreadable or not valid JSON" in result.warnings
+
+
+def test_installer_folders_that_are_not_dot_folders_under_home_give_nothing(tmp_path):
+    config, lock = _setup(tmp_path)
+    for where in (tmp_path / ".Xother", tmp_path / "home" / "plainpack"):  # a dot-folder elsewhere, and a plain folder directly under home
+        _skill(where / "skills", f"t-{where.name.strip('.')}")
+        (config / "skills" / f"t-{where.name.strip('.')}").symlink_to(where / "skills" / f"t-{where.name.strip('.')}")
+
+    got = _origins(scan(config, offline=True, lockfile=lock))
+
+    assert got["t-Xother"] is None and got["t-plainpack"] is None
+
+
+def test_a_skills_folder_that_is_itself_a_link_is_not_a_linked_skill(tmp_path):
+    config, lock = _setup(tmp_path)
+    _skill(lock.parent / "skills", "viafolder")
+    (config / "skills").rename(config / "skills-old")
+    (config / "skills").symlink_to(lock.parent / "skills")  # the skills dir is the link; each skill folder inside is a real folder
+    _lock(lock, {"viafolder": {"source": "no/lock"}})
+
+    assert _origins(scan(config, offline=True, lockfile=lock))["viafolder"] is None

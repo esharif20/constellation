@@ -48,4 +48,5 @@ def no_real_lockfile(tmp_path_factory, monkeypatch):
         assert not Path(path).resolve().is_relative_to(forbidden), "real ~/.agents forbidden"
         return original(path, secrets)
 
+    monkeypatch.setattr(origins, "read_lock", guarded)
     monkeypatch.setattr(claude_code, "read_lock", guarded)

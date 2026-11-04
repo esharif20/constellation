@@ -374,3 +374,12 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Privacy: origin is not an input to `classify`, `verify`, embed or count, and `chat`/`retrieve` copy named fields only. Tests assert a marker origin is absent from every LLM prompt and embedder text, and from `--dry-run` output. `snapshot()` is an allowlist and drops it (tested). `README.md` gains the table "Files Constellation reads".
 - Tests never touch the real `~/.agents`: `conftest.py` points `DEFAULT_LOCKFILE` at an absent tmp path and fails any `read_lock` under the real one. Warning prefix added to `model.ts` `RULES` and `test_warning_contract.py`. `origins.py` added to `only_mutate`.
 - Not done: frontend display (#52c), common-token cluster names (#52b). Needs the Opus privacy review before merge.
+
+### #52a Opus privacy review fixes (2026-11-04)
+
+- HIGH: `clean` now checks the whole stripped value (length at most 60, unchanged by redaction, matches the pattern) and drops it otherwise; it never truncates, so a secret crossing character 60 leaves no fragment. Tested with an env secret, `ghp_` and `sk-ant-` tokens at three offsets.
+- MEDIUM: the symlink fallback names only a dot-folder directly under the home folder (for example `~/.agents`); other folders (`~/work/acme-internal`), nested dot-folders and home itself give no origin.
+- Pattern: ASCII only, up to three segments, `@` only as a leading npm-style scope, no segment starting with a dot. Rejects Cyrillic/fullwidth lookalikes, `x-access-token@github.com/o/r`, `.ssh/id_rsa`, `Users/eshan/dev/private`.
+- Lockfile read: one `try` around `is_file`, read and parse, catching `OSError`, `ValueError` and `RecursionError` into the fixed warning. Tested with deep nesting and an unreadable file.
+- The lockfile is consulted only for a skill folder that is a symlink pointing outside the config dir. A plain folder sharing a name with a lock entry gets nothing.
+- `--no-origins` test monkeypatches `read_lock` to raise; the conftest guard now wraps both `origins.read_lock` and `claude_code.read_lock` (and a test proves it refuses the real `~/.agents`).
