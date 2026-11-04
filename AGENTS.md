@@ -4,8 +4,9 @@ Project: Constellation, a local FastAPI + LangGraph app that scans a Claude Code
 
 ## Hard rules (privacy and cost)
 - Never read, print or send the `.env` file or any secret. Never read the real `~/.claude` (tests use fixtures and temp dirs; `tests/conftest.py` redirects caches). Never read the process environment for secrets.
-- Privacy invariant: only Item kinds, names and descriptions (plus short local signals) are ever sent to a provider, always after redaction (`guarded*` wrappers in `src/constellation/__init__.py`). File bodies and transcript text never leave the machine, except the opt-in `--count-bodies`. Anything that would send more needs the user's approval first.
-- Cost rule: free by default. Local work first; paid calls only for new or changed Items, cached by hash of the redacted text in 0600 files; an unwritable cache is a warning, not a crash.
+- Privacy invariant: scan providers receive only Item kinds, names and descriptions (plus short local signals), always after redaction (`guarded*` wrappers in `src/constellation/__init__.py`). File bodies and transcript text never leave the machine, except the opt-in `--count-bodies`. Anything that would send more needs the user's approval first.
+- Cost rule: free by default. Local work first; paid scan calls only for new or changed Items, cached by hash of the redacted text in 0600 files; an unwritable cache is a warning, not a crash.
+- Chat exception (user approved 2026-11-04): model chat remains disabled by default; explicit opt-in permits redacted questions and bounded relevant Item/graph metadata with per-interaction calls. Local work first, bounded requests and private caching; never send transcript text, usage counts/dates, file bodies or credentials, and never fall back from local to paid chat automatically. See `docs/plans/chat.md` for the approved boundaries and proposed cost architecture.
 - Never commit real scan data, real setup names, or screenshots of a real scan. Demo data only (`docs/design/demo*.json`).
 - The app never edits the user's Claude setup.
 

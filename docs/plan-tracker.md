@@ -106,3 +106,10 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - Proposed contract in `docs/plans/chat.md`; no implementation or provider calls yet. Retrieval and graph actions use known Item ids and public API tests with a fake model.
 - Integrate after #25's server/UI changes; Expansion delegates to #9. Real-model chat needs an explicit privacy/cost decision about redacted questions and per-interaction calls, since the existing policy only permits Item metadata/short local signals and changed-Item costs.
+
+## #11 opt-in and cost research (2026-11-04)
+
+- User approved model chat with redacted questions and bounded relevant graph metadata, disabled by default, and per-interaction calls under a strict cheap/local-first requirement. Hardware: M1 Mac, 16GB unified memory. AGENTS.md and CLAUDE.md record this limited exception; no paid calls, model downloads or real setup reads were made.
+- Research and arithmetic are in `docs/research/chat-models.md`: optional qwen3:4b/Ollama local trial, existing Haiku 5.5 hosted option, and no extra hosted SDK merely for marginal savings. Current official rates imply about $0.275/1000 answers at 1500 input +250 total output tokens; this is an illustrative estimate, not actual spend or a dollar cap.
+- Revised `docs/plans/chat.md`: deterministic zero-call tools, small metadata retrieval rather than a new vector database, bounded prompt/output, private answer caching, no automatic hosted fallback, and transport-level retry/call-count tests. Usage remains local-only, preserving #20.
+- D12 amendment proposed, not implemented: fixed local retrieval plus at most one synthesis call instead of the initial prebuilt multi-step agent. The existing approval rule requires resolving that architecture change before provider-backed source implementation. This commit records research/design only; #11 remains open and local performance/answer quality are unverified.
