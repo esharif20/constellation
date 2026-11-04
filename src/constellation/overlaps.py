@@ -87,7 +87,7 @@ def candidates(items: list[Item], vectors: dict[str, list[float]], decided: set[
                 scores[min(item.id, other), max(item.id, other)] = similarity
     for a, b in combinations(eligible, 2):
         if a.name == b.name:
-            scores[a.id, b.id] = 1.0  # shortcut: ranks with the closest vectors; they are rare
+            scores[a.id, b.id] = 2.0  # above any cosine, so copies are checked first when the cap bites
     ranked = sorted((k for k in scores if frozenset(k) not in decided), key=lambda k: (-scores[k], k))
     warnings = (
         [f"checked the {MAX_PAIRS} most similar pairs; {len(ranked) - MAX_PAIRS} more were not checked"] if len(ranked) > MAX_PAIRS else []
@@ -101,7 +101,9 @@ MAX_REASON = 200
 
 
 def _headings(body: str) -> set[str]:
-    return {line.strip().lower() for line in body.splitlines() if line.lstrip().startswith("#")}
+    return {
+        line.strip().lower() for line in body.splitlines() if line.lstrip().startswith("#")
+    }  # pragma: no mutate  (lower/upper is equivalent: only equality is used)
 
 
 def _yes_no(flag: bool) -> str:
@@ -206,7 +208,7 @@ def verify(
         a, b = by_id[a_id], by_id[b_id]
         prompt = _prompt(a, b, bodies)
         key = hashlib.sha256(redact(prompt, known).encode()).hexdigest()
-        if cached := _parse(str(cache.get(key, ""))):
+        if key in cache and (cached := _parse(str(cache[key]))):
             overlaps.append(_overlap(a, b, cached))
         else:
             jobs.append({"a": a, "b": b, "prompt": prompt, "key": key})
