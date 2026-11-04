@@ -34,23 +34,23 @@ def snapshot(data: dict[str, Any]) -> dict[str, Any]:
         ],
         "relations": [
             {"source": source, "target": target, "kind": redact(r["kind"])}
-            for r in data.get("relations", [])
+            for r in data.get("relations") or []
             if (source := public_id(r.get("source"))) is not None and (target := public_id(r.get("target"))) is not None
         ],
-        "labels": {id_: redact(label) for ref, label in data.get("labels", {}).items() if (id_ := public_id(ref)) is not None},
+        "labels": {id_: redact(label) for ref, label in (data.get("labels") or {}).items() if (id_ := public_id(ref)) is not None},
         "clusters": [
             {"name": redact(c["name"]), "item_ids": members}
-            for c in data.get("clusters", [])
+            for c in data.get("clusters") or []
             if (members := [id_ for ref in c["item_ids"] if (id_ := public_id(ref)) is not None])
         ],
         "costs": {
             id_: {"always_on": _cost((c or {}).get("always_on")), "on_use": _cost((c or {}).get("on_use"))}
-            for ref, c in data.get("costs", {}).items()
+            for ref, c in (data.get("costs") or {}).items()
             if (id_ := public_id(ref)) is not None
         },
         "overlaps": [
             {"a_id": a_id, "b_id": b_id, "verdict": redact(o["verdict"]), "reason": redact(o["reason"])}
-            for o in data.get("overlaps", [])
+            for o in data.get("overlaps") or []
             if (a_id := public_id(o.get("a_id"))) is not None and (b_id := public_id(o.get("b_id"))) is not None
         ],
     }

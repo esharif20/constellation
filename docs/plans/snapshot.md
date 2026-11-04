@@ -8,7 +8,7 @@ Status: started; privacy foundation first, full export depends on #9 Expansion a
 - Drop usage and usage_window entirely, including nested copies. Activity dates are personal. Drop warnings and filesystem source provenance; allowlist public fields rather than copy arbitrary input fields.
 - Remap Item ids to deterministic opaque ids and update Relations, clusters, costs, Overlaps, tool-parent links and graph actions consistently. Unknown cost stays unknown; retain no original id in metadata.
 - The privacy foundation is a pure snapshot(data) transformation with fixture tests. Accept already-expanded mcp_tool Items as ordinary Items; do not pretend absent tools have been expanded. No MCP launches, model calls or environment/credential reads occur in this transformation.
-- Foundation public fields are `items`, `relations`, `labels`, `clusters`, `costs` and `overlaps`; every record is allowlisted too. Item `source` is an empty string for existing frontend compatibility. Opaque ids are ordinals assigned by sorted original id, with existing list order retained. Drop orphan/invalid references and empty clusters; malformed numeric costs become unknown, never private strings or nested data.
+- Foundation public fields are `items`, `relations`, `labels`, `clusters`, `costs` and `overlaps`; every record is allowlisted too. Item `source` is an empty string for existing frontend compatibility. Opaque ids are ordinals assigned by sorted original id, with existing list order retained. Drop orphan/invalid references and empty clusters; malformed numeric costs become unknown, never private strings or nested data. Missing or null optional collections are empty, matching existing saved-scan readers.
 
 ## Export and integration after the dependencies land
 

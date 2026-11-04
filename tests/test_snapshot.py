@@ -1,3 +1,5 @@
+import pytest
+
 from constellation.snapshot import snapshot
 
 
@@ -162,6 +164,18 @@ def test_snapshot_opaque_ids_are_repeatable_and_independent_of_input_order():
 
 def test_snapshot_empty_scan_has_only_the_public_schema():
     assert snapshot({"items": []}) == {
+        "items": [],
+        "relations": [],
+        "labels": {},
+        "clusters": [],
+        "costs": {},
+        "overlaps": [],
+    }
+
+
+@pytest.mark.parametrize("field", ["relations", "labels", "clusters", "costs", "overlaps"])
+def test_snapshot_treats_null_optional_collections_as_empty(field):
+    assert snapshot({"items": [], field: None}) == {
         "items": [],
         "relations": [],
         "labels": {},
