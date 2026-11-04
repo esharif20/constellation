@@ -1,6 +1,6 @@
 # Plan: grounded, inexpensive chat (#11)
 
-Status: user opt-in approved 2026-11-04; implementation not started. Chat stays disabled by default. Read issue #11, ADR 0001/0003, AGENTS.md and the [model research](../research/chat-models.md).
+Status: free-first implementation authorized 2026-11-04; 16GB unified memory is the supported baseline. Optional local generation comes later; no hosted provider is wired in the first version. Chat stays disabled by default. Read issue #11, ADR 0001/0003, AGENTS.md and the [model research](../research/chat-models.md).
 
 ## Approved privacy and cost exception
 
@@ -16,7 +16,7 @@ The user explicitly opts into model chat and accepts redacted questions plus rel
 
 Compute counts, top Context costs, known Overlaps, usage, search and graph focus/filter actions locally. Reuse brief(), report's ranking/usage helpers and known Item ids. Unknown cost stays unknown; a model never calculates totals or infers usage.
 
-The saved Constellation already is the knowledge base: current invented demos have 90 and 239 Items. Search names/descriptions/kinds and follow relevant Relations. Initially no new embeddings, vector database, chunking pipeline, paid reranker or external retrieval service. Retrieving this structured evidence before synthesis is lightweight RAG; that does not require a RAG platform.
+The saved Constellation already is the knowledge base: current invented demos have 90 and 239 Items. Search names/descriptions/kinds and follow relevant Relations. Use an in-memory SQLite FTS5 index over redacted Item names/descriptions/kinds with BM25 ranking, explicit exact-name priority and stable id tie breaks. No new embeddings, vector extension, chunking pipeline, paid reranker or external retrieval service in the first version. FTS input must be tokenized/quoted and bound as SQL parameters; never execute user-supplied FTS syntax or SQL. SQLite connections must close after use. Retrieving this structured evidence before synthesis is lightweight RAG; that does not require a RAG platform.
 
 ## Proposed initial budgets and model choices
 
@@ -29,9 +29,18 @@ These are implementation recommendations, not measurements of real usage or M1 p
 - Local option: an explicitly configured Ollama loopback server with a small quantized model, initially qwen3:4b and a 4096-token context. On the user's 16GB M1 this is a conservative starting trial, not a verified fit/quality/speed guarantee. One request at a time; never choose a cloud model through Ollama implicitly.
 - Hosted option: reuse the existing Anthropic dependency and claude-haiku-5-5 with a chat-specific low-output/no-retry adapter. Current small-prompt rates are $0.10/M input and $0.50/M output; 1500 input plus 250 total output tokens is about $0.000275, or $0.275 per 1000 uncached answers. This arithmetic is not a dollar ceiling or a substitute for actual returned usage accounting. Do not enable a second hosted provider for a negligible price difference.
 
-## D12 architecture proposal before implementation
+## D12: free-first implementation and local generation later
 
-The existing tracker specifies prebuilt create_react_agent, possibly replaced by StateGraph later. An ordinary tool-calling loop can require several model completions. To make the per-question ceiling provable, recommend a fixed LangGraph route: deterministic local tools/retrieval, then an optional single synthesis node, then local answer/action validation. This changes D12's initial implementation choice. It is proposed here, not silently implemented; resolve this plan change before writing the provider-backed chat graph. The user has already approved the input/billing exception above, so do not ask for that opt-in again.
+The user's latest direction is to run free first, with optional fully local generation later and a 16GB baseline. This authorizes the staged fixed workflow in place of the initial prebuilt multi-call agent: local intent routing/retrieval, deterministic local answers, known-id graph actions. Use the existing LangGraph dependency to express the fixed workflow, with no model node enabled in this stage. The later local synthesis node remains bounded to one attempt; hosted research is retained only as a comparison and is deferred, not an automatic fallback. Do not ask for the already granted chat opt-in again.
+
+## First free version contract
+
+- POST /api/chat body: {question: string (1–1000 characters, nonblank), selected_ids?: string[] (max 8)}; extra fields forbidden. Unknown selected ids are rejected. Reuse local_only for Host/Origin/fetch-site/JSON guards.
+- Return {answer: string, actions: [{kind: "highlight"|"focus"|"filter", item_ids: string[]}], mode: "local", cached: boolean}. Every action id must exist in the current scan. Do not fabricate tool output, model explanations or unsupported semantic matches.
+- Answer top costs, known duplicate/wrapper pairs, usage/never-seen queries, search and selected/named Item explanations with local data. Explain capabilities honestly when no supported match exists. Keep replies short, e.g. at most five named results plus a brief omitted-results note.
+- Cache only bounded local responses in memory, keyed by the redacted question, selection and relevant current-data fingerprint. Include usage in local-answer invalidation where needed; no raw questions, transcripts or query logs are written to disk. No disk retrieval index is required at this size.
+- UI: a collapsed-by-default local chat panel, labelled as free/local with models off. POST only on explicit submission; show answer and apply graph actions locally. Opening chat replaces Brief on the left; closing restores the established map flow. Respect the under-960 panel coexistence rule. Empty/loading/error/keyboard/focus behavior follows DESIGN.md. No provider picker or enabled paid/local-model setting is added before an adapter actually exists.
+- Root coordinates API schema/shared server/Atlas integration. Backend owns chat.py and public HTTP tests; UI owns Chat.tsx and its Atlas/map/type hooks. No actual model/MCP calls or model downloads during development.
 
 ## API, tests and completion
 
