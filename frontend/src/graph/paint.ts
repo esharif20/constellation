@@ -295,6 +295,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
 
     const named: [number, GNode, number][] = [];
     for (const n of model.nodes) {
+      if (lit && !lit.has(n)) continue; // a dimmed star's name at 10% alpha is only noise over the lit ones
       const start = 1.3 - Math.min(0.9, Math.max(0, n.degree - 1) * 0.15); // hubs are named at the fitted view, leaves from 1.3x
       let a = clamp01((z - start) / 0.35) * n.a;
       if (lit?.has(n) && n.a > 0.5) a = Math.max(a, n === f ? 1 : 0.85);

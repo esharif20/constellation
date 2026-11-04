@@ -51,7 +51,7 @@ def chat(tmp_path, monkeypatch):
         "costs": {"mail": {"always_on": 400, "on_use": 800}, "draft": {"always_on": 20, "on_use": None}},
         "overlaps": [{"a_id": "mail", "b_id": "draft", "verdict": "duplicate", "reason": "Both draft email"}],
         "usage": {"mail": {"count": 2}, "draft": {"count": 0}},
-        "usage_window": {"files": 3, "first": "2026-10-01", "last": "2026-11-01"},
+        "usage_window": {"files": 3, "first": "2026-10-01", "last": "2026-11-01", "skipped": 0},
     }
     path = tmp_path / "scan.json"
     path.write_text(json.dumps(data))
@@ -121,14 +121,15 @@ def test_known_duplicate_and_wrapper_pairs(chat):
 def test_usage_and_never_seen_stay_local_with_window(chat):
     result = ask(chat, "Which Items were never used?")
     assert (
-        result["answer"] == "Never seen in the scanned transcripts:\n- draft\nCovers 3 transcript files from 2026-10-01 to 2026-11-01. "
-        "Sessions Claude Code has already deleted are not counted, so 'never seen' only covers these."
+        result["answer"] == "Never seen in the scanned transcripts:\n- draft\n"
+        "Covers 3 transcript files from 2026-10-01 to 2026-11-01 (32 days); 0 files skipped. "
+        "Claude Code deletes old transcripts, so 'never seen' covers only these files and is not proof an Item is unused."
     )
     assert result["actions"] == [{"kind": "highlight", "item_ids": ["draft"]}]
     assert (
         ask(chat, "Show usage")["answer"] == "Recorded usage:\n- draft: 0 uses\n- mail-helper: 2 uses\n- unknown: usage unknown\n"
-        "Covers 3 transcript files from 2026-10-01 to 2026-11-01. "
-        "Sessions Claude Code has already deleted are not counted, so 'never seen' only covers these."
+        "Covers 3 transcript files from 2026-10-01 to 2026-11-01 (32 days); 0 files skipped. "
+        "Claude Code deletes old transcripts, so 'never seen' covers only these files and is not proof an Item is unused."
     )
     chat[2]["usage"]["draft"]["count"] = 4
     chat[1].write_text(json.dumps(chat[2]))
@@ -136,6 +137,14 @@ def test_usage_and_never_seen_stay_local_with_window(chat):
     chat[2].pop("usage_window")
     chat[1].write_text(json.dumps(chat[2]))
     assert ask(chat, "Show usage")["answer"] == "Usage was not read in this scan."
+
+
+def test_chat_preserves_current_scan_usage_coverage_and_skipped_files(chat):
+    chat[2]["usage_window"]["skipped"] = 2
+    chat[1].write_text(json.dumps(chat[2]))
+    result = ask(chat, "Show usage")
+    assert "from 2026-10-01 to 2026-11-01 (32 days); 2 files skipped" in result["answer"]
+    assert "not proof an Item is unused" in result["answer"]
 
 
 def test_selected_followup_and_named_explanation(chat):

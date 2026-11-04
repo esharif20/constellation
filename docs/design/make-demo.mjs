@@ -54,6 +54,17 @@ for (const [verdict, count, reason] of [["duplicate", 8, "Same steps and trigger
   }
 }
 overlaps.sort((p, q) => p.a_id.localeCompare(q.a_id) || p.b_id.localeCompare(q.b_id));
+// Usage and hook weights come from a third seeded stream, so every name, Relation and Overlap above stays unchanged.
+// Only skills and agents get a usage entry (hooks and plugins are not tracked, which is different from count 0).
+let seed3 = 23;
+const rnd3 = () => ((seed3 = (seed3 * 1664525 + 1013904223) % 4294967296) / 4294967296);
+const usage = {}, hook_weights = {};
+const day = (back) => new Date(Date.UTC(2026, 10, 4) - back * 864e5).toISOString().slice(0, 10);
+for (const it of items) {
+  if (it.kind === "skill" || it.kind === "agent") usage[it.id] = rnd3() < 0.28 ? { count: 0, last_used: null } : { count: 1 + Math.floor(rnd3() * rnd3() * 60), last_used: day(Math.floor(rnd3() * 30)) };
+  if (it.kind === "hook") { const r = rnd3(); hook_weights[it.id] = r < 0.25 ? { bytes: null, tokens: null } : r < 0.6 ? { bytes: 400 + Math.floor(rnd3() * 5000), tokens: null } : (b => ({ bytes: b, tokens: Math.round(b / 3.6) }))(400 + Math.floor(rnd3() * 5000)); }
+}
+const usage_window = { files: 132, first: "2026-10-05", last: "2026-11-04", skipped: 0 };
 const fixed = relations.filter((r) => r.source !== r.target);
-fs.writeFileSync(new URL("demo-250.json", import.meta.url), JSON.stringify({ items, relations: fixed, labels, clusters, costs, overlaps, warnings: [] }, null, 1) + "\n");
+fs.writeFileSync(new URL("demo-250.json", import.meta.url), JSON.stringify({ items, relations: fixed, labels, clusters, costs, overlaps, hook_weights, usage, usage_window, warnings: [] }, null, 1) + "\n");
 console.log(overlaps.length, "overlaps,", items.length, "items", fixed.length, "relations", clusters.length, "clusters");

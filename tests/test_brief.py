@@ -97,7 +97,7 @@ def test_reasons_redact_names_and_verdict_text(data):
 
 def test_unused_suggestions_do_not_displace_pairs(data):
     data["usage"] = {i["id"]: {"count": 0, "last_seen": None} for i in data["items"]}
-    data["usage_window"] = {"files": 5, "first": "2026-01-01", "last": "2026-02-01"}
+    data["usage_window"] = {"files": 5, "first": "2026-01-01", "last": "2026-02-01", "skipped": 0}
     assert any(s.kind == "remove_unused" for s in suggest(data))
     assert [r["kind"] for r in brief(data, top=1)["pairs"]["rows"]] == ["remove_duplicate"]
 

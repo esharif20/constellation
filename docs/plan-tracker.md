@@ -134,3 +134,36 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Final combined gates: Ruff check and format check, mypy (20 source files), pytest (510 passed, 2 eval tests deselected), all 3,256 mutants killed with `mutmut results` empty, and frontend lint/build/layout passed. The first broad mutation run had two suspicious pre-existing brief/usage results; forcing those individually killed both, with no source/test exemptions added for them.
 - Demo-only integrated browser verification used the compiled UI with the real local Python API: grounded cost answers, selected Item explanations at 700px, graph actions, explicit-submit request counting (zero on open/type, one on submit), 390px/desktop layouts and no page errors. The remote/static guard separately proved zero serialization and zero requests; localhost/127.0.0.1 and older-local-API fallback were checked. Independent final security review confirmed both findings resolved.
 - Not verified: optional local-model memory/latency/quality on an actual M1, semantic retrieval accuracy, real scans, Safari/Firefox, physical touch or screen readers. No model adapter or download was added, nothing was pushed, and no issue was closed.
+
+## Inspector usage and session-start weight (2026-11-04, branch `worktree-agent-a1538319abfe9e181`)
+
+- Frontend only. `model.ts` gets optional `usage`, `usage_window`, `hook_weights` types; `Inspector.tsx` gets a Usage panel: "N uses, last D" or "Never seen in the N transcripts scanned" (count 0, from the window), "not tracked" for kinds with no usage entry (hooks, plugins; different from 0), and for prompt-time hooks a Session-start weight row (bytes; tokens or "tokens not counted"; "unknown" when bytes unknown, never 0).
+- Unused-by-cost list in the Brief: **skipped by design**. `first-screen.md` keeps `remove_unused` out of the Brief pair list and the Brief API (`brief()`) carries no unused rows; adding one needs a server and plan change (a follow-up ticket), not a client-side ranking.
+- Demo: `docs/design/make-demo.mjs` adds invented `usage`, `usage_window`, `hook_weights` to `demo-250.json` from a third seeded stream (existing names, Relations and Overlaps unchanged).
+- #13 reminder: public Snapshots must still drop `usage`/`usage_window` (the inspector shows nothing for them when absent).
+- Not verified: real scans, Safari/Firefox, screen readers.
+
+## #26 usage reader trustworthiness (2026-11-04, branch `worktree-agent-a5b2432b72409ecbc`)
+
+- Real-scan evidence from the user (counts only): 122 malformed lines, 1 skipped file, 86 files over 2026-11-01..2026-11-04, 23 Items with usage, 171 never seen.
+- 1. Records with no top-level `message`, or whose `type` is not `user`/`assistant`, give no matches and are not counted malformed; only prefiltered lines can count as malformed.
+- 2. Ambiguity is decided per name lookup: two clear slash commands in one message no longer warn; an ambiguous name beside a clear one still does.
+- 3. The skipped-files warning splits the reason: `N files (B too big, U unreadable)`, counts only. The report note gives the day span and skipped count and says Claude Code deletes old transcripts, so 'never seen' is not proof of non-use; the `remove_unused` reason (shown by `review`) carries the same caveat. No `cli.py` change was needed.
+- 4. The config dir is resolved once before pinning, so a symlinked config dir is read; a symlinked `projects/` is still refused.
+- 5. Window dates come from each record's top-level `timestamp` only (every line is parsed for it); undated windows print no `None to None`.
+- Gates: Ruff check/format, mypy, 459 tests (2 paid/eval deselected), mutmut 2,573 killed, results empty. No paid calls; no real transcripts read.
+- Not verified: the real record shapes. After merge the user reruns a real scan to confirm the malformed count drops to zero or near it.
+
+## #23 taste review (2026-11-04, branch `worktree-agent-a9082504e2a9f29e3`)
+
+- Done: inspector (`--app`) and look-and-fix loop at 1440 and 390 on demo data only; before/after in `docs/design/screenshots/23-*`. Fixes: unlit star names hidden while something is lit (`paint.ts`), atlas marks on empty and failed states, nowrap code pill. No deviations; no new dependencies or assets. Findings that conflict with DESIGN.md or the star-atlas direction, and ideas not built, are recorded in `docs/design/graph-app.md`.
+- Gates: lint, build, `layout:check` (thresholds unchanged) and pytest (453 passed) pass.
+
+## Coordination and integration order (2026-11-04, user approved)
+
+- Codex and Claude take separate tickets/branches; distinct subtasks within one ticket use separate branches/worktrees and explicit ownership. Reserve Astra for critical or unusually complex debugging.
+- Stabilize repository metadata, integrate #11 and #12 while retaining the newer Inspector/usage/taste/phone-default changes, implement #9, finish #13, then prepare #14. #29 stays with Claude. #15 is deferred.
+- Cloud eviction affected Git objects, refs and worktree metadata. A separate recovery clone combines remote objects with checksum-verified resident local objects. Protected main/Claude29/#9/#11/#12/#13 histories are complete; a historical layout-plan docs tree was reconstructed to its exact original hash. Source edits and active indexes are preserved. Remaining unrecoverable placeholders require explicit reporting, not guessed branch targets.
+- #11 integration retains the first-visit phone Brief collapse from main alongside the collapsed Chat panel; documentation retains both agents' ticket histories. Combined integration gates passed: Ruff check/format, mypy, 517 tests (2 eval deselected), 3,288 mutants killed with results empty, frontend lint/build/layout. Two suspicious existing cluster/cost results were killed on isolated rerun. Demo browser verification retained the first-visit phone collapse, local usage coverage, selected explanations and Inspector usage display without page errors.
+
+- Repository recovery retained all 33 readable branch tips and 28 resident indexes byte-for-byte. Seven old unreadable branch-tip placeholders and four historical object placeholders remain unresolved and are preserved outside Git discovery paths; this is not a claim of complete historical recovery. Active protected histories are complete in a separate local recovery clone.

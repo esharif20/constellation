@@ -147,3 +147,21 @@ Below 960 px, opening Chat preserves selection as question context and hides the
 Automatic fits recompute their zoom limits before applying the camera, so a newly opened panel cannot be clipped by stale minimum zoom. Resize fitting remeasures after the panel's breakpoint animation settles. Manual zoom is preserved when panels toggle.
 
 Demo-only agent-browser checks covered 1440×900, 700×900 and 390×844, with full Brief rows, collapsed/open Chat, selected Item context, focus actions, invalid action ids, loading, reset, errors, unavailable API and Escape focus return. No chat request occurred on load, opening, selection or example choice. A manual zoom retained its exact camera transform after a panel toggle. Temporary screenshots are under `/tmp/constellation-ticket11-screenshots`; real API integration remains a separate check. Real touch, screen readers, Safari and Firefox remain unverified.
+## Taste review (#23)
+
+Run with the `design-taste-frontend` app-screen inspector (`inspect.mjs --app`, 1440/768/390) and its look-and-fix loop (agent-browser screenshots), on the real FastAPI server serving only `demo-250.json`, `demo.json` and `demo-offline.json`. No `assets.mjs`, no fetched assets. Before/after pairs are `screenshots/23-before-*.jpg` and `23-after-*.jpg` (desktop `desk` and phone): rest, inspector, search, Brief collapsed, small demo, warnings, offline, offline inspector, empty, failed, loading.
+
+**Fixed**
+- Dimmed stars kept their names at 10% alpha, so a selected or searched Item sat in a field of ghost labels overlapping each other. `paint.ts` now skips names of unlit stars while anything is lit. Edges were already dimmer than stars when unfocused (`fade * 0.5`), so reference idea 2 was already done.
+- Empty and failed states were bare text on an empty sky. They now carry the atlas marks: a static star (empty) and the hollow dashed ring that already means "unknown" on the map (failed).
+- `constellation open` in the failed state broke across lines inside its code pill; `Code` is now `whitespace-nowrap`.
+
+**Left, with reason**
+- Inspector `text-shadow` (wordmark glow) and `heavy-shadow` (`--shadow-float` on the inspector, Brief and popovers): both are DESIGN.md decisions (wordmark glow kept; only floating layers get a shadow). The shadow is on real overlays. Recorded, not applied.
+- `font-count` (Inter, Newsreader, JetBrains Mono): the type system in DESIGN.md. The inspector says two at most; the three roles are display, UI and numbers. Not applied.
+- `unused-canvas`: the canvas is full-bleed by design; no sidebar exists, so the metric does not apply.
+- `tiny-text` (48% of text under 13px): the canvas labels, mono ids and 12px captions follow the DESIGN.md scale; contrast on all of them is 5:1 or better. Raising them would change the density of the atlas; not applied.
+- Phone: the Brief bottom sheet is open on first load and covers about half the sky. That is the #25 "actionable first screen" decision, not a taste fix; consider starting collapsed on phones as a follow-up.
+- Search results popover can cover stars in the top-right corner; it is a normal popover and closes on Escape. Left.
+- Not done (reference ideas, each needs new UI or a product decision): interactive legend filter, size-by switch, ranked side lists beyond the Brief, hop depth keys, label density slider, bridge Items. The Brief figures are bare numbers; the section caption says tokens. Left.
+- Not verified: keyboard focus ring screenshots for every control, real touch, Safari and Firefox.

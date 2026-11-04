@@ -4,6 +4,9 @@ import { layout } from "./layout.ts";
 export type Item = { id: string; kind: string; name: string; description: string; source: string };
 export type Relation = { source: string; target: string; kind: string };
 export type Cost = { always_on: number | null; on_use: number | null };
+export type Usage = { count: number; last_used: string | null };
+export type UsageWindow = { files: number; first: string | null; last: string | null; skipped: number };
+export type Weight = { bytes: number | null; tokens: number | null };
 export type Constellation = {
   items: Item[];
   relations?: Relation[];
@@ -12,6 +15,9 @@ export type Constellation = {
   warnings?: string[];
   costs?: Record<string, Cost>;
   overlaps?: Overlap[];
+  usage?: Record<string, Usage>; // only skills, agents and MCP servers/connectors have an entry; no entry means not tracked, not 0
+  usage_window?: UsageWindow | null;
+  hook_weights?: Record<string, Weight>;
 };
 export type Verdict = "duplicate" | "wrapper" | "overlap" | "distinct";
 export type Overlap = { a_id: string; b_id: string; verdict: Verdict; reason: string };
@@ -30,6 +36,8 @@ export type GNode = Item & {
   unknown: boolean; // always-on cost not known (null or missing): drawn hollow, never as zero
   cluster?: Cluster;
   cost?: Cost;
+  usage?: Usage;
+  weight?: Weight;
   // simulation and animation state, mutated in place each frame (never React state)
   x?: number; y?: number; vx?: number; vy?: number; fx?: number; fy?: number;
   a: number; s: number; born: number;
@@ -40,7 +48,7 @@ export type GOverlap = { a: GNode; b: GNode; verdict: Exclude<Verdict, "distinct
 export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot: boolean };
 // la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
 export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; a: number; la: number; lx: number; ly: number; pick: number };
-export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; warnings: string[]; offline: boolean };
+export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; usageWindow: UsageWindow | null; warnings: string[]; offline: boolean };
 
 // Star radius from always-on cost, area-proportional (magnitude by area, not radius). cRef is the scan's 95th percentile,
 // so one huge MCP server cannot shrink everything else. Unknown cost gets its own middling size (and is drawn hollow).
@@ -71,7 +79,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   const tall = Math.max(0.55, Math.min(2, aspect)); // wide screens spread the clusters sideways, tall ones downwards
   const byId = new Map<string, GNode>();
   const nodes = data.items.map((it) => {
-    const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, unknown: false, cost: costs[it.id], a: 0, s: 1, born: 0, sx: 0, sy: 0 };
+    const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, unknown: false, cost: costs[it.id], usage: data.usage?.[it.id], weight: data.hook_weights?.[it.id], a: 0, s: 1, born: 0, sx: 0, sy: 0 };
     byId.set(n.id, n);
     return n;
   });
@@ -113,7 +121,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
     return [g];
   });
   layout(nodes, links, clusters, tall);
-  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, warnings: data.warnings ?? [], offline: (data.warnings ?? []).some((w) => w.startsWith("Offline")) };
+  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, usageWindow: data.usage_window ?? null, warnings: data.warnings ?? [], offline: (data.warnings ?? []).some((w) => w.startsWith("Offline")) };
 }
 
 // Search rank: name prefix, then name substring, then label substring; hubs first within a rank.
