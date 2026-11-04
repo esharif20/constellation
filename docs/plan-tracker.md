@@ -64,3 +64,11 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - `paint.ts`: only font loading changed (load canvas-only faces, clear the cluster-name width cache, extend the repaint window once fonts are ready). No colour literals changed.
 - Metrics: first-load JS 77.87 kB gzip (unchanged); latin font files on first view about 116 KB (Inter 48, Newsreader 22+24, JetBrains Mono 21), under the 130 KB budget; fontsource also emits other unicode-range subsets, fetched only on demand.
 - Not verified: inspector, warnings popover, empty/failed/loading and focus-state screenshots, offline reload, and `layout:check` with the real fonts (the script uses its own measurements, so cluster-name fit with Newsreader needs an eye check).
+
+## Approvals and state, 2026-11-04 (user)
+
+- **Deviation approved:** #25 adds `POST /api/checklist` (one row into a private 0600 checklist file under `~/.cache/constellation/`; never edits the user's setup; id-only input; localhost-only) and a localhost-address check on `GET /api/constellation` too. See `docs/plans/first-screen.md`.
+- Approved earlier today: primary hover `#5560cc` (AA contrast), Newsreader as the serif.
+- Merged to main: #24 (design system), #10 canvas half and panel half (needs closing comment after review).
+- Plans written, not built: `docs/plans/first-screen.md` (#25), `docs/plans/usage.md` (#20; #13 must drop or coarsen usage dates in the public Snapshot).
+- Order to finish: #25, #20 (Opus security review of the diff), #21 (in flight), #9, #11, then #12, #13, #23; defer #14, #15, #18, #22.
