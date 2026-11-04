@@ -1,0 +1,38 @@
+[1mConstellation report[0m
+  Items: 8 (agent 1, command 1, hook 1, mcp 1, skill 4)
+  Relations: 1   Clusters: 2
+
+[1mMost expensive Items (always-on tokens)[0m [2m────────────────────[0m
+ 1      420  ██████████  deploy (skill)
+[2m      cluster deploy · purpose ships code to production[0m
+[2m      Ship the current branch to production with the releas…[0m
+ 2      415  ██████████  ship (skill)
+[2m      cluster deploy · purpose ships code to production[0m
+[2m      Ship the current branch to production with the releas…[0m
+ 3      180  ████        release-notes (skill)
+[2m      Draft release notes from merged pull requests.[0m
+
+  Total always-on: 1,210 tokens across 6 Items; 2 Items have
+  unknown cost (not counted as 0).
+
+[1mOverlaps[0m [2m───────────────────────────────────────────────────[0m
+[31m  duplicate (1)[0m
+    deploy (skill) and ship (skill)
+[2m      The two have identical instructions under different
+      names, so keeping both only costs tokens.[0m
+[33m  wrapper (1)[0m
+    reviewer (agent) wraps review (skill)
+[2m      The reviewer agent only forwards to the review skill.[0m
+[36m  overlap (1)[0m
+    release-notes (skill) and changelog (command)
+[2m      Both turn merged work into a written summary for
+      readers, with slightly different formats.[0m
+  (1 distinct hidden; use --all to show them)
+
+[1mWarnings[0m [2m───────────────────────────────────────────────────[0m
+  - could not read skills/broken/SKILL.md: invalid
+    frontmatter
+  - mcp server github: tool list unavailable, cost unknown
+
+[2mDescriptions and reasons are redacted by pattern rules only;
+the scan file does not record your secrets.[0m

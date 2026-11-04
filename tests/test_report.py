@@ -285,3 +285,19 @@ def test_heading_rule_fills_the_width(data):
     heading = next(line for line in report(data).splitlines() if line.startswith("Overlaps"))
     assert heading == "Overlaps " + "-" * 71
     assert next(line for line in report(data, color=True).splitlines() if "Overlaps" in line).count("─") == 71
+
+
+# Golden outputs: the whole rendering is the contract, so a changed character anywhere is a visible diff.
+@pytest.mark.parametrize(
+    ("name", "kwargs"),
+    [
+        ("report.txt", dict(top=15, color=False, width=80, show_all=True)),
+        ("report_color.txt", dict(top=3, color=True, width=60, show_all=False)),
+    ],
+)
+def test_golden_report(data, name, kwargs):
+    assert render_report(data, **kwargs) == (FIXTURE.parent / name).read_text()
+
+
+def test_golden_cleanup(data):
+    assert render_cleanup(data, top=3) == (FIXTURE.parent / "cleanup.md").read_text()
