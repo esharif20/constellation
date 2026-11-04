@@ -93,6 +93,15 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - Follow-up using Matt Pocock’s code-review skill: parallel Standards and Spec reviews ran in isolated worktrees. Standards found no actionable issue; Spec found one P2: an entry metadata error ended traversal of healthy siblings. Fixed by catching errors per entry; public `scan()` regressions cover `is_symlink`, `is_file` and `is_dir` failures. No remaining actionable review findings. Matt Pocock’s TDD, implement and code-review skill installations and metadata were rechecked; no duplicate installation was needed.
 
+## #25 first screen and useful cost visualization (2026-11-04)
+
+- Implemented and reviewed on `codex/ticket-25`: server-ranked top costs and duplicate/wrapper pairs, graph selection/pair framing, private id-only checklist writes, `open --checklist`, localhost/origin guards and unknown-cost counters. Added `review_cost` without changing review generators; #20's unused Suggestions stay outside the pair list.
+- The user requested a useful visualization: known cost rows now show static proportional bars alongside token counts, without new data, provider calls or client ranking. At 641–959px the Brief and inspector take turns on selection/reopening so they cannot cover both selected stars; the approved plan records this responsive clarification. Wide desktop retains both panels and phone retains its sheet.
+- Parallel Standards and security/spec reviews found three P2 issues, all fixed and rechecked: checklist savings lost when rows fell outside the top five; metadata spoofing checklist IDs; and overlapping panels at narrow desktop widths. Checklist unknown rows are explicitly reported and recounted after a scan changes.
+- Gates: Ruff check/format, mypy, 453 tests (2 paid/eval tests deselected), mutmut (2,541 killed; results empty), frontend lint/build/layout all passed. Demo-only browser checks include 1440px, 700px and 390px, add/error states, offline/unknown/static fallback, keyboard/pill, pair selection and resizing. Root verified compiled UI against the real local Python API using only copied demo data and a temporary private checklist; no page errors.
+- Not verified: real scans, Safari/Firefox, real touch or screen readers, and an external Opus review. No paid calls or real setup reads were used.
+- User authorized review/merge: #20 was fast-forwarded into local `main` at `aac28a4`; #25 is ready for the same local merge. Nothing was pushed to main and no issue was closed. #11's contract, #12's plugin preview and #13's Snapshot privacy foundation remain isolated on their ticket branches until their remaining decisions/integrations are resolved.
+
 ## #12 thin Claude Code plugin (2026-11-04, branch `codex/ticket-12`)
 
 - Started: reviewable manifest and user-invoked skill under `plugin/constellation/`, with the plan in `docs/plans/plugin.md` and local-loading instructions in README. The wrapper calls only existing `scan`, `report` and `open`; report stdout is shown verbatim. No Python, frontend or dependency changes.

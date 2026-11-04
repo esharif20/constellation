@@ -55,6 +55,7 @@ def main(
     open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     open_command.add_argument("--port", type=int, default=8765)
     open_command.add_argument("--no-browser", action="store_true")
+    open_command.add_argument("--checklist", type=Path, help="private cleanup checklist path (outside the Claude setup)")
     report_command = commands.add_parser(
         "report", help="print a plain-text report of a saved scan (reads the file only; no network, no cost)"
     )
@@ -241,7 +242,12 @@ def _open(args: argparse.Namespace, serve: Serve | None) -> int:
     if not (server.STATIC / "index.html").is_file():
         print(server.BUILD_HINT, file=sys.stderr)
         return 2
-    (serve or server.serve)(server.create_app(args.file), args.port, not args.no_browser)
+    try:
+        app = server.create_app(args.file, checklist=args.checklist)
+    except (OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    (serve or server.serve)(app, args.port, not args.no_browser)
     return 0
 
 

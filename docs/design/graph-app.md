@@ -121,3 +121,17 @@ The phone ratio is 74%, below the 80% asked for desktop, so the phone threshold 
 3. No re-layout on resize (the fit follows the window while the view is still fitted; the packing shape is chosen at load).
 4. Cluster names at 24+ clusters on a phone: a quarter wait for zoom.
 5. `playwright`-style tests for drag spring-back and the idle pause are manual scripts, not in CI.
+
+## Actionable first screen (#25)
+
+The optional, server-ranked Cleanup brief uses the existing Panel tokens: a 340 px left-hand section on desktop and a non-modal 46dvh bottom sheet on phones. It lists always-on Context costs and duplicate/wrapper pairs, preserving unknown values and using only the server's deduplicated savings counters. Subtle, static indigo bars compare known always-on costs against the largest displayed cost; zero has zero width and unknown has no bar. The text values carry the accessible meaning. Pair names wrap so both Items remain readable.
+
+Picking a cost opens its Item; picking a pair frames both stars between the Brief and Inspector and selects the proposed removal when known. The canvas fit and name collision checks reserve the Brief's space. On phones, selection closes the Brief and the Inspector takes its place; the Legend hides while either sheet is open. Missing Brief APIs leave the existing map available, and a missing checklist field hides write controls.
+
+Below 960 px, the two panels alternate: selecting an Item or pair collapses the Brief before the next-frame camera glide, and reopening the Brief closes the Inspector. Resizing from a wider view with both panels open collapses the Brief and reframes the current selection, retaining both stars for a selected pair. The phone sheet breakpoint remains 640 px; screens from 641 to 959 px retain desktop panel styling with enough free sky to see the selection.
+
+The adaptive behavior was also checked at 700 px with cost and pair selection, reopening, and a 1440→700 resize with both panels open; 1440 px coexistence and the 390 px sheet were rechecked.
+
+`b` toggles the Brief outside text inputs. Escape within it collapses to the Cleanup brief pill and focuses the pill; Escape elsewhere keeps the Inspector behavior. Dismissal is remembered in optional local storage. Successful id-only checklist writes disable that row's add button, update the server total and announce the addition; failures remain inline with icon and text. Search, Brief and canvas occur in that DOM keyboard order.
+
+Verified with agent-browser and invented demo data at 1440×900 and 390×844: open Brief, magnitude bars, added row/footer, pair framing, collapsed pill, phone sheet and selection, offline cached costs, all-unknown offline variant, inline write failure, keyboard Escape focus and static API fallback. Screenshots are temporary review artifacts under `/tmp/constellation-ticket25-screenshots`; the demo API was a temporary fixture server, so real backend integration is checked separately. Real touch, screen readers, Safari and Firefox remain unverified.
