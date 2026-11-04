@@ -1,13 +1,16 @@
 """Local public Snapshot files; pattern scrubbing is not free-text anonymisation."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from .snapshot import snapshot
 
 STATIC = Path(__file__).parent / "static"
-NOTICE = "This export does NOT anonymise free text. Review every retained name, description, label and reason before publishing."
+NOTICE = (
+    "This export does NOT anonymise free text. Review every retained name, description, label, reason and cluster name before publishing."
+)
 LIMITS = (
     "Known limits: bare usernames and machine names; unquoted paths with spaces; "
     "obfuscated emails; public hostnames outside URLs/emails; //server/share; $HOME/%USERPROFILE% forms."
@@ -36,7 +39,9 @@ _ASSETS = {".js", ".css", ".woff", ".woff2", ".svg", ".png", ".ico"}
 
 
 def _write(path: Path, content: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    for folder in reversed(path.parents):  # mkdir(parents=True) ignores mode for the parents
+        if not folder.exists():
+            folder.mkdir(mode=0o700)
     with path.open("xb") as stream:
         stream.write(content)
     path.chmod(0o600)
@@ -44,14 +49,16 @@ def _write(path: Path, content: bytes) -> None:
 
 def write_snapshot(data: dict[str, Any], out: Path) -> None:
     """Write only scrubbed data and trusted build assets into a new, private directory."""
-    if ".claude" in out.resolve().parts:
+    target = out.resolve()
+    config = os.environ.get("CLAUDE_CONFIG_DIR")  # a path, not a secret
+    if ".claude" in (p.lower() for p in target.parts) or (config and target.is_relative_to(Path(config).resolve())):
         raise ValueError
     public = json.dumps(snapshot(data)).encode()
     entries = {p.name: p for p in STATIC.iterdir()}
     index, assets = entries["index.html"], entries["assets"]
     if index.is_symlink() or assets.is_symlink():
         raise ValueError
-    html = index.read_text()
+    html = index.read_text(encoding="utf-8")  # pragma: no mutate  (UTF-8 spelling)
     if "</head>" not in html:
         raise ValueError
     files = sorted(p for p in assets.rglob("*") if p.is_file() and p.suffix in _ASSETS)

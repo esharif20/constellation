@@ -18,7 +18,7 @@ from .claude_code import read_secrets
 from .env import load_env
 from .models import LLM, Constellation, Embedder, TokenCounter
 from .overlaps import estimate_cost
-from .public_export import NOTICE, write_snapshot
+from .public_export import LIMITS, NOTICE, write_snapshot
 from .redact import redact
 from .report import render_cleanup, render_report, write_private
 from .review import build_review_graph, open_checkpointer, thread_id
@@ -187,7 +187,7 @@ def _export(args: argparse.Namespace) -> int:
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
         print("Could not export: check the saved scan, frontend build and output directory.", file=sys.stderr)
         return 2
-    print(NOTICE)
+    print(f"{NOTICE}\n{LIMITS}\nWrote {args.out.resolve()}")
     return 0
 
 

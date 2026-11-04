@@ -10,6 +10,7 @@ from .redact import REDACTED, redact
 _KINDS = ("skill", "agent", "plugin", "hook", "mcp_server", "connector", "mcp_tool", "command")
 _RELATIONS = ("contains", "triggers")
 _VERDICTS = ("duplicate", "wrapper", "overlap", "distinct")
+EXEC_REASON = "Involves an executable setup item."
 _EXECUTABLE_DESCRIPTIONS = {"hook": "Hook", "mcp_server": "MCP server", "connector": "Connector"}
 
 
@@ -64,6 +65,11 @@ def snapshot(data: dict[str, Any]) -> dict[str, Any]:
     items = [i for i in data["items"] if i.get("kind") in _KINDS]
     ids = {id_: f"item-{n}" for n, id_ in enumerate(sorted({i["id"] for i in items}), 1)}
 
+    kinds = {i["id"]: i["kind"] for i in items}
+
+    def executable(ref: object) -> bool:
+        return kinds.get(ref) in _EXECUTABLE_DESCRIPTIONS
+
     def public_id(value: object) -> str | None:
         return ids.get(value) if isinstance(value, str) else None
 
@@ -88,9 +94,17 @@ def snapshot(data: dict[str, Any]) -> dict[str, Any]:
             and (source := public_id(r.get("source"))) is not None
             and (target := public_id(r.get("target"))) is not None
         ],
-        "labels": {id_: _public_text(label) for ref, label in (data.get("labels") or {}).items() if (id_ := public_id(ref)) is not None},
+        # Model text for these kinds was written from the raw command or args, so it can echo hosts or script names.
+        "labels": {
+            id_: _public_text(_EXECUTABLE_DESCRIPTIONS[kinds[ref]] if executable(ref) else label)
+            for ref, label in (data.get("labels") or {}).items()
+            if (id_ := public_id(ref)) is not None
+        },
         "clusters": [
-            {"name": _public_text(c["name"]), "item_ids": members}
+            {
+                "name": "Executable setup" if all(executable(ref) for ref in c["item_ids"]) else _public_text(c["name"]),
+                "item_ids": members,
+            }
             for c in data.get("clusters") or []
             if (members := [id_ for ref in c["item_ids"] if (id_ := public_id(ref)) is not None])
         ],
@@ -100,7 +114,12 @@ def snapshot(data: dict[str, Any]) -> dict[str, Any]:
             if (id_ := public_id(ref)) is not None
         },
         "overlaps": [
-            {"a_id": a_id, "b_id": b_id, "verdict": o["verdict"], "reason": _public_text(o["reason"])}
+            {
+                "a_id": a_id,
+                "b_id": b_id,
+                "verdict": o["verdict"],
+                "reason": EXEC_REASON if executable(o.get("a_id")) or executable(o.get("b_id")) else _public_text(o["reason"]),
+            }
             for o in data.get("overlaps") or []
             if o.get("verdict") in _VERDICTS
             and (a_id := public_id(o.get("a_id"))) is not None

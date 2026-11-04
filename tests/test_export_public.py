@@ -275,3 +275,46 @@ def test_export_disk_failure_is_an_error_and_partial_output_is_not_replaced(expo
     assert "does NOT anonymise" not in captured.out
     assert main(["export", "--public", str(saved), "--out", str(out)]) == 2
     assert "already exists" in capsys.readouterr().err
+
+
+def test_export_refuses_case_variants_and_the_configured_config_folder(export_fixture, tmp_path, monkeypatch):
+    saved, _, _ = export_fixture
+    upper = tmp_path / ".CLAUDE"
+    upper.mkdir()
+    assert main(["export", "--public", str(saved), "--out", str(upper / "public")]) == 2
+    custom = tmp_path / "invented-config"
+    custom.mkdir()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(custom))
+    assert main(["export", "--public", str(saved), "--out", str(custom / "public")]) == 2
+    assert list(upper.iterdir()) == [] and list(custom.iterdir()) == []
+
+
+def test_export_creates_nested_folders_private_and_prints_limits_and_path(export_fixture, capsys):
+    saved, out, static = export_fixture
+    (static / "assets/a/b").mkdir(parents=True)
+    (static / "assets/a/b/x.js").write_text("1")
+    assert main(["export", "--public", str(saved), "--out", str(out)]) == 0
+    assert all(stat.S_IMODE(p.stat().st_mode) == 0o700 for p in out.rglob("*") if p.is_dir())
+    printed = capsys.readouterr().out
+    assert "cluster name" in printed and "bare usernames" in printed and "//server/share" in printed
+    assert str(out.resolve()) in printed
+
+
+def test_export_reads_index_as_utf8(export_fixture, monkeypatch):
+    saved, out, _ = export_fixture
+    seen = []
+    real = public_export.Path.read_text
+
+    def spy(self, *args, **kwargs):
+        seen.append((self.name, kwargs.get("encoding")))
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(public_export.Path, "read_text", spy)
+    assert main(["export", "--public", str(saved), "--out", str(out)]) == 0
+    assert ("index.html", "utf-8") in seen
+
+
+def test_export_outside_a_set_config_folder_still_works(export_fixture, tmp_path, monkeypatch):
+    saved, out, _ = export_fixture
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "invented-config"))
+    assert main(["export", "--public", str(saved), "--out", str(out)]) == 0
