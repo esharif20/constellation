@@ -8,7 +8,7 @@ recorded as a **deviation** with the reason, and the user approves it, instead o
 |---|---|---|---|
 | D1 Source adapter seam | Claude Code only, adapter seam | Done (#2, #4) | ADR 0001 |
 | D2 Expansion on demand | click or `expand` opens an Item | Open (#9) | ADR 0002 |
-| D3 Overlaps | hash + wrapper, embeddings propose, Sonnet verifies, ~20 labelled pairs | Built (#6), pending the real-setup check | plan in `docs/plans/overlaps.md`. **Privacy amendment (user decided):** the verifier gets names, descriptions and local signals only; file bodies never go to a model. Verifier is `claude-sonnet-5-5` via the SDK (D15). Real-model eval run and the real-setup check (`stop-slop`, `skill-creator`, `shadcn`) are still to do |
+| D3 Overlaps | hash + wrapper, embeddings propose, Sonnet verifies, ~20 labelled pairs | Done (#6), verified on the real setup | plan in `docs/plans/overlaps.md`. **Privacy amendment (user decided):** the verifier gets names, descriptions and local signals only; file bodies never go to a model. Verifier is `claude-sonnet-5-5` via the SDK (D15). Real setup: `stop-slop`, `shadcn` and `skill-creator` all surface as duplicates. The labelled-pair eval has only run against a fake verifier |
 | D4 Privacy | redaction before every provider call, reused by the Snapshot | Done for scan (#3, #5); Snapshot export open (#13) | covers LLM, embedder and counter |
 | D5 Suggestions | `interrupt()` per suggestion, approve or skip, writes `cleanup.md` | Open (#7) | never modifies user config |
 | D6 Interface | chat on the left, graph on the right, served by FastAPI | Partly (#8 graph); chat open (#11) | |
