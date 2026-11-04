@@ -7,7 +7,8 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 HOST = "127.0.0.1"  # never bind wider: the scan holds the user's private setup
-STATIC = Path(__file__).parent / "static"
+STATIC = Path(__file__).parent / "static"  # the frontend build (`npm --prefix frontend run build`); gitignored
+BUILD_HINT = "the graph app is not built; run `npm --prefix frontend install && npm --prefix frontend run build`."
 
 
 def create_app(scan_file: Path) -> FastAPI:

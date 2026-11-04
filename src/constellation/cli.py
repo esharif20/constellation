@@ -88,6 +88,9 @@ def _open(args: argparse.Namespace, serve: Serve | None) -> int:
     except ImportError:
         print("fastapi and uvicorn are not installed; run `uv sync --extra app`.", file=sys.stderr)
         return 2
+    if not (server.STATIC / "index.html").is_file():
+        print(server.BUILD_HINT, file=sys.stderr)
+        return 2
     (serve or server.serve)(server.create_app(args.file), args.port, not args.no_browser)
     return 0
 

@@ -3,6 +3,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from constellation import server
 from constellation.cli import main
 from constellation.server import create_app
 
@@ -13,6 +14,16 @@ DATA = {
     "clusters": [],
     "warnings": [],
 }
+
+
+@pytest.fixture(autouse=True)
+def built_app(tmp_path, monkeypatch):
+    """A stand-in frontend build, so these tests never depend on `npm run build`."""
+    static = tmp_path / "static"
+    static.mkdir()
+    (static / "index.html").write_text("<!doctype html><html><div id=root></div></html>")
+    monkeypatch.setattr(server, "STATIC", static)
+    return static
 
 
 @pytest.fixture
@@ -64,3 +75,12 @@ def test_open_missing_file_exits_2(tmp_path, capsys):
 
     assert code == 2
     assert "constellation scan" in capsys.readouterr().err
+
+
+def test_open_without_frontend_build_exits_2_with_build_hint(scan_file, built_app, capsys):
+    (built_app / "index.html").unlink()
+
+    code = main(["open", str(scan_file)], serve=lambda *a: pytest.fail("must not serve"))
+
+    assert code == 2
+    assert "npm --prefix frontend install && npm --prefix frontend run build" in capsys.readouterr().err

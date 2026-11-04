@@ -1,0 +1,139 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@font-face { font-family: "Instrument Serif"; src: url(./assets/fonts/instrument-serif-normal.woff2) format("woff2"); font-style: normal; font-display: swap; }
+@font-face { font-family: "Instrument Serif"; src: url(./assets/fonts/instrument-serif-italic.woff2) format("woff2"); font-style: italic; font-display: swap; }
+
+@custom-variant dark (&:is(.dark *));
+
+/* Constellation is dark only: a star atlas at night. shadcn's semantic tokens map onto the night palette below;
+   the canvas reads the --k-*, --edge*, --halo*, --dust and --fade tokens by name (src/graph/ink.ts). */
+:root {
+  color-scheme: dark;
+  --night: #070a17;
+  --night-lift: #10173a;
+  --text: #e9ecf8;
+  --text-2: #a7aecb;
+  --text-3: #737c9e;
+  --warn: #f3c46b;
+
+  /* kind: three validated hues (all-pairs CVD dE >= 10 on --night); structural kinds share starlight and differ by shape */
+  --k-skill: #6fa8ff;
+  --k-hook: #ff9d4d;
+  --k-agent: #2fd39a;
+  --k-plugin: #ece4cc;
+  --k-mcp_server: #ece4cc;
+  --k-connector: #ece4cc;
+  --k-other: #c3c8dc;
+
+  /* canvas ink */
+  --edge: rgb(150 168 235 / 0.2);
+  --edge-alt: rgb(236 228 204 / 0.34);
+  --halo: rgb(120 130 255 / 0.075);
+  --halo-name: #c9cdf0;
+  --dust: rgb(200 210 255 / 0.5);
+  --fade: 0.1;
+
+  /* shadcn semantic tokens */
+  --background: var(--night);
+  --foreground: var(--text);
+  --card: rgb(12 16 36 / 0.88);
+  --card-foreground: var(--text);
+  --popover: rgb(12 16 36 / 0.9);
+  --popover-foreground: var(--text);
+  --primary: var(--text);
+  --primary-foreground: var(--night);
+  --secondary: rgb(150 165 230 / 0.1);
+  --secondary-foreground: var(--text);
+  --muted: rgb(150 165 230 / 0.08);
+  --muted-foreground: var(--text-2);
+  --accent: rgb(150 165 230 / 0.1);
+  --accent-foreground: var(--text);
+  --destructive: #ff7b7b;
+  --border: rgb(150 165 230 / 0.14);
+  --input: rgb(150 165 230 / 0.18);
+  --ring: #b8c4ff;
+  --radius: 0.75rem;
+
+  --font-serif-stack: "Instrument Serif", "Iowan Old Style", Charter, Georgia, serif;
+  --font-sans-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", sans-serif;
+
+  /* motion: one curve family, three durations */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --t-fast: 140ms;
+  --t: 240ms;
+  --t-slow: 420ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t: 0ms; --t-slow: 0ms; }
+  *, *::before, *::after { animation-duration: 0ms !important; transition-duration: 0ms !important; }
+}
+
+@theme inline {
+  --font-sans: var(--font-sans-stack);
+  --font-serif: var(--font-serif-stack);
+  --font-heading: var(--font-serif-stack);
+  --color-night: var(--night);
+  --color-text-3: var(--text-3);
+  --color-warn: var(--warn);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --ease-out-soft: var(--ease-out);
+  --animate-panel-in: panel-in var(--t-slow) var(--ease-out);
+  --animate-sheet-in: sheet-in var(--t-slow) var(--ease-out);
+}
+
+@keyframes panel-in { from { opacity: 0; transform: translateX(16px); } }
+@keyframes sheet-in { from { transform: translateY(100%); } }
+@keyframes pulse-star { 50% { transform: scale(0.6); opacity: 0.5; } }
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html, body, #root { height: 100%; overflow: hidden; }
+  body {
+    @apply text-foreground font-sans antialiased;
+    background: radial-gradient(120% 90% at 50% 38%, var(--night-lift) 0%, var(--night) 62%);
+    background-color: var(--night);
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+}
+
+/* kind glyph: mirrors the canvas shapes so the legend, search and inspector speak the same visual language */
+@layer components {
+  .glyph { --c: var(--k-other); flex: none; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+  .glyph[data-kind="skill"] { --c: var(--k-skill); }
+  .glyph[data-kind="hook"] { --c: var(--k-hook); }
+  .glyph[data-kind="agent"] { --c: var(--k-agent); }
+  .glyph[data-kind="plugin"] { --c: var(--k-plugin); background: none; border: 1.5px solid var(--c); width: 11px; height: 11px; }
+  .glyph[data-kind="mcp_server"] { --c: var(--k-mcp_server); border-radius: 1px; transform: rotate(45deg) scale(0.86); }
+  .glyph[data-kind="connector"] { --c: var(--k-connector); border-radius: 2px; }
+  .edge-key { flex: none; display: inline-block; width: 18px; border-top: 1px dashed var(--edge-alt); }
+  .edge-key[data-kind="contains"] { border-top: 1px solid rgb(150 168 235 / 0.55); }
+  .edge-key[data-kind="uses"] { border-top-style: dotted; }
+  .glass { background: var(--card); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); }
+  .pulse-star { width: 10px; height: 10px; border-radius: 50%; background: var(--k-skill); box-shadow: 0 0 18px 4px rgb(111 168 255 / 0.6); animation: pulse-star 1.6s ease-in-out infinite; }
+}
