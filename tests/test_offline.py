@@ -43,7 +43,7 @@ def test_an_offline_scan_calls_no_provider_but_still_clusters_and_finds_free_ove
 
     assert untouched(llm, counter, verifier)
     assert result.labels == {}
-    assert sorted(c.name for c in result.clusters) == ["bread", "pdf-copy"]  # named from the nearest Item's name
+    assert sorted(c.name for c in result.clusters) == ["bread", "pdf"]  # named from the token its members share
     assert [o.verdict for o in result.overlaps] == ["duplicate"]
     assert any(w.startswith("Offline") for w in result.warnings)
 

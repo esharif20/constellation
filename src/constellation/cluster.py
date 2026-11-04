@@ -1,6 +1,7 @@
 """Group Items by meaning: embed each Item's label and text, then join vectors that point the same way."""
 
 import math
+import re
 from dataclasses import dataclass, field
 from operator import add
 
@@ -26,6 +27,22 @@ def _centre(vectors: list[list[float]]) -> list[list[float]]:
 
 def dot(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b, strict=True))  # strict: embeddings of mixed dimensions are an error, not a silent truncation
+
+
+_STOP_TOKENS = {"skill", "skills", "setup", "claude", "code", "the", "a", "me", "my", "use", "using"}
+
+
+def _common_name(names: list[str]) -> str | None:
+    """Up to two name tokens that at least a third of the members (and at least two) share, most common first, else None.
+    Free and local, so an offline scan still names a pack of related Items by what they have in common."""
+    seen: dict[str, int] = {}  # token -> members containing it; insertion order is first appearance
+    for name in names:
+        tokens = {t for t in re.split(r"[-_ .:/]", name.lower()) if t not in _STOP_TOKENS and (len(t) >= 3 or t in ("ai", "ui"))}
+        for token in sorted(tokens, key=name.lower().find):  # first appearance within the name, so ties are not set-ordered
+            seen[token] = seen.get(token, 0) + 1
+    needed = max(2, math.ceil(len(names) / 3))
+    shared = sorted((t for t, n in seen.items() if n >= needed), key=lambda t: -seen[t])  # stable: ties keep first appearance
+    return " ".join(shared[:2]) or None
 
 
 @dataclass
@@ -68,6 +85,9 @@ def cluster(
         centre = _unit(group.total)
         by_closeness = sorted(group.members, key=lambda i: -dot(centre, vectors[i]))  # sorted is stable, so ties keep item order
         labelled = next((i for i in by_closeness if items[i].id in labels), None)
-        name = labels[items[labelled].id] if labelled is not None else items[by_closeness[0]].name
+        if labelled is not None:
+            name = labels[items[labelled].id]
+        else:
+            name = _common_name([items[i].name for i in group.members]) or items[by_closeness[0]].name
         clusters.append(Cluster(name, tuple(items[i].id for i in group.members)))
     return clusters
