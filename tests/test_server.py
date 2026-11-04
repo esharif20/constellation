@@ -345,3 +345,22 @@ def test_checklist_reports_unknown_savings_and_recounts_after_rescan(scan_file, 
     scan_file.write_text(json.dumps(measured))
     state = client.get("/api/brief").json()["checklist"]
     assert state["unknown_rows"] == 0 and state["frees"] == 60
+
+
+def test_checklist_rejects_any_claude_folder_not_only_the_home_one(scan_file, tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    for parts in (("project", ".claude", "checklist.md"), ("project", ".claude", "deep", "x.md")):
+        with pytest.raises(ValueError, match="Claude setup"):
+            create_app(scan_file, checklist=tmp_path.joinpath(*parts))
+    assert create_app(scan_file, checklist=tmp_path / "project" / "checklist.md")
+
+
+def test_default_checklist_directory_is_private_and_reopens_a_loose_file(scan_file, measured, tmp_path):
+    checklist = tmp_path / "cache" / "constellation" / "checklist.md"
+    client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
+    row_id = brief(measured)["cost"]["rows"][0]["id"]
+    assert client.post("/api/checklist", json={"id": row_id}).json()["added"] is True
+    assert checklist.parent.stat().st_mode & 0o777 == 0o700
+    checklist.chmod(0o644)
+    assert client.post("/api/checklist", json={"id": row_id}).json()["added"] is False
+    assert checklist.stat().st_mode & 0o777 == 0o600

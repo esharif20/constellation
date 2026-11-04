@@ -523,3 +523,14 @@ def test_focus_selected_item_routes_to_focus_operation(chat):
     result = ask(chat, "Focus this", selected_ids=["unknown"])
     assert result["actions"] == [{"kind": "focus", "item_ids": ["unknown"]}]
     assert "Calendar events" in result["answer"]
+
+
+@pytest.mark.parametrize("body", [b'{"question":"email"}', b"invalid" + b" " * 16384])
+def test_chat_rejects_chunked_requests_before_json_parsing(chat, body):
+    response = chat[0].post(
+        "/api/chat",
+        content=iter([body[:10], body[10:]]),
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 411
+    assert response.json() == {"detail": "Content-Length is required; chunked chat requests are not supported"}

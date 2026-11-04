@@ -8,7 +8,7 @@ const vite = await createServer({ server: { middlewareMode: true, watch: null, w
 try {
   const { Chat } = await vite.ssrLoadModule("/src/components/Chat.tsx");
   const props = {
-    model: { nodes: [] }, selected: null, briefOpen: false,
+    model: { nodes: [] }, selected: null, briefOpen: false, clusterOpen: false,
     onOpen() {}, onActions() {}, onReset() {}, onItem() {},
   };
   for (const open of [false, true]) {

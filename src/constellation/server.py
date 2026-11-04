@@ -58,7 +58,7 @@ def local_only(request: Request) -> None:
 
 def _checklist_path(checklist: Path, scan_file: Path) -> Path:
     path = checklist.resolve()
-    if path.is_relative_to((Path.home() / ".claude").resolve()):
+    if ".claude" in path.parts or path.is_relative_to((Path.home() / ".claude").resolve()):
         raise ValueError(f"Checklist {checklist} must be outside the Claude setup")
     if path == scan_file.resolve() or (path.exists() and scan_file.exists() and path.samefile(scan_file)):
         raise ValueError(f"Checklist {checklist} must not replace the scan file")
@@ -73,6 +73,8 @@ def create_app(scan_file: Path, checklist: Path | None = None) -> FastAPI:
     @app.middleware("http")
     async def limit_chat_body(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         if request.method == "POST" and request.url.path == "/api/chat":
+            if "transfer-encoding" in request.headers:
+                return JSONResponse({"detail": "Content-Length is required; chunked chat requests are not supported"}, status_code=411)
             try:
                 length = int(request.headers.get("content-length", "0"))
             except ValueError:

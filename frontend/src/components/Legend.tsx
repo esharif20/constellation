@@ -41,6 +41,12 @@ export function Legend({ model, hidden }: { model: Model; hidden: boolean }) {
           </span>
         ))}
       </li>
+      {model.nodes.some((n) => n.disabled) && (
+        <li className="inline-flex items-center gap-2">
+          <span className="glyph" data-kind="plugin" data-disabled />
+          dimmed ring = plugin switched off
+        </li>
+      )}
       <li className="inline-flex items-center gap-2">
         <span className="size-dot" data-unknown style={{ width: 2 * costRadius(null, model.costRef), height: 2 * costRadius(null, model.costRef) }} />
         cost unknown

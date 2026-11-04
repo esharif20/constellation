@@ -12,6 +12,7 @@ type Props = {
   selected: GNode | null;
   open: boolean;
   briefOpen: boolean;
+  clusterOpen: boolean;
   onOpen: (open: boolean) => void;
   onActions: (actions: ChatAction[]) => void;
   onReset: () => void;
@@ -32,9 +33,8 @@ function readReply(value: unknown, model: Model): Reply {
   return r as Reply;
 }
 
-export function Chat({ model, selected, open, briefOpen, onOpen, onActions, onReset, onItem }: Props) {
+export function Chat({ model, selected, open, briefOpen, clusterOpen, onOpen, onActions, onReset, onItem }: Props) {
   const trigger = useRef<HTMLButtonElement>(null);
-  const wasOpen = useRef(open);
   const input = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
   const [bottom, setBottom] = useState(96);
@@ -58,12 +58,11 @@ export function Chat({ model, selected, open, briefOpen, onOpen, onActions, onRe
   useEffect(() => () => request.current?.abort(), []);
   useEffect(() => {
     if (open) input.current?.focus();
-    else if (wasOpen.current) trigger.current?.focus();
-    wasOpen.current = open;
   }, [open]);
 
   function collapse() {
     onOpen(false);
+    requestAnimationFrame(() => trigger.current?.focus());
   }
 
   function reset() {
@@ -163,6 +162,6 @@ export function Chat({ model, selected, open, briefOpen, onOpen, onActions, onRe
           <Button type="submit" disabled={pending || unavailable || !question.trim()} aria-busy={pending} className="h-11 gap-2 sm:h-10"><SendIcon aria-hidden />{pending ? "Looking…" : "Ask locally"}</Button>
         </div>
       </form>
-    </section> : <Button ref={trigger} variant="outline" style={{ "--chat-bottom": `${bottom}px` } as CSSProperties} className={cn("glass fixed bottom-24 left-4 h-11 gap-2 rounded-full px-4 sm:bottom-(--chat-bottom) sm:h-10", selected ? "bottom-[calc(58dvh+12px)] sm:bottom-(--chat-bottom)" : briefOpen ? "bottom-[calc(46dvh+12px)] sm:bottom-(--chat-bottom)" : "")} aria-expanded={false} onClick={() => onOpen(true)}><MessageCircleIcon aria-hidden />Ask locally</Button>}
+    </section> : <Button ref={trigger} variant="outline" style={{ "--chat-bottom": `${bottom}px` } as CSSProperties} className={cn("glass fixed bottom-24 left-4 h-11 gap-2 rounded-full px-4 sm:bottom-(--chat-bottom) sm:h-10", selected ? "bottom-[calc(58dvh+12px)] sm:bottom-(--chat-bottom)" : clusterOpen ? "bottom-[calc(40dvh+12px)] sm:bottom-(--chat-bottom)" : briefOpen ? "bottom-[calc(46dvh+12px)] sm:bottom-(--chat-bottom)" : "")} aria-expanded={false} onClick={() => onOpen(true)}><MessageCircleIcon aria-hidden />Ask locally</Button>}
   </>;
 }
