@@ -22,7 +22,8 @@ Use these for any UI work, in this order of intent:
 - `shadcn` (and `vercel-plugin:shadcn`): add and compose shadcn/ui components for the chat panel and inspector.
 - `vercel-plugin:react-best-practices`: React performance and structure.
 - `dataviz`: colour and encoding rules for the node size, clusters and Overlap links.
-- `nateherk-design:scroll-craft`: ONLY the public landing page (ticket #15). Never inside the app.
+- `design-taste-frontend` (taste-skill, user-installed 2026-11-04): anti-slop art direction and a real-browser inspector with a look-and-fix loop; use it for the app screens review (#23-ish) and the landing page. It fetches public stock images only through its own `assets.mjs`; do not add fetched assets to the app.
+- `nateherk-design:scroll-craft`: ONLY the public landing page (ticket #15). Never inside the app (it may be consulted for easing and inertia guidance only).
 - `vercel-plugin:agent-browser-verify` / `agent-browser`: screenshot the running app to check look and feel.
 - `/tdd`, `/implement`, `/code-review` (Matt Pocock): drive and review each ticket; UI feel is checked by eye and screenshots, not unit tests.
 
@@ -62,3 +63,7 @@ Free by default, paid only for new or changed Items. A scan of an unchanged setu
 ## Privacy invariant
 
 Only Item kinds, names and descriptions (plus short local signals and, later, tool schemas) are ever sent to a provider, always after redaction. File bodies are read locally and never sent, with one opt-in exception: `constellation scan --count-bodies` sends each skill's redacted body to Anthropic's token-counting endpoint to measure on-use cost. Without the flag, on-use cost is reported as unknown. Any new feature that would send more than this needs the user's explicit approval first.
+
+### Staged skills (not loaded, to keep context cost at zero)
+
+`~/.claude/skill-library/` holds vetted third-party material that is NOT in the skills folder, so it costs nothing until enabled: `threejs-skills` (13 markdown skills), `img2threejs` (heavy image-to-Three.js pipeline), `awesome-design-md` (84 reference DESIGN.md files; see the design-reference ticket). Enable by copying the needed folders into the project `.claude/skills/` only when a ticket needs them (landing page #15). Vet any new third-party skill first: read its scripts, check network and exec calls, scan for instruction-injection, and never run its installer blind.
