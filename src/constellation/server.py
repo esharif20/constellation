@@ -176,7 +176,7 @@ def create_app(scan_file: Path, checklist: Path | None = None, embedder: Embedde
         if any(id_ not in ids for id_ in entry.selected_ids):
             raise HTTPException(404, "That Item is not in the current scan")
         try:
-            return chat.answer(data, entry.question, entry.selected_ids)
+            return chat.answer(data, entry.question, entry.selected_ids, index_for)
         except (ValueError, TypeError, KeyError, AttributeError):
             raise HTTPException(404, "The saved scan could not be read") from None
 
