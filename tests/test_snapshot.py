@@ -219,6 +219,63 @@ def test_snapshot_drops_unknown_item_kinds_and_their_references(kind):
     }
 
 
+def test_snapshot_keeps_commands_and_strips_disabled_plugin_state_and_scoped_ids():
+    import json
+
+    data = {
+        "items": [
+            {
+                "id": "claude-code:command:local/2/review",
+                "kind": "command",
+                "name": "review",
+                "description": "Review a change",
+                "source": "claude-code",
+                "disabled": True,
+                "config": {"enabledPlugins": {"private-plugin": False}},
+                "credentials": {"token": "planted-token"},
+            },
+            {
+                "id": "claude-code:plugin:private-plugin",
+                "kind": "plugin",
+                "name": "private-plugin",
+                "description": "Private plugin",
+                "source": "claude-code",
+                "disabled": True,
+                "config": {"enabledPlugins": {"private-plugin": False}},
+                "credentials": {"token": "planted-token"},
+            },
+        ],
+        "relations": [{"source": "claude-code:plugin:private-plugin", "target": "claude-code:command:local/2/review", "kind": "contains"}],
+    }
+
+    result = snapshot(data)
+
+    assert result["items"] == [
+        {"id": "item-1", "kind": "command", "name": "review", "description": "Review a change", "source": "", "disabled": True},
+        {"id": "item-2", "kind": "plugin", "name": "private-plugin", "description": "Private plugin", "source": "", "disabled": True},
+    ]
+    assert result["relations"] == [{"source": "item-2", "target": "item-1", "kind": "contains"}]
+    public_json = json.dumps(result)
+    assert "local/2" not in public_json
+    assert '"disabled": true' in public_json
+    assert "enabledPlugins" not in public_json
+    assert "credentials" not in public_json
+    assert "planted-token" not in public_json
+
+
+def test_snapshot_omits_false_or_malformed_disabled_values():
+    data = {
+        "items": [
+            {"id": "a", "kind": "skill", "name": "Active", "description": "", "source": "local", "disabled": False},
+            {"id": "b", "kind": "agent", "name": "Malformed", "description": "", "source": "local", "disabled": "private"},
+        ]
+    }
+    assert snapshot(data)["items"] == [
+        {"id": "item-1", "kind": "skill", "name": "Active", "description": "", "source": ""},
+        {"id": "item-2", "kind": "agent", "name": "Malformed", "description": "", "source": ""},
+    ]
+
+
 @pytest.mark.parametrize(
     "private",
     [

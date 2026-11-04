@@ -5,7 +5,7 @@ from typing import Any
 
 from .redact import REDACTED, redact
 
-_KINDS = ("skill", "agent", "plugin", "hook", "mcp_server", "connector", "mcp_tool")
+_KINDS = ("skill", "agent", "plugin", "hook", "mcp_server", "connector", "mcp_tool", "command")
 _EXECUTABLE_DESCRIPTIONS = {"hook": "Hook", "mcp_server": "MCP server", "connector": "Connector"}
 
 
@@ -51,6 +51,7 @@ def snapshot(data: dict[str, Any]) -> dict[str, Any]:
                     _EXECUTABLE_DESCRIPTIONS[i["kind"]] if i["kind"] in _EXECUTABLE_DESCRIPTIONS else i["description"]
                 ),
                 "source": "",
+                **({"disabled": True} if i.get("disabled") is True else {}),
             }
             for i in items
         ],
