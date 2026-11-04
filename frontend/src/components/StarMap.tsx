@@ -79,6 +79,8 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     loop.current = requestAnimationFrame(tick);
   }, [painter]);
   useEffect(() => () => cancelAnimationFrame(loop.current), []);
+  // Webfonts arrive after the first paint; the map is at rest by then, so repaint once they land.
+  useEffect(() => { void document.fonts.ready.then(wake); }, [wake]);
 
   // The layout is fully settled by the warm-up, so the engine does not run at load (cooldownTicks 0). A drag lets it run
   // while held and for 150 more ticks after release (the neighbours spring home), then it rests again.

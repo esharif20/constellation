@@ -28,6 +28,7 @@
   --indigo-bright: #828fff; /* focus ring and accent text only */
   --indigo-tint: rgb(94 106 210 / 0.16);
   --warn: #f3c46b;
+  --overlap: #ff5fd2; /* Overlap links: one hot hue apart from the recessive Relation hairlines; read by paint.ts and the legend */
 
   /* kind: three validated hues (all-pairs CVD dE >= 10 on --night); structural kinds share starlight and differ by shape */
   --k-skill: #6fa8ff;
@@ -106,6 +107,7 @@
   --color-night: var(--night);
   --color-text-3: var(--text-3);
   --color-warn: var(--warn);
+  --color-overlap: var(--overlap);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -163,6 +165,8 @@
   .edge-key { flex: none; display: inline-block; width: 18px; border-top: 1px dashed var(--edge-alt); }
   .edge-key[data-kind="contains"] { border-top: 1px solid rgb(150 168 235 / 0.55); }
   .edge-key[data-kind="uses"] { border-top-style: dotted; }
+  .size-dot { flex: none; border-radius: 50%; background: var(--text-2); }
+  .size-dot[data-unknown] { background: none; border: 1.3px dashed var(--text-2); box-sizing: border-box; }
   .glass { background: var(--card); backdrop-filter: blur(16px) saturate(1.1); -webkit-backdrop-filter: blur(16px) saturate(1.1); }
   .pulse-star { width: 10px; height: 10px; border-radius: 50%; background: var(--k-skill); box-shadow: 0 0 18px 4px rgb(111 168 255 / 0.6); animation: pulse-star 1.6s ease-in-out infinite; }
 }

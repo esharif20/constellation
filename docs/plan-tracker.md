@@ -15,7 +15,7 @@ recorded as a **deviation** with the reason, and the user approves it, instead o
 | D7 CLI | **Typer** `scan, expand, open, export --public` | **Deviation, approved by the user (2026-11-03)**: `argparse` with `scan` and `open` | keep; revisit only if the CLI outgrows it |
 | D8 Chat | tool-calling agent driving the graph | Open (#11) | |
 | D10 Public demo | sanitised static Snapshot on Vercel | Open (#13, #14, #15) | |
-| D11 Context cost | `always_on` and `on_use` tokens, node size = always_on | Counts done (#5); node size from cost done on the canvas (#10 phase 1: area-proportional, p95 cRef, unknown hollow dashed); Inspector and Legend cost content is #10 phase 2, after #24 | |
+| D11 Context cost | `always_on` and `on_use` tokens, node size = always_on | Counts done (#5); node size from cost done on the canvas (#10 phase 1: area-proportional, p95 cRef, unknown hollow dashed); Inspector (cost rows, Overlaps grouped by verdict with reasons and clickable partners) and Legend (size scale, unknown, duplicate/wraps/overlaps keys) done in #10 phase 2, pending review; `--overlap` token added to index.css; late-font repaint fixed (wake on document.fonts.ready) | |
 | D12 Chat agent build | prebuilt `create_react_agent`, maybe rebuilt as a `StateGraph` | Open (#11) | |
 | D13 Graph UI | `react-force-graph-2d`, d3-force on canvas, tuned physics, glow, fallback d3-force + PixiJS | Done (#8) | `react-force-graph-2d`, glow nodes, hover fade, zoom labels |
 | D14 Frontend | Vite + React + TS + Tailwind + shadcn/ui, served by FastAPI, static export | Done (#8) | rebuilt in the planned stack; first version was vanilla JS and was replaced |
