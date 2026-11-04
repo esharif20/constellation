@@ -87,7 +87,7 @@ def candidates(items: list[Item], vectors: dict[str, list[float]], decided: set[
                 scores[min(item.id, other), max(item.id, other)] = similarity
     for a, b in combinations(eligible, 2):
         if a.name == b.name:
-            scores[a.id, b.id] = 2.0  # above any cosine, so copies are checked first when the cap bites
+            scores[a.id, b.id] = 2.0  # pragma: no mutate  (any value above 1 is equivalent: above any cosine, so copies are checked first)
     ranked = sorted((k for k in scores if frozenset(k) not in decided), key=lambda k: (-scores[k], k))
     warnings = (
         [f"checked the {MAX_PAIRS} most similar pairs; {len(ranked) - MAX_PAIRS} more were not checked"] if len(ranked) > MAX_PAIRS else []
@@ -112,7 +112,7 @@ def _yes_no(flag: bool) -> str:
 
 def _prompt(a: Item, b: Item, bodies: dict[str, str]) -> str:
     """Names, descriptions and signals only. The signals are computed here from the full bodies, which never leave the machine."""
-    body_a, body_b = _normalise(bodies.get(a.id, "")), _normalise(bodies.get(b.id, ""))
+    body_a, body_b = _normalise(bodies[a.id]), _normalise(bodies[b.id])  # only skills and agents are proposed, and all have bodies
     signals = [
         f"- item_a is {len(body_a.split())} words; item_b is {len(body_b.split())} words",
         f"- item_a's text mentions item_b by name: {_yes_no(_mentions(body_a, b.name))}",

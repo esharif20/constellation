@@ -35,7 +35,16 @@ def test_the_prompt_is_exactly_this_text():
 def test_the_same_name_signal_says_yes_for_copies():
     a, b = Item("1", "skill", "x", "d", "s"), Item("2", "skill", "x", "d", "s")
 
-    assert "- same name: yes" in _prompt(a, b, {})
+    prompt = _prompt(a, b, {"1": "Use `x` skill", "2": "Nothing"})
+    assert "- same name: yes" in prompt
+
+
+def test_the_second_item_mentioning_the_first_is_reported():
+    a, b = Item("1", "skill", "first", "d", "s"), Item("2", "skill", "second", "d", "s")
+
+    prompt = _prompt(a, b, {"1": "Nothing here", "2": "Run /first now"})
+
+    assert "item_a's text mentions item_b by name: no" in prompt and "item_b's text mentions item_a by name: yes" in prompt
 
 
 def test_normalising_trims_the_ends_and_each_line_end_but_keeps_line_breaks():
