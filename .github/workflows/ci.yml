@@ -36,3 +36,5 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build # includes the tsc typecheck
+      - run: npm run layout:check # model and layout metrics on the demo fixtures, no browser
+      - run: npm run chat:check # renders the chat panel to markup, no browser or server

@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Legend } from "@/components/Legend";
 import { Brief } from "@/components/Brief";
 import { Chat, type ChatAction } from "@/components/Chat";
+import { HighlightChip } from "@/components/HighlightChip";
 import { ClusterCard } from "@/components/ClusterCard";
 import { StarMap, type StarMapHandle } from "@/components/StarMap";
 import { TopBar } from "@/components/TopBar";
@@ -39,9 +40,13 @@ export default function Atlas({ model }: { model: Model }) {
   const [phone, setPhone] = useState(() => matchMedia("(max-width: 640px)").matches);
   const [narrow, setNarrow] = useState(() => matchMedia("(width < 960px)").matches);
   const found = useMemo(() => search(model.nodes, query), [model, query]);
+  // One owner for the highlighted set: search wins while a query is typed, otherwise the last chat answer. The chip names it and clears it.
+  const highlight = query.trim() ? { from: "search" as const, count: found.length } : chatMatches ? { from: "chat" as const, count: chatMatches.size } : null;
   const matches = useMemo(() => (query.trim() ? new Set(found) : chatMatches), [found, query, chatMatches]);
+  const clearHighlight = () => { setQuery(""); setChatMatches(null); };
   const showBrief = !!brief && briefOpen && !chatOpen && !(narrow && selected) && !cluster;
   const showInspector = !(narrow && chatOpen);
+  if (!chatOpen && chatMatches) setChatMatches(null); // chat highlights end with the chat
   if (cluster && card !== cluster) setCard(cluster);
   if (!cluster && card && narrow && selected) setCard(null);
 
@@ -142,6 +147,9 @@ export default function Atlas({ model }: { model: Model }) {
     if (node) { select(node); map.current?.focusCanvas(); }
   };
 
+  // Narrow screens show the Inspector instead of the chat, so picking an Item from the chat's list closes it.
+  const chatItem = (id: string) => { selectById(id); if (narrow) setChatOpen(false); };
+
   const selectPair = (row: BriefRow) => {
     const node = model.nodes.find((n) => n.id === (row.removes ?? row.item_ids[0]));
     const other = model.nodes.find((n) => row.item_ids.includes(n.id) && n !== node);
@@ -203,7 +211,8 @@ export default function Atlas({ model }: { model: Model }) {
       />
       {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} />}
       {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} />}
-      <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={selectById} />
+      <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} />
+      <HighlightChip highlight={highlight} onClear={clearHighlight} />
       </div>
       <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} />
       <Legend model={model} hidden={!!selected || showBrief || chatOpen} />

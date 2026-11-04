@@ -534,3 +534,26 @@ def test_chat_rejects_chunked_requests_before_json_parsing(chat, body):
     )
     assert response.status_code == 411
     assert response.json() == {"detail": "Content-Length is required; chunked chat requests are not supported"}
+
+
+def test_chat_without_length_or_encoding_never_reads_past_the_limit(chat):
+    """A real server (h11) hands the app no body when neither header is present, so 64 KB of trailing bytes are never read."""
+    import socket
+    import threading
+
+    import uvicorn
+
+    server = uvicorn.Server(uvicorn.Config(chat[0].app, host="127.0.0.1", port=0, log_level="error"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    while not server.started:
+        thread.join(0.01)
+    port = server.servers[0].sockets[0].getsockname()[1]
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+            sock.sendall(b"POST /api/chat HTTP/1.1\r\nHost: 127.0.0.1:8765\r\nContent-Type: application/json\r\n\r\n" + b" " * 65536)
+            status = sock.recv(64).split(b" ")[1]
+    finally:
+        server.should_exit = True
+        thread.join(5)
+    assert status == b"422"  # empty body: rejected as invalid, never parsed as a chat
