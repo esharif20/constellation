@@ -2765,8 +2765,8 @@
  ],
  "costs": {
   "hook:0:mend-gasket-mini": {
-   "always_on": 48,
-   "on_use": 565
+   "always_on": null,
+   "on_use": null
   },
   "skill:0:fold-canvas-pro": {
    "always_on": 82,
@@ -2833,8 +2833,8 @@
    "on_use": 2509
   },
   "hook:0:trace-crate-lite": {
-   "always_on": 26,
-   "on_use": 3233
+   "always_on": null,
+   "on_use": null
   },
   "skill:0:trace-valve": {
    "always_on": 47,
@@ -2933,8 +2933,8 @@
    "on_use": 1430
   },
   "hook:1:bind-compass-lite": {
-   "always_on": 86,
-   "on_use": 2022
+   "always_on": null,
+   "on_use": null
   },
   "skill:1:trace-ledger-pro": {
    "always_on": 34,
@@ -2945,8 +2945,8 @@
    "on_use": null
   },
   "hook:1:draft-compass-lite": {
-   "always_on": 53,
-   "on_use": 3818
+   "always_on": null,
+   "on_use": null
   },
   "skill:1:mend-tally": {
    "always_on": 28,
@@ -3021,8 +3021,8 @@
    "on_use": 4795
   },
   "hook:2:label-compass-lite": {
-   "always_on": 20,
-   "on_use": 4432
+   "always_on": null,
+   "on_use": null
   },
   "skill:2:trace-gasket": {
    "always_on": 94,
@@ -3141,8 +3141,8 @@
    "on_use": 4867
   },
   "hook:4:sort-canvas": {
-   "always_on": 32,
-   "on_use": 3817
+   "always_on": null,
+   "on_use": null
   },
   "skill:4:bind-beacon": {
    "always_on": 66,
@@ -3201,16 +3201,16 @@
    "on_use": 4695
   },
   "hook:5:gather-plinth-lite": {
-   "always_on": 96,
-   "on_use": 3894
+   "always_on": null,
+   "on_use": null
   },
   "hook:5:sweep-beacon-two": {
-   "always_on": 25,
-   "on_use": 1999
+   "always_on": null,
+   "on_use": null
   },
   "hook:5:fold-ribbon": {
-   "always_on": 93,
-   "on_use": 2192
+   "always_on": null,
+   "on_use": null
   },
   "skill:6:sweep-gasket-mini": {
    "always_on": null,
@@ -3317,8 +3317,8 @@
    "on_use": null
   },
   "hook:8:gather-compass-pro": {
-   "always_on": 82,
-   "on_use": 3895
+   "always_on": null,
+   "on_use": null
   },
   "skill:8:label-compass-pro": {
    "always_on": null,
@@ -3425,8 +3425,8 @@
    "on_use": 2072
   },
   "hook:12:fold-stencil": {
-   "always_on": 81,
-   "on_use": 2024
+   "always_on": null,
+   "on_use": null
   },
   "agent:12:gather-lattice-two": {
    "always_on": 84,
@@ -3445,8 +3445,8 @@
    "on_use": 2216
   },
   "hook:12:trace-stencil": {
-   "always_on": 50,
-   "on_use": 2869
+   "always_on": null,
+   "on_use": null
   },
   "skill:13:mend-valve-lite": {
    "always_on": 35,
@@ -3489,16 +3489,16 @@
    "on_use": 453
   },
   "hook:14:gather-crate-pro": {
-   "always_on": 52,
-   "on_use": 3437
+   "always_on": null,
+   "on_use": null
   },
   "skill:14:label-canvas-pro": {
    "always_on": 55,
    "on_use": 5267
   },
   "hook:14:sweep-tally": {
-   "always_on": 68,
-   "on_use": 2943
+   "always_on": null,
+   "on_use": null
   },
   "skill:15:trace-compass": {
    "always_on": 32,
@@ -3529,8 +3529,8 @@
    "on_use": null
   },
   "hook:16:label-compass": {
-   "always_on": 78,
-   "on_use": 3668
+   "always_on": null,
+   "on_use": null
   },
   "skill:16:gather-ledger": {
    "always_on": 73,
@@ -3545,8 +3545,8 @@
    "on_use": 3441
   },
   "hook:17:chart-wick": {
-   "always_on": 90,
-   "on_use": 2249
+   "always_on": null,
+   "on_use": null
   },
   "skill:17:tune-tally": {
    "always_on": null,
@@ -3661,17 +3661,283 @@
    "on_use": 2111
   },
   "hook:29:tune-lattice": {
-   "always_on": 41,
-   "on_use": 2436
+   "always_on": null,
+   "on_use": null
   },
   "hook:29:weigh-anvil-pro": {
-   "always_on": 43,
-   "on_use": 2457
+   "always_on": null,
+   "on_use": null
   },
   "skill:29:polish-crate-lite": {
    "always_on": null,
    "on_use": null
+  },
+  "plugin:tidy0": {
+   "always_on": 46,
+   "on_use": null
+  },
+  "plugin:plan1": {
+   "always_on": 49,
+   "on_use": null
+  },
+  "plugin:hook2": {
+   "always_on": 54,
+   "on_use": null
+  },
+  "plugin:pressing3": {
+   "always_on": 35,
+   "on_use": null
+  },
+  "plugin:stage4": {
+   "always_on": 80,
+   "on_use": null
+  },
+  "plugin:tide5": {
+   "always_on": 89,
+   "on_use": null
+  },
+  "plugin:bread6": {
+   "always_on": 35,
+   "on_use": null
+  },
+  "plugin:orchard7": {
+   "always_on": 80,
+   "on_use": null
+  },
+  "plugin:kite8": {
+   "always_on": 37,
+   "on_use": null
+  },
+  "plugin:lantern9": {
+   "always_on": 44,
+   "on_use": null
+  },
+  "plugin:map10": {
+   "always_on": 85,
+   "on_use": null
+  },
+  "plugin:chess11": {
+   "always_on": 48,
+   "on_use": null
   }
  },
+ "overlaps": [
+  {
+   "a_id": "agent:1:polish-tally-lite",
+   "b_id": "skill:1:draft-beacon",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (polish-tally-lite and draft-beacon)."
+  },
+  {
+   "a_id": "agent:19:polish-compass-lite",
+   "b_id": "skill:19:fold-beacon-mini",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (fold-beacon-mini and polish-compass-lite)."
+  },
+  {
+   "a_id": "agent:2:chart-plinth-pro",
+   "b_id": "agent:2:polish-gasket-lite",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (chart-plinth-pro and polish-gasket-lite)."
+  },
+  {
+   "a_id": "agent:2:chart-plinth-pro",
+   "b_id": "skill:1:draft-valve",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (chart-plinth-pro and draft-valve)."
+  },
+  {
+   "a_id": "agent:2:scout-tally",
+   "b_id": "skill:2:trace-anvil-pro",
+   "verdict": "duplicate",
+   "reason": "Same steps and trigger wording; one could go (scout-tally and trace-anvil-pro)."
+  },
+  {
+   "a_id": "agent:3:tune-thread",
+   "b_id": "skill:3:tune-valve-two",
+   "verdict": "distinct",
+   "reason": "Look alike by name only; they do different work (tune-thread and tune-valve-two)."
+  },
+  {
+   "a_id": "agent:6:tune-beacon",
+   "b_id": "skill:6:weigh-anvil",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (weigh-anvil and tune-beacon)."
+  },
+  {
+   "a_id": "skill:0:check-compass-pro",
+   "b_id": "skill:0:fold-beacon",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (check-compass-pro and fold-beacon)."
+  },
+  {
+   "a_id": "skill:0:check-compass-pro",
+   "b_id": "skill:0:sort-tally-lite",
+   "verdict": "wrapper",
+   "reason": "Mostly a thin call into the other Item (check-compass-pro and sort-tally-lite)."
+  },
+  {
+   "a_id": "skill:0:fold-beacon",
+   "b_id": "skill:0:sort-gasket-lite",
+   "verdict": "duplicate",
+   "reason": "Same steps and trigger wording; one could go (fold-beacon and sort-gasket-lite)."
+  },
+  {
+   "a_id": "skill:0:label-crate-lite",
+   "b_id": "skill:11:weigh-lattice",
+   "verdict": "duplicate",
+   "reason": "Same steps and trigger wording; one could go (weigh-lattice and label-crate-lite)."
+  },
+  {
+   "a_id": "skill:0:mend-anvil-two",
+   "b_id": "skill:0:mend-gasket",
+   "verdict": "duplicate",
+   "reason": "Same steps and trigger wording; one could go (mend-gasket and mend-anvil-two)."
+  },
+  {
+   "a_id": "skill:0:mend-anvil-two",
+   "b_id": "skill:12:check-lattice",
+   "verdict": "distinct",
+   "reason": "Look alike by name only; they do different work (mend-anvil-two and check-lattice)."
+  },
+  {
+   "a_id": "skill:1:draft-beacon",
+   "b_id": "skill:1:draft-valve-mini",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (draft-beacon and draft-valve-mini)."
+  },
+  {
+   "a_id": "skill:1:draft-canvas",
+   "b_id": "skill:1:tune-valve",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (draft-canvas and tune-valve)."
+  },
+  {
+   "a_id": "skill:1:draft-valve-mini",
+   "b_id": "skill:1:fold-gasket-lite",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (draft-valve-mini and fold-gasket-lite)."
+  },
+  {
+   "a_id": "skill:1:gather-wick-two",
+   "b_id": "skill:1:fold-gasket-lite",
+   "verdict": "wrapper",
+   "reason": "Mostly a thin call into the other Item (gather-wick-two and fold-gasket-lite)."
+  },
+  {
+   "a_id": "skill:1:trace-ribbon",
+   "b_id": "skill:1:sort-plinth-lite",
+   "verdict": "wrapper",
+   "reason": "Mostly a thin call into the other Item (trace-ribbon and sort-plinth-lite)."
+  },
+  {
+   "a_id": "skill:10:draft-plinth-mini",
+   "b_id": "skill:10:scout-crate",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (draft-plinth-mini and scout-crate)."
+  },
+  {
+   "a_id": "skill:11:sweep-lattice-pro",
+   "b_id": "skill:11:weigh-lattice",
+   "verdict": "distinct",
+   "reason": "Look alike by name only; they do different work (weigh-lattice and sweep-lattice-pro)."
+  },
+  {
+   "a_id": "skill:12:check-lattice",
+   "b_id": "skill:10:mend-crate-lite",
+   "verdict": "wrapper",
+   "reason": "Mostly a thin call into the other Item (check-lattice and mend-crate-lite)."
+  },
+  {
+   "a_id": "skill:12:draft-anvil-two",
+   "b_id": "skill:12:tune-gasket",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (tune-gasket and draft-anvil-two)."
+  },
+  {
+   "a_id": "skill:14:label-canvas-pro",
+   "b_id": "skill:14:sort-wick-pro",
+   "verdict": "duplicate",
+   "reason": "Same steps and trigger wording; one could go (sort-wick-pro and label-canvas-pro)."
+  },
+  {
+   "a_id": "skill:18:polish-stencil-two",
+   "b_id": "skill:18:trace-ribbon-mini",
+   "verdict": "distinct",
+   "reason": "Look alike by name only; they do different work (trace-ribbon-mini and polish-stencil-two)."
+  },
+  {
+   "a_id": "skill:2:sort-beacon",
+   "b_id": "skill:2:sort-tally",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (sort-tally and sort-beacon)."
+  },
+  {
+   "a_id": "skill:3:bind-stencil-lite",
+   "b_id": "skill:3:tune-valve-two",
+   "verdict": "distinct",
+   "reason": "Look alike by name only; they do different work (tune-valve-two and bind-stencil-lite)."
+  },
+  {
+   "a_id": "skill:3:polish-wick",
+   "b_id": "skill:3:scout-thread-lite",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (scout-thread-lite and polish-wick)."
+  },
+  {
+   "a_id": "skill:3:sort-beacon-pro",
+   "b_id": "skill:3:tune-valve-two",
+   "verdict": "duplicate",
+   "reason": "Same steps and trigger wording; one could go (tune-valve-two and sort-beacon-pro)."
+  },
+  {
+   "a_id": "skill:4:bind-beacon",
+   "b_id": "skill:4:fold-canvas-two",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (fold-canvas-two and bind-beacon)."
+  },
+  {
+   "a_id": "skill:5:sort-gasket",
+   "b_id": "skill:8:polish-compass",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (sort-gasket and polish-compass)."
+  },
+  {
+   "a_id": "skill:7:fold-beacon-pro",
+   "b_id": "skill:7:sweep-stencil-two",
+   "verdict": "overlap",
+   "reason": "Half of the instructions cover the same ground (sweep-stencil-two and fold-beacon-pro)."
+  },
+  {
+   "a_id": "skill:7:sort-plinth-pro",
+   "b_id": "skill:7:sweep-valve-two",
+   "verdict": "wrapper",
+   "reason": "Mostly a thin call into the other Item (sort-plinth-pro and sweep-valve-two)."
+  },
+  {
+   "a_id": "skill:8:trace-lattice-pro",
+   "b_id": "skill:8:sweep-canvas",
+   "verdict": "wrapper",
+   "reason": "Mostly a thin call into the other Item (trace-lattice-pro and sweep-canvas)."
+  },
+  {
+   "a_id": "skill:9:bind-gasket-pro",
+   "b_id": "skill:9:bind-lattice",
+   "verdict": "duplicate",
+   "reason": "Same steps and trigger wording; one could go (bind-lattice and bind-gasket-pro)."
+  },
+  {
+   "a_id": "skill:9:bind-gasket-pro",
+   "b_id": "skill:9:gather-ribbon",
+   "verdict": "distinct",
+   "reason": "Look alike by name only; they do different work (gather-ribbon and bind-gasket-pro)."
+  },
+  {
+   "a_id": "skill:9:draft-crate",
+   "b_id": "skill:9:gather-compass",
+   "verdict": "duplicate",
+   "reason": "Same steps and trigger wording; one could go (draft-crate and gather-compass)."
+  }
+ ],
  "warnings": []
 }

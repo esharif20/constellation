@@ -1,7 +1,7 @@
 // Canvas painting for the star atlas. force-graph calls pre -> links -> nodes -> post every frame;
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
 import { chooseSpot, type Box } from "./names";
-import type { Cluster, GLink, GNode, Model } from "./model";
+import type { Cluster, GLink, GNode, GOverlap, Model } from "./model";
 
 // Feel knobs, tuned by eye: change these, not the code below.
 export const FEEL = {
@@ -15,12 +15,16 @@ export const FEEL = {
 
 export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; keyFocus: boolean };
 
+// Colours added after the first look. Each is read from a CSS variable when the stylesheet defines it, else the fallback.
+const PALETTE = { overlap: "#ff5fd2" }; // hot magenta: Overlap links are one family apart from the recessive Relation hairlines
+
 function readInk() {
   const css = getComputedStyle(document.documentElement);
   const t = (name: string) => css.getPropertyValue(name).trim();
   const color = (kind: string) => t(`--k-${kind}`) || t("--k-other");
   return {
     color,
+    overlap: t("--overlap") || PALETTE.overlap,
     fade: Number(t("--fade")) || 0.1,
     edge: t("--edge"), edgeAlt: t("--edge-alt"), halo: t("--halo"), haloName: t("--halo-name"), dust: t("--dust"),
     ring: t("--ring"), text: t("--text"), text2: t("--text-2"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
@@ -91,6 +95,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     const pure = !!(m && f && f === focus.preview && m.has(f));
     if (f && !pure) {
       lit = new Set([f, ...model.neighbours.get(f)!]);
+      for (const o of model.overlapsOf.get(f)!) lit.add(o.a === f ? o.b : o.a); // Overlap partners stay lit and named
       if (m) for (const x of m) lit.add(x);
     } else lit = m;
     for (const n of model.nodes) {
@@ -102,6 +107,12 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       const on = f && !pure ? inc || (!!m && m.has(l.source) && m.has(l.target)) : !lit || (lit.has(l.source) && lit.has(l.target));
       l.hot = inc && on;
       l.a = ease(l.a, Math.min(l.source.a, l.target.a) > 0.05 ? (on ? 1 : ink.fade * 0.5) : 0, k);
+    }
+    for (const o of model.overlaps) {
+      // at rest only the actionable verdicts show; any focus shows its own Overlaps and hides the rest; a search hides all
+      const rest = o.verdict === "overlap" ? 0 : o.a.cluster === o.b.cluster ? 0.55 : 0.28;
+      const target = f ? (o.a === f || o.b === f ? 1 : 0) : m ? 0 : rest;
+      o.alpha = ease(o.alpha, target, k);
     }
     for (const c of model.clusters) {
       let top = 0; // the circle itself is fixed (layout.ts); only its brightness follows its Items
@@ -139,10 +150,40 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     for (const n of model.nodes) {
       if (n.a < 0.01) continue;
       const R = radius(n, k) * FEEL.glow;
-      ctx.globalAlpha = n.a * (n === f ? 1 : 0.85);
+      ctx.globalAlpha = n.a * (n === f ? 1 : 0.85) * (n.unknown ? 0.4 : 1);
       ctx.drawImage(sprite(colorOf.get(n)!), n.x! - R, n.y! - R, 2 * R, 2 * R);
     }
     ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    for (const o of model.overlaps) overlapArc(o, ctx, k);
+  }
+
+  // Overlap links: a quadratic arc bowing 0.2 x length to one side, so it never hides under a straight Relation between the
+  // same pair. Verdict is carried by pattern and width (solid, dashed with an arrowhead at the wrapped Item, dotted), not hue.
+  function arc(o: GOverlap) {
+    const ax = o.a.x!, ay = o.a.y!, bx = o.b.x!, by = o.b.y!, dx = bx - ax, dy = by - ay;
+    return { ax, ay, bx, by, cx: (ax + bx) / 2 - dy * 0.2, cy: (ay + by) / 2 + dx * 0.2 };
+  }
+  function overlapArc(o: GOverlap, ctx: CanvasRenderingContext2D, k: number) {
+    const alpha = o.alpha * Math.min(o.a.a, o.b.a);
+    if (alpha < 0.01) return;
+    const px = 1 / k, { ax, ay, bx, by, cx, cy } = arc(o), hot = o.alpha > 0.95 || (!!f && (o.a === f || o.b === f));
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = ink.overlap;
+    ctx.lineCap = o.verdict === "overlap" ? "round" : "butt";
+    ctx.lineWidth = ({ duplicate: 2, wrapper: 1.5, overlap: 1.2 }[o.verdict] + (hot ? 0.5 : 0)) * px;
+    ctx.setLineDash(o.verdict === "duplicate" ? [] : o.verdict === "wrapper" ? [6 * px, 3 * px] : [0.1 * px, 3.5 * px]);
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(cx, cy, bx, by); ctx.stroke();
+    ctx.setLineDash([]);
+    if (o.verdict === "wrapper") { // open arrowhead just outside the wrapped Item
+      const dx = bx - cx, dy = by - cy, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, back = radius(o.b, k) + 2 * px;
+      const tx = bx - ux * back, ty = by - uy * back, h = 5 * px, c = Math.cos(0.5), sn = Math.sin(0.5);
+      ctx.beginPath();
+      ctx.moveTo(tx - (ux * c - uy * sn) * h, ty - (uy * c + ux * sn) * h); ctx.lineTo(tx, ty);
+      ctx.lineTo(tx - (ux * c + uy * sn) * h, ty - (uy * c - ux * sn) * h);
+      ctx.stroke();
+    }
+    ctx.lineCap = "butt";
     ctx.globalAlpha = 1;
   }
 
@@ -170,21 +211,31 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     const r = radius(n, k), px = 1 / k, x = n.x!, y = n.y!, c = colorOf.get(n)!;
     ctx.globalAlpha = n.a;
     ctx.fillStyle = ctx.strokeStyle = c;
+    // Unknown cost is a dashed outline with no fill and no white core (zero is a filled star at the floor size), so the
+    // difference survives colour-blindness and greyscale. A plugin ring just turns dashed and keeps its centre dot.
+    const unk = n.unknown, line = unk ? 1.3 * px : 0;
+    if (unk) ctx.setLineDash([2 * px, 2 * px]);
     ctx.beginPath();
     if (n.shape === "ring") {
       ctx.lineWidth = Math.max(1.2 * px, r * 0.22);
       ctx.arc(x, y, r * 0.9, 0, 2 * Math.PI); ctx.stroke();
+      ctx.setLineDash([]);
       ctx.beginPath(); ctx.arc(x, y, r * 0.32, 0, 2 * Math.PI); ctx.fill();
     } else if (n.shape === "diamond") {
-      ctx.moveTo(x, y - r * 1.2); ctx.lineTo(x + r * 1.2, y); ctx.lineTo(x, y + r * 1.2); ctx.lineTo(x - r * 1.2, y); ctx.fill();
+      ctx.moveTo(x, y - r * 1.2); ctx.lineTo(x + r * 1.2, y); ctx.lineTo(x, y + r * 1.2); ctx.lineTo(x - r * 1.2, y);
+      if (unk) { ctx.closePath(); ctx.lineWidth = line; ctx.stroke(); } else ctx.fill();
     } else if (n.shape === "square") {
-      ctx.rect(x - r * 0.9, y - r * 0.9, r * 1.8, r * 1.8); ctx.fill();
+      ctx.rect(x - r * 0.9, y - r * 0.9, r * 1.8, r * 1.8);
+      if (unk) { ctx.lineWidth = line; ctx.stroke(); } else ctx.fill();
+    } else if (unk) {
+      ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.lineWidth = line; ctx.stroke();
     } else {
       ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.fill();
       ctx.globalAlpha = n.a * 0.7; // a white-hot core makes a dot read as a star
       ctx.fillStyle = "#fff";
       ctx.beginPath(); ctx.arc(x, y, r * 0.38, 0, 2 * Math.PI); ctx.fill();
     }
+    ctx.setLineDash([]);
     if (focus.matches?.has(n) && n !== focus.selected) { // a search match carries a ring, so it never relies on brightness alone
       ctx.strokeStyle = c;
       ctx.lineWidth = 1.2 * px;
@@ -309,6 +360,21 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     };
 
     named.filter((x) => x[0] < 2).forEach(itemLabel); // the focused neighbourhood always wins its space
+    if (f) { // verdict text at the apex of each of the focused Item's Overlap arcs, text ink (never the magenta), skipped on collision
+      ctx.font = `450 11px ${ink.sans}`;
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = 3;
+      for (const o of model.overlapsOf.get(f)!.slice(0, 8)) {
+        if (o.alpha < 0.3) continue;
+        const { ax, ay, bx, by, cx, cy } = arc(o), text = o.verdict === "wrapper" ? (o.a === f ? "wraps" : "wrapped by") : o.verdict === "overlap" ? "overlaps" : o.verdict;
+        const [sx, sy] = sc.apply(0.25 * ax + 0.5 * cx + 0.25 * bx, 0.25 * ay + 0.5 * cy + 0.25 * by), w = ctx.measureText(text).width;
+        if (!fits(sx - w / 2 - 2, sy - 8, sx + w / 2 + 2, sy + 8)) continue;
+        ctx.globalAlpha = o.alpha;
+        ctx.strokeText(text, sx, sy);
+        ctx.fillStyle = ink.text2;
+        ctx.fillText(text, sx, sy);
+      }
+    }
     const zoomAlpha = clamp01((1.8 - z) / 0.6);
     [...model.clusters].sort((a, b) => b.members.length - a.members.length).forEach((c) => clusterLabel(c, zoomAlpha));
     named.filter((x) => x[0] === 2).forEach(itemLabel);

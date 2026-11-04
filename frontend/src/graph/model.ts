@@ -11,7 +11,10 @@ export type Constellation = {
   clusters?: { name: string; item_ids: string[] }[];
   warnings?: string[];
   costs?: Record<string, Cost>;
+  overlaps?: Overlap[];
 };
+export type Verdict = "duplicate" | "wrapper" | "overlap" | "distinct";
+export type Overlap = { a_id: string; b_id: string; verdict: Verdict; reason: string };
 
 export type Shape = "dot" | "ring" | "diamond" | "square";
 export type GNode = Item & {
@@ -19,6 +22,7 @@ export type GNode = Item & {
   shape: Shape;
   degree: number;
   r: number;
+  unknown: boolean; // always-on cost not known (null or missing): drawn hollow, never as zero
   cluster?: Cluster;
   cost?: Cost;
   // simulation and animation state, mutated in place each frame (never React state)
@@ -26,10 +30,18 @@ export type GNode = Item & {
   a: number; s: number; born: number;
   sx: number; sy: number; // the slot the layout assigns: a tidy spot in its cluster that the force pulls it back to
 };
+// An Overlap verdict between two Items; for `wrapper`, a is the wrapper and b what it calls. Not a force link.
+export type GOverlap = { a: GNode; b: GNode; verdict: Exclude<Verdict, "distinct">; reason: string; alpha: number };
 export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot: boolean };
 // la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
 export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; a: number; la: number; lx: number; ly: number; pick: number };
-export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; warnings: string[]; offline: boolean };
+export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; warnings: string[]; offline: boolean };
+
+// Star radius from always-on cost, area-proportional (magnitude by area, not radius). cRef is the scan's 95th percentile,
+// so one huge MCP server cannot shrink everything else. Unknown cost gets its own middling size (and is drawn hollow).
+export const RMIN = 2.6, RMAX = 9, RUNK = 4.5;
+export const costRadius = (alwaysOn: number | null | undefined, cRef: number) =>
+  alwaysOn == null ? RUNK : Math.max(RMIN, Math.min(RMAX, RMAX * Math.sqrt(alwaysOn / cRef)));
 
 const KIND_NAME: Record<string, string> = { skill: "Skill", hook: "Hook", agent: "Agent", plugin: "Plugin", mcp_server: "MCP server", connector: "Connector" };
 export const kindName = (k: string) => KIND_NAME[k] ?? k.replace(/_/g, " ");
@@ -54,7 +66,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   const tall = Math.max(0.55, Math.min(2, aspect)); // wide screens spread the clusters sideways, tall ones downwards
   const byId = new Map<string, GNode>();
   const nodes = data.items.map((it) => {
-    const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, cost: costs[it.id], a: 0, s: 1, born: 0, sx: 0, sy: 0 };
+    const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, unknown: false, cost: costs[it.id], a: 0, s: 1, born: 0, sx: 0, sy: 0 };
     byId.set(n.id, n);
     return n;
   });
@@ -79,12 +91,24 @@ export function buildModel(data: Constellation, aspect = 1): Model {
     neighbours.get(target)!.add(source);
     return [{ source, target, kind: r.kind, a: 0, hot: false }];
   });
+  const known = nodes.flatMap((n) => n.cost?.always_on ?? []).sort((a, b) => a - b);
+  const costRef = Math.max(1, known[Math.min(known.length - 1, Math.floor(0.95 * known.length))] ?? 1);
   for (const n of nodes) {
     n.degree = neighbours.get(n)!.size;
-    n.r = 3.2 + Math.min(10, Math.sqrt(n.degree) * 1.9);
+    n.unknown = n.cost?.always_on == null;
+    n.r = costRadius(n.cost?.always_on, costRef);
   }
+  const overlapsOf = new Map(nodes.map((n) => [n, [] as GOverlap[]]));
+  const overlaps = (data.overlaps ?? []).flatMap((o) => {
+    const a = byId.get(o.a_id), b = byId.get(o.b_id);
+    if (!a || !b || o.verdict === "distinct") return [];
+    const g: GOverlap = { a, b, verdict: o.verdict, reason: o.reason, alpha: 0 };
+    overlapsOf.get(a)!.push(g);
+    overlapsOf.get(b)!.push(g);
+    return [g];
+  });
   layout(nodes, links, clusters, tall);
-  return { nodes, links, clusters, neighbours, warnings: data.warnings ?? [], offline: (data.warnings ?? []).some((w) => w.startsWith("Offline")) };
+  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, warnings: data.warnings ?? [], offline: (data.warnings ?? []).some((w) => w.startsWith("Offline")) };
 }
 
 // Search rank: name prefix, then name substring, then label substring; hubs first within a rank.
