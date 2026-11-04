@@ -16,13 +16,16 @@ plugins; it provides the same slash-command interface without a legacy format.
 ## Behaviour
 
 1. Require a user-supplied config directory. Use a user-supplied scan output
-   file, or `constellation.json` in the working directory; ask before replacing
-   an existing file. Quote paths as literal shell arguments.
-2. Run `constellation scan CONFIG --offline --no-usage --out FILE` by default. Paid scan
+   file, or `~/.cache/constellation/constellation.json`; create the default cache
+   directory if needed and ask before replacing an existing file. Reject any
+   argument starting with `-` and extra arguments; arguments are paths only.
+   Quote paths as literal shell arguments, resolving only a leading `~` locally.
+2. Run `constellation scan --offline --no-usage --out=FILE -- CONFIG` by default.
+   Quote the whole `--out=FILE` argument. Paid scan
    options require an explicit user request; `--count-bodies` is never inferred.
-3. After a successful scan, run `constellation report FILE` and show its stdout
+3. After a successful scan, run `constellation report -- FILE` and show its stdout
    verbatim in a code block. Read only this CLI output into the session.
-4. Run `constellation open FILE` as a background process through the session's
+4. Run `constellation open -- FILE` as a background process through the session's
    shell tool. Report CLI errors and stop the sequence on a failed command.
 
 The installed CLI owns all processing and redaction. The plugin does not read

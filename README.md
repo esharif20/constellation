@@ -117,8 +117,13 @@ Claude Code namespaces plugin commands, so the supported spelling is
 `/constellation:constellation`, approved for this project. The plugin requires `constellation` on the session's
 `PATH` (provided by `uv run` above). It calls `scan --offline --no-usage`, shows the exact
 `constellation report` output, then starts `constellation open` in the
-background. The config directory is always supplied by you; an existing output
-file requires confirmation before replacement. Paid scans and `--count-bodies`
+background. The report enters Claude's conversation context and is processed by
+the model running that session, even though the scan itself runs offline.
+The config directory is always supplied by you; the scan defaults to
+`~/.cache/constellation/constellation.json`, and an existing output file requires
+confirmation before replacement. Path arguments starting with `-` and extra
+arguments are rejected; the wrapper uses `--` before positional paths.
+Paid scans and `--count-bodies`
 require explicit requests. Expansion is pending #9.
 
 This [official local-loading method](https://code.claude.com/docs/en/plugins/create#load-a-directory-or-archive-for-one-session)

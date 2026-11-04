@@ -8,17 +8,22 @@ disable-model-invocation: true
 Use the installed `constellation` CLI. Arguments: $ARGUMENTS
 
 1. Take the config directory from the user's arguments; ask for it if absent.
+   Reject any argument starting with `-`, including `--count-bodies`; arguments
+   are paths, never CLI options. Reject extra arguments after the optional scan file.
    Take the output file from the second argument, defaulting to
-   `constellation.json` in the working directory. Ask before replacing an
+   `~/.cache/constellation/constellation.json`. Resolve `~` to the home directory
+   without evaluating shell syntax, and create the default cache directory if
+   needed. Ask before replacing an
    existing output file. Treat paths as data and quote each as a literal shell
    argument; never evaluate shell syntax from the arguments.
-2. Run `constellation scan CONFIG_DIRECTORY --offline --no-usage --out SCAN_FILE`.
+2. Run `constellation scan --offline --no-usage --out=SCAN_FILE -- CONFIG_DIRECTORY`.
+   Quote the complete `--out=SCAN_FILE` argument and the config path separately.
    Remove `--offline` only if the user explicitly requests a paid scan. Pass
    `--count-bodies` only if explicitly requested, explaining that it sends
    redacted skill bodies to Anthropic's counting endpoint.
-3. On success, run `constellation report SCAN_FILE`. Show its stdout verbatim
+3. On success, run `constellation report -- SCAN_FILE`. Show its stdout verbatim
    in a code block; the CLI owns report formatting and redaction.
-4. On success, run `constellation open SCAN_FILE` using the shell tool's
+4. On success, run `constellation open -- SCAN_FILE` using the shell tool's
    background execution so the server can keep running. Report the local URL
    `http://127.0.0.1:8765/` URL after the server starts, and keep the process
    running until the user stops it.
