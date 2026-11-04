@@ -110,6 +110,21 @@ def test_unknown_item_id_falls_back_to_the_id(data):
     assert suggest(data)[0].reason == "Remove one of these two: x:1 and x:2. same"
 
 
+def test_unknown_item_ids_in_a_wrapper_fall_back_to_the_ids_on_both_sides(data):
+    data["overlaps"] = [{"a_id": "x:1", "b_id": "x:2", "verdict": "wrapper", "reason": "forwards"}]
+    assert suggest(data)[0].reason == "x:1 only calls x:2; consider using x:2 directly. forwards"
+
+
+def test_a_known_zero_saving_sorts_after_a_one_token_saving(data):
+    data["items"] = []
+    data["costs"] = {"a": {"always_on": 0}, "b": {"always_on": 0}, "c": {"always_on": 1}, "d": {"always_on": 1}}
+    data["overlaps"] = [
+        {"a_id": "a", "b_id": "b", "verdict": "duplicate", "reason": "r"},
+        {"a_id": "c", "b_id": "d", "verdict": "duplicate", "reason": "r"},
+    ]
+    assert [s.tokens_saved for s in suggest(data)] == [1, 0]
+
+
 def test_suggestion_is_frozen():
     s = Suggestion("i", "remove_duplicate", ("a", "b"), "r", None)
     with pytest.raises(AttributeError):
