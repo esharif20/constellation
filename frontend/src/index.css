@@ -38,7 +38,7 @@
   /* shadcn semantic tokens */
   --background: var(--night);
   --foreground: var(--text);
-  --card: rgb(12 16 36 / 0.82);
+  --card: rgb(12 16 36 / 0.88);
   --card-foreground: var(--text);
   --popover: rgb(12 16 36 / 0.9);
   --popover-foreground: var(--text);
@@ -133,6 +133,7 @@
   .glyph[data-kind="connector"] { --c: var(--k-connector); border-radius: 2px; }
   .edge-key { flex: none; display: inline-block; width: 18px; border-top: 1px dashed var(--edge-alt); }
   .edge-key[data-kind="contains"] { border-top: 1px solid rgb(150 168 235 / 0.55); }
+  .edge-key[data-kind="uses"] { border-top-style: dotted; }
   .glass { background: var(--card); backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); }
   .pulse-star { width: 10px; height: 10px; border-radius: 50%; background: var(--k-skill); box-shadow: 0 0 18px 4px rgb(111 168 255 / 0.6); animation: pulse-star 1.6s ease-in-out infinite; }
 }

@@ -26,6 +26,8 @@ function readInk() {
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+// Drawn radius in graph units: grows with zoom until k = 2.5, then sublinearly, so zooming in reads labels, not giant discs.
+const radius = (n: GNode, k: number) => n.r * n.s * Math.min(1, Math.sqrt(2.5 / k));
 const ease = (a: number, b: number, k: number) => a + (b - a) * k;
 
 export function makePainter(model: Model, reducedMotion: boolean) {
@@ -33,6 +35,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const colorOf = new Map(model.nodes.map((n) => [n, ink.color(n.kind)]));
   const sprites = new Map<string, HTMLCanvasElement>();
   const focus: Focus = { hover: null, preview: null, selected: null, matches: null };
+  const view = { fitK: 1 }; // zoom at which the whole map fits; label levels are relative to it
   const dust = Array.from({ length: 260 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 0.9 + 0.3, a: Math.random() * 0.5 + 0.1 }));
   let last = 0, lit: Set<GNode> | null = null, f: GNode | null = null;
 
@@ -93,6 +96,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   function pre(ctx: CanvasRenderingContext2D) {
     update(performance.now());
     const sc = screen(ctx);
+    const k = sc.k;
     // Faint dust at a slower parallax than the graph gives panning a sense of depth.
     ctx.save();
     ctx.setTransform(sc.dpr, 0, 0, sc.dpr, 0, 0);
@@ -116,7 +120,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     ctx.globalCompositeOperation = "lighter";
     for (const n of model.nodes) {
       if (n.a < 0.01) continue;
-      const R = n.r * n.s * FEEL.glow;
+      const R = radius(n, k) * FEEL.glow;
       ctx.globalAlpha = n.a * (n === f ? 1 : 0.85);
       ctx.drawImage(sprite(colorOf.get(n)!), n.x! - R, n.y! - R, 2 * R, 2 * R);
     }
@@ -137,7 +141,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.strokeStyle = l.kind === "contains" ? ink.edge : ink.edgeAlt;
       ctx.lineWidth = px;
     }
-    ctx.setLineDash(l.kind === "contains" ? [] : [3 * px, 3 * px]);
+    ctx.setLineDash(l.kind === "contains" ? [] : l.kind === "triggers" ? [4 * px, 3 * px] : [1 * px, 3 * px]); // solid, dashed, dotted
     ctx.beginPath(); ctx.moveTo(s.x!, s.y!); ctx.lineTo(t.x!, t.y!); ctx.stroke();
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
@@ -145,7 +149,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
 
   function node(n: GNode, ctx: CanvasRenderingContext2D, k: number) {
     if (n.a < 0.01) return;
-    const r = n.r * n.s, px = 1 / k, x = n.x!, y = n.y!, c = colorOf.get(n)!;
+    const r = radius(n, k), px = 1 / k, x = n.x!, y = n.y!, c = colorOf.get(n)!;
     ctx.globalAlpha = n.a;
     ctx.fillStyle = ctx.strokeStyle = c;
     ctx.beginPath();
@@ -177,16 +181,16 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   function pointer(n: GNode, color: string, ctx: CanvasRenderingContext2D, k: number) {
     const slack = (matchMedia("(pointer: coarse)").matches ? 14 : 6) / k;
     ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(n.x!, n.y!, n.r * n.s * 1.2 + slack, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(n.x!, n.y!, radius(n, k) * 1.2 + slack, 0, 2 * Math.PI); ctx.fill();
   }
 
   // Semantic zoom: zoomed out you read cluster names like an atlas; zoomed in they give way to Item names.
   // Labels go down greedily by priority and are skipped when they would collide.
   function post(ctx: CanvasRenderingContext2D) {
-    const sc = screen(ctx), z = sc.k;
+    const sc = screen(ctx), z = sc.k / view.fitK;
     ctx.save();
     ctx.setTransform(sc.dpr, 0, 0, sc.dpr, 0, 0);
-    const placed: number[][] = [];
+    const placed: number[][] = [[0, 0, ctx.canvas.clientWidth, ctx.canvas.clientWidth <= 640 ? 116 : 76]]; // keep canvas text out from under the top bar
     const fits = (x0: number, y0: number, x1: number, y1: number) => {
       if (placed.some((b) => x0 < b[2] && x1 > b[0] && y0 < b[3] && y1 > b[1])) return false;
       placed.push([x0, y0, x1, y1]);
@@ -198,7 +202,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
 
     const named: [number, GNode, number][] = [];
     for (const n of model.nodes) {
-      const start = 1.6 - Math.min(1.1, Math.sqrt(n.degree) * 0.35);
+      const start = 1.3 - Math.min(0.9, Math.max(0, n.degree - 1) * 0.15); // hubs are named at the fitted view, leaves from 1.3x
       let a = clamp01((z - start) / 0.6) * n.a;
       if (lit?.has(n) && n.a > 0.5) a = Math.max(a, n === f ? 1 : 0.85);
       if (a > 0.03) named.push([n === f ? 0 : lit?.has(n) ? 1 : 2, n, a]);
@@ -210,7 +214,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.font = `${rank === 0 ? 600 : 450} ${size}px ${ink.sans}`;
       ctx.textBaseline = "top";
       const [sx, sy0] = sc.apply(n.x!, n.y!);
-      const sy = sy0 + n.r * n.s * z + 5, w = ctx.measureText(n.name).width;
+      const sy = sy0 + radius(n, sc.k) * sc.k + 5, w = ctx.measureText(n.name).width;
       if (!fits(sx - w / 2 - 2, sy, sx + w / 2 + 2, sy + size + 2)) return;
       ctx.globalAlpha = a;
       ctx.lineWidth = 3;
@@ -219,11 +223,12 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.fillText(n.name, sx, sy);
     };
     const clusterLabel = (c: Cluster, alpha: number) => {
-      const size = 14 + Math.min(10, Math.sqrt(c.members.length) * 1.6);
+      const phone = ctx.canvas.clientWidth <= 640;
+      const size = (phone ? 12 : 14) + Math.min(phone ? 4 : 10, Math.sqrt(c.members.length) * (phone ? 0.8 : 1.6));
       ctx.font = `italic 400 ${size}px ${ink.serif}`;
       ctx.letterSpacing = "0.03em";
       ctx.textBaseline = "middle";
-      const [sx, sy] = sc.apply(c.x, c.y - c.r * 0.55), w = ctx.measureText(c.name).width;
+      const [sx, sy] = sc.apply(c.x, c.y - c.r * 0.8), w = ctx.measureText(c.name).width;
       if (fits(sx - w / 2 - 6, sy - size / 2, sx + w / 2 + 6, sy + size / 2)) {
         ctx.globalAlpha = alpha * c.a * 0.9;
         ctx.lineWidth = 4;
@@ -235,7 +240,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     };
 
     named.filter((x) => x[0] < 2).forEach(itemLabel); // the focused neighbourhood always wins its space
-    const clusterAlpha = clamp01((1.9 - z) / 0.7);
+    const clusterAlpha = clamp01((1.8 - z) / 0.6);
     if (clusterAlpha > 0.03) {
       model.clusters
         .filter((c) => c.members.length >= 3 && c.a > 0.03)
@@ -246,6 +251,6 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     ctx.restore();
   }
 
-  return { focus, pre, link, node, pointer, post };
+  return { focus, view, pre, link, node, pointer, post };
 }
 export type Painter = ReturnType<typeof makePainter>;

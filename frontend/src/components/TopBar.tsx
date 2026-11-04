@@ -70,7 +70,7 @@ function Search({ query, found, onQuery, onChoose, onPreview }: Omit<Props, "mod
               aria-label="Find an Item by name"
               className="glass h-10 w-full rounded-full border border-border pr-10 pl-10 text-sm transition-[border-color,box-shadow] duration-(--t-fast) outline-none placeholder:text-text-3 hover:border-input focus:border-ring focus:ring-3 focus:ring-ring/15"
             />
-            {!focused && !query && <Kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2">/</Kbd>}
+            {!focused && !query && <Kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 sm:inline-flex">/</Kbd>}
           </div>
         </PopoverAnchor>
         <PopoverContent

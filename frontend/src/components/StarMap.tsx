@@ -64,9 +64,12 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
 
   useEffect(() => {
     if (!data.nodes.length) return;
-    const id = requestAnimationFrame(() => fg.current?.zoomToFit(0, Math.min(innerWidth, innerHeight) < 640 ? 40 : 90));
+    const id = requestAnimationFrame(() => {
+      fg.current?.zoomToFit(0, innerWidth <= 640 ? 48 : 110); // room for the top bar and legend
+      painter.view.fitK = fg.current?.zoom() ?? 1;
+    });
     return () => cancelAnimationFrame(id);
-  }, [data]);
+  }, [data, painter]);
 
   useImperativeHandle(ref, () => ({
     glideTo(n) {
@@ -110,6 +113,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
         width={size.w}
         height={size.h}
         backgroundColor="rgba(0,0,0,0)"
+        nodeLabel={() => ""} // names are drawn on the canvas; no browser tooltip
         autoPauseRedraw={false} // fades are eased per frame, so keep painting
         warmupTicks={260}
         cooldownTicks={400}
