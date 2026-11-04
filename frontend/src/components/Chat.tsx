@@ -54,11 +54,15 @@ export function Chat({ model, selected, open, briefOpen, clusterOpen, onOpen, on
     observer.observe(legend);
     addEventListener("resize", measure);
     return () => { observer.disconnect(); removeEventListener("resize", measure); };
-  }, []);
+  }, [open]); // the Legend changes height when it hides or the chat opens, so measure again
   useEffect(() => () => request.current?.abort(), []);
   useEffect(() => {
-    if (open) input.current?.focus();
+    if (open) { input.current?.focus(); return; }
+    // Closing (Esc, entering a cluster, picking an Item) drops the request and the answer so a late reply cannot move the map.
+    request.current?.abort();
+    request.current = null;
   }, [open]);
+  if (!open && (pending || reply || asked)) { setPending(false); setReply(null); setAsked(""); }
 
   function collapse() {
     onOpen(false);
