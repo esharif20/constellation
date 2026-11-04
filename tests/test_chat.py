@@ -55,7 +55,10 @@ def chat(tmp_path, monkeypatch):
     }
     path = tmp_path / "scan.json"
     path.write_text(json.dumps(data))
-    client = TestClient(create_app(path, checklist=tmp_path / "checklist.md"), base_url="http://127.0.0.1:8765")
+    client = TestClient(
+        create_app(path, checklist=tmp_path / "checklist.md", embedder=lambda texts: [[0.0, 1.0] for _ in texts]),
+        base_url="http://127.0.0.1:8765",
+    )
     return client, path, data
 
 
@@ -149,9 +152,11 @@ def test_chat_preserves_current_scan_usage_coverage_and_skipped_files(chat):
 
 def test_selected_followup_and_named_explanation(chat):
     expected = "Item details:\n- mail-helper (skill): Send email and draft messages\n  Always-on: 400 tokens; on-use: 800 tokens."
-    assert ask(chat, "Explain mail-helper")["answer"] == expected
     assert ask(chat, "Explain this", selected_ids=["mail"])["answer"] == expected
-    assert ask(chat, "Explain unknown")["answer"].endswith("Always-on: unknown; on-use: unknown.")
+    assert ask(chat, "Explain mail-helper")["answer"].startswith(
+        "mail-helper\n- Kind: skill\n- Does: Send email and draft messages\n- Always-on: 400 tokens"
+    )
+    assert "- On-use: unknown" in ask(chat, "Explain unknown")["answer"]
     assert ask(chat, "Focus mail-helper")["actions"] == [{"kind": "focus", "item_ids": ["mail"]}]
     assert ask(chat, "Filter email")["actions"] == [{"kind": "highlight", "item_ids": ["draft", "mail"]}]
 
@@ -344,8 +349,8 @@ def test_explicit_explanations_and_usage_win_over_words_inside_names(chat):
         {"id": "named-unused", "name": "unused-helper", "kind": "skill", "description": "Maintain inventory"},
     ]
     chat[1].write_text(json.dumps(chat[2]))
-    assert ask(chat, "Explain cost-helper")["answer"].startswith("Item details:\n- cost-helper (skill): Estimate budgets")
-    assert ask(chat, "Describe unused-helper")["answer"].startswith("Item details:\n- unused-helper (skill): Maintain inventory")
+    assert ask(chat, "Explain cost-helper")["answer"].startswith("cost-helper\n- Kind: skill\n- Does: Estimate budgets")
+    assert ask(chat, "Describe unused-helper")["answer"].startswith("unused-helper\n- Kind: skill\n- Does: Maintain inventory")
     assert ask(chat, "Which unused Items cost most?")["answer"].startswith("Never seen in the scanned transcripts:\n- draft\n")
 
 
@@ -484,7 +489,7 @@ def test_full_redacted_metadata_is_searchable_even_when_display_is_short(chat):
 def test_new_explicit_search_ignores_stale_selection_but_contextual_explanation_keeps_it(chat):
     assert ask(chat, "Search email", selected_ids=["unknown"])["actions"] == [{"kind": "highlight", "item_ids": ["draft", "mail"]}]
     assert ask(chat, "Explain this", selected_ids=["unknown"])["actions"] == [{"kind": "highlight", "item_ids": ["unknown"]}]
-    assert ask(chat, "Explain draft", selected_ids=["mail"])["actions"] == [{"kind": "highlight", "item_ids": ["mail", "draft"]}]
+    assert ask(chat, "Explain draft", selected_ids=["mail"])["actions"] == [{"kind": "highlight", "item_ids": ["draft"]}]
 
 
 def test_overlap_scope_is_applied_before_top_five_ranking(chat):
@@ -557,3 +562,9 @@ def test_chat_without_length_or_encoding_never_reads_past_the_limit(chat):
         server.should_exit = True
         thread.join(5)
     assert status == b"422"  # empty body: rejected as invalid, never parsed as a chat
+
+
+def test_explain_with_a_cost_word_and_a_name_stays_on_that_item(chat):
+    reply = ask(chat, "Explain the email cost of mail-helper")
+    assert reply["answer"].startswith("Item details:\n- mail-helper (skill)")
+    assert reply["actions"] == [{"kind": "highlight", "item_ids": ["mail"]}]

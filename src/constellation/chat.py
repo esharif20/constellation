@@ -5,17 +5,22 @@ import json
 import re
 import threading
 from collections import OrderedDict
+from collections.abc import Callable
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
 from .brief import brief
+from .compare import compare_card, explain_card, parse_compare, parse_what
 from .redact import redact
 from .report import _never_used, _usage_note
 from .retrieve import Index
 
 _STOP = set("what can help me to do a an the with for please find search show highlight focus filter on items item".split())
+_NOT_WHAT = (
+    r"(?<![\w-])(this|these|selected|costs?|tokens?|usage|used|unused|never|duplicates?|wrappers?|overlaps?)(?![\w-])"  # not inside a name
+)
 
 
 class ChatState(TypedDict):
@@ -26,6 +31,7 @@ class ChatState(TypedDict):
     response: dict[str, Any]
     intent: str
     scope: list[str]
+    index: Any
 
 
 def _retrieve(state: ChatState) -> dict[str, Any]:
@@ -51,8 +57,12 @@ def _short(text: str, limit: int) -> str:
 
 def _intent(question: str) -> str:
     q = question.lower()
-    if re.search(r"\b(how many items|item count|count items)\b", q):
+    if parse_compare(q):
+        intent = "compare"
+    elif re.search(r"\b(how many items|item count|count items)\b", q):
         intent = "count"
+    elif parse_what(q) and not re.search(_NOT_WHAT, q):
+        intent = "whatis"
     elif re.search(r"\b(explain|describe)\b", q):
         intent = "explain"
     elif re.search(r"\b(usage|used|unused|never)\b", q):
@@ -177,6 +187,39 @@ def _explain(state: ChatState) -> dict[str, Any]:
     return _items_answer(state, explain=True)
 
 
+def _pick(state: ChatState, name: str) -> tuple[dict[str, Any], str] | None:
+    """The best Item for a name through the shared Index, plus a "did you mean" note when the match is weak; None when nothing matches."""
+    hits = state["index"].query(name)
+    if not hits:
+        return None
+    item = next(i for i in state["data"]["items"] if i["id"] == hits[0]["id"])
+    strong = re.match(r"name|close to", hits[0]["why"])
+    return item, "" if strong else f'Did you mean {item["name"]}? "{name}" is not an exact match.'
+
+
+def _compare(state: ChatState) -> dict[str, Any]:
+    first, second = parse_compare(state["question"]) or ("", "")  # pragma: no mutate (unreachable fallback: routing saw a match)
+    a, b = _pick(state, first), _pick(state, second)
+    if not first and state["selected"]:  # "how does it compare to X" means the selected Item
+        a = next((i, "") for i in state["data"]["items"] if i["id"] == state["selected"][0])
+    if a is None or (b is not None and a[0]["id"] == b[0]["id"]):
+        return _response("Name two Items to compare, for example: compare ponytail to chisel.\nI could not tell which two you mean.")
+    if b is None:
+        card = explain_card(state["data"], a[0])
+        return _response(f'I could not find an Item matching "{second}" to compare with. Here is {a[0]["name"]}:\n\n{card}', [a[0]["id"]])
+    notes = "".join(f"{n}\n" for n in (a[1], b[1]) if n)
+    return _response(notes + compare_card(state["data"], a[0], b[0]), [a[0]["id"], b[0]["id"]])
+
+
+def _whatis(state: ChatState) -> dict[str, Any]:
+    name = parse_what(state["question"]) or ""  # pragma: no mutate (unreachable fallback: routing saw a match)
+    found = _pick(state, name)
+    if found is None:
+        return _response(f'I could not find an Item matching "{name}". Try an Item name or a word from its description.')
+    note = f"{found[1]}\n" if found[1] else ""
+    return _response(note + explain_card(state["data"], found[0]), [found[0]["id"]])
+
+
 def _focus(state: ChatState) -> dict[str, Any]:
     return _items_answer(state, kind="focus")
 
@@ -196,6 +239,8 @@ def _graph() -> Any:
         "pairs": _pairs,
         "usage": _usage,
         "count": _count,
+        "compare": _compare,
+        "whatis": _whatis,
     }
     for name, operation in operations.items():
         graph.add_node(name, operation)
@@ -213,6 +258,8 @@ def _graph() -> Any:
             "usage": "usage",
             "unused": "usage",
             "count": "count",
+            "compare": "compare",
+            "whatis": "whatis",
         },
     )
     return graph.compile()
@@ -224,7 +271,9 @@ class LocalChat:
         self._lock = threading.Lock()
         self._workflow = _graph()
 
-    def answer(self, data: dict[str, Any], question: str, selected: list[str]) -> dict[str, Any]:
+    def answer(
+        self, data: dict[str, Any], question: str, selected: list[str], index_for: Callable[[list[dict[str, Any]]], Index]
+    ) -> dict[str, Any]:
         clean: dict[str, Any] = {
             "items": [
                 {
@@ -245,6 +294,13 @@ class LocalChat:
         if _intent(question) in ("usage", "unused"):
             clean["usage"] = data.get("usage")
             clean["usage_window"] = data.get("usage_window")
+        index: Index | None = None  # pragma: no mutate (equivalent: unused unless set below)
+        if _intent(question) in ("compare", "whatis"):
+            index = index_for(data["items"])
+            clean["usage"], clean["usage_window"] = data.get("usage"), data.get("usage_window")
+            clean["clusters"] = [{"name": redact(c["name"]), "item_ids": c["item_ids"]} for c in data.get("clusters") or []]
+            # meaning-based matches appear once the vectors are ready, so that moment must not reuse an older answer
+            clean["vectors_ready"] = index.vectors is not None  # pragma: no mutate (equivalent: only needs to differ before and after)
         key = hashlib.sha256(json.dumps([question, selected, clean], sort_keys=True).encode()).hexdigest()
         with self._lock:
             if key in self._cache:
@@ -252,7 +308,9 @@ class LocalChat:
                 return {**self._cache[key], "cached": True}
             # LangGraph otherwise honours ambient LangSmith tracing, which could upload the local state.
             with tracing_context(enabled=False):
-                response: dict[str, Any] = self._workflow.invoke({"question": question, "selected": selected, "data": clean})["response"]
+                response: dict[str, Any] = self._workflow.invoke(
+                    {"question": question, "selected": selected, "data": clean, "index": index}
+                )["response"]
             self._cache[key] = response
             if len(self._cache) > 128:
                 del self._cache[next(iter(self._cache))]
