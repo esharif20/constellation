@@ -280,7 +280,9 @@ def _plugin_manifests(config_dir: Path) -> list[Path]:
     return list(newest.values())
 
 
-def read_items(config_dir: Path, lockfile: Path | None = None) -> tuple[list[Item], list[str], list[Relation], dict[str, str]]:
+def read_items(
+    config_dir: Path, lockfile: Path | None = None, project: Path | None = None
+) -> tuple[list[Item], list[str], list[Relation], dict[str, str]]:
     """`lockfile` is the skills CLI's lockfile; None turns origins off (no origin is set and the file is never opened)."""
     items: list[Item] = []
     warnings: list[str] = []

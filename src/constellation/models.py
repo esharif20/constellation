@@ -16,6 +16,8 @@ class Item:
     source: str
     disabled: bool = False  # a plugin switched off in enabledPlugins, and what it contains: kept on the map, shown dimmed
     origin: str | None = None  # the pack, plugin or "claude.ai" it came from; local display data, never sent to a provider (origins.py)
+    scope: str = "global"  # "project" for Items read from --project PATH and local/<n>/ MCP servers
+    project: str | None = None  # opaque key (p1..pN) of the project an Item lives in; never a label or path
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,13 @@ class UsageWindow:
     skipped: int
 
 
+@dataclass(frozen=True)
+class ProjectUsage:
+    projects: dict[str, str] = field(default_factory=dict)  # opaque key p1..pN -> display label; local only
+    by_project: dict[str, dict[str, Usage]] = field(default_factory=dict)  # Item id -> key -> Usage
+    current: str | None = None  # key of --project PATH, else None
+
+
 @dataclass
 class Constellation:
     items: list[Item] = field(default_factory=list)
@@ -80,3 +89,6 @@ class Constellation:
     hook_weights: dict[str, Weight] = field(default_factory=dict)  # hook Item id -> what it injects at SessionStart / UserPromptSubmit
     usage: dict[str, Usage] = field(default_factory=dict)
     usage_window: UsageWindow | None = None
+    projects: dict[str, str] = field(default_factory=dict)  # key -> label; local only, dropped by snapshot()
+    usage_by_project: dict[str, dict[str, Usage]] = field(default_factory=dict)  # kept apart from `usage` so nothing else sees keys
+    current_project: str | None = None

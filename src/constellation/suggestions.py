@@ -14,6 +14,8 @@ class Suggestion:
     item_ids: tuple[str, ...]
     reason: str  # plain English, redacted
     tokens_saved: int | None  # None = unknown, never 0
+    project: str | None = None  # opaque project key, never a label
+    confidence: str | None = None  # "high" / "medium"
 
 
 def _make(
