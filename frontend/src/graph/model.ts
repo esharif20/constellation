@@ -25,8 +25,9 @@ export type GNode = Item & {
   a: number; s: number; born: number;
 };
 export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot: boolean };
-export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; a: number };
-export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; warnings: string[] };
+// la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
+export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; a: number; la: number; lx: number; ly: number; pick: number };
+export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; warnings: string[]; offline: boolean };
 
 const KIND_NAME: Record<string, string> = { skill: "Skill", hook: "Hook", agent: "Agent", plugin: "Plugin", mcp_server: "MCP server", connector: "Connector" };
 export const kindName = (k: string) => KIND_NAME[k] ?? k.replace(/_/g, " ");
@@ -42,8 +43,13 @@ const REL_NAME: Record<string, [string, string]> = {
 };
 export const relName = (kind: string, out: boolean) => (REL_NAME[kind] ?? [kind, `${kind} (from)`])[out ? 0 : 1];
 
-export function buildModel(data: Constellation): Model {
-  const labels = data.labels ?? {}, costs = data.costs ?? {};
+// Without labels (an offline scan) a cluster is named after its first Item, which is often kebab-case: read it as words.
+const tidy = (s: string) => s.replace(/[-_]+/g, " ");
+
+// `aspect` is the viewport's height over width: tall (phone) screens seed a taller layout so the map fills them.
+export function buildModel(data: Constellation, aspect = 1): Model {
+  const labels = data.labels ?? {}, costs = data.costs ?? {}, labelled = Object.keys(labels).length > 0;
+  const tall = Math.max(1, Math.min(2, aspect));
   const byId = new Map<string, GNode>();
   const nodes = data.items.map((it) => {
     const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, cost: costs[it.id], a: 0, s: 1, born: 0 };
@@ -51,7 +57,7 @@ export function buildModel(data: Constellation): Model {
     return n;
   });
   const clusters: Cluster[] = (data.clusters ?? [])
-    .map((c) => ({ name: c.name, members: c.item_ids.flatMap((id) => byId.get(id) ?? []), x: 0, y: 0, r: 0, a: 0 }))
+    .map((c) => ({ name: labelled ? c.name : tidy(c.name), members: c.item_ids.flatMap((id) => byId.get(id) ?? []), x: 0, y: 0, r: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0 }))
     .filter((c) => c.members.length);
   clusters.forEach((c) => c.members.forEach((n) => (n.cluster = c)));
   const neighbours = new Map(nodes.map((n) => [n, new Set<GNode>()]));
@@ -70,11 +76,11 @@ export function buildModel(data: Constellation): Model {
   [...clusters].sort((a, b) => b.members.length - a.members.length).forEach((c, i) => {
     const t = i * 2.39996, rad = 60 * Math.sqrt(i);
     for (const n of c.members) {
-      n.x = Math.cos(t) * rad + (Math.random() - 0.5) * 30;
-      n.y = Math.sin(t) * rad + (Math.random() - 0.5) * 30;
+      n.x = (Math.cos(t) * rad + (Math.random() - 0.5) * 30) / Math.sqrt(tall);
+      n.y = (Math.sin(t) * rad + (Math.random() - 0.5) * 30) * Math.sqrt(tall);
     }
   });
-  return { nodes, links, clusters, neighbours, warnings: data.warnings ?? [] };
+  return { nodes, links, clusters, neighbours, warnings: data.warnings ?? [], offline: (data.warnings ?? []).some((w) => w.startsWith("Offline")) };
 }
 
 // Search rank: name prefix, then name substring, then label substring; hubs first within a rank.

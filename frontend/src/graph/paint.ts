@@ -9,9 +9,10 @@ export const FEEL = {
   introMs: 900, // stars light up outward from the centre
   glow: 4.2, // glow sprite radius as a multiple of node radius
   hoverScale: 1.3,
+  labelMs: 140, // cluster names ease to a new spot over about this long
 };
 
-export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null };
+export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; keyFocus: boolean };
 
 function readInk() {
   const css = getComputedStyle(document.documentElement);
@@ -21,26 +22,36 @@ function readInk() {
     color,
     fade: Number(t("--fade")) || 0.1,
     edge: t("--edge"), edgeAlt: t("--edge-alt"), halo: t("--halo"), haloName: t("--halo-name"), dust: t("--dust"),
-    text: t("--text"), text2: t("--text-2"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
+    ring: t("--ring"), text: t("--text"), text2: t("--text-2"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
   };
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 // Drawn radius in graph units: grows with zoom until k = 2.5, then sublinearly, so zooming in reads labels, not giant discs.
 const radius = (n: GNode, k: number) => n.r * n.s * Math.min(1, Math.sqrt(2.5 / k));
-const ease = (a: number, b: number, k: number) => a + (b - a) * k;
 
 export function makePainter(model: Model, reducedMotion: boolean) {
   const ink = readInk();
   const colorOf = new Map(model.nodes.map((n) => [n, ink.color(n.kind)]));
   const sprites = new Map<string, HTMLCanvasElement>();
-  const focus: Focus = { hover: null, preview: null, selected: null, matches: null };
-  const view = { fitK: 1 }; // zoom at which the whole map fits; label levels are relative to it
+  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, keyFocus: false };
+  // fitK: zoom at which the whole map fits (label levels are relative to it); top/bottom/right: px that the top bar,
+  // legend and inspector cover, so canvas text keeps out from under them (measured by StarMap)
+  const view = { fitK: 1, top: 76, bottom: 0, right: 0 };
   const dust = Array.from({ length: 260 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 0.9 + 0.3, a: Math.random() * 0.5 + 0.1 }));
-  let last = 0, lit: Set<GNode> | null = null, f: GNode | null = null;
+  let last = 0, lit: Set<GNode> | null = null, f: GNode | null = null, fk = 1;
+  // Every fade eases toward a target and snaps when close. `busy` says whether anything is still moving, so the
+  // canvas can stop repainting once the map is at rest (StarMap wakes it again on any interaction).
+  let moving = false, busy = true;
+  const ease = (a: number, b: number, k: number) => {
+    if (Math.abs(b - a) < 0.002) return b;
+    moving = true;
+    return a + (b - a) * k;
+  };
 
   // stars light up outward from the centre, once
   const start = performance.now();
+  const introEnd = start + FEEL.introMs * 1.4 + 400;
   const far = Math.max(1, ...model.nodes.map((n) => Math.hypot(n.x ?? 0, n.y ?? 0)));
   for (const n of model.nodes) n.born = reducedMotion ? 0 : start + (Math.hypot(n.x ?? 0, n.y ?? 0) / far) * FEEL.introMs * 0.7 + Math.random() * 120;
 
@@ -68,18 +79,27 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   };
 
   function update(now: number) {
+    moving = false;
     const dt = Math.min(64, now - (last || now));
     last = now;
-    const k = 1 - Math.exp(-dt / FEEL.fadeMs);
+    const k = (fk = reducedMotion ? 1 : 1 - Math.exp(-dt / FEEL.fadeMs));
     f = focus.preview ?? focus.hover ?? focus.selected;
-    lit = f ? new Set([f, ...model.neighbours.get(f)!]) : focus.matches;
+    const m = focus.matches;
+    // Search: every match stays lit while typing; the active result is only emphasised. Anything else under the
+    // pointer or selected lights its own neighbourhood on top of the matches.
+    const pure = !!(m && f && f === focus.preview && m.has(f));
+    if (f && !pure) {
+      lit = new Set([f, ...model.neighbours.get(f)!]);
+      if (m) for (const x of m) lit.add(x);
+    } else lit = m;
     for (const n of model.nodes) {
       n.a = ease(n.a, now < n.born ? 0 : !lit || lit.has(n) ? 1 : ink.fade, k);
       n.s = ease(n.s, n === f ? FEEL.hoverScale : 1, k);
     }
     for (const l of model.links) {
-      const on = f ? l.source === f || l.target === f : !lit || (lit.has(l.source) && lit.has(l.target));
-      l.hot = !!f && on;
+      const inc = !!f && (l.source === f || l.target === f);
+      const on = f && !pure ? inc || (!!m && m.has(l.source) && m.has(l.target)) : !lit || (lit.has(l.source) && lit.has(l.target));
+      l.hot = inc && on;
       l.a = ease(l.a, Math.min(l.source.a, l.target.a) > 0.05 ? (on ? 1 : ink.fade * 0.5) : 0, k);
     }
     for (const c of model.clusters) {
@@ -88,7 +108,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       c.x = x / c.members.length; c.y = y / c.members.length;
       for (const n of c.members) d2 += (n.x! - c.x) ** 2 + (n.y! - c.y) ** 2;
       c.r = Math.sqrt(d2 / c.members.length) * 1.5 + 18;
-      const on = f ? f.cluster === c : !lit || c.members.some((n) => lit!.has(n));
+      const on = f && !pure && !m ? f.cluster === c : !lit || c.members.some((n) => lit!.has(n));
       c.a = ease(c.a, top > 0.05 ? (on ? 1 : 0.22) : 0, k);
     }
   }
@@ -167,6 +187,18 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.fillStyle = "#fff";
       ctx.beginPath(); ctx.arc(x, y, r * 0.38, 0, 2 * Math.PI); ctx.fill();
     }
+    if (focus.matches?.has(n) && n !== focus.selected) { // a search match carries a ring, so it never relies on brightness alone
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 1.2 * px;
+      ctx.globalAlpha = n.a * 0.6;
+      ctx.beginPath(); ctx.arc(x, y, r + 4.5 * px, 0, 2 * Math.PI); ctx.stroke();
+    }
+    if (n === focus.selected && focus.keyFocus) { // keyboard focus: a bright ring on the active star, not on the whole viewport
+      ctx.strokeStyle = ink.ring;
+      ctx.lineWidth = 2 * px;
+      ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(x, y, r + 16 * px, 0, 2 * Math.PI); ctx.stroke();
+    }
     if (n === focus.selected) { // a fine double reticle marks the selection without adding a colour
       ctx.strokeStyle = c;
       ctx.lineWidth = 1.2 * px;
@@ -185,12 +217,21 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   }
 
   // Semantic zoom: zoomed out you read cluster names like an atlas; zoomed in they give way to Item names.
-  // Labels go down greedily by priority and are skipped when they would collide.
+  // Labels go down greedily by priority and are skipped when they would collide. A cluster name tries several
+  // spots around its halo and takes the first that clears every star, every placed label and the chrome; when
+  // none is free it fades out instead of sitting on a star.
+  type Box = [number, number, number, number];
+  const hit = (a: Box, b: Box) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+  const widths = new Map<Cluster, { size: number; w: number }>();
+
   function post(ctx: CanvasRenderingContext2D) {
     const sc = screen(ctx), z = sc.k / view.fitK;
+    const W = ctx.canvas.clientWidth, H = ctx.canvas.clientHeight, phone = W <= 640;
     ctx.save();
     ctx.setTransform(sc.dpr, 0, 0, sc.dpr, 0, 0);
-    const placed: number[][] = [[0, 0, ctx.canvas.clientWidth, ctx.canvas.clientWidth <= 640 ? 116 : 76]]; // keep canvas text out from under the top bar
+    const placed: Box[] = [[0, 0, W, view.top]];
+    if (view.bottom > 0) placed.push([0, H - view.bottom, W, H]);
+    if (view.right > 0) placed.push([W - view.right, 0, W, H]);
     const fits = (x0: number, y0: number, x1: number, y1: number) => {
       if (placed.some((b) => x0 < b[2] && x1 > b[0] && y0 < b[3] && y1 > b[1])) return false;
       placed.push([x0, y0, x1, y1]);
@@ -203,7 +244,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     const named: [number, GNode, number][] = [];
     for (const n of model.nodes) {
       const start = 1.3 - Math.min(0.9, Math.max(0, n.degree - 1) * 0.15); // hubs are named at the fitted view, leaves from 1.3x
-      let a = clamp01((z - start) / 0.6) * n.a;
+      let a = clamp01((z - start) / 0.35) * n.a;
       if (lit?.has(n) && n.a > 0.5) a = Math.max(a, n === f ? 1 : 0.85);
       if (a > 0.03) named.push([n === f ? 0 : lit?.has(n) ? 1 : 2, n, a]);
     }
@@ -222,15 +263,57 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.fillStyle = rank < 2 ? ink.text : ink.text2;
       ctx.fillText(n.name, sx, sy);
     };
-    const clusterLabel = (c: Cluster, alpha: number) => {
-      const phone = ctx.canvas.clientWidth <= 640;
+
+    // stars and the names of hubs are what a cluster name must keep clear of
+    const obstacles: Box[] = [];
+    for (const n of model.nodes) {
+      if (n.a < 0.15) continue;
+      const [sx, sy] = sc.apply(n.x!, n.y!), R = radius(n, sc.k) * sc.k + 4;
+      obstacles.push([sx - R, sy - R, sx + R, sy + R]);
+      if (n.degree >= 4) obstacles.push([sx - 30, sy + R, sx + 30, sy + R + 16]);
+    }
+    const crowd = (b: Box) => { let c = 0; for (const o of obstacles) if (hit(b, o)) c++; return c; };
+
+    const clusterLabel = (c: Cluster, zoomAlpha: number) => {
       const size = (phone ? 12 : 14) + Math.min(phone ? 4 : 10, Math.sqrt(c.members.length) * (phone ? 0.8 : 1.6));
       ctx.font = `italic 400 ${size}px ${ink.serif}`;
       ctx.letterSpacing = "0.03em";
       ctx.textBaseline = "middle";
-      const [sx, sy] = sc.apply(c.x, c.y - c.r * 0.8), w = ctx.measureText(c.name).width;
-      if (fits(sx - w / 2 - 6, sy - size / 2, sx + w / 2 + 6, sy + size / 2)) {
-        ctx.globalAlpha = alpha * c.a * 0.9;
+      let m = widths.get(c);
+      if (!m || m.size !== size) widths.set(c, (m = { size, w: ctx.measureText(c.name).width }));
+      const w = m.w, h = size * 1.15;
+      const [cx, cy] = sc.apply(c.x, c.y), r = c.r * sc.k, side = r * 0.75 + w / 2;
+      // candidate centres, best first: above the halo (the atlas default), then around it
+      const spots: [number, number][] = [
+        [0, -r * 0.8], [0, -(r + h * 0.6)], [0, r + h * 0.6], [-side, -r * 0.35], [side, -r * 0.35],
+        [-side, r * 0.35], [side, r * 0.35], [0, -r * 0.45], [0, -(r * 1.4 + h)], [0, r * 1.4 + h],
+        [-(side + w * 0.3), -r * 0.9], [side + w * 0.3, -r * 0.9], [-(side + w * 0.3), r * 0.9], [side + w * 0.3, r * 0.9],
+        [0, -(r * 0.8 + h * 1.7)], [0, r * 0.8 + h * 1.7],
+      ];
+      const allowed = f?.cluster === c ? 2 : 0; // a cluster being looked at keeps its name even in a crowd
+      const minX = 8 + w / 2, maxX = Math.max(minX, W - view.right - 8 - w / 2);
+      const minY = view.top + h / 2 + 2, maxY = Math.max(minY, H - view.bottom - h / 2 - 2);
+      let best: { x: number; y: number; box: Box; crowded: number; i: number } | null = null, bestScore = Infinity;
+      for (const [i, [dx, dy]] of spots.entries()) {
+        const x = Math.min(maxX, Math.max(minX, cx + dx)), y = Math.min(maxY, Math.max(minY, cy + dy));
+        if (Math.abs(x - cx - dx) + Math.abs(y - cy - dy) > Math.max(w * 0.5, 40)) continue; // not detached from its cluster
+        const box: Box = [x - w / 2 - 6, y - h / 2, x + w / 2 + 6, y + h / 2];
+        if (placed.some((p) => hit(box, p))) continue;
+        const crowded = crowd(box), score = crowded * 10 + i * 0.5 - (i === c.pick ? 2.5 : 0); // a small bias keeps the last spot
+        if (crowded <= allowed && score < bestScore) { best = { x, y, box, crowded, i }; bestScore = score; }
+      }
+      const spot = best as { x: number; y: number; box: Box; crowded: number; i: number } | null;
+      if (spot && zoomAlpha > 0.03 && c.members.length >= 3 && c.a > 0.03) {
+        placed.push(spot.box);
+        c.pick = spot.i;
+        const gx = (spot.x - sc.tx) / sc.k, gy = (spot.y - sc.ty) / sc.k, appearing = c.la < 0.05;
+        c.lx = appearing ? gx : ease(c.lx, gx, fk);
+        c.ly = appearing ? gy : ease(c.ly, gy, fk);
+        c.la = ease(c.la, spot.crowded ? 0.7 : 1, fk);
+      } else c.la = ease(c.la, 0, fk);
+      if (c.la > 0.02 && zoomAlpha > 0.03) {
+        const [sx, sy] = sc.apply(c.lx, c.ly);
+        ctx.globalAlpha = zoomAlpha * c.la * c.a * 0.9;
         ctx.lineWidth = 4;
         ctx.strokeText(c.name, sx, sy);
         ctx.fillStyle = ink.haloName;
@@ -240,17 +323,13 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     };
 
     named.filter((x) => x[0] < 2).forEach(itemLabel); // the focused neighbourhood always wins its space
-    const clusterAlpha = clamp01((1.8 - z) / 0.6);
-    if (clusterAlpha > 0.03) {
-      model.clusters
-        .filter((c) => c.members.length >= 3 && c.a > 0.03)
-        .sort((a, b) => b.members.length - a.members.length)
-        .forEach((c) => clusterLabel(c, clusterAlpha));
-    }
+    const zoomAlpha = clamp01((1.8 - z) / 0.6);
+    [...model.clusters].sort((a, b) => b.members.length - a.members.length).forEach((c) => clusterLabel(c, zoomAlpha));
     named.filter((x) => x[0] === 2).forEach(itemLabel);
     ctx.restore();
+    busy = moving || performance.now() < introEnd;
   }
 
-  return { focus, view, pre, link, node, pointer, post };
+  return { focus, view, pre, link, node, pointer, post, busy: () => busy };
 }
 export type Painter = ReturnType<typeof makePainter>;

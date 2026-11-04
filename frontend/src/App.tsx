@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Inspector } from "@/components/Inspector";
-import { Legend } from "@/components/Legend";
-import { StarMap, type StarMapHandle } from "@/components/StarMap";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Failed, Loading, Nothing } from "@/components/States";
-import { TopBar } from "@/components/TopBar";
-import { buildModel, kindName, search, type Constellation, type GNode, type Model } from "@/graph/model";
+import { buildModel, type Constellation, type Model } from "@/graph/model";
+
+// The map, search and inspector (force-graph, d3, cmdk, radix) are a separate chunk, so the first paint and the
+// data fetch do not wait on them; they download in parallel.
+const loadAtlas = () => import("@/components/Atlas");
+const Atlas = lazy(loadAtlas);
+void loadAtlas();
 
 type Load = { state: "loading" } | { state: "failed"; detail: string } | { state: "ready"; model: Model | null };
 
@@ -16,8 +18,6 @@ async function fetchConstellation(): Promise<Constellation> {
   throw new Error(body.detail || `The server answered ${r.status}`);
 }
 
-const PANEL = 380;
-
 export default function App() {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -25,7 +25,7 @@ export default function App() {
   useEffect(() => {
     let live = true;
     fetchConstellation()
-      .then((data) => live && setLoad({ state: "ready", model: data.items?.length ? buildModel(data) : null }))
+      .then((data) => live && setLoad({ state: "ready", model: data.items?.length ? buildModel(data, innerHeight / innerWidth) : null }))
       .catch((e: Error) => live && setLoad({ state: "failed", detail: e.message }));
     return () => { live = false; };
   }, [attempt]);
@@ -33,59 +33,9 @@ export default function App() {
   if (load.state === "loading") return <Loading />;
   if (load.state === "failed") return <Failed detail={load.detail} onRetry={() => { setLoad({ state: "loading" }); setAttempt((a) => a + 1); }} />;
   if (!load.model) return <Nothing />;
-  return <Atlas model={load.model} />;
-}
-
-function Atlas({ model }: { model: Model }) {
-  const map = useRef<StarMapHandle>(null);
-  const [selected, setSelected] = useState<GNode | null>(null);
-  const [preview, setPreview] = useState<GNode | null>(null);
-  const [query, setQuery] = useState("");
-  const [phone, setPhone] = useState(() => matchMedia("(max-width: 640px)").matches);
-  const found = useMemo(() => search(model.nodes, query), [model, query]);
-  const matches = useMemo(() => (query.trim() ? new Set(found) : null), [found, query]);
-
-  useEffect(() => {
-    const mq = matchMedia("(max-width: 640px)"), on = () => setPhone(mq.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-
-  const select = useCallback((n: GNode | null) => {
-    setSelected(n);
-    setPreview(null);
-    if (n) map.current?.glideTo(n);
-  }, []);
-
-  const close = useCallback(() => {
-    setSelected(null);
-    setPreview(null);
-    map.current?.focusCanvas();
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !(e.target instanceof HTMLInputElement) && !e.defaultPrevented) close();
-    };
-    addEventListener("keydown", onKey);
-    return () => removeEventListener("keydown", onKey);
-  }, [close]);
-
   return (
-    <>
-      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} panelWidth={phone ? 0 : PANEL} onSelect={select} />
-      <TopBar
-        model={model}
-        query={query}
-        found={found}
-        onQuery={setQuery}
-        onPreview={setPreview}
-        onChoose={(n) => { setQuery(""); select(n); map.current?.focusCanvas(); }}
-      />
-      <Legend model={model} hidden={!!selected} />
-      <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>
-      {selected && <Inspector model={model} item={selected} onSelect={select} onPreview={setPreview} onClose={close} />}
-      <p className="sr-only" aria-live="polite">{selected ? `${selected.name}, ${kindName(selected.kind)}` : ""}</p>
-    </>
+    <Suspense fallback={<Loading />}>
+      <Atlas model={load.model} />
+    </Suspense>
   );
 }

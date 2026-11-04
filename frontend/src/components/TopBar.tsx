@@ -21,7 +21,7 @@ export function TopBar({ model, query, found, onQuery, onChoose, onPreview }: Pr
     <header className="pointer-events-none fixed inset-x-4 top-3 flex flex-wrap items-center gap-x-4 gap-y-2 sm:inset-x-6 sm:top-4 sm:flex-nowrap">
       <h1 className="font-serif text-[22px] leading-none tracking-[0.01em] italic [text-shadow:0_0_18px_rgb(150_170_255/0.35)] sm:text-[26px]">Constellation</h1>
       <p className="text-xs text-muted-foreground tabular-nums sm:text-[13px]">
-        {model.nodes.length} items, {model.links.length} relations, {model.clusters.length} clusters
+        {model.nodes.length} items, {model.links.length} relations, {model.clusters.length} clusters{model.offline && ", offline scan"}
       </p>
       <Warnings warnings={model.warnings} />
       <Search query={query} found={found} onQuery={onQuery} onChoose={onChoose} onPreview={onPreview} />
@@ -68,8 +68,12 @@ function Search({ query, found, onQuery, onChoose, onPreview }: Omit<Props, "mod
               }}
               placeholder="Find an Item"
               aria-label="Find an Item by name"
-              className="glass h-10 w-full rounded-full border border-border pr-10 pl-10 text-sm transition-[border-color,box-shadow] duration-(--t-fast) outline-none placeholder:text-text-3 hover:border-input focus:border-ring focus:ring-3 focus:ring-ring/15"
+              aria-describedby="search-count"
+              className="glass h-11 w-full rounded-full border border-border pr-10 pl-10 text-base transition-[border-color,box-shadow] duration-(--t-fast) outline-none placeholder:text-text-3 hover:border-input focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 sm:h-10 sm:text-sm"
             />
+            <p id="search-count" className="sr-only" aria-live="polite">
+              {query.trim() ? `${found.length} ${found.length === 1 ? "Item matches" : "Items match"}, all lit on the map` : ""}
+            </p>
             {!focused && !query && <Kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 sm:inline-flex">/</Kbd>}
           </div>
         </PopoverAnchor>
@@ -80,7 +84,7 @@ function Search({ query, found, onQuery, onChoose, onPreview }: Omit<Props, "mod
           onInteractOutside={(e) => e.preventDefault()}
           className="glass w-(--radix-popover-trigger-width) p-1"
         >
-          <CommandList>
+          <CommandList aria-label="Matching Items">
             <CommandEmpty className="py-4 text-muted-foreground">No Item matches that name.</CommandEmpty>
             <CommandGroup className="p-0">
               {shown.map((n) => (
@@ -105,7 +109,7 @@ function Warnings({ warnings }: { warnings: string[] }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="glass pointer-events-auto ml-auto h-8 rounded-full border-warn/30 px-3 text-warn hover:bg-warn/10 hover:text-warn aria-expanded:bg-warn/10 sm:order-last sm:ml-0 sm:h-10 sm:px-4">
+        <Button variant="outline" className="glass pointer-events-auto ml-auto h-11 rounded-full border-warn/30 px-4 text-warn hover:bg-warn/10 hover:text-warn aria-expanded:bg-warn/10 sm:order-last sm:ml-0 sm:h-10">
           <TriangleAlertIcon data-icon="inline-start" aria-hidden />
           {warnings.length} warning{warnings.length > 1 ? "s" : ""}
         </Button>
