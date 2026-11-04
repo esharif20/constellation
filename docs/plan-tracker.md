@@ -56,3 +56,11 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Resume: the plan's assumption held. A new process on the same SQLite file and thread sees the pause (`get_state`), and a fresh `invoke` replaces the stale pause while keeping `decisions`, so the fallback (resume the pending id via `get_state`) was not needed.
 - Privacy: the checkpoint (0600, `~/.cache/constellation/review.sqlite`) holds only Suggestion ids and answers; a test plants a secret in a description and a reason and greps the DB bytes. The approved checklist reuses `render_cleanup(approved=...)` and the shared `write_private` writer (0600, no overwrite without `--force`).
 - A test snapshots a copied config dir (bytes and mtimes) around `scan` and `review`: unchanged. `suggestions.py` is in mutmut `only_mutate`. Not done by design: applying a Suggestion, web endpoints (#10/#11), usage-based Suggestions (#20), scan as one graph (#22).
+
+## #24 design system (2026-11-04, branch `worktree-agent-a663f86a43a7be524`)
+
+- Status: implemented per `docs/design/DESIGN.md` steps 1-9 (Linear structure, Claude type voice). Fontsource packages Newsreader, Inter Variable and JetBrains Mono, pinned 5.3.0 (2026-07-19), replace the vendored Instrument Serif. shadcn tokens remapped, explicit radius scale, flat surface ladder, indigo accent. Stack unchanged.
+- **Deviation from Linear (documented in DESIGN.md):** primary button hover/pressed is `#5560cc`, not `#828fff`, because white on `#828fff` is 2.87:1 (fails AA); `#5560cc` is 5.34:1. `#828fff` is used only as ring and accent text.
+- `paint.ts`: only font loading changed (load canvas-only faces, clear the cluster-name width cache, extend the repaint window once fonts are ready). No colour literals changed.
+- Metrics: first-load JS 77.87 kB gzip (unchanged); latin font files on first view about 116 KB (Inter 48, Newsreader 22+24, JetBrains Mono 21), under the 130 KB budget; fontsource also emits other unicode-range subsets, fetched only on demand.
+- Not verified: inspector, warnings popover, empty/failed/loading and focus-state screenshots, offline reload, and `layout:check` with the real fonts (the script uses its own measurements, so cluster-name fit with Newsreader needs an eye check).

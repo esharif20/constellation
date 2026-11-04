@@ -34,8 +34,7 @@ A star atlas at night: Items are stars, clusters are constellations named the wa
 
 ## Type
 
-- Instrument Serif (OFL, latin subset, two 15 KB woff2, vendored in `src/assets/fonts`, `font-display: swap`): wordmark, Item name in the inspector (30px), cluster names on the canvas and in the inspector (italic), empty/error titles.
-- System sans for everything else (13 to 16px; 12px only for secondary labels); `tabular-nums` on counts and token costs. No all-caps labels, no mono labels.
+- Type, tokens, colour roles and components now live in `docs/design/DESIGN.md` (ticket #24): Newsreader for display, Inter Variable for UI, JetBrains Mono for ids and numbers, all self-hosted via fontsource. Canvas lettering reads the same stacks.
 
 ## Encoding
 
@@ -98,7 +97,7 @@ The phone ratio is 74%, below the 80% asked for desktop, so the phone threshold 
 | Inspector chunk (loaded when idle) | in entry | 2.0 kB |
 | CSS | 10.5 kB | 10.4 kB |
 
-**Accessibility.** `--text-3` is now `#8a93b6`: 5.7:1 or better on the sky and on the panels (it was 4.2:1 on the centre glow, below AA). Other pairs checked: text 14.8+, text-2 7.9+, warn 10.7+, cluster names 11.2+. Search input and warnings button are 44 px on phones, the search has a visible 2 px focus ring, results have a label, a keyboard-focused map rings the active star instead of the viewport, reduced motion makes fades and zoom instant.
+**Accessibility.** Contrast is now specified in `docs/design/DESIGN.md` (`--text-3` is `#8a8f98`, 5.1:1 or better on the sky and the worst-case glass panel). Earlier pairs checked: text 14.8+, text-2 7.9+, warn 10.7+, cluster names 11.2+. Search input and warnings button are 44 px on phones, the search has a visible 2 px focus ring, results have a label, a keyboard-focused map rings the active star instead of the viewport, reduced motion makes fades and zoom instant.
 
 **Offline scan.** A file from `constellation scan --offline` (`demo-offline.json`) has no labels, cluster names that are the first member's name (read as words), costs that are null: those show as "unknown" in italics, never 0. The top bar says "offline scan"; the warnings popover holds the "Offline: ..." message.
 
