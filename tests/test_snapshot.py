@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from constellation.snapshot import snapshot
@@ -54,10 +56,10 @@ def test_snapshot_remaps_all_public_references_and_preserves_unknown_and_zero_co
     assert [i["id"] for i in result.pop("items")] == ["item-2", "item-1"]
     assert result == {
         "relations": [{"source": "item-2", "target": "item-1", "kind": "contains"}],
-        "labels": {"item-2": "Documentation", "item-1": "Search"},
+        "labels": {"item-2": "MCP server", "item-1": "Search"},
         "clusters": [{"name": "Research", "item_ids": ["item-2", "item-1"]}],
         "costs": {"item-2": {"always_on": None, "on_use": 0}, "item-1": {"always_on": 12, "on_use": 34}},
-        "overlaps": [{"a_id": "item-1", "b_id": "item-2", "verdict": "wrapper", "reason": "Uses the server"}],
+        "overlaps": [{"a_id": "item-1", "b_id": "item-2", "verdict": "wrapper", "reason": "Involves an executable setup item."}],
     }
 
 
@@ -436,3 +438,29 @@ def test_snapshot_drops_relations_and_overlaps_with_values_outside_the_allowed_s
     result = snapshot({"items": items, "relations": relations, "overlaps": overlaps})
     assert [r["kind"] for r in result["relations"]] == ["contains", "triggers"]
     assert [o["verdict"] for o in result["overlaps"]] == ["duplicate", "wrapper", "overlap", "distinct"]
+
+
+def test_snapshot_replaces_model_text_derived_from_executable_items():
+    host = "secret-db-host"
+    data = {
+        "items": [
+            {"id": "h", "kind": "hook", "name": "h", "description": f"ssh {host} run.sh"},
+            {"id": "m", "kind": "mcp_server", "name": "m", "description": f"node {host}"},
+            {"id": "s", "kind": "skill", "name": "s", "description": "Demo"},
+            {"id": "t", "kind": "skill", "name": "t", "description": "Other"},
+        ],
+        "labels": {"h": f"Runs ssh to {host}", "m": f"Server at {host}", "s": "Does demo"},
+        "clusters": [
+            {"name": f"{host} tools", "item_ids": ["h", "m"]},
+            {"name": "Demos", "item_ids": ["s", "t"]},
+        ],
+        "overlaps": [
+            {"a_id": "h", "b_id": "s", "verdict": "overlap", "reason": f"Both reach {host}"},
+            {"a_id": "s", "b_id": "t", "verdict": "overlap", "reason": "Both demo"},
+        ],
+    }
+    out = snapshot(data)
+    assert host not in json.dumps(out)
+    assert out["labels"] == {"item-1": "Hook", "item-2": "MCP server", "item-3": "Does demo"}
+    assert [c["name"] for c in out["clusters"]] == ["Executable setup", "Demos"]
+    assert [o["reason"] for o in out["overlaps"]] == ["Involves an executable setup item.", "Both demo"]
