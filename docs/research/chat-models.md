@@ -1,9 +1,10 @@
-# Optional chat models for #11
+# Historical model research for #11 (deferred, unapproved)
 
+Historical comparison only. Chat is fully local and free; these options are deferred and unapproved. The original privacy/cost policy applies without an exception.
 Research checked 2026-11-04. Proposal only: no model installed, no paid calls,
 no real setup or transcript data read, and no hardware benchmark performed.
 
-## Recommendation
+## Historical recommendation
 
 Keep model chat **off by default**. Answer counts, top Context costs, Item lookup,
 known Overlaps and focus/filter actions with deterministic Python tools first,
@@ -17,7 +18,7 @@ These are engineering recommendations, not measured model-quality results.
 |---|---|---|
 | Local starting point: `qwen3:4b` | 4.02B parameters, Q4_K_M, 2.5 GB model artifact; tools and thinking supported. [Ollama model card](https://ollama.com/library/qwen3:4b) | Conservative first trial for short metadata synthesis; no per-token API charge. |
 | Optional local upgrade: `qwen3:8b` | 8.19B parameters, Q4_K_M, 5.2 GB artifact. [Ollama model card](https://ollama.com/library/qwen3:8b) | Plausible with short context and other apps closed, but less memory headroom; test before adopting. |
-| Hosted: `claude-haiku-5-5` | Active model released October 7, 2026; normal interactive input/output rates for prompts up to 100,000 tokens are $0.10/$0.50 per million tokens. [Official model card](https://platform.claude.com/docs/en/models/haiku-5-5/overview) | Existing provider dependency, tiny bounded request cost, no local model memory; sends allowed redacted inputs off-machine. |
+| Hosted: `claude-haiku-5-5` | Active model released October 7, 2026; normal interactive input/output rates for prompts up to 100,000 tokens are $0.10/$0.50 per million tokens. [Official model card](https://platform.claude.com/docs/en/models/haiku-5-5/overview) | Existing provider dependency, tiny bounded request cost, no local model memory; would send redacted inputs off-machine; not authorized. |
 
 `qwen3:4b` is an older family, selected for its small artifact, not a claim of
 being the newest or best model. The newer `qwen3.5:4b` is also available; its
@@ -110,7 +111,7 @@ output and request count; one synthesis request is the simplest cost ceiling.
 Cache validated answers to identical redacted requests by model, prompt version, question and
 selected evidence hash in private 0600 files; do not persist raw questions or prompts.
 
-The user explicitly approved redacted questions and per-interaction model calls on 2026-11-04, with chat disabled by default and very low cost as a requirement. The [chat plan](../plans/chat.md) records this limited exception. No provider is enabled by this research. File bodies, transcript text, usage counts/dates, credentials and filesystem provenance remain excluded. A fixed one-call pipeline is proposed in place of D12's prebuilt multi-step agent; that architecture change remains a proposal before source implementation.
+The user's review correction requires chat to remain fully local and free. This historical research grants no permission to send questions or metadata to a hosted provider and creates no exception to AGENTS.md/CLAUDE.md. The [chat plan](../plans/chat.md) implements deterministic local answers only. Optional generation remains unapproved future work requiring a separately reviewed contract under the original privacy/cost rules.
 
 ## Verification still needed
 

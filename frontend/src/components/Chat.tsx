@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import type { GNode, Model } from "@/graph/model";
 import { cn } from "@/lib/utils";
 
-export type ChatAction = { kind: "highlight" | "focus" | "filter"; item_ids: string[] };
+export type ChatAction = { kind: "highlight" | "focus"; item_ids: string[] };
 type Reply = { answer: string; actions: ChatAction[]; mode: "local"; cached: boolean };
 type Props = {
   model: Model;
@@ -26,7 +26,7 @@ function readReply(value: unknown, model: Model): Reply {
   if (!value || typeof value !== "object") throw new Error("Invalid local answer. Please try again.");
   const r = value as Partial<Reply>;
   const known = new Set(model.nodes.map((n) => n.id));
-  if (typeof r.answer !== "string" || !r.answer.trim() || r.mode !== "local" || typeof r.cached !== "boolean" || !Array.isArray(r.actions) || r.actions.some((a) => !a || !["highlight", "focus", "filter"].includes(a.kind) || !Array.isArray(a.item_ids) || a.item_ids.some((id: unknown) => typeof id !== "string" || !known.has(id)))) {
+  if (typeof r.answer !== "string" || !r.answer.trim() || r.mode !== "local" || typeof r.cached !== "boolean" || !Array.isArray(r.actions) || r.actions.some((a) => !a || !["highlight", "focus"].includes(a.kind) || !Array.isArray(a.item_ids) || a.item_ids.some((id: unknown) => typeof id !== "string" || !known.has(id)))) {
     throw new Error("Invalid local answer. Please try again.");
   }
   return r as Reply;
@@ -121,10 +121,10 @@ export function Chat({ model, selected, open, briefOpen, onOpen, onActions, onRe
 
   const ids = [...new Set(reply?.actions.flatMap((a) => a.item_ids) ?? [])];
   const items = ids.flatMap((id) => model.nodes.find((n) => n.id === id) ?? []);
-  const filtered = reply?.actions.some((a) => a.kind === "filter");
 
   return <>
     {open ? <section
+      id="chat-panel"
       aria-labelledby="chat-title"
       style={{ "--chat-bottom": `${bottom}px` } as CSSProperties}
       className="glass fixed inset-x-0 bottom-0 flex h-[58dvh] max-h-[58dvh] animate-sheet-in flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:h-auto sm:top-[76px] sm:bottom-(--chat-bottom) sm:left-4 sm:max-h-[calc(100dvh-76px-var(--chat-bottom))] sm:w-[340px] sm:animate-panel-in sm:rounded-xl sm:border-b"
@@ -133,7 +133,7 @@ export function Chat({ model, selected, open, briefOpen, onOpen, onActions, onRe
       <div aria-hidden className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line-2 sm:hidden" />
       <div className="flex shrink-0 items-start justify-between gap-2 px-4 pt-3 sm:px-6 sm:pt-4">
         <div className="pt-1"><h2 id="chat-title" className="text-sm font-medium">Ask your Constellation</h2><p className="mt-1 text-xs text-text-3">Local answers · models off</p></div>
-        <Button variant="ghost" size="icon-lg" className="-mr-2 text-text-3" aria-label="Collapse local chat" onClick={collapse}><XIcon aria-hidden /></Button>
+        <Button variant="ghost" size="icon-lg" className="-mr-2 text-text-3" aria-label="Collapse local chat" aria-expanded={true} aria-controls="chat-panel" onClick={collapse}><XIcon aria-hidden /></Button>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 sm:px-6">
         {!asked && <>
@@ -149,7 +149,7 @@ export function Chat({ model, selected, open, briefOpen, onOpen, onActions, onRe
           {reply && <p className="text-sm leading-[1.55] text-text-2 whitespace-pre-wrap [overflow-wrap:anywhere]">{reply.answer}</p>}
         </div>
         {items.length > 0 && <div>
-          <p className="mb-2 text-xs text-text-3">{filtered ? "Matches stay lit; other Items are dimmed." : "Highlighted on the map"}</p>
+          <p className="mb-2 text-xs text-text-3">Highlighted on the map</p>
           <ul className="-mx-2 flex flex-col gap-1">{items.map((n) => <li key={n.id}><Button variant="ghost" className="h-auto min-h-10 w-full justify-start gap-3 px-2 py-2 text-left text-[13px] font-normal whitespace-normal" onClick={() => onItem(n.id)}><span aria-hidden className="glyph" data-kind={n.kind} /><span className="[overflow-wrap:anywhere]">{n.name}</span></Button></li>)}</ul>
         </div>}
         {error && <p role="alert" className="flex items-start gap-2 text-[13px] leading-[1.4] text-warn"><TriangleAlertIcon aria-hidden className="size-4 shrink-0" />{error}</p>}
@@ -163,6 +163,6 @@ export function Chat({ model, selected, open, briefOpen, onOpen, onActions, onRe
           <Button type="submit" disabled={pending || unavailable || !question.trim()} aria-busy={pending} className="h-11 gap-2 sm:h-10"><SendIcon aria-hidden />{pending ? "Looking…" : "Ask locally"}</Button>
         </div>
       </form>
-    </section> : <Button ref={trigger} variant="outline" style={{ "--chat-bottom": `${bottom}px` } as CSSProperties} className={cn("glass fixed bottom-24 left-4 h-11 gap-2 rounded-full px-4 sm:bottom-(--chat-bottom) sm:h-10", selected ? "bottom-[calc(58dvh+12px)] sm:bottom-(--chat-bottom)" : briefOpen ? "bottom-[calc(46dvh+12px)] sm:bottom-(--chat-bottom)" : "")} aria-expanded={false} aria-controls="chat-title" onClick={() => onOpen(true)}><MessageCircleIcon aria-hidden />Ask locally</Button>}
+    </section> : <Button ref={trigger} variant="outline" style={{ "--chat-bottom": `${bottom}px` } as CSSProperties} className={cn("glass fixed bottom-24 left-4 h-11 gap-2 rounded-full px-4 sm:bottom-(--chat-bottom) sm:h-10", selected ? "bottom-[calc(58dvh+12px)] sm:bottom-(--chat-bottom)" : briefOpen ? "bottom-[calc(46dvh+12px)] sm:bottom-(--chat-bottom)" : "")} aria-expanded={false} onClick={() => onOpen(true)}><MessageCircleIcon aria-hidden />Ask locally</Button>}
   </>;
 }

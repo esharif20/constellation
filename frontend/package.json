@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
-    "layout:check": "node scripts/layout-metrics.ts"
+    "layout:check": "node scripts/layout-metrics.ts",
+    "chat:check": "node scripts/chat-accessibility.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

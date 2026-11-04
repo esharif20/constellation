@@ -73,19 +73,22 @@ def _intent(question: str) -> str:
         intent = "cost"
     elif re.search(r"\b(duplicates?|wrappers?|overlaps?)\b", q):
         intent = "pairs"
+    elif re.search(r"\bfocus\b", q):
+        intent = "focus"
     elif re.search(r"\b(this|these)\b", q):
         intent = "explain"
     else:
-        intent = "search"  # pragma: no mutate (equivalent: any unmatched internal label follows the search branch)
+        intent = "search"
     return intent
 
 
-def _route(state: ChatState) -> dict[str, str]:
-    return {"intent": _intent(state["question"])}
+def _route(state: ChatState) -> dict[str, Any]:
+    prepared: ChatState = {**state, "intent": _intent(state["question"])}
+    return {**prepared, **_retrieve(prepared), **_display(prepared)}
 
 
-def _answer(state: ChatState) -> dict[str, Any]:
-    data, intent = state["data"], state["intent"]
+def _display(state: ChatState) -> dict[str, Any]:
+    data = state["data"]
     data = {
         **data,
         "items": [
@@ -96,81 +99,134 @@ def _answer(state: ChatState) -> dict[str, Any]:
             for i in data["items"]
         ],
     }
-    question = state["question"].lower()
+    return {"data": data}
+
+
+def _response(answer: str, ids: list[str] | None = None, kind: str = "highlight") -> dict[str, Any]:
+    return {"response": {"answer": redact(answer), "actions": [{"kind": kind, "item_ids": ids}] if ids else [], "mode": "local"}}
+
+
+def _count(state: ChatState) -> dict[str, Any]:
+    return _response(f"The current scan contains {len(state['data']['items'])} Items.")
+
+
+def _cost(state: ChatState) -> dict[str, Any]:
+    data = state["data"]
     items = {i["id"]: i for i in data["items"]}
-    ids = state["matches"][:5]
-    if intent == "count":
-        ids = []  # pragma: no mutate (equivalent: None and [] both suppress graph actions)
-        answer = f"The current scan contains {len(items)} Items."
-    elif intent == "cost" and re.search(r"\b(total|on[ -]use)\b", question):
-        ids = []  # pragma: no mutate (equivalent: None and [] both suppress graph actions)
-        answer = (
+    if re.search(r"\b(total|on[ -]use)\b", state["question"].lower()):
+        return _response(
             "Local chat ranks always-on Context costs. Ask for top costs, or name/select an Item to see its always-on and on-use costs."
         )
-    elif intent == "cost":
-        summary = brief(data)["cost"]
-        rows = summary["rows"]
-        ids = [r["item_ids"][0] for r in rows]
-        lines = [f"- {items[r['item_ids'][0]]['name']}: {r['tokens_saved']:,} tokens" for r in rows]
-        answer = "Highest always-on Context costs:\n" + "\n".join(lines) if lines else "Token costs were not measured in this scan."
-        answer += f"\n{summary['unknown']} Items have unknown cost; unknown is never counted as 0."
-    elif intent == "pairs":
-        pair_data = {
-            **data,
-            "overlaps": [o for o in data["overlaps"] if not state["scope"] or {o["a_id"], o["b_id"]} & set(state["scope"])],
-        }
-        rows = brief(pair_data)["pairs"]["rows"]
-        ids = list(dict.fromkeys(id_ for r in rows for id_ in r["item_ids"]))
-        answer = (
-            "Known duplicate/wrapper Overlaps:\n" + "\n".join(f"- {r['reason']}" for r in rows)
-            if rows
-            else "No known duplicate/wrapper Overlaps for the requested Items."
-            if state["scope"]
-            else "No known duplicate/wrapper Overlaps in this scan."
-        )
-    elif intent in ("usage", "unused"):
-        window = data.get("usage_window")
-        ids = []  # pragma: no mutate (equivalent: None and [] both suppress graph actions)
-        answer = _usage_note(data)
-        if window and window["files"]:
-            found = _never_used(data) if intent == "unused" else sorted(items.values(), key=lambda i: (i["name"], i["id"]))
-            found = [i for i in found if not state["scope"] or i["id"] in state["scope"]]
-            ids = [i["id"] for i in found[:5]]
-            lines = [f"- {items[id_]['name']}" for id_ in ids]
-            if intent == "usage":
-                usage = data.get("usage") or {}
-                lines = [
-                    f"- {items[id_]['name']}: {str(usage[id_]['count']) + ' uses' if id_ in usage else 'usage unknown'}" for id_ in ids
-                ]
-            heading = "Never seen in the scanned transcripts:" if intent == "unused" else "Recorded usage:"
-            empty = (
-                "None of the requested Items are recorded as never seen." if state["scope"] else "No Items were never seen in this scan."
-            )
-            answer = (heading + "\n" + "\n".join(lines) if lines else empty) + "\n" + answer
-    else:
-        lines = [f"- {items[id_]['name']} ({items[id_]['kind']}): {items[id_]['description']}" for id_ in ids]
-        if intent == "explain":
-            for n, id_ in enumerate(ids):
-                cost = (data.get("costs") or {}).get(id_) or {}
-                values = [f"{cost[k]:,} tokens" if cost.get(k) is not None else "unknown" for k in ("always_on", "on_use")]
-                lines[n] += f"\n  Always-on: {values[0]}; on-use: {values[1]}."
-        heading = "Item details:" if intent == "explain" else "Matching Items:"
-        answer = heading + "\n" + "\n".join(lines) if lines else "No matching Items found. Try an Item name or a word from its description."
-        if len(state["matches"]) > 5:
-            answer += "\nMore matches omitted; narrow your question."
-    kind = "focus" if re.search(r"\bfocus\b", question) else "filter" if re.search(r"\bfilter\b", question) else "highlight"
-    return {"response": {"answer": redact(answer), "actions": [{"kind": kind, "item_ids": ids}] if ids else [], "mode": "local"}}
+    summary = brief(data)["cost"]
+    rows = summary["rows"]
+    ids = [r["item_ids"][0] for r in rows]
+    lines = [f"- {items[r['item_ids'][0]]['name']}: {r['tokens_saved']:,} tokens" for r in rows]
+    answer = "Highest always-on Context costs:\n" + "\n".join(lines) if lines else "Token costs were not measured in this scan."
+    answer += f"\n{summary['unknown']} Items have unknown cost; unknown is never counted as 0."
+    return _response(answer, ids)
+
+
+def _pairs(state: ChatState) -> dict[str, Any]:
+    data = state["data"]
+    pair_data = {
+        **data,
+        "overlaps": [o for o in data["overlaps"] if not state["scope"] or {o["a_id"], o["b_id"]} & set(state["scope"])],
+    }
+    rows = brief(pair_data)["pairs"]["rows"]
+    ids = list(dict.fromkeys(id_ for r in rows for id_ in r["item_ids"]))
+    answer = (
+        "Known duplicate/wrapper Overlaps:\n" + "\n".join(f"- {r['reason']}" for r in rows)
+        if rows
+        else "No known duplicate/wrapper Overlaps for the requested Items."
+        if state["scope"]
+        else "No known duplicate/wrapper Overlaps in this scan."
+    )
+    return _response(answer, ids)
+
+
+def _usage(state: ChatState) -> dict[str, Any]:
+    data, intent = state["data"], state["intent"]
+    items = {i["id"]: i for i in data["items"]}
+    window = data.get("usage_window")
+    ids = []  # pragma: no mutate (equivalent: None and [] both suppress graph actions)
+    answer = _usage_note(data)
+    if window and window["files"]:
+        found = _never_used(data) if intent == "unused" else sorted(items.values(), key=lambda i: (i["name"], i["id"]))
+        found = [i for i in found if not state["scope"] or i["id"] in state["scope"]]
+        ids = [i["id"] for i in found[:5]]
+        lines = [f"- {items[id_]['name']}" for id_ in ids]
+        if intent == "usage":
+            usage = data.get("usage") or {}
+            lines = [f"- {items[id_]['name']}: {str(usage[id_]['count']) + ' uses' if id_ in usage else 'usage unknown'}" for id_ in ids]
+        heading = "Never seen in the scanned transcripts:" if intent == "unused" else "Recorded usage:"
+        empty = "None of the requested Items are recorded as never seen." if state["scope"] else "No Items were never seen in this scan."
+        answer = (heading + "\n" + "\n".join(lines) if lines else empty) + "\n" + answer
+    return _response(answer, ids)
+
+
+def _items_answer(state: ChatState, *, explain: bool = False, kind: str = "highlight") -> dict[str, Any]:
+    data = state["data"]
+    items = {i["id"]: i for i in data["items"]}
+    ids = state["matches"][:5]
+    lines = [f"- {items[id_]['name']} ({items[id_]['kind']}): {items[id_]['description']}" for id_ in ids]
+    if explain:
+        for n, id_ in enumerate(ids):
+            cost = (data.get("costs") or {}).get(id_) or {}
+            values = [f"{cost[k]:,} tokens" if cost.get(k) is not None else "unknown" for k in ("always_on", "on_use")]
+            lines[n] += f"\n  Always-on: {values[0]}; on-use: {values[1]}."
+    heading = "Item details:" if explain else "Matching Items:"
+    answer = heading + "\n" + "\n".join(lines) if lines else "No matching Items found. Try an Item name or a word from its description."
+    if len(state["matches"]) > 5:
+        answer += "\nMore matches omitted; narrow your question."
+    return _response(answer, ids, kind)
+
+
+def _search(state: ChatState) -> dict[str, Any]:
+    return _items_answer(state)
+
+
+def _explain(state: ChatState) -> dict[str, Any]:
+    return _items_answer(state, explain=True)
+
+
+def _focus(state: ChatState) -> dict[str, Any]:
+    return _items_answer(state, kind="focus")
+
+
+def _answer_node(state: ChatState) -> str:
+    return state["intent"]
 
 
 def _graph() -> Any:
     graph = StateGraph(ChatState)
     graph.add_node("route", _route)
-    graph.add_node("retrieve", _retrieve)
-    graph.add_node("answer", _answer)
+    operations = {
+        "search": _search,
+        "explain": _explain,
+        "focus": _focus,
+        "top_costs": _cost,
+        "pairs": _pairs,
+        "usage": _usage,
+        "count": _count,
+    }
+    for name, operation in operations.items():
+        graph.add_node(name, operation)
+        graph.add_edge(name, END)
     graph.add_edge(START, "route")
-    graph.add_edge("route", "retrieve")
-    graph.add_edge("retrieve", "answer")
-    graph.add_edge("answer", END)
+    graph.add_conditional_edges(
+        "route",
+        _answer_node,
+        {
+            "search": "search",
+            "explain": "explain",
+            "focus": "focus",
+            "cost": "top_costs",
+            "pairs": "pairs",
+            "usage": "usage",
+            "unused": "usage",
+            "count": "count",
+        },
+    )
     return graph.compile()
 
 

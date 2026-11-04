@@ -153,7 +153,7 @@ def test_selected_followup_and_named_explanation(chat):
     assert ask(chat, "Explain this", selected_ids=["mail"])["answer"] == expected
     assert ask(chat, "Explain unknown")["answer"].endswith("Always-on: unknown; on-use: unknown.")
     assert ask(chat, "Focus mail-helper")["actions"] == [{"kind": "focus", "item_ids": ["mail"]}]
-    assert ask(chat, "Filter email")["actions"] == [{"kind": "filter", "item_ids": ["draft", "mail"]}]
+    assert ask(chat, "Filter email")["actions"] == [{"kind": "highlight", "item_ids": ["draft", "mail"]}]
 
 
 @pytest.mark.parametrize(
@@ -506,3 +506,20 @@ def test_scoped_empty_answers_do_not_deny_facts_elsewhere_in_scan(chat):
     assert unused["actions"] == []
     assert "draft" in ask(chat, "Never used")["answer"]
     assert "Both draft email" in ask(chat, "duplicates")["answer"]
+
+
+@pytest.mark.parametrize("size,status", [(16384, 200), (16385, 413)])
+def test_chat_rejects_oversized_body_before_json_parsing(chat, size, status):
+    body = '{"question":"email"}'.ljust(size)
+    response = chat[0].post("/api/chat", content=body, headers={"content-type": "application/json"})
+    assert response.status_code == status
+    if status == 413:
+        assert response.json() == {"detail": "Chat request exceeds 16384 bytes"}
+    malformed = chat[0].post("/api/chat", content="invalid", headers={"content-type": "application/json", "content-length": "16385"})
+    assert malformed.status_code == 413
+
+
+def test_focus_selected_item_routes_to_focus_operation(chat):
+    result = ask(chat, "Focus this", selected_ids=["unknown"])
+    assert result["actions"] == [{"kind": "focus", "item_ids": ["unknown"]}]
+    assert "Calendar events" in result["answer"]

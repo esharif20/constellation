@@ -2,11 +2,12 @@ import json
 import re
 import threading
 import webbrowser
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -68,6 +69,17 @@ def create_app(scan_file: Path, checklist: Path | None = None) -> FastAPI:
     checklist = DEFAULT_CHECKLIST if checklist is None else checklist
     _checklist_path(checklist, scan_file)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+    @app.middleware("http")
+    async def limit_chat_body(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        if request.method == "POST" and request.url.path == "/api/chat":
+            try:
+                length = int(request.headers.get("content-length", "0"))
+            except ValueError:
+                return JSONResponse({"detail": "Invalid Content-Length"}, status_code=400)
+            if length > 16384:
+                return JSONResponse({"detail": "Chat request exceeds 16384 bytes"}, status_code=413)
+        return await call_next(request)
 
     @app.get("/api/constellation", dependencies=[Depends(local_only)])
     def constellation() -> Response:
