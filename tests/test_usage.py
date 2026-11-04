@@ -759,3 +759,47 @@ def test_root_close_failure_preserves_prior_skip_count(tmp_path, monkeypatch):
     result = scan(tmp_path)
     assert result.usage_window.skipped == 2
     assert result.warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 2 files (too big or unreadable)"]
+
+
+@pytest.mark.parametrize("metadata_check", ["is_symlink", "is_file", "is_dir"])
+def test_unreadable_entry_metadata_does_not_hide_later_transcripts(tmp_path, monkeypatch, metadata_check):
+    import os
+    from contextlib import contextmanager
+
+    import constellation.usage as reader
+
+    write_skill(tmp_path, "tdd", "invented")
+    good = write_transcript(tmp_path, [tool()], "z-good.jsonl")
+    bad = good.parent / ("a-unreadable.jsonl" if metadata_check == "is_file" else "a-unreadable")
+    if metadata_check == "is_file":
+        bad.write_text("")
+    else:
+        bad.mkdir()
+    original = os.scandir
+    failures = []
+
+    class Entry:
+        def __init__(self, entry):
+            self.entry = entry
+
+        def __getattr__(self, name):
+            if self.entry.name == bad.name and name == metadata_check:
+
+                def fail(**kwargs):
+                    failures.append(name)
+                    raise PermissionError("invented private metadata failure")
+
+                return fail
+            return getattr(self.entry, name)
+
+    @contextmanager
+    def entries(path):
+        with original(path) as stream:
+            yield (Entry(entry) for entry in stream) if isinstance(path, int) else stream
+
+    monkeypatch.setattr(reader.os, "scandir", entries)
+    result = scan(tmp_path)
+    assert failures == [metadata_check]
+    assert counts(result) == {"tdd": 1}
+    assert asdict(result.usage_window) == {"files": 1, "first": "2026-11-02", "last": "2026-11-02", "skipped": 1}
+    assert result.warnings == ["usage: skipped 0 malformed lines, 0 oversize line, 1 files (too big or unreadable)"]

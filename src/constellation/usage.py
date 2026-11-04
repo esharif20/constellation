@@ -154,20 +154,20 @@ def _walk(parent: int, depth: int) -> Iterator[tuple[int, str] | None]:
         with os.scandir(parent) as stream:
             entries = sorted(stream, key=lambda e: e.name)
         for entry in entries:
-            if entry.is_symlink():
-                yield None
-            elif depth in {1, 3} and entry.name.endswith(".jsonl") and _is_file(entry):
-                yield parent, entry.name
-            elif depth < 3 and _is_dir(entry):
-                if depth == 1 and entry.name in {"memory", "tool-results"}:
-                    continue
-                if depth == 2 and entry.name != SUBAGENTS:
-                    continue
-                try:
+            try:
+                if entry.is_symlink():
+                    yield None
+                elif depth in {1, 3} and entry.name.endswith(".jsonl") and _is_file(entry):
+                    yield parent, entry.name
+                elif depth < 3 and _is_dir(entry):
+                    if depth == 1 and entry.name in {"memory", "tool-results"}:
+                        continue
+                    if depth == 2 and entry.name != SUBAGENTS:
+                        continue
                     with _directory(entry.name, parent) as child:
                         yield from _walk(child, depth + 1)
-                except OSError:
-                    yield None
+            except OSError:
+                yield None
     except OSError:
         yield None
 
