@@ -155,3 +155,9 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Contract test `tests/test_warning_contract.py` pins the prefixes (emitted by `scan()` for the file-based ones, literal-in-source for provider/usage ones) and that `model.ts` still names each one. `layout:check` asserts `groupWarnings` on invented strings.
 - Public Snapshot untouched (it already drops warnings). Warnings from other modules that quote an OS error with an absolute path (cache save failures) are not rewritten: not in the plan's source list. No deviations.
 - Not verified: other themes/real long path lists; screenshots only on demo data with injected warnings at 1440 and 390.
+
+## Search stopgap: forgiving client search (2026-11-04, branch `claude/search-stopgap`)
+
+- STOPGAP, superseded by #40/#41 (the real natural-language search, `docs/plans/explore-ux.md` section C). Frontend only: `frontend/src/graph/search.ts` is a pure ranker (normalise, drop filler words only when something else remains, joined-token match so "pony tail" ~ "ponytail" ~ "pony-tail", edit distance 1 for tokens of 5+ characters, subsequence as the weakest tier; also reads description, kind and label). `model.ts` `search()` now delegates to it; `TopBar.tsx` shows a "Matched: ..." line under each result and a not-found hint. cmdk filtering was already off. No backend, no provider calls, no deviations.
+- `layout:check` asserts the ranking on invented Items (ponytail spellings, typo, frontend design, nonsense -> empty).
+- Not done (left to #40/#41): did-you-mean list, clusters group, semantic matching. Not verified: real scans; keyboard behaviour was unchanged by construction, not re-driven.
