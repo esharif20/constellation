@@ -33,7 +33,10 @@ def test_duplicate_reason_names_both_items_and_keeps_the_verdict_reason(data):
 
 def test_wrapper_reason_and_tokens(data):
     s = suggest(data)[1]
-    assert s.reason == "reviewer (agent) only calls review (skill); consider using review (skill) directly. The reviewer agent only forwards to the review skill."
+    assert (
+        s.reason == "reviewer (agent) only calls review (skill); consider using review (skill) directly. "
+        "The reviewer agent only forwards to the review skill."
+    )
     assert s.tokens_saved == 60  # the wrapper's own always-on cost
 
 

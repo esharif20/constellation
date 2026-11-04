@@ -1,7 +1,14 @@
+from __future__ import annotations
+
+import os
 import textwrap
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from .redact import redact
+
+if TYPE_CHECKING:
+    from .suggestions import Suggestion
 
 VERDICTS = ("duplicate", "wrapper", "overlap")  # display order; "distinct" is hidden unless show_all
 _STYLE = {"bold": "1", "dim": "2", "duplicate": "31", "wrapper": "33", "overlap": "36", "distinct": "32"}
@@ -103,7 +110,22 @@ def render_report(data: dict[str, Any], *, top: int, color: bool, width: int, sh
     return "\n".join(out) + "\n"
 
 
-def render_cleanup(data: dict[str, Any], *, top: int) -> str:
+def write_private(path: Path, text: str) -> None:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.chmod(path, 0o600)  # the mode above applies only to a new file
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+
+
+def _saving(s: Suggestion) -> str:
+    return f"Saves about {s.tokens_saved:,} always-on tokens." if s.tokens_saved is not None else "Saving not measured."
+
+
+def _approved(approved: list[Suggestion]) -> list[str]:
+    return [f"- [ ] {s.reason} {_saving(s)} (id {s.id})" for s in approved] or ["None approved."]
+
+
+def render_cleanup(data: dict[str, Any], *, top: int, approved: list[Suggestion] | None = None) -> str:
     """A markdown checklist the user acts on by hand. Same redaction as the report."""
     names, known = _names(data), _known_costs(data)
     lines = [
@@ -112,8 +134,11 @@ def render_cleanup(data: dict[str, Any], *, top: int) -> str:
         "# Constellation cleanup checklist",
         "",
     ]
-    lines += ["## Duplicates", ""]
-    lines += [f"- [ ] Review and remove one of these two: {a} and {b}. {r}" for a, b, r in _pairs(data, "duplicate")] or ["None found."]
+    if approved is not None:
+        lines += ["## Approved Suggestions", ""] + _approved(approved)
+    else:
+        lines += ["## Duplicates", ""]
+        lines += [f"- [ ] Review and remove one of these two: {a} and {b}. {r}" for a, b, r in _pairs(data, "duplicate")] or ["None found."]
     lines += ["", "## Highest always-on cost", ""]
     lines += [f"- [ ] {names[i['id']]}: {known[i['id']]:,} tokens every session. Is it worth it?" for i in _ranked(data, known)[:top]] or [
         "Token costs were not measured."

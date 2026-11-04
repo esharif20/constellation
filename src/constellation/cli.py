@@ -10,6 +10,8 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
+from langgraph.types import Command
+
 from . import scan
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
@@ -17,7 +19,9 @@ from .env import load_env
 from .models import LLM, Constellation, Embedder, TokenCounter
 from .overlaps import estimate_cost
 from .redact import redact
-from .report import render_cleanup, render_report
+from .report import render_cleanup, render_report, write_private
+from .review import build_review_graph, open_checkpointer, thread_id
+from .suggestions import Suggestion, suggest
 
 Serve = Callable[[Any, int, bool], None]  # app, port, open the browser
 
@@ -29,6 +33,7 @@ def main(
     counter: TokenCounter | None = None,
     verifier: LLM | None = None,
     serve: Serve | None = None,
+    decide: Callable[[Suggestion], str] | None = None,  # returns "a", "s" or "q"; the default asks on stdin
 ) -> int:
     parser = argparse.ArgumentParser(prog="constellation")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -57,7 +62,15 @@ def main(
     report_command.add_argument("--all", action="store_true", help="also list distinct pairs")
     report_command.add_argument("--cleanup", type=Path, help="also write a markdown checklist of cleanup candidates to this new file")
     report_command.add_argument("--force", action="store_true", help="let --cleanup overwrite an existing file")
+    review_command = commands.add_parser(
+        "review", help="go through Suggestions one at a time and write the approved ones to a checklist (no network, no cost)"
+    )
+    review_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    review_command.add_argument("--out", type=Path, default=Path("cleanup.md"), help="the checklist to write")
+    review_command.add_argument("--force", action="store_true", help="overwrite an existing checklist")
     args = parser.parse_args(argv)
+    if args.command == "review":
+        return _review(args, decide)  # reads the scan file only, so it skips load_env
     if args.command == "report":
         return _report(args)  # reads the file only, so it skips load_env
     if args.command == "open":
@@ -139,15 +152,69 @@ def main(
     return 0
 
 
-def _report(args: argparse.Namespace) -> int:
+def _load_scan(file: Path) -> dict[str, Any] | None:
     try:
-        data = json.loads(args.file.read_text())
+        data = json.loads(file.read_text())
     except (OSError, ValueError):
         data = None
     if not isinstance(data, dict) or not isinstance(
         data.get("items"), list
     ):  # shortcut: only the top-level shape is checked, not each field
-        print(f"{args.file} is missing or not a constellation scan; run `constellation scan` first.", file=sys.stderr)
+        print(f"{file} is missing or not a constellation scan; run `constellation scan` first.", file=sys.stderr)
+        return None
+    return data
+
+
+def _ask_stdin(suggestion: Suggestion) -> str:
+    while True:
+        try:
+            answer = input("[a]pprove, [s]kip, [q]uit? ").strip().lower()
+        except EOFError:
+            return "q"
+        if answer in ("a", "s", "q"):
+            return answer
+
+
+def _review(args: argparse.Namespace, decide: Callable[[Suggestion], str] | None) -> int:
+    data = _load_scan(args.file)
+    if data is None:
+        return 2
+    if args.out.exists() and not args.force:
+        print(f"{args.out} already exists; pass --force to overwrite it.", file=sys.stderr)
+        return 2
+    suggestions = suggest(data)
+    if not suggestions:
+        print("No Suggestions: no duplicate or wrapper Overlaps found.")
+        return 0
+    decide = decide or _ask_stdin
+    by_id = {s.id: s for s in suggestions}
+    # The thread id names this scan file's saved review; the checkpoint holds only Suggestion ids and answers.
+    graph = build_review_graph(open_checkpointer())
+    config: Any = {"configurable": {"thread_id": thread_id(args.file)}, "recursion_limit": len(suggestions) * 2 + 10}
+    result = graph.invoke({"suggestions": list(by_id)}, config)  # keeps saved answers and replaces any stale pause
+    while "__interrupt__" in result:
+        pending = by_id[result["__interrupt__"][0].value]
+        done = sum(i in result.get("decisions", {}) for i in by_id)
+        print(f"\n[{done + 1}/{len(by_id)}] {pending.reason}")
+        print(f"Saves about {pending.tokens_saved:,} always-on tokens." if pending.tokens_saved is not None else "Saving: unknown.")
+        try:
+            answer = decide(pending)
+        except KeyboardInterrupt:
+            answer = "q"
+        if answer not in ("a", "s"):
+            break  # leave the thread paused: the next run asks this same Suggestion
+        result = graph.invoke(Command(resume="approve" if answer == "a" else "skip"), config)
+    decisions = result.get("decisions", {})
+    approved = [s for s in suggestions if decisions.get(s.id) == "approve"]
+    write_private(args.out, render_cleanup(data, top=5, approved=approved))
+    skipped = sum(decisions.get(s.id) == "skip" for s in suggestions)
+    print(f"\n{len(approved)} approved, {skipped} skipped, {len(suggestions) - len(approved) - skipped} left. Checklist: {args.out}")
+    return 0
+
+
+def _report(args: argparse.Namespace) -> int:
+    data = _load_scan(args.file)
+    if data is None:
         return 2
     if args.cleanup and args.cleanup.exists() and not args.force:
         print(f"{args.cleanup} already exists; pass --force to overwrite it.", file=sys.stderr)
@@ -156,10 +223,7 @@ def _report(args: argparse.Namespace) -> int:
     width = max(40, min(shutil.get_terminal_size().columns, 100))
     print(render_report(data, top=args.top, color=color, width=width, show_all=args.all), end="")
     if args.cleanup:
-        fd = os.open(args.cleanup, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        os.chmod(args.cleanup, 0o600)
-        with os.fdopen(fd, "w") as f:
-            f.write(render_cleanup(data, top=args.top))
+        write_private(args.cleanup, render_cleanup(data, top=args.top))
     return 0
 
 

@@ -6,6 +6,7 @@ from typing import Any, Literal
 from .redact import redact
 from .report import _known_costs, _names
 
+
 @dataclass(frozen=True)
 class Suggestion:
     id: str  # content-derived, so a decision still applies after a re-scan
@@ -14,9 +15,11 @@ class Suggestion:
     reason: str  # plain English, redacted
     tokens_saved: int | None  # None = unknown, never 0
 
+
 def _make(kind: Literal["remove_duplicate", "use_underlying"], item_ids: tuple[str, ...], reason: str, saved: int | None) -> Suggestion:
     digest = hashlib.sha256((kind + "\0" + "\0".join(item_ids)).encode()).hexdigest()[:12]
     return Suggestion(digest, kind, item_ids, redact(reason), saved)
+
 
 def _duplicates(data: dict[str, Any]) -> list[Suggestion]:
     names, known = _names(data), _known_costs(data)
@@ -30,6 +33,7 @@ def _duplicates(data: dict[str, Any]) -> list[Suggestion]:
         found.append(_make("remove_duplicate", ids, f"Remove one of these two: {a} and {b}. {o['reason']}", saved))
     return found
 
+
 def _wrappers(data: dict[str, Any]) -> list[Suggestion]:
     names, known = _names(data), _known_costs(data)
     found = []
@@ -41,8 +45,10 @@ def _wrappers(data: dict[str, Any]) -> list[Suggestion]:
         found.append(_make("use_underlying", (o["a_id"], o["b_id"]), reason, known.get(o["a_id"])))
     return found
 
+
 # #20 (transcript usage) adds an "unused always-on Item" generator here.
 GENERATORS: list[Callable[[dict[str, Any]], list[Suggestion]]] = [_duplicates, _wrappers]
+
 
 def suggest(data: dict[str, Any]) -> list[Suggestion]:
     """Known savings first (largest first), then unknown; ties by Item ids, so the same scan always gives the same order."""
