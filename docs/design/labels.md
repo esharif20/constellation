@@ -127,7 +127,7 @@ always on" or "cost unknown". Tooltip-free keeps one accessible path.
 
 - Inspector: tooltip stays left of it (bounds); hovering other stars still works while it is open.
 - Brief, Chat, cluster card: the left slot is in `view.left`, so the tooltip and names stay right of it.
-- Highlight chip: `measureInsets` takes `view.top = max(header bottom, chip bottom) + 8` when the chip is shown.
+- Highlight chip: Escape on the map or a click on empty sky clears it (#49). `measureInsets` takes `view.top = max(header bottom, chip bottom) + 8` when the chip is shown.
 - Search popover and other Radix portals (z 50) sit above the tooltip; the tooltip is a `z-10` sibling of the canvas wrapper,
   under every panel.
 - Cluster focus: same tooltip for members and lit neighbours; the canvas cost line stays (they agree, from the same `cost`).

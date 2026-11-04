@@ -365,3 +365,11 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - Heavy-star rule changed from `r >= 7` to known cost at or above the 90th percentile (the note's estimate named too many stars). Accepted.
 - Name-coverage floors set to the measured minimums as regression guards (z=1: 10% desktop, 5% phone; z=2.5: 45% desktop, 3% phone) because the note's targets need name nudging, which the note forbids. Accepted as a guard, not a goal; the user judges label density by eye and may ask for a nudging placer.
+
+## #49 map stays dimmed, #50 cluster-name clicks (2026-11-04, branch `claude/fix-interaction`, spec `docs/plans/interaction-bugs.md`)
+
+- Done per the note, frontend only (no new dependency): `Atlas.tsx` (`close()` and `select(null)` clear the highlight; `enter()`/`leave()` reset the preview), `StarMap.tsx` (`onPointerLeave` clears hover unless a node drag is on; name clicks owned by `pointerdown`/`pointerup` with a 6 px, 10 px touch/coarse, tolerance and a `nameClick` ref that `onBackground`/`onNodeClick` honour), `frontend/scripts/interaction-check.mjs` (demo data, loopback only).
+- **Decision (needs the user's nod): a click on empty sky clears the search/chat highlight.** This changes the search contract ("every match stays lit while typing"): a click on the map while the query is still wanted now drops it. The ticket asks for it. Esc order and exit rules updated in `cluster-focus.md` 8 and `labels.md`.
+- **Found while fixing (not in the note): `wake()` dropped clicks.** The repaint loop pokes force-graph with a same-value `zoom()`; while a button is down d3-zoom has a gesture open, so the poke marks the press a drag and force-graph discards the click. Any press during a running fade (first click after typing in search moves focus and wakes the loop; a click just after a hover) was lost. `wake()` now keeps ticking without poking while `pressed` (pointerdown to pointerup/cancel on window). This was root cause 1 of #49 for the click-on-sky case and part of #50.
+- Esc on the map after a search: the first Esc is taken by the open results popover (it prevents default), the second clears. Unchanged, noted by the check.
+- Known limit: after `pointerleave`, force-graph's own `hoverObj` is still the old star, so returning straight onto it does not light it until the pointer leaves it once (as the note says).

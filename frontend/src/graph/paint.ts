@@ -481,7 +481,16 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   }
 
   // The cluster whose drawn name is under (x, y) in screen px: what a background click enters or hops to.
-  const clusterAt = (x: number, y: number) => model.clusters.find((c) => c.hit && x >= c.box[0] && x <= c.box[2] && y >= c.box[1] && y <= c.box[3]) ?? null;
+  // overlapping boxes: the one whose centre is nearest wins, so a pixel of travel cannot swap the answer
+  const clusterAt = (x: number, y: number) => {
+    let best: (typeof model.clusters)[number] | null = null, bd = Infinity;
+    for (const c of model.clusters) {
+      if (!c.hit || x < c.box[0] || x > c.box[2] || y < c.box[1] || y > c.box[3]) continue;
+      const d = Math.hypot(x - (c.box[0] + c.box[2]) / 2, y - (c.box[1] + c.box[3]) / 2);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best;
+  };
   // the open tooltip's box and star (a method, so React components do not assign to painter fields)
   const setTip = (box: Box | null, n: GNode | null) => { view.tip = box; focus.tip = n; };
   return { focus, view, setTip, pre, link, node, pointer, post, clusterAt, busy: () => busy };
