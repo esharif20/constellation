@@ -15,7 +15,6 @@ from .models import Item, Usage, UsageWindow
 
 FILE_CAP = 256 * 1024 * 1024
 LINE_CAP = 8 * 1024 * 1024
-_DAY = re.compile(rb'"timestamp":\s*"(\d{4}-\d{2}-\d{2})T')
 PROJECTS = "projects"
 SUBAGENTS = "subagents"
 TRACKED = {"skill", "agent", "mcp_server", "connector"}
@@ -28,11 +27,6 @@ def _day(value: Any) -> str | None:
         return date.fromisoformat(value[:10]).isoformat()
     except ValueError:
         return None
-
-
-def _line_day(line: bytes) -> str | None:
-    match = _DAY.search(line)
-    return _day(match[1].decode() + "T") if match else None
 
 
 def _index(items: list[Item]) -> tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]]:
@@ -60,17 +54,23 @@ def _digest(value: str) -> bytes:
     return hashlib.blake2b(value.encode(), digest_size=8).digest()  # pragma: no mutate (digest length changes are equivalent)
 
 
-def _matches(record: Any, index: tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]]) -> Iterator[tuple[str, bytes]]:
+def _matches(
+    record: Any, index: tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]]
+) -> Iterator[tuple[str, bytes, tuple[str, ...]]]:
     names, prefixes = index
     if not isinstance(record, dict):
         raise ValueError
-    message = record.get("message")
-    if not isinstance(message, dict):
-        raise ValueError
-    content = message.get("content")
+    if "message" not in record:  # not a user/assistant record (summaries, snapshots)
+        return
     role = record.get("type")
     if not isinstance(role, str):
         raise ValueError
+    if role not in {"user", "assistant"}:  # system and other records carry no invocations
+        return
+    message = record["message"]
+    if not isinstance(message, dict):
+        raise ValueError
+    content = message.get("content")
     if isinstance(content, str) and role == "user":
         content = [{"type": "text", "text": content}]
     if not isinstance(content, list):
@@ -78,7 +78,7 @@ def _matches(record: Any, index: tuple[dict[tuple[str, str], list[str]], dict[st
     for block in content:
         if not isinstance(block, dict) or not isinstance(block.get("type"), str):
             raise ValueError
-        ids: list[str] = []
+        groups: list[list[str]] = []  # one group per name lookup; ambiguity is decided per lookup
         key: Any = ""  # pragma: no mutate (initial key is unused until ids are matched)
         if role == "assistant" and block.get("type") == "tool_use":
             name, inputs, key = block.get("name"), block.get("input"), block.get("id")
@@ -88,27 +88,27 @@ def _matches(record: Any, index: tuple[dict[tuple[str, str], list[str]], dict[st
                 value = inputs.get("skill" if name == "Skill" else "subagent_type")
                 if not isinstance(value, str):
                     raise ValueError
-                ids = names.get(("skill" if name == "Skill" else "agent", value), [])
+                groups = [names.get(("skill" if name == "Skill" else "agent", value), [])]
             elif name.startswith("mcp__"):
                 for prefix in sorted(prefixes, reverse=True):
                     if name.startswith(prefix):
-                        ids = prefixes[prefix]
+                        groups = [prefixes[prefix]]
                         break
         elif role == "user" and block.get("type") == "text":
             text, key = block.get("text"), record.get("uuid")
             if not isinstance(text, str) or not isinstance(key, str):
                 raise ValueError
-            for value in re.findall(r"<command-name>/([^<]+)</command-name>", text):
-                ids.extend(names.get(("skill", value), []))
+            groups = [names.get(("skill", value), []) for value in re.findall(r"<command-name>/([^<]+)</command-name>", text)]
         if isinstance(key, str):
             digest = _digest(key)
-            for id_ in ids:
-                yield id_, digest
+            for group in groups:
+                for id_ in group:
+                    yield id_, digest, tuple(sorted(group)) if len(group) > 1 else ()
 
 
 def _invocations(
     record: Any, index: tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]], errors: list[int]
-) -> Iterator[tuple[str, bytes]]:
+) -> Iterator[tuple[str, bytes, tuple[str, ...]]]:
     try:
         matched = list(_matches(record, index))
     except ValueError:
@@ -118,17 +118,18 @@ def _invocations(
 
 
 def _parse(
-    line: bytes, index: tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]]
-) -> tuple[list[tuple[str, bytes]], str | None, int]:
+    line: bytes, index: tuple[dict[tuple[str, str], list[str]], dict[str, list[str]]], relevant: bool
+) -> tuple[list[tuple[str, bytes, tuple[str, ...]]], str | None, int]:
     # The record and all its text die with this call, including on malformed shapes.
     try:
         record = json.loads(line)
     except (ValueError, UnicodeError, RecursionError):
-        return [], None, 1
+        return [], None, int(relevant)
+    day = _day(record.get("timestamp")) if isinstance(record, dict) else None  # top-level only, never a nested one
+    if not relevant:
+        return [], day, 0
     errors = [0]
-    matches = list(_invocations(record, index, errors))
-    day = _day(record.get("timestamp")) if isinstance(record, dict) else None
-    return matches, day, errors[0]
+    return list(_invocations(record, index, errors)), day, errors[0]
 
 
 def _is_dir(entry: os.DirEntry[str]) -> bool:
@@ -187,6 +188,7 @@ def _drain(stream: BinaryIO) -> None:
 
 def read_usage(config_dir: Path, items: list[Item]) -> tuple[dict[str, Usage], UsageWindow, list[str]]:
     usage = {i.id: Usage(0, None) for i in items if i.kind in TRACKED}
+    config_dir = config_dir.resolve()  # a symlinked config dir is the user's choice; pin its real target once
     projects = config_dir / PROJECTS
     if projects.is_symlink():
         return usage, UsageWindow(0, None, None, 1), ["usage: projects folder is a symlink; not read"]
@@ -195,7 +197,7 @@ def read_usage(config_dir: Path, items: list[Item]) -> tuple[dict[str, Usage], U
     index = _index(items)
     seen: set[bytes] = set()
     ambiguous: set[tuple[str, ...]] = set()
-    files = skipped = malformed = oversize = 0
+    files = skipped = malformed = oversize = big = 0
     first = last = None
     try:
         for path in _transcripts(config_dir):
@@ -209,6 +211,7 @@ def read_usage(config_dir: Path, items: list[Item]) -> tuple[dict[str, Usage], U
                     info = os.fstat(stream.fileno())
                     if not stat.S_ISREG(info.st_mode) or info.st_size > FILE_CAP:
                         skipped += 1
+                        big += stat.S_ISREG(info.st_mode)  # in this branch a regular file is a too-big one
                         continue
                     files += 1
                     while line := stream.readline(LINE_CAP + 1):
@@ -216,25 +219,20 @@ def read_usage(config_dir: Path, items: list[Item]) -> tuple[dict[str, Usage], U
                             _drain(stream)
                             oversize += 1
                             continue
-                        day = _line_day(line)
-                        if day:
-                            first = min(first, day) if first else day
-                            last = max(last, day) if last else day
-                        if (
-                            b'"tool_use"' not in line and b"<command-name>" not in line
-                        ):  # pragma: no mutate (prefilter only; json path decides)
-                            continue
-                        invocations, used_day, errors = _parse(line, index)
+                        relevant = b'"tool_use"' in line or b"<command-name>" in line  # pragma: no mutate (prefilter only)
+                        invocations, used_day, errors = _parse(line, index, relevant)
                         malformed += errors
-                        by_key: dict[bytes, set[str]] = {}
-                        for id_, key in invocations:
-                            by_key.setdefault(key, set()).add(id_)
+                        if used_day:
+                            first = min(first, used_day) if first else used_day
+                            last = max(last, used_day) if last else used_day
+                        by_key: dict[bytes, dict[str, tuple[str, ...]]] = {}
+                        for id_, key, group in invocations:
+                            by_key.setdefault(key, {})[id_] = group
                         for key, ids in by_key.items():
                             if key in seen:
                                 continue
                             seen.add(key)
-                            if len(ids) > 1:
-                                ambiguous.add(tuple(sorted(ids)))
+                            ambiguous.update(group for group in ids.values() if group)
                             for id_ in ids:
                                 old = usage[id_]
                                 used = max(old.last_used, used_day) if old.last_used and used_day else old.last_used or used_day
@@ -246,7 +244,10 @@ def read_usage(config_dir: Path, items: list[Item]) -> tuple[dict[str, Usage], U
         skipped += 1
     warnings = []
     if malformed or oversize or skipped:
-        warnings.append(f"usage: skipped {malformed} malformed lines, {oversize} oversize line, {skipped} files (too big or unreadable)")
+        warnings.append(
+            f"usage: skipped {malformed} malformed lines, {oversize} oversize line, "
+            f"{skipped} files ({big} too big, {skipped - big} unreadable)"
+        )
     if ambiguous:
         warnings.append(f"usage: {len(ambiguous)} invocation names matched more than one Item; each was credited")
     return usage, UsageWindow(files, first, last, skipped), warnings
