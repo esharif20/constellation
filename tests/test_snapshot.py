@@ -73,11 +73,11 @@ def test_snapshot_redacts_every_public_string_and_drops_unexpected_nested_fields
             {"id": a, "kind": "skill", "name": secret, "description": secret, "source": secret, **private},
             {"id": b, "kind": "mcp_tool", "name": "Tool", "description": "Safe", "source": secret, **private},
         ],
-        "relations": [{"source": a, "target": b, "kind": secret, **private}],
+        "relations": [{"source": a, "target": b, "kind": "contains", **private}],
         "labels": {a: secret},
         "clusters": [{"name": secret, "item_ids": [a, b], **private}],
         "costs": {a: {"always_on": 0, "on_use": None, **private}},
-        "overlaps": [{"a_id": a, "b_id": b, "verdict": secret, "reason": secret, **private}],
+        "overlaps": [{"a_id": a, "b_id": b, "verdict": "overlap", "reason": secret, **private}],
         "warnings": [secret],
         "usage": {a: {"count": 1, "last_used": "2026-11-04"}},
         "usage_window": {"first": "2026-11-04"},
@@ -92,11 +92,11 @@ def test_snapshot_redacts_every_public_string_and_drops_unexpected_nested_fields
             {"id": "item-1", "kind": "skill", "name": "[REDACTED]", "description": "[REDACTED]", "source": ""},
             {"id": "item-2", "kind": "mcp_tool", "name": "Tool", "description": "Safe", "source": ""},
         ],
-        "relations": [{"source": "item-1", "target": "item-2", "kind": "[REDACTED]"}],
+        "relations": [{"source": "item-1", "target": "item-2", "kind": "contains"}],
         "labels": {"item-1": "[REDACTED]"},
         "clusters": [{"name": "[REDACTED]", "item_ids": ["item-1", "item-2"]}],
         "costs": {"item-1": {"always_on": 0, "on_use": None}},
-        "overlaps": [{"a_id": "item-1", "b_id": "item-2", "verdict": "[REDACTED]", "reason": "[REDACTED]"}],
+        "overlaps": [{"a_id": "item-1", "b_id": "item-2", "verdict": "overlap", "reason": "[REDACTED]"}],
     }
     assert secret not in json.dumps(result)
     assert data == original
@@ -296,19 +296,19 @@ def test_snapshot_scrubs_public_identifiers_in_every_retained_free_text_field(pr
 
     data = {
         "items": [{"id": "a", "kind": "skill", "name": private, "description": private, "source": private}],
-        "relations": [{"source": "a", "target": "a", "kind": private}],
+        "relations": [{"source": "a", "target": "a", "kind": "contains"}],
         "labels": {"a": private},
         "clusters": [{"name": private, "item_ids": ["a"]}],
-        "overlaps": [{"a_id": "a", "b_id": "a", "verdict": private, "reason": private}],
+        "overlaps": [{"a_id": "a", "b_id": "a", "verdict": "overlap", "reason": private}],
     }
     result = snapshot(data)
     assert result == {
         "items": [{"id": "item-1", "kind": "skill", "name": "[REDACTED]", "description": "[REDACTED]", "source": ""}],
-        "relations": [{"source": "item-1", "target": "item-1", "kind": "[REDACTED]"}],
+        "relations": [{"source": "item-1", "target": "item-1", "kind": "contains"}],
         "labels": {"item-1": "[REDACTED]"},
         "clusters": [{"name": "[REDACTED]", "item_ids": ["item-1"]}],
         "costs": {},
-        "overlaps": [{"a_id": "item-1", "b_id": "item-1", "verdict": "[REDACTED]", "reason": "[REDACTED]"}],
+        "overlaps": [{"a_id": "item-1", "b_id": "item-1", "verdict": "overlap", "reason": "[REDACTED]"}],
     }
     assert private not in json.dumps(result)
 
@@ -329,19 +329,110 @@ def test_snapshot_removes_all_planted_identifiers_inside_public_prose():
     )
     data = {
         "items": [{"id": "a", "kind": "skill", "name": text, "description": text, "source": "local"}],
-        "relations": [{"source": "a", "target": "a", "kind": text}],
+        "relations": [{"source": "a", "target": "a", "kind": "triggers"}],
         "labels": {"a": text},
         "clusters": [{"name": text, "item_ids": ["a"]}],
-        "overlaps": [{"a_id": "a", "b_id": "a", "verdict": text, "reason": text}],
+        "overlaps": [{"a_id": "a", "b_id": "a", "verdict": "duplicate", "reason": text}],
     }
     result = snapshot(data)
     expected = "Uses [REDACTED] by [REDACTED] on [REDACTED] via [REDACTED]"
     assert result["items"][0]["name"] == expected
     assert result["items"][0]["description"] == expected
-    assert result["relations"][0]["kind"] == expected
     assert result["labels"]["item-1"] == expected
     assert result["clusters"][0]["name"] == expected
     assert result["overlaps"][0]["reason"] == expected
-    assert result["overlaps"][0]["verdict"] == expected
     for value in private:
         assert value not in json.dumps(result)
+
+
+ATTACKS = [
+    (r"D:\work\demo-person\notes", "demo-person"),
+    (r"C:\\Users\\demo-person\\x", "demo-person"),
+    ("C:/work/demo-person/x", "demo-person"),
+    (r"\\fileserver\share\demo-person", "fileserver"),
+    ("/root/demo-person/.ssh", "demo-person"),
+    ("~demo-person/notes", "demo-person"),
+    ("'/Users/demo person/My Docs/x.md'", "demo"),
+    ('"C:\\Users\\demo person\\x y"', "demo"),
+    ("`/home/demo person/a b`", "demo"),
+    ("2001:db8:85a3:0:0:8a2e:370:7334", "8a2e"),
+    ("fe80::1ff:fe23:4567:890a", "4567"),
+    ("::1", "::1"),
+    ("dbhost:5432", "dbhost"),
+    ("%2FUsers%2Fdemo-person%2Fx", "demo-person"),
+    ("%252FUsers%252Fdemo-person", "demo-person"),
+    ("%25252525252FUsers%25252525252Fdemo-person", "demo-person"),
+    ("/Us\u200bers/demo-person", "demo-person"),
+    ("/Us\u00aders/demo-person", "demo-person"),
+    ("/Volumes/Backup-demo/x", "demo"),
+    ("demo%40example.test", "example"),
+    ("demo-person\uff20example.test", "example"),
+    ("db\u3002corp\u3002", "db"),
+    ("m\u00fcnchen-db.internal", "nchen"),
+    ("host\uff0elocal", "host"),
+    ("/Users/\u200bdemo-person/x", "demo-person"),
+    ("ssh demo-person@10.0.0.5", "demo-person"),
+    ("ssh://demo-person@build-box/repo", "build-box"),
+    ("file:///Users/demo-person/x", "demo-person"),
+    ("file://fileserver/share", "fileserver"),
+    ("[notes](https://wiki.example.test/demo-person)", "demo-person"),
+    ("demo+tag@example.test", "demo"),
+    ("192.168.1.20:8080", "192.168"),
+    ("build-01.corp", "build-01"),
+    ("nas.lan:445", "nas"),
+    ("api.internal.example", "api"),
+    ("Aq9Zx3Kp7Lm2Nv8Bc4Td6Fh1Jr5Sw0Yq", "Aq9Zx3Kp7Lm2"),
+    ("see /Users/demo-person/a.md and /home/demo-person/b.md", "demo-person"),
+]
+
+
+@pytest.mark.parametrize(("attack", "needle"), ATTACKS)
+def test_snapshot_scrubs_attack_strings_in_every_free_text_field(attack, needle):
+    import json
+
+    data = {
+        "items": [{"id": "a", "kind": "skill", "name": attack, "description": f"x {attack} y", "source": attack}],
+        "relations": [{"source": "a", "target": "a", "kind": "contains"}],
+        "labels": {"a": attack},
+        "clusters": [{"name": attack, "item_ids": ["a"]}],
+        "overlaps": [{"a_id": "a", "b_id": "a", "verdict": "overlap", "reason": attack}],
+    }
+    result = snapshot(data)
+    blob = json.dumps(result, ensure_ascii=False)
+    assert needle not in blob
+    assert "REDACTED" in result["items"][0]["name"]
+    assert "REDACTED" in result["items"][0]["description"]
+    assert "REDACTED" in result["labels"]["item-1"]
+    assert "REDACTED" in result["clusters"][0]["name"]
+    assert "REDACTED" in result["overlaps"][0]["reason"]
+
+
+def test_snapshot_removes_a_quoted_path_with_spaces_as_one_span():
+    data = {"items": [{"id": "a", "kind": "skill", "name": "Reads '/Users/demo person/My Docs/x.md' now", "description": "", "source": ""}]}
+    assert snapshot(data)["items"][0]["name"] == "Reads [REDACTED] now"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Next.js", "e.g., SKILL.md", "v1.2.3", "Node.js app", "README.md", "Uses Vue.js, Three.js and D3.js", "1.5x faster",
+        "12:30:45 UTC", "std::vector", "and/or", "docs/guide.md", "Use the /plan command",
+        "10:30", "version 2.0", "foo.bar", "TypeScript 5.4",
+    ],
+)  # fmt: skip
+def test_snapshot_keeps_ordinary_words_that_only_look_like_hostnames(text):
+    data = {"items": [{"id": "a", "kind": "skill", "name": text, "description": text, "source": ""}]}
+    assert snapshot(data)["items"][0]["name"] == text
+    assert snapshot(data)["items"][0]["description"] == text
+
+
+def test_snapshot_drops_relations_and_overlaps_with_values_outside_the_allowed_sets():
+    items = [{"id": i, "kind": "skill", "name": i, "description": "", "source": ""} for i in ("a", "b")]
+    relations = [{"source": "a", "target": "b", "kind": k} for k in ("contains", "triggers", "secret-kind", "", None, ["x"])]
+    overlaps = [
+        {"a_id": "a", "b_id": "b", "verdict": v, "reason": "r"}
+        for v in ("duplicate", "wrapper", "overlap", "distinct", "other", "", None, ["x"])
+    ]
+    result = snapshot({"items": items, "relations": relations, "overlaps": overlaps})
+    assert [r["kind"] for r in result["relations"]] == ["contains", "triggers"]
+    assert [o["verdict"] for o in result["overlaps"]] == ["duplicate", "wrapper", "overlap", "distinct"]

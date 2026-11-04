@@ -1,26 +1,52 @@
 """Pure public Snapshot privacy foundation; static bundle integration is separate."""
 
 import re
+import unicodedata
 from typing import Any
+from urllib.parse import unquote
 
 from .redact import REDACTED, redact
 
 _KINDS = ("skill", "agent", "plugin", "hook", "mcp_server", "connector", "mcp_tool", "command")
+_RELATIONS = ("contains", "triggers")
+_VERDICTS = ("duplicate", "wrapper", "overlap", "distinct")
 _EXECUTABLE_DESCRIPTIONS = {"hook": "Hook", "mcp_server": "MCP server", "connector": "Connector"}
 
 
 # Public Snapshots hide identifying text as well as credentials. Remove whole URLs
 # so userinfo, hostnames and private endpoint paths cannot survive independently.
+_SCHEME = r"[a-z][a-z0-9+.-]*://"
+_PATH_START = (
+    r"(?:[a-z]:[\\/]+"  # C:\work, C:\\work, D:/work
+    r"|\\\\+[^\s\\/]"  # UNC \\host\share
+    r"|/(?:Users|home|root|var|etc|tmp|opt|private|mnt|srv|Volumes|Library)\b"
+    r"|~[\w.-]*[\\/]"  # ~/x, ~user/x
+    rf"|{_SCHEME})"
+)
+_UNQUOTED = r"[^\s<>\"'`]+"
 _PUBLIC_IDENTIFIERS = re.compile(
-    r"""\b[a-z][a-z0-9+.-]*://[^\s<>\"']+"""
-    r"""|(?:[a-z]:[\\/]Users[\\/]|/(?:Users|home)/|~/)[^\s<>\"']+"""
-    r"""|[^\s<>\"'@]+@[^\s<>\"'@]+"""
-    r"|\b(?:[a-z0-9-]+\.)+[a-z0-9-]+\b|\blocalhost\b",
+    rf"""(?P<q>["'`])(?={_PATH_START})[^\n]*?(?P=q)"""  # a quoted path, spaces and all, goes whole
+    rf"|(?<![\w]){_PATH_START}{_UNQUOTED}"
+    rf"|[^\s<>\"'`@]+@[^\s<>\"'`@]+"
+    r"|\b\d{1,3}(?:\.\d{1,3}){3}\b(?::\d+)?"  # IPv4
+    r"|(?<![\w:])(?:[0-9a-f]{1,4}:){7}[0-9a-f]{1,4}(?![\w:])"  # full IPv6
+    r"|(?<![\w:])(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,6})?::(?:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,6})?(?![\w:])"  # compressed IPv6
+    r"|\b(?:[\w-]+\.)+(?:local|internal|corp|lan)\b(?:\.[\w-]+)*(?::\d+)?"  # internal TLDs
+    r"|\b[a-z][\w-]*:\d{2,5}\b"  # dotless host with a port
+    r"|\blocalhost\b",
     re.IGNORECASE,
 )
+_DOTS = str.maketrans({"\u3002": ".", "\uff61": ".", "\uff0e": "."})
 
 
 def _public_text(text: str) -> str:
+    # Normalise first so fullwidth, ideographic-dot, zero-width and percent-encoded forms hit the same patterns.
+    text = unicodedata.normalize("NFKC", text).translate(_DOTS)
+    text = "".join(c for c in text if unicodedata.category(c) != "Cf")
+    for _ in range(8):  # pragma: no mutate  (repeated encoding; any bound above the tested depth is equivalent)
+        if (decoded := unquote(text)) == text:
+            break
+        text = decoded
     return redact(_PUBLIC_IDENTIFIERS.sub(REDACTED, text))
 
 
@@ -56,9 +82,11 @@ def snapshot(data: dict[str, Any]) -> dict[str, Any]:
             for i in items
         ],
         "relations": [
-            {"source": source, "target": target, "kind": _public_text(r["kind"])}
+            {"source": source, "target": target, "kind": r["kind"]}
             for r in data.get("relations") or []
-            if (source := public_id(r.get("source"))) is not None and (target := public_id(r.get("target"))) is not None
+            if r.get("kind") in _RELATIONS
+            and (source := public_id(r.get("source"))) is not None
+            and (target := public_id(r.get("target"))) is not None
         ],
         "labels": {id_: _public_text(label) for ref, label in (data.get("labels") or {}).items() if (id_ := public_id(ref)) is not None},
         "clusters": [
@@ -72,8 +100,10 @@ def snapshot(data: dict[str, Any]) -> dict[str, Any]:
             if (id_ := public_id(ref)) is not None
         },
         "overlaps": [
-            {"a_id": a_id, "b_id": b_id, "verdict": _public_text(o["verdict"]), "reason": _public_text(o["reason"])}
+            {"a_id": a_id, "b_id": b_id, "verdict": o["verdict"], "reason": _public_text(o["reason"])}
             for o in data.get("overlaps") or []
-            if (a_id := public_id(o.get("a_id"))) is not None and (b_id := public_id(o.get("b_id"))) is not None
+            if o.get("verdict") in _VERDICTS
+            and (a_id := public_id(o.get("a_id"))) is not None
+            and (b_id := public_id(o.get("b_id"))) is not None
         ],
     }
