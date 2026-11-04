@@ -17,8 +17,8 @@ recorded as a **deviation** with the reason, and the user approves it, instead o
 | D10 Public demo | sanitised static Snapshot on Vercel | Open (#13, #14, #15) | |
 | D11 Context cost | `always_on` and `on_use` tokens, node size = always_on | Counts done (#5); node size from cost open (#10) | |
 | D12 Chat agent build | prebuilt `create_react_agent`, maybe rebuilt as a `StateGraph` | Open (#11) | |
-| D13 Graph UI | `react-force-graph-2d`, d3-force on canvas, tuned physics, glow, fallback d3-force + PixiJS | In progress | first version used plain d3; being rebuilt |
-| D14 Frontend | Vite + React + TS + Tailwind + shadcn/ui, served by FastAPI, static export | **Deviation, being corrected** | #8 first shipped vanilla JS with no build step; Opus design agent rebuilding on branch `ticket-8-design` |
+| D13 Graph UI | `react-force-graph-2d`, d3-force on canvas, tuned physics, glow, fallback d3-force + PixiJS | Done (#8) | `react-force-graph-2d`, glow nodes, hover fade, zoom labels |
+| D14 Frontend | Vite + React + TS + Tailwind + shadcn/ui, served by FastAPI, static export | Done (#8) | rebuilt in the planned stack; first version was vanilla JS and was replaced |
 | D15 Models | Haiku 5.5 for volume, Sonnet 5.5 verifier, via `langchain-anthropic` | **Deviation, approved by the user (2026-11-03)**: Anthropic SDK called directly | keep; switch only if a LangChain feature is needed |
 | D16 Working mode | AI writes code, user stays in the loop, `/tdd` | Active | |
 
@@ -31,3 +31,9 @@ Filed as tickets, all local-first and free by default (see the Cost rule in CLAU
 - transcript usage ("never used" Items), session-start weight, and the whole scan as one LangGraph graph with a checkpointer (tickets below)
 
 Not filed yet: reachability (which MCP servers a session can really reach), security hygiene (risky hooks), drift over time (comes with the checkpointer).
+
+## Review notes (2026-11-04)
+
+- #6 merged. Known judgement calls from the Opus review, not fixed: the verdict cache key ignores the verifier model id (changing the model reuses old verdicts; delete the cache file); `CANDIDATE_THRESHOLD = 0.5` assumes centred vectors, which only apply from 10 Items up; a `wrapper` verdict without a `wraps` field quietly treats A as the wrapper.
+- Open privacy decision: the #5 token counter sends redacted skill bodies to Anthropic's counting endpoint. Options: keep and document, count locally, or make it opt-in (`--count-bodies`). Awaiting the user.
+- #8 design pass merged (Vite + React + TS + Tailwind + shadcn, react-force-graph-2d). D13 and D14 are no longer deviations. Rough edges for the Sonnet polish pass are listed in `docs/design/graph-app.md`.
