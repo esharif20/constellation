@@ -5,6 +5,7 @@ from pathlib import Path
 from constellation import scan
 
 ROOT = Path(__file__).parent.parent
+REPO = ROOT.parent if ROOT.name == "mutants" else ROOT  # mutmut runs tests from a copy that has no frontend/
 PREFIXES = {
     "Offline": "mode",
     "frontmatter is not valid YAML": "loose",
@@ -57,7 +58,7 @@ def test_every_warning_prefix_the_viewer_groups_on_is_still_emitted_and_still_na
 
     # The rest need a provider or the filesystem to fail; pin their literal text in the source instead.
     source = "".join(p.read_text() for p in (ROOT / "src" / "constellation").glob("*.py"))
-    viewer = (ROOT / "frontend" / "src" / "graph" / "model.ts").read_text()
+    viewer = (REPO / "frontend" / "src" / "graph" / "model.ts").read_text()
     for prefix in ("usage: ", "could not label", "could not verify", "could not count", "could not cluster", "could not save the"):
         assert prefix in source, prefix
     for prefix in PREFIXES:
