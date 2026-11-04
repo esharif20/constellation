@@ -33,16 +33,17 @@ def _index(items: list[Item]) -> tuple[dict[tuple[str, str], list[str]], dict[st
     names: dict[tuple[str, str], list[str]] = {}
     prefixes: dict[str, list[str]] = {}
     scopes = {i.id: i.id.removeprefix(f"claude-code:{i.kind}:") for i in items}
-    local = {(i.kind, i.name) for i in items if "/" not in scopes[i.id] or scopes[i.id].startswith("synced/")}
+    own = ("synced/", "user/", "local/")  # scopes of the user's own skills and servers; any other "x/" scope is plugin x
+    local = {(i.kind, i.name) for i in items if "/" not in scopes[i.id] or scopes[i.id].startswith(own)}
     for i in items:
         scope = scopes[i.id]
-        plugin = scope.split("/")[0] if "/" in scope and not scope.startswith("synced/") else ""
+        plugin = scope.split("/")[0] if "/" in scope and not scope.startswith(own) else ""
         if i.kind in {"skill", "agent"}:
             if plugin:
                 names.setdefault((i.kind, f"{plugin}:{i.name}"), []).append(i.id)
             if not plugin or (i.kind, i.name) not in local:
                 names.setdefault((i.kind, i.name), []).append(i.id)
-        if i.kind in {"mcp_server", "connector"}:
+        if i.kind == "mcp_server":  # scans no longer produce connectors; they return with transcript-seen connectors
             normalized = re.sub(r"[^A-Za-z0-9_-]", "_", i.name)
             if plugin:
                 normalized = "plugin_" + re.sub(r"[^A-Za-z0-9_-]", "_", plugin) + "_" + normalized
