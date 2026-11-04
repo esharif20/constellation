@@ -8,9 +8,13 @@ Vite + React + TypeScript + Tailwind v4 + shadcn/ui (radix base, `nova` preset r
 
 | File | Role |
 |---|---|
-| `src/graph/model.ts` | API types, `buildModel` (degree, radius, clusters, sunflower seeding), `search`, arrow-key `step` |
+| `src/graph/model.ts` | API types, `buildModel` (degree, radius, clusters, the "Other" region), `search`, arrow-key `step` |
+| `src/graph/layout.ts` | pure layout: packed cluster circles, slots inside them, the forces (`applyForces`); runs in Node |
+| `src/graph/names.ts` | pure cluster-name placer (`chooseSpot`), shared by the painter and the metrics script |
+| `scripts/layout-metrics.ts` | `npm run layout:check`: layout and name-placement metrics on the demos (`--legacy` replays the old layout) |
 | `src/graph/paint.ts` | every canvas pixel: dust, halos, glows, edges, star shapes, reticle, labels; `FEEL` knobs |
-| `src/components/StarMap.tsx` | ForceGraph2D wiring, forces, fit, glide, keyboard stepping |
+| `src/components/StarMap.tsx` | ForceGraph2D wiring, fit, glide, eased wheel zoom, idle pause, keyboard stepping |
+| `src/components/Atlas.tsx` | the screen once data is loaded (lazy chunk); `App.tsx` only fetches and shows states |
 | `TopBar.tsx`, `Inspector.tsx`, `Legend.tsx`, `States.tsx` | DOM chrome on shadcn primitives (Command, Popover, Button, Kbd, Empty, Separator) |
 | `src/index.css` | **all tokens** (`:root`), shadcn mapping, `.glyph` kind marks |
 
@@ -58,27 +62,61 @@ Tuning lives in `FEEL` (paint.ts) and the force setup in StarMap.tsx.
 - Phone (640px and below): search drops under the wordmark, inspector becomes a 58dvh bottom sheet with a grab bar, legend hides while it is open, edge legend and key hint hide.
 - Empty state (no Items) and error state (with the server's reason and Try again) use shadcn Empty.
 
-## Checked by eye (headless Chrome via DevTools, demo data)
+## Polish pass (ui-polish)
 
-- [x] rest, fitted view with atlas names (`screenshots/1-rest.jpg`)
-- [x] hover fade with neighbour names (`2-hover.jpg`)
-- [x] keyboard selection, inspector with cost figures and grouped Relations (`3-selected.jpg`)
-- [x] search popover with kind glyphs and labels (`4-search.jpg`), choose by Enter
-- [x] zoomed in: capped radii, all names (`5b-zoomed-in.jpg`)
-- [x] mid-drag, neighbours following (`6-drag.jpg`)
-- [x] phone bottom sheet (`9-phone-sheet.jpg`), phone rest view
-- [x] empty state (`10-empty.jpg`); error state checked, not saved (it prints a local path)
-- [x] warnings popover opens
+What changed, in the order the work was prioritised. Numbers come from `demo-250.json` (239 Items, 24 clusters after merging the small ones, 56% of Items without a Relation) unless stated.
+
+**Layout (the main complaint on a real scan).** Half the Items have no Relations, so the old force layout let them drift between clusters. Every Item now has a fixed home (`layout.ts`): cluster circles are packed first (radius from member count, a clear rim between circles for the name), then members take evenly spaced phyllotaxis slots inside their circle, hubs in the middle. Clusters under 3 Items and unclustered Items share one region named "Other". Forces only tidy around the homes (slot pull, same-cluster links, collide, a contain force), the layout is settled before the first paint and is deterministic (seeded, no `Math.random`). A dragged Item springs back to its slot because slots never move; hubs are pulled 0.25 so they come home too. Cross-cluster links are long and weak and drawn at 45% alpha so they stay in the background. On wide screens the packing spreads sideways, on tall ones downwards.
+
+| `npm run layout:check` | old force layout (replica) | new slot layout |
+|---|---|---|
+| cluster circles that overlap or leave under 20 units (250 demo, desktop / phone) | 44 / 48 | 0 / 0 |
+| Items inside their own halo | 97.5% | 100% |
+| two runs give the same picture | no | yes |
+| Items closer than r+r+1 | 0 | 0 |
+| clusters of 5+ that get a name at the fitted view, desktop / phone | 18 of 19 / 11 of 19 | 19 of 19 / 14 of 19 |
+| names touching a star or another name | 0 | 0 |
+
+The phone ratio is 74%, below the 80% asked for desktop, so the phone threshold in the script is 70%: 24 clusters on 390 px do not all fit a 13 px name at the fitted view; the rest come in as you zoom (from z = 1.15) or when you hover one of their Items.
+
+**Cluster names.** Candidates sit on the rim of the cluster's circle (12 angles starting at the top, three rings out, then the same at 82% size). A name that finds no spot fades out; it never sits on a star, a hub name or another name. Names ease to a new spot, keep their last spot by preference, size 13 to 17 px by member count, and only clusters of 5 or more try at the fitted view. The cluster under the hovered or selected Item keeps its name at any zoom. Names fade out between z = 1.2 and 1.8 as Item names arrive.
+
+**Zoom.** Wheel and trackpad pinch go through our own handler (capture phase, d3-zoom never sees them): the target zoom moves with each event and the real zoom closes `1 - e^(-dt/90ms)` of the gap each frame, anchored on the cursor, with limits of 0.6x to 10x the fitted zoom. Measured: about 30 frames of smooth easing for one big wheel flick. Touch pinch and drag-pan stay with d3-zoom so they track the fingers. Reduced motion jumps.
+
+**Phone fit.** The map is fitted to the sky the chrome leaves free (top bar, legend and inspector are measured from the DOM), the layout is taller on tall screens, and the fit follows the circles, not just the stars.
+
+**Search.** Every match stays lit while typing and carries a ring (so it never relies on brightness alone); the highlighted result is emphasised and named; the result count is announced politely.
+
+**Idle.** The canvas stops painting when nothing moves (0 draws in 3 s at rest, was 60 per second), wakes on hover, drag, zoom, selection and search, and rests again once every fade settles. A drag runs the simulation while held and for 150 ticks after release (about 2 s).
+
+**Bundle.** The first load is now the app shell (`index-*.js`) only; the map, search and inspector are lazy chunks that download in parallel with the data fetch.
+
+| gzip | before | after |
+|---|---|---|
+| entry JS | 176.2 kB (everything) | 77.8 kB |
+| Atlas chunk (force-graph, d3, cmdk, radix) | in entry | 103.4 kB |
+| Inspector chunk (loaded when idle) | in entry | 2.0 kB |
+| CSS | 10.5 kB | 10.4 kB |
+
+**Accessibility.** `--text-3` is now `#8a93b6`: 5.7:1 or better on the sky and on the panels (it was 4.2:1 on the centre glow, below AA). Other pairs checked: text 14.8+, text-2 7.9+, warn 10.7+, cluster names 11.2+. Search input and warnings button are 44 px on phones, the search has a visible 2 px focus ring, results have a label, a keyboard-focused map rings the active star instead of the viewport, reduced motion makes fades and zoom instant.
+
+**Offline scan.** A file from `constellation scan --offline` (`demo-offline.json`) has no labels, cluster names that are the first member's name (read as words), costs that are null: those show as "unknown" in italics, never 0. The top bar says "offline scan"; the warnings popover holds the "Offline: ..." message.
+
+## Checked by eye (headless Chrome via DevTools, demo data only)
+
+- [x] rest, hover, selected with inspector, search with several matches lit, zoomed in, mid-drag (`1-` to `6-`)
+- [x] phone rest, search, bottom sheet (`7-` to `9-`); empty state (`10-`)
+- [x] offline-style file: rest, inspector, phone (`11-` to `13-`)
+- [x] 250 Items: before (old force layout), after, phone, zoomed (`14-` to `17-`)
+- [x] hub dragged 130 px and released: back within 5 px after about 3 s
 - [ ] real touch gestures (pinch, tap) on a device; only emulated
 - [ ] Safari and Firefox (canvas `letterSpacing` is Chrome/Safari 17+; Firefox ignores it harmlessly)
+- [ ] screen reader pass on the Relation hover preview
 
-## Rough edges to polish
+## What remains
 
-1. Phone: the map fits the graph's bounds, leaving empty sky above and below; consider a phone-specific fit or a tighter layout. Cluster names at phone size can still crowd.
-2. Cluster names sit at a fixed fraction above the centroid; a smarter spot (largest empty area near the cluster) would avoid overlapping stars in dense regions.
-3. Search previews the highlighted result only; matching Items are not otherwise lit while typing (the `matches` focus set exists but `preview` wins).
-4. The canvas repaints every frame (`autoPauseRedraw={false}`) for the eased fades; pause when every fade has settled to save battery.
-5. Context cost does not yet encode on the map (size or a halo ring); the inspector has room and the model already carries `cost`.
-6. Bundle is a single 530 KB chunk; fine locally, worth splitting for the public Snapshot.
-7. The focus ring on the map is an inset ring around the whole viewport; a ring on the active star would read better.
-8. Relation hover preview and the inspector's scroll position reset are not yet checked with a screen reader.
+1. Culling off-screen Items and links, a label grid for more than 300 candidates, and one sprite per halo (all in `docs/plans/graph-layout.md` section 4): not done, 250 Items paint fine; profile at 1000 before building.
+2. Context cost does not yet encode on the map (ticket #10).
+3. No re-layout on resize (the fit follows the window while the view is still fitted; the packing shape is chosen at load).
+4. Cluster names at 24+ clusters on a phone: a quarter wait for zoom.
+5. `playwright`-style tests for drag spring-back and the idle pause are manual scripts, not in CI.
