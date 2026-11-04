@@ -6,6 +6,8 @@ import pytest
 from fakes import FakeLLM, write_skill
 
 from constellation import scan
+from constellation.classify import classify
+from constellation.claude_code import read_items
 
 
 @pytest.fixture
@@ -157,3 +159,28 @@ def test_without_a_path_the_default_cache_location_is_used(config):
     scan(config, llm=FakeLLM({}))
 
     assert len(json.loads(module.DEFAULT_CACHE.read_text())) == 2
+
+
+def test_the_default_salt_is_no_salt(config, tmp_path):
+    items = read_items(config)[0]
+    cache = tmp_path / "labels.json"
+    classify(items, FakeLLM({}), cache_path=cache)
+    llm = FakeLLM({})
+
+    classify(items, llm, cache_path=cache, salt="")
+
+    assert llm.prompts == []
+
+
+def test_a_secret_changing_between_scans_does_not_make_the_item_new(tmp_path):
+    root, cache = tmp_path / "claude", tmp_path / "labels.json"
+    write_skill(root, "leaky", "Body.", description="Uses hunter2hunter2 here")
+    (root / ".env").write_text("TOKEN=hunter2hunter2\n")
+    run(root, FakeLLM({}), cache)
+    write_skill(root, "leaky", "Body.", description="Uses hunter3hunter3 here")
+    (root / ".env").write_text("TOKEN=hunter3hunter3\n")
+    llm = FakeLLM({})
+
+    run(root, llm, cache)
+
+    assert llm.prompts == []  # the key is the hash of the redacted prompt, in which both secrets are the same placeholder
