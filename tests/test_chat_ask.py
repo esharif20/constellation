@@ -316,3 +316,52 @@ def test_plugin_roll_up_without_origins_or_costs(tmp_path, monkeypatch):
     blocks = ask(blind, "which plugin costs the most")["blocks"]
     assert blocks["headline"] == "Costs were not measured for any plugin or pack."
     assert blocks["rows"][0]["value"] == "Cost unknown"
+
+
+# --- #58: refuse and hand off ---------------------------------------------------------------------------------------------------
+
+REFUSE_SCAN = [item("pt", "pdf-tools", "plugin"), item("ts", "tune-spacing"), item("eh", "error-handler"), item("ud", "update-docs")]
+
+
+def test_refusals_hand_off_a_copyable_instruction_and_change_nothing(tmp_path, monkeypatch):
+    client = make(tmp_path, monkeypatch, REFUSE_SCAN)
+    before = (tmp_path / "scan.json").read_bytes()
+    cases = {
+        "Disable the plugin pdf-tools": (
+            "Constellation never changes your files. Claude Code can, and it asks you first.",
+            "Disable the plugin pdf-tools. Show me every change before you make it and wait for my OK.",
+        ),
+        "please rename tune-spacing to tidy": (
+            "Constellation never changes your files. Claude Code can, and it asks you first.",
+            "please rename tune-spacing to tidy. Show me every change before you make it and wait for my OK.",
+        ),
+        "What does tune-spacing say in full?": (
+            "Constellation does not read or show file contents. Claude Code can open the file for you.",
+            'Open the file (the skill "tune-spacing") and tell me what it says, in full. Do not change anything.',
+        ),
+        "Why did my hook fail?": (
+            "Constellation sees how your setup is shaped, not how it ran. Claude Code can look at the failure.",
+            "Help me debug this: Why did my hook fail. Read the logs and my config, and change nothing until I agree.",
+        ),
+        "How do I write a new skill?": (
+            "That is outside what this scan holds, so I would only guess. Claude Code is the better place to ask.",
+            "How do I write a new skill",
+        ),
+    }
+    for question, (headline, instruction) in cases.items():
+        reply = ask(client, question)
+        blocks = reply["blocks"]
+        assert blocks["headline"] == headline, question
+        assert blocks["handoff"] == {"instruction": instruction, "checklist_id": None}, question
+        assert blocks["cards"] == [] and blocks["rows"] == [] and reply["actions"] == []
+        assert reply["answer"].endswith(f"Ask Claude Code: {instruction}")
+    assert (tmp_path / "scan.json").read_bytes() == before and not (tmp_path / "c.md").exists()
+
+
+def test_item_names_that_look_like_commands_are_not_refused(tmp_path, monkeypatch):
+    client = make(tmp_path, monkeypatch, REFUSE_SCAN)
+    for question in ("what is error-handler", "what is update-docs", "Should I keep update-docs?", "why is pdf-tools so big"):
+        assert ask(client, question)["blocks"]["handoff"] is None, question
+    assert ask(client, "why is pdf-tools so big")["blocks"]["cards"][0]["name"] == "pdf-tools"
+    for question in ("What do I pay before I type anything?", "How many items are there", "What could I remove?", "how do I use ponytail"):
+        assert ask(client, question)["blocks"]["handoff"] is None, question

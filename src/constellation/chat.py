@@ -11,7 +11,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
-from .answer import DORMANT_DAYS, blocks, card, comparison, cost_value, idle_days, past, plural, row, to_text, tokens, what_line
+from .answer import DORMANT_DAYS, blocks, card, comparison, cost_value, idle_days, past, plural, refusal, row, to_text, tokens, what_line
 from .brief import frees, removes
 from .compare import parse_compare, parse_keep, parse_what
 from .receipt import receipt
@@ -29,6 +29,40 @@ _START = (
     r"\b(before i (type|prompt|ask)|session[- ]start|start of (a |every |each )?(session|conversation)|what do i pay|"
     r"total (always[- ]on )?(cost|tokens?)|always[- ]on total|total every session)\b"
 )
+_EDIT = (
+    r"^(?:(?:please|can you|could you|would you|help me|i want to|i need to|let'?s)\s+)*"
+    r"(?:edit|rewrite|rename|modify|change|update|fix|create|build|make|install|enable|disable|move|configure|set up|add)(?![\w-])"
+)
+_BODY = (
+    r"(?<![\w-])(?:summari[sz]e|says?|written|in full|full text|file contents?|contents? of|source code"
+    r"|read (?:me )?(?:the |its )?(?:file|body|text))(?![\w-])"
+)
+_DEBUG = (
+    r"(?<![\w-])(?:debug|stack ?trace|exception|crash\w*|not working|isn'?t working|doesn'?t work|failing|failed|errors?)(?![\w-])"
+    r"|(?<![\w-])why (?:did|does|is|isn'?t|won'?t|are)\b.*(?<![\w-])(?:fail\w*|break|broke|slow|hang\w*|work)(?![\w-])"
+)
+_GENERAL = (
+    r"^(?:how (?:do|can|should|would|to)\b|why\b|who\b|where\b|tell me (?:a |how )"
+    r"|what(?:'s| is) the (?:weather|best|capital|difference between)\b|(?:make|improve) my setup\b)"
+)
+_OURS = (
+    r"\b(cost|tokens?|usage|used?|unused|never|duplicates?|overlaps?|wrappers?|plugins?|hooks?|session"
+    r"|remove|keep|items?|setup|scan|clusters?)\b"
+)
+
+
+def _refusal_kind(question: str) -> str | None:
+    """What Ask hands to Claude Code: edits, file bodies, runtime failures and general questions. None = Ask can answer."""
+    q = question.lower().replace("’", "'").strip()
+    if re.search(_EDIT, q):
+        return "edit"
+    if re.search(_BODY, q) and re.search(r"^(?:what|show|read|summari|print|display|open|tell)", q):
+        return "body"
+    if re.search(_DEBUG, q):
+        return "debug"
+    return "general" if re.search(_GENERAL, q) and not re.search(_OURS, q) else None
+
+
 _GROUPED = r"\b(cost|costs|heav\w*|expensive|tokens?|biggest|most|usage|used|unused|which|group|by|per|roll)\b"
 _NEGATIVE = r"\b(not|never|unused|idle|stale|dormant|haven'?t|hasn'?t|lately|recently)\b|n't"
 
@@ -89,6 +123,8 @@ def _intent(question: str) -> str:
         intent = "start"
     elif _since(q):
         intent = "since"
+    elif _refusal_kind(q):
+        intent = "refuse"
     elif parse_what(q) and not re.search(_NOT_WHAT, q):
         intent = "whatis"
     elif parse_keep(q) is not None:
@@ -288,6 +324,15 @@ def _remove(state: ChatState) -> dict[str, Any]:
         next_="Open one on the map before you decide.",
         follow_ups=[f"Should I keep {items[chosen[0][1] or chosen[0][0].item_ids[0]]['name']}?", *ASK_NEXT],
     )
+
+
+def _refuse(state: ChatState) -> dict[str, Any]:
+    kind = _refusal_kind(state["question"]) or "general"  # pragma: no mutate (routing saw a match)
+    if kind == "general" and state["scope"]:  # a general-sounding question that names an Item is about the Item
+        return _items_answer(state, explain=True)
+    item = _by_id(state)[state["scope"][0]] if state["scope"] else None
+    headline, handoff = refusal(kind, state["question"], item)
+    return _response(headline, next_="Copy the instruction below and paste it into Claude Code.", follow_ups=ASK_NEXT, handoff=handoff)
 
 
 def _pairs(state: ChatState) -> dict[str, Any]:
@@ -553,6 +598,7 @@ def _graph() -> Any:
         "usage": _usage,
         "remove": _remove,
         "since": _since_answer,
+        "refuse": _refuse,
         "plugins": _plugins,
         "start": _start,
         "count": _count,
@@ -577,6 +623,7 @@ def _graph() -> Any:
             "remove": "remove",
             "start": "start",
             "since": "since",
+            "refuse": "refuse",
             "plugins": "plugins",
             "count": "count",
             "compare": "compare",

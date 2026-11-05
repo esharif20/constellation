@@ -208,6 +208,7 @@ def blocks(
     next_: str | None = None,
     follow_ups: list[str] | None = None,
     did_you_mean: list[dict[str, str]] | None = None,
+    handoff: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     chips = list(dict.fromkeys(c for c in follow_ups or [] if len(c) <= CHIP))  # callers keep to 2 cards, 5 rows, 3 chips, 3 candidates
     return {
@@ -220,7 +221,37 @@ def blocks(
         "next": cut(next_, NEXT) if next_ else None,
         "follow_ups": chips,
         "did_you_mean": did_you_mean or [],
+        "handoff": handoff,
     }
+
+
+REFUSALS = {
+    "edit": "Constellation never changes your files. Claude Code can, and it asks you first.",
+    "body": "Constellation does not read or show file contents. Claude Code can open the file for you.",
+    "debug": "Constellation sees how your setup is shaped, not how it ran. Claude Code can look at the failure.",
+    "general": "That is outside what this scan holds, so I would only guess. Claude Code is the better place to ask.",
+}
+_ASK = {  # what Claude Code is asked to do, per refusal; {q} is the user's own words, {of} the Item or nothing
+    "edit": "{q}{of}. Show me every change before you make it and wait for my OK.",
+    "body": "Open the file{of} and tell me what it says, in full. Do not change anything.",
+    "debug": "Help me debug this: {q}{of}. Read the logs and my config, and change nothing until I agree.",
+    "general": "{q}",
+}
+
+
+def refusal(category: str, question: str, item: dict[str, Any] | None) -> tuple[str, dict[str, Any]]:
+    """The honest one-line refusal and a copyable instruction for Claude Code. Text only: nothing is run or written."""
+    q = cut(" ".join(question.split()).rstrip("?.!"), 200)
+    of = (
+        f" (the {kind_label(item['kind'])} {quote(item['name'])})"
+        if item and (category == "body" or item["name"].lower() not in q.lower())
+        else ""
+    )
+    return REFUSALS[category], {"instruction": _ASK[category].format(q=q, of=of), "checklist_id": None}
+
+
+def quote(name: str) -> str:
+    return '"' + name.replace('"', "'") + '"'
 
 
 def what_line(c: dict[str, Any]) -> str:
@@ -249,4 +280,6 @@ def to_text(b: dict[str, Any]) -> str:
         lines.append(b["note"])
     if b["next"]:
         lines.append(f"Next: {b['next']}")
+    if b["handoff"]:
+        lines.append(f"Ask Claude Code: {b['handoff']['instruction']}")
     return cut("\n".join(lines), TEXT)
