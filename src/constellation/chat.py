@@ -11,9 +11,10 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
-from .answer import blocks, card, comparison, cost_value, past, plural, row, to_text, what_line
+from .answer import blocks, card, comparison, cost_value, past, plural, row, to_text, tokens, what_line
 from .brief import frees, removes
 from .compare import parse_compare, parse_keep, parse_what
+from .receipt import receipt
 from .redact import redact
 from .report import _known_costs, _never_used, _ranked
 from .retrieve import Index
@@ -23,6 +24,10 @@ _STOP = set("what can help me to do a an the with for please find search show hi
 ASK_NEXT = ["What costs the most every session?", "What have I never used?"]
 _NOT_WHAT = (
     r"(?<![\w-])(this|these|selected|costs?|tokens?|usage|used|unused|never|duplicates?|wrappers?|overlaps?)(?![\w-])"  # not inside a name
+)
+_START = (
+    r"\b(before i (type|prompt|ask)|session[- ]start|start of (a |every |each )?(session|conversation)|what do i pay|"
+    r"total (always[- ]on )?(cost|tokens?)|always[- ]on total|total every session)\b"
 )
 
 
@@ -68,6 +73,8 @@ def _intent(question: str) -> str:
         intent = "compare"
     elif re.search(r"\b(how many items|item count|count items)\b", q):
         intent = "count"
+    elif re.search(_START, q):
+        intent = "start"
     elif parse_what(q) and not re.search(_NOT_WHAT, q):
         intent = "whatis"
     elif parse_keep(q) is not None:
@@ -134,6 +141,38 @@ def _cost(state: ChatState) -> dict[str, Any]:
         note=note,
         next_=f"Check whether you still use {top['name']}.",
         follow_ups=[f"Should I keep {top['name']}?", *ASK_NEXT],
+    )
+
+
+def _start(state: ChatState) -> dict[str, Any]:
+    """The receipt's total (receipt.py is the one source), the biggest contributors, and what is not counted."""
+    data, items = state["data"], _by_id(state)
+    r = receipt(data)
+    shown = [x for x in r["rows"] if x["id"] and (x["tokens"] is not None or x["bytes"])]
+    if not r["rows"]:
+        return _response("Nothing in this scan loads before your first prompt.", follow_ups=ASK_NEXT)
+    total = r["total_tokens"]
+    headline = (
+        f"Before you type anything, your setup loads about {total:,} tokens."
+        if total is not None
+        else "I cannot give a total: nothing that loads at session start has a measured cost."
+    )
+    notes = []
+    if r["unknown"]:
+        notes.append(f"{plural(r['unknown'], 'part')} with no measured cost, not counted as 0.")
+    if r["uncounted_bytes"]:
+        notes.append(f"{r['uncounted_bytes']:,} bytes of hooks and CLAUDE.md not yet counted in tokens.")
+    return _response(
+        headline,
+        [x["id"] for x in shown[:5]],
+        rows=[
+            row(items[x["id"]], tokens(x["tokens"]) if x["tokens"] is not None else f"{x['bytes']:,} bytes, tokens not counted")
+            for x in shown[:5]
+        ],
+        more=max(0, len(shown) - 5),
+        note=" ".join(notes) or None,
+        next_=f"Check whether you still use {items[shown[0]['id']]['name']}." if shown and shown[0]["tokens"] else None,
+        follow_ups=ASK_NEXT,
     )
 
 
@@ -406,6 +445,7 @@ def _graph() -> Any:
         "pairs": _pairs,
         "usage": _usage,
         "remove": _remove,
+        "start": _start,
         "count": _count,
         "compare": _compare,
         "whatis": _whatis,
@@ -426,6 +466,7 @@ def _graph() -> Any:
             "usage": "usage",
             "unused": "usage",
             "remove": "remove",
+            "start": "start",
             "count": "count",
             "compare": "compare",
             "whatis": "whatis",
@@ -461,6 +502,12 @@ class LocalChat:
             if o["a_id"] in ids and o["b_id"] in ids
         ]
         question = redact(question)
+        clean["hook_weights"] = {
+            k: {"bytes": w.get("bytes"), "tokens": w.get("tokens")}
+            for k, w in (data.get("hook_weights") or {}).items()
+            if k in ids and isinstance(w, dict)
+        }
+        clean["memory_bytes"] = data.get("memory_bytes")
         clean["usage"], clean["usage_window"] = data.get("usage"), data.get("usage_window")
         clean["clusters"] = [{"item_ids": c["item_ids"]} for c in data.get("clusters") or []]
         index: Index | None = None  # pragma: no mutate (equivalent: unused unless set below)

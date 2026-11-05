@@ -301,7 +301,7 @@ def test_answers_are_redacted_and_cached(client):
 
 
 def test_other_chat_questions_keep_their_routes(client):
-    assert ask(client, "what is the total always-on cost?")["answer"].startswith("I rank what each Item costs")
+    assert ask(client, "what is the total always-on cost?")["answer"].startswith("Before you type anything")
     assert ask(client, "what is this?", selected_ids=["pt"])["answer"].startswith("ponytail (skill)")
     assert ask(client, "how many items are there")["answer"] == "The current scan contains 7 Items."
 

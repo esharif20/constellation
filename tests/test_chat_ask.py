@@ -137,3 +137,55 @@ def test_could_go_needs_idle_days_and_cost(tmp_path, monkeypatch):
     assert label("zero")["label"] == "Review"
     client = make(tmp_path, monkeypatch, items, costs=costs, usage=usage, usage_window=short)
     assert label("alpha")["label"] == "Review" and "history is short" in label("alpha")["why"]
+
+
+# --- #55: session-start total --------------------------------------------------------------------------------------------------
+
+
+def start_scan():
+    items = [
+        item("s1", "alpha"),
+        item("s2", "beta"),
+        item("s3", "gamma"),
+        item("h1", "hook-one", "hook"),
+        item("h2", "hook-two", "hook"),
+        item("m", "mailbox", "mcp_server"),
+        item("off", "sleeper", disabled=True),
+        item("p", "pack", "plugin", disabled=True),
+    ]
+    return items, {
+        "costs": {"s1": cost(500), "s2": cost(250), "s3": cost(None), "off": cost(9000)},
+        "hook_weights": {"h1": {"bytes": 400, "tokens": 120}, "h2": {"bytes": 80, "tokens": None}},
+        "memory_bytes": 2048,
+    }
+
+
+def test_session_start_total_equals_the_receipt_and_never_counts_unknown_as_zero(tmp_path, monkeypatch):
+    items, extra = start_scan()
+    client = make(tmp_path, monkeypatch, items, **extra)
+    total = client.get("/api/lenses").json()["receipt"]["total_tokens"]
+    assert total == 870  # 500 + 250 + 120; the disabled skill's 9000 is out
+    for question in ("What do I pay before I type anything?", "What is the total always-on cost?", "session start cost"):
+        blocks = ask(client, question)["blocks"]
+        assert blocks["headline"] == f"Before you type anything, your setup loads about {total:,} tokens."
+    blocks = ask(client, "What do I pay before I type anything?")["blocks"]
+    assert [(r["name"], r["value"]) for r in blocks["rows"]] == [
+        ("alpha", "500 tokens"),
+        ("beta", "250 tokens"),
+        ("hook-one", "120 tokens"),
+        ("hook-two", "80 bytes, tokens not counted"),
+    ]
+    assert (
+        blocks["note"] == "2 parts with no measured cost, not counted as 0. 2,128 bytes of hooks and CLAUDE.md not yet counted in tokens."
+    )
+    assert "sleeper" not in str(blocks) and "9,000" not in str(blocks)
+
+
+def test_session_start_with_nothing_measured_says_so_not_zero(tmp_path, monkeypatch):
+    client = make(tmp_path, monkeypatch, [item("s", "alpha"), item("m", "mailbox", "mcp_server")])
+    blocks = ask(client, "what loads before I type anything")["blocks"]
+    assert blocks["headline"] == "I cannot give a total: nothing that loads at session start has a measured cost."
+    assert client.get("/api/lenses").json()["receipt"]["total_tokens"] is None
+    assert "0" not in blocks["headline"]
+    empty = make(tmp_path, monkeypatch, [item("n", "notes", "memory")])
+    assert ask(empty, "session start total")["blocks"]["headline"] == "Nothing in this scan loads before your first prompt."
