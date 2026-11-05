@@ -25,9 +25,10 @@ type Props = {
   scope: Scope;
   onScope: (s: Scope) => void;
   extra?: ReactNode; // sits beside the warnings button (the History button)
+  explain?: ReactNode; // the Explain my setup button and dialog
 };
 
-export function TopBar({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, cluster, onCluster, scope, onScope, extra }: Props) {
+export function TopBar({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, cluster, onCluster, scope, onScope, extra, explain }: Props) {
   return (
     <header className="pointer-events-none fixed inset-x-4 top-3 flex flex-wrap items-center gap-x-4 gap-y-2 sm:inset-x-6 sm:top-4 sm:flex-nowrap">
       <h1 className="font-serif text-[22px] leading-none tracking-[0.01em] italic sm:text-2 [text-shadow:0_0_18px_rgb(150_170_255/0.35)] ">Constellation</h1>
@@ -46,6 +47,7 @@ export function TopBar({ model, query, found, rows, clusterHits, note, pending, 
       )}
       <Warnings warnings={model.warnings} />
       {extra}
+      {explain}
       {hasScopes(model) && <ScopeFilter repo={!!model.currentProject} scope={scope} onScope={onScope} />}
       <Search model={model} query={query} found={found} rows={rows} clusterHits={clusterHits} note={note} pending={pending} onCluster={onCluster} onQuery={onQuery} onChoose={onChoose} onPreview={onPreview} />
     </header>
