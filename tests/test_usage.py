@@ -33,7 +33,7 @@ def test_skill_counts_dates_and_opt_out(tmp_path):
     result = scan(tmp_path)
     assert asdict(result.usage["claude-code:skill:tdd"]) == {"count": 2, "last_used": "2026-11-04"}
     assert asdict(result.usage["claude-code:skill:unused"]) == {"count": 0, "last_used": None}
-    assert asdict(result.usage_window) == {"files": 1, "first": "2026-11-02", "last": "2026-11-04", "skipped": 0}
+    assert asdict(result.usage_window) == {"files": 1, "first": "2026-11-02", "last": "2026-11-04", "skipped": 0, "sessions": 0}
     assert scan(tmp_path, usage=False).usage_window is None
 
 
@@ -123,7 +123,7 @@ def test_scope_window_symlinks_and_missing(tmp_path):
     (main.parent.parent / "link").symlink_to(target.parent, target_is_directory=True)
     result = scan(tmp_path)
     assert counts(result) == {"tdd": 2}
-    assert asdict(result.usage_window) == {"files": 2, "first": "2026-10-01", "last": "2026-11-04", "skipped": 2}
+    assert asdict(result.usage_window) == {"files": 2, "first": "2026-10-01", "last": "2026-11-04", "skipped": 2, "sessions": 0}
     config = tmp_path / "other"
     config.mkdir()
     (config / "projects").symlink_to(outside / "projects", target_is_directory=True)
@@ -373,17 +373,17 @@ def test_report_unused_order_limits_unknown_and_window_states(tmp_path):
 
 def test_empty_windows_and_scope_extensions(tmp_path):
     write_skill(tmp_path, "tdd", "invented")
-    assert asdict(scan(tmp_path).usage_window) == {"files": 0, "first": None, "last": None, "skipped": 0}
+    assert asdict(scan(tmp_path).usage_window) == {"files": 0, "first": None, "last": None, "skipped": 0, "sessions": 0}
     path = write_transcript(tmp_path, [], "empty.jsonl")
     write_transcript(tmp_path, [tool()], "ignored.txt")
     write_transcript(tmp_path, [tool()], "session/subagents/ignored.txt")
     got = scan(tmp_path)
-    assert asdict(got.usage_window) == {"files": 1, "first": None, "last": None, "skipped": 0}
+    assert asdict(got.usage_window) == {"files": 1, "first": None, "last": None, "skipped": 0, "sessions": 0}
     assert counts(got) == {"tdd": 0}
     path.unlink()
     path.parent.parent.rename(tmp_path / "saved-projects")
     (tmp_path / "projects").symlink_to(tmp_path / "saved-projects", target_is_directory=True)
-    assert asdict(scan(tmp_path).usage_window) == {"files": 0, "first": None, "last": None, "skipped": 1}
+    assert asdict(scan(tmp_path).usage_window) == {"files": 0, "first": None, "last": None, "skipped": 1, "sessions": 0}
 
 
 def test_line_boundaries_without_newline_and_multiple_oversizes(tmp_path, monkeypatch):
@@ -415,7 +415,7 @@ def test_multiple_oversize_files_and_open_errors(tmp_path, monkeypatch):
         write_transcript(tmp_path, [tool(id_=str(n))], f"{n}.jsonl")
     monkeypatch.setattr(reader, "FILE_CAP", 1)
     got = scan(tmp_path)
-    assert asdict(got.usage_window) == {"files": 0, "first": None, "last": None, "skipped": 2}
+    assert asdict(got.usage_window) == {"files": 0, "first": None, "last": None, "skipped": 2, "sessions": 0}
     assert counts(got) == {"tdd": 0}
     assert got.warnings == [
         "usage: skipped 0 malformed lines, 0 oversize line, 2 files (2 too big, 0 symlinks skipped on purpose, 0 unreadable)"
@@ -476,7 +476,7 @@ def test_saved_usage_report_exact_rows_kinds_redaction_and_limits():
             for n, kind in enumerate(("skill", "agent", "mcp_server", "connector", "hook", "plugin"))
         ],
         "usage": {str(n): {"count": 0} for n in range(6)},
-        "usage_window": {"files": 2, "first": "2026-10-01", "last": "2026-11-04", "skipped": 0},
+        "usage_window": {"files": 2, "first": "2026-10-01", "last": "2026-11-04", "skipped": 0, "sessions": 0},
         "costs": {"0": {"always_on": 0}, "1": {"always_on": 0}},
     }
     text = render_report(data, top=3, color=False, width=200, show_all=False)
@@ -734,7 +734,7 @@ def test_fifo_swap_is_rejected_without_blocking(tmp_path, monkeypatch):
     monkeypatch.setattr(reader.os, "open", swap)
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 0}
-    assert asdict(got.usage_window) == {"files": 0, "first": None, "last": None, "skipped": 1}
+    assert asdict(got.usage_window) == {"files": 0, "first": None, "last": None, "skipped": 1, "sessions": 0}
 
 
 def test_only_main_and_subagent_depths_are_read(tmp_path):
@@ -830,7 +830,7 @@ def test_unreadable_entry_metadata_does_not_hide_later_transcripts(tmp_path, mon
     result = scan(tmp_path)
     assert failures == [metadata_check]
     assert counts(result) == {"tdd": 1}
-    assert asdict(result.usage_window) == {"files": 1, "first": "2026-11-02", "last": "2026-11-02", "skipped": 1}
+    assert asdict(result.usage_window) == {"files": 1, "first": "2026-11-02", "last": "2026-11-02", "skipped": 1, "sessions": 0}
     assert result.warnings == [
         "usage: skipped 0 malformed lines, 0 oversize line, 1 files (0 too big, 0 symlinks skipped on purpose, 1 unreadable)"
     ]
@@ -891,7 +891,7 @@ def test_window_uses_top_level_timestamp_only(tmp_path):
     only_nested = {"message": {"content": [{"timestamp": "1998-01-01T00:00:00Z"}]}}
     write_transcript(tmp_path, [nested, only_nested, tool(day="2026-11-04")])
     got = scan(tmp_path)
-    assert asdict(got.usage_window) == {"files": 1, "first": "2026-11-03", "last": "2026-11-04", "skipped": 0}
+    assert asdict(got.usage_window) == {"files": 1, "first": "2026-11-03", "last": "2026-11-04", "skipped": 0, "sessions": 0}
     assert got.usage["claude-code:skill:tdd"].last_used == "2026-11-04"
 
 
@@ -903,7 +903,7 @@ def test_undated_transcripts_never_print_none_and_skips_are_reported(tmp_path, m
     write_transcript(tmp_path, [{"type": "x"}])
     (tmp_path / "projects" / "invented" / "gone.jsonl").symlink_to(tmp_path / "nowhere")
     data = asdict(scan(tmp_path))
-    assert data["usage_window"] == {"files": 1, "first": None, "last": None, "skipped": 1}
+    assert data["usage_window"] == {"files": 1, "first": None, "last": None, "skipped": 1, "sessions": 0}
     report = render_report(data, top=5, color=False, width=200, show_all=False)
     assert "Covers 1 transcript files; 1 files skipped. Claude Code deletes old transcripts" in report
     monkeypatch.chdir(tmp_path)

@@ -18,6 +18,7 @@ class Item:
     origin: str | None = None  # the pack, plugin or "claude.ai" it came from; local display data, never sent to a provider (origins.py)
     scope: str = "global"  # "project" for Items read from --project PATH and local/<n>/ MCP servers
     project: str | None = None  # opaque key (p1..pN) of the project an Item lives in; never a label or path
+    changed_on: str | None = None  # file mtime day (YYYY-MM-DD) from stat only; local, not in snapshot() (smarter-verdict §6.2)
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,7 @@ class UsageWindow:
     first: str | None
     last: str | None
     skipped: int
+    sessions: int = 0  # main transcripts plus their subagent files, counted once per session
 
 
 @dataclass(frozen=True)

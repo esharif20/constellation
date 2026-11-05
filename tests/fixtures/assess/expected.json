@@ -1,0 +1,217 @@
+{
+  "assessments": [
+    {
+      "id": "claude-code:agent:git-helper",
+      "tier": "keep",
+      "label": "Keep",
+      "confidence": "high",
+      "reasons": [
+        {
+          "code": "heavy_use",
+          "text": "Used 41 times in 5 of 5 projects; in your top 10%"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": null,
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:skill:release-notes",
+      "tier": "keep_rare",
+      "label": "Keep",
+      "confidence": "medium",
+      "reasons": [
+        {
+          "code": "rare_purpose",
+          "text": "Used 3 times; made for release work"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": null,
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:skill:changelog-draft",
+      "tier": "redundant",
+      "label": "Likely redundant",
+      "confidence": "high",
+      "reasons": [
+        {
+          "code": "duplicate_loser",
+          "text": "Does the same job as release-notes; you used that 3 times, this one never"
+        }
+      ],
+      "action": "remove_twin",
+      "saves": 380,
+      "risk": 1,
+      "group": "safe",
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:skill:tune-spacing",
+      "tier": "could_go",
+      "label": "Could go",
+      "confidence": "high",
+      "reasons": [
+        {
+          "code": "never_seen",
+          "text": "0 uses in 34 active days (52 sessions); costs 610 tokens every session"
+        }
+      ],
+      "action": "remove",
+      "saves": 610,
+      "risk": 1,
+      "group": "safe",
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:plugin:pdf-tools",
+      "tier": "could_go",
+      "label": "Could go",
+      "confidence": "medium",
+      "reasons": [
+        {
+          "code": "children_unused",
+          "text": "None of its 3 skills used in 34 active days; turning it off saves 1,900"
+        }
+      ],
+      "action": "disable_plugin",
+      "saves": 1900,
+      "risk": 2,
+      "group": "look",
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:skill:repo-map",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "medium",
+      "reasons": [
+        {
+          "code": "single_project",
+          "text": "Used 9 times, all in one repo; move it there to save 520 elsewhere"
+        }
+      ],
+      "action": "move_to_project",
+      "saves": 520,
+      "risk": 2,
+      "group": "look",
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:skill:lint-fix",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "medium",
+      "reasons": [
+        {
+          "code": "fading",
+          "text": "Not used in 74 active days; you used it about every 8 before"
+        }
+      ],
+      "action": "remove",
+      "saves": 200,
+      "risk": 2,
+      "group": "look",
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:skill:scratch-notes",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "vague_description",
+          "text": "Its description is 2 words, so Claude may never pick it"
+        }
+      ],
+      "action": "fix_description",
+      "saves": 90,
+      "risk": 2,
+      "group": "look",
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:mcp_server:search",
+      "tier": "redundant",
+      "label": "Likely redundant",
+      "confidence": "high",
+      "reasons": [
+        {
+          "code": "shadowed",
+          "text": "Never loaded: the local server with this name wins"
+        }
+      ],
+      "action": "remove",
+      "saves": null,
+      "risk": 2,
+      "group": "look",
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:skill:db-migrate",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "Added 6 days ago"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    {
+      "id": "claude-code:skill:quarterly-report",
+      "tier": "keep_rare",
+      "label": "Keep (rarely needed)",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "rare_purpose",
+          "text": "Made for quarterly work; 34 active days can't tell yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 56
+    },
+    {
+      "id": "claude-code:hook:UserPromptSubmit:*",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Adds 1.2 KB before every prompt"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    }
+  ],
+  "brief": {
+    "range": {
+      "low": 990,
+      "high": 3700,
+      "unknown": 1
+    },
+    "safe_saves": 990,
+    "look_saves": 2710
+  }
+}

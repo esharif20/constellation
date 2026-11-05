@@ -740,3 +740,10 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 
 - Bug: a big star near the top of a cluster sat under the badge's left end. New pure `badgeY` in `frontend/src/graph/badge.ts`: under the name, else above it, else above the topmost member star's top edge (from screen positions and drawn radii). The name anchor and hit box (#38/#50) are untouched; only the badge moves. Badge text now has a low-alpha `ink.night` pill (existing token). No deviation from the plan.
 - `badge:check` asserts the placement incl. a large top-left node. build, layout, chat, badge, inspector checks pass. Not verified: by eye in the app (no screenshot taken) and `chat:cluster:check` (needs a demo-250 server URL).
+
+## Smarter verdict: contract commit (2026-11-05, branch `claude/verdict-contract`)
+
+- Types only, no logic: `verdict_types.py` (`Reason`, `Assessment`, `Evidence`/`ItemEvidence`, `Habits`/`ItemHabits`, Brief response TypedDicts per `docs/design/smarter-verdict.md` §3.1, §4.1, §5.4), `UsageWindow.sessions` (default 0), `Item.changed_on` (default None). `snapshot()` builds from an explicit allowlist, so `changed_on` never reaches the public export. Fixture `tests/fixtures/assess/setup.json` (§10, invented) with `expected.json` beside it.
+- **Approved by owner (2026-11-05): O1** habit ledger (`habits.json`: salted hashed ids and project folders, per-day counts, co-use pairs, 400-day retention); **O2** thresholds as in §4.2 (exposure table, `COST_FLOOR` 50, `GRACE_DAYS` 14, stale 30 / 3x, half-life 60); **O3** duplicate loser rule: less-used goes (tie: more expensive); **O4** pins (`pins.json`, `POST /api/pin`); **O5** `stat` of Item files for `changed_on`.
+- **Deviation (O1)**: the plan said usage is not kept across scans; the habit ledger now keeps salted, hashed, per-day counts locally (0600). No names, paths, prompt text or sub-day timestamps are stored.
+- **Not approved, nothing built**: O6 (`cleanupPeriodDays` advice), O7 (project advisor reads CLAUDE.md/README), O8 (local prompt embedding), O9 (tiers in public Snapshot).
