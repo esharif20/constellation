@@ -39,8 +39,8 @@ try {
   assert.equal(run(node("p", { kind: "plugin" }), [], []).label, "Not enough data");
   assert.ok(run(me, [{ a: me, b: node("x".repeat(200)), verdict: "duplicate" }]).why.length <= 90);
 
-  const html = (item) => renderToStaticMarkup(createElement(Header, { item }));
-  assert.match(html(node("s", { origin: "obra/superpowers", scope: "project", project: "dev-constellation" })), /from obra\/superpowers[\s\S]*Project · dev-constellation/);
+  const html = (item) => renderToStaticMarkup(createElement(Header, { item, model: { projects: { p1: "dev-constellation" } } }));
+  assert.match(html(node("s", { origin: "obra/superpowers", scope: "project", project: "p1" })), /from obra\/superpowers[\s\S]*Project · dev-constellation/);
   assert.match(html(node("s", { scope: "global" })), />Global</);
   assert.doesNotMatch(html(node("s")), /Global|Project|from /);
   console.log("Inspector verdict rows, the 29/30/31-day edge and header origin/scope pass.");

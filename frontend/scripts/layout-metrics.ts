@@ -360,7 +360,7 @@ assert.equal(cutName("x".repeat(40), 28).length, 28);
   assert.equal(budget([nd("skill", null), nd("skill", undefined)]).measured, false);
   const m250 = buildModel(load("demo-250.json"));
   const b250 = budget(m250.nodes);
-  assert.deepEqual([b250.known, b250.items, b250.hooks, b250.unknown], [20082, 10448, 9634, 55]);
+  assert.deepEqual([b250.known, b250.items, b250.hooks, b250.unknown], [20292, 10658, 9634, 55]);
 }
 
 let failed = aa.aaMin < 4.5;

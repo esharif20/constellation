@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
-import { day, noun, type GNode, type GOverlap, type Model } from "@/graph/model";
+import { day, noun, projectUses, type GNode, type GOverlap, type Model } from "@/graph/model";
 import { MiniBar } from "./MiniBar";
 
 const unknown = <i className="font-sans text-text-3">unknown</i>;
@@ -28,7 +28,7 @@ const role = (item: GNode, o: GOverlap) => (o.verdict === "duplicate" ? "duplica
 export function Facts({ model, item, onSelect, onPreview }: { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void }) {
   const c = item.cost, w = model.usageWindow, u = item.usage, hw = item.weight;
   const always = c?.always_on ?? null, onUse = c?.on_use ?? null, top = rank(model, item);
-  const overlaps = model.overlapsOf.get(item) ?? [];
+  const overlaps = model.overlapsOf.get(item) ?? [], where = projectUses(item, model);
   const usage = u
     ? u.count > 0
       ? <>{noun(u.count, "use")}{u.last_used && <span className="text-text-3"> · last {day(u.last_used)}</span>}</>
@@ -54,6 +54,11 @@ export function Facts({ model, item, onSelect, onPreview }: { model: Model; item
         {usage}
         {w?.first && w.last && u && <span className="mt-1 block font-sans text-xs text-text-3">Transcripts {day(w.first, false)} to {day(w.last, false)}</span>}
       </Chip>
+      {where && (
+        <Chip label="By project" wide>
+          {where.map((r) => <span key={r.label} className="block font-sans text-[13px]">{noun(r.count, "use")} in {r.label}{r.current && <span className="text-text-3"> (this repo)</span>}</span>)}
+        </Chip>
+      )}
       {hw && (
         <Chip label="Session-start weight" wide>
           {hw.bytes == null ? unknown : `${hw.bytes.toLocaleString()} bytes`}

@@ -38,7 +38,7 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
       </Button>
       <div ref={scroll} className="overflow-y-auto overscroll-contain px-4 pt-3 pb-6 sm:px-6 sm:pt-6">
         {backTo && <Button variant="ghost" className="-mx-2 mb-1 h-10 max-w-[calc(100%-3rem)] justify-start gap-2 px-2 text-[13px] text-text-2" onClick={onClose}><ArrowLeftIcon aria-hidden /><span className="truncate">Back to {backTo}</span></Button>}
-        <Header item={item} />
+        <Header item={item} model={model} />
         <VerdictBanner verdict={verdict} />
         <Facts model={model} item={item} onSelect={onSelect} onPreview={onPreview} />
 

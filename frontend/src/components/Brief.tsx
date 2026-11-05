@@ -109,6 +109,29 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
           {data.cost.unknown > 0 && <p className="mt-2 text-xs leading-[1.4] text-text-3">{data.cost.unknown} Items with unknown cost are not ranked.</p>}
         </div>
         <Separator />
+        {!!data.scope?.rows.length && <>
+          <div>
+            <h3 className="text-sm font-medium">Scope</h3>
+            <p className="mt-1 text-xs leading-[1.4] text-text-3">Global Items that one project uses almost alone.</p>
+            <ul className="-mx-2 mt-2 flex flex-col gap-1">
+              {data.scope.rows.map((row) => {
+                const item = byId.get(row.item_ids[0]);
+                return <li key={row.id}>
+                  <Button variant="ghost" className="h-auto min-h-10 w-full min-w-0 justify-start gap-3 px-2 py-2 text-left font-normal whitespace-normal" title={row.reason} onClick={() => onItem(row.item_ids[0])}>
+                    {item && <span aria-hidden className="glyph" data-kind={item.kind} />}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm [overflow-wrap:anywhere]">{item?.name ?? row.item_ids[0]}</span>
+                      <span className="block text-xs text-text-3">Move to {row.project_label ?? "one project"} · {row.confidence ?? "medium"} confidence</span>
+                    </span>
+                    <span className="shrink-0 text-right font-mono text-xs tabular-nums">{row.tokens_saved == null ? <i className="font-sans text-text-3">unknown</i> : `~${row.tokens_saved.toLocaleString()}`}<span className="sr-only"> tokens saved</span></span>
+                  </Button>
+                </li>;
+              })}
+            </ul>
+            <p className="mt-2 text-xs leading-[1.4] text-text-3">{data.scope.caveat}</p>
+          </div>
+          <Separator />
+        </>}
         <div>
           <h3 className="text-sm font-medium">Duplicates and wrappers</h3>
           {data.pairs.rows.length ? <><Counter group={data.pairs} />{rows(data.pairs)}</> : <p className="mt-2 text-[13px] leading-[1.4] text-text-2">No duplicates or wrappers found.</p>}

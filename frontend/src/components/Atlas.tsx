@@ -9,7 +9,7 @@ import { TopBar } from "@/components/TopBar";
 import { useRemoteSearch } from "@/components/useRemoteSearch";
 import { searchItems } from "@/graph/search";
 import { matchClusters, mergeResults } from "@/graph/searchMerge";
-import { clusterSummary, kindName, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model } from "@/graph/model";
+import { clusterSummary, kindName, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model, type Scope, scopeSet } from "@/graph/model";
 
 // The inspector only appears once something is selected, so it loads on its own; it is fetched when the page is idle
 // so the first selection does not wait.
@@ -32,6 +32,8 @@ export default function Atlas({ model }: { model: Model }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMatches, setChatMatches] = useState<Set<GNode> | null>(null);
   const [selected, setSelected] = useState<GNode | null>(null);
+  const [scope, setScope] = useState<Scope>("all");
+  const scoped = useMemo(() => scopeSet(model, scope), [model, scope]);
   // Cluster focus. The left slot has one occupant: the cluster card, the Brief or the chat. `card` outlives `cluster` while the card leaves.
   const [cluster, setCluster] = useState<Cluster | null>(() => hashCluster(model));
   const [card, setCard] = useState<Cluster | null>(cluster);
@@ -223,13 +225,15 @@ export default function Atlas({ model }: { model: Model }) {
         onChoose={(n) => { setQuery(""); select(n); map.current?.focusCanvas(); }}
         cluster={cluster}
         onCluster={onCluster}
+        scope={scope}
+        onScope={setScope}
       />
       {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} />}
       {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} />}
       <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} />
       <HighlightChip highlight={highlight} onClear={clearHighlight} />
       </div>
-      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} />
+      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} scope={scoped} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} />
       <Legend model={model} hidden={!!selected || showBrief || chatOpen} />
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
       {selected && showInspector && (
