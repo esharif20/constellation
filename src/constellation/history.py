@@ -9,6 +9,7 @@ guessing names. The file is private (0600 in a 0700 directory) like the scan its
 import hashlib
 import json
 import os
+import sys
 import tempfile
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -46,32 +47,45 @@ def _valid(e: object) -> bool:
     if not isinstance(e, dict) or e.keys() != _KEYS.keys() or any(type(e[k]) is not t for k, t in _KEYS.items()):
         return False
     try:
-        date.fromisoformat(e["date"])
+        if date.fromisoformat(e["date"]).isoformat() != e["date"]:  # 3.13 also accepts 20261105 and 2026-W45-3
+            return False
     except ValueError:
         return False
     return all(isinstance(i, str) for i in e["ids"])
 
 
-def load(path: Path) -> list[dict[str, Any]]:
+def load(path: Path, *, warn: bool = False) -> list[dict[str, Any]]:
     try:
         raw = json.loads(path.read_text())
-    except (OSError, ValueError):
+    except FileNotFoundError:
         return []
+    except (OSError, ValueError):
+        raw = None  # pragma: no mutate  (any non-dict value takes the same branch below)
     if not isinstance(raw, dict) or raw.get("v") != 1 or not isinstance(raw.get("entries"), list):
+        if warn:
+            print(f"scan history {path} could not be read; starting it over", file=sys.stderr)
         return []
     return [e for e in raw["entries"] if _valid(e)]
 
 
 def record(path: Path, e: dict[str, Any]) -> None:
     """Replace the same setup+date, drop entries over KEEP_DAYS older than the newest, then rewrite the whole file atomically."""
-    entries = [x for x in load(path) if (x["setup"], x["date"]) != (e["setup"], e["date"])] + [e]
-    cutoff = (date.fromisoformat(max(x["date"] for x in entries)) - timedelta(days=KEEP_DAYS)).isoformat()
+    entries = [x for x in load(path, warn=True) if (x["setup"], x["date"]) != (e["setup"], e["date"])] + [e]
+    newest = min(max(x["date"] for x in entries), _today())  # a future-dated entry must not push the cutoff past real history
+    cutoff = (date.fromisoformat(newest) - timedelta(days=KEEP_DAYS)).isoformat()
     entries = sorted((x for x in entries if x["date"] >= cutoff), key=lambda x: (x["date"], x["setup"]))
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)  # pragma: no mutate  (equivalent: the chmod below fixes the mode)
+    try:
+        if path.parent.stat().st_uid == os.getuid():
+            path.parent.chmod(0o700)  # an existing directory keeps its mode otherwise
+    except OSError:
+        pass
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".history-")  # mkstemp creates the file 0600
     try:
         with os.fdopen(fd, "w") as f:
             f.write(json.dumps({"v": 1, "entries": entries}))
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, path)
     except BaseException:
         os.unlink(tmp)

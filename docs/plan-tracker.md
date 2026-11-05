@@ -601,5 +601,5 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - `history.py` (`only_mutate`): entry/load/record (0600 file, 0700 new dir, temp file + `os.replace`, unwritable = stderr warning, corrupt or malformed entries read as empty/skipped) and `timeline` for `GET /api/history` (`local_only`, no hashes/setup/path). Mutmut on `constellation.history.*`: zero survivors. Golden scan fixtures re-recorded for the two new null fields only.
 - UI: `History.tsx` (button + popover + SVG chart, hand-drawn, tokens only, focusable points with arrow keys, sr-only table), `graph/history.ts`, `history:check`, `TopBar` `extra` prop, `Atlas` fetches `api/history`. Demo: `make-demo.mjs` writes `setup`/`scanned_at` and `demo-250-history.json` (deterministic). Screenshots `docs/design/screenshots/62-*.jpg`.
 - Left for #70: the `Time travel` footer button renders only when `onTimeTravel` is passed (Atlas does not pass it yet), so no dead button ships.
-- Corrupt history file reads as empty silently (no stderr warning); a failed write warns.
+- A corrupt existing history file warns on stderr (record only) and is replaced; the write is fsynced; an existing history directory is chmodded 0700; the 400-day cutoff counts from min(newest, today) and non-canonical dates are skipped (Opus review fixes).
 

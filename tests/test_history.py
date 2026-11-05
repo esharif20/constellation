@@ -106,7 +106,8 @@ def test_two_setups_kept_apart(tmp_path):
     assert [(x["setup"], x["ids"]) for x in history.load(path)] == [("one", ["a", "b"]), ("two", ["a"])]
 
 
-def test_entries_older_than_400_days_dropped(tmp_path):
+def test_entries_older_than_400_days_dropped(tmp_path, monkeypatch):
+    monkeypatch.setattr(history, "_today", lambda: "2026-11-05")
     path = tmp_path / "h.json"
     for day in ("2025-09-30", "2025-10-01", "2025-10-02", "2026-11-05"):  # 401, 400 and 399 days before the newest
         history.record(path, e(day=day))
@@ -260,3 +261,46 @@ def test_today_is_the_utc_date(monkeypatch, zone):
     finally:
         monkeypatch.undo()
         time.tzset()
+
+
+def test_future_dated_entry_does_not_delete_real_history(tmp_path, monkeypatch):
+    monkeypatch.setattr(history, "_today", lambda: "2026-11-05")
+    path = tmp_path / "h.json"
+    history.record(path, e(day="2026-01-01"))
+    history.record(path, e(day="9999-01-01"))
+    assert [x["date"] for x in history.load(path)] == ["2026-01-01", "9999-01-01"]
+
+
+@pytest.mark.parametrize("day", ["20261105", "2026-W45-3"])
+def test_non_canonical_dates_are_skipped(tmp_path, day):
+    path = tmp_path / "h.json"
+    path.write_text(json.dumps({"v": 1, "entries": [e(day=day), e()]}))
+    assert history.load(path) == [e()]
+
+
+def test_existing_directory_is_made_private(tmp_path):
+    (tmp_path / "d").mkdir(mode=0o755)
+    os.chmod(tmp_path / "d", 0o755)
+    history.record(tmp_path / "d" / "h.json", e())
+    assert stat.S_IMODE(os.stat(tmp_path / "d").st_mode) == 0o700
+
+
+def test_corrupt_existing_file_warns_on_record_only(tmp_path, capsys):
+    path = tmp_path / "h.json"
+    path.write_text("not json")
+    history.load(path)
+    assert capsys.readouterr().err == ""
+    history.record(path, e())
+    assert "could not be read" in capsys.readouterr().err
+    history.record(tmp_path / "new.json", e())
+    assert capsys.readouterr().err == ""
+
+
+def test_write_is_fsynced_before_replace(tmp_path, monkeypatch):
+    order = []
+    real = os.fsync
+    monkeypatch.setattr(os, "fsync", lambda fd: (order.append("fsync"), real(fd))[1])
+    real_replace = os.replace
+    monkeypatch.setattr(os, "replace", lambda a, b: (order.append("replace"), real_replace(a, b))[1])
+    history.record(tmp_path / "h.json", e())
+    assert order == ["fsync", "replace"]
