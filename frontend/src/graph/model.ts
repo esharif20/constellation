@@ -19,6 +19,7 @@ export type Constellation = {
   overlaps?: Overlap[];
   usage?: Record<string, Usage>; // only skills, agents and MCP servers/connectors have an entry; no entry means not tracked, not 0
   usage_window?: UsageWindow | null;
+  assessments?: Record<string, Assessment>; // Item id -> verdict; absent on an old server
   hook_weights?: Record<string, Weight>;
   projects?: Record<string, string>; // opaque key -> display label; local only, never sent anywhere
   usage_by_project?: Record<string, Record<string, Usage>>; // Item id -> project key -> Usage
@@ -27,10 +28,21 @@ export type Constellation = {
 export type Verdict = "duplicate" | "wrapper" | "overlap" | "distinct";
 export type Overlap = { a_id: string; b_id: string; verdict: Verdict; reason: string };
 
-export type BriefRow = { id: string; kind: "review_cost" | "remove_duplicate" | "use_underlying" | "move_to_project"; item_ids: string[]; removes: string | null; reason: string; tokens_saved: number | null; project?: string | null; project_label?: string | null; confidence?: string | null };
-export type BriefGroup = { rows: BriefRow[]; unknown: number; unknown_rows: number; frees: number | null };
+// The server's verdict for one Item (smarter-verdict.md 4.1; src/constellation/verdict_types.py). The app only reads it.
+export type Tier = "keep" | "keep_rare" | "review" | "redundant" | "could_go" | "too_early" | "off" | "untracked";
+export type Confidence = "high" | "medium" | "low";
+export type Assessment = { id: string; tier: Tier; label: string; confidence: Confidence | null; reasons: { code: string; text: string }[]; action: string; saves: number | null; risk: number; group: "safe" | "look" | "wait" | null; recheck_after: number | null };
+export type BriefRow = { id: string; kind: string; item_ids: string[]; removes: string | null; reason: string; saves?: number | null; tokens_saved?: number | null; tier?: Tier; confidence?: Confidence | null; reasons?: { code: string; text: string }[]; project?: string | null; project_label?: string | null };
+export type BriefGroup = { rows: BriefRow[]; saves?: number; unknown?: number };
 export type Checklist = { path: string; ids: string[]; frees: number | null; unknown_rows: number };
-export type BriefData = { cost: BriefGroup & { measured: boolean }; pairs: BriefGroup; scope?: { rows: BriefRow[]; caveat: string }; checklist?: Checklist };
+// smarter-verdict.md 5.4. `per_day` is absent when the pace is unknown.
+export type BriefData = {
+  evidence?: { sessions: number; active_days: number; span_days: number; ledger?: boolean };
+  safe: BriefGroup; look: BriefGroup;
+  wait: { summary: { code: string; count: number; recheck_after: number | null }[]; rows: BriefRow[] };
+  range: { low: number; high: number; per_day?: [number, number] | null; unknown: number };
+  scope?: { rows: BriefRow[]; caveat: string }; checklist?: Checklist;
+};
 
 // The scope filter: which stars stay lit. "repo" is only offered when the scan knows its repo.
 export type Scope = "all" | "global" | "repo";
@@ -59,7 +71,7 @@ export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot
 // la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
 export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number; core?: boolean; a: number; la: number; lx: number; ly: number; pick: number; slug: string; box: [number, number, number, number]; hit: boolean }; // slug: the #cluster= deep link; box/hit: where its name was last drawn on screen (paint.ts post), for clicks
 export type Pack = { origin: string; members: GNode[] }; // Items that share an origin, biggest first
-export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; heavyR: number; usageWindow: UsageWindow | null; projects: Record<string, string>; currentProject: string | null; warnings: string[]; packs: Pack[]; offline: boolean; offlineNote: string };
+export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; heavyR: number; usageWindow: UsageWindow | null; assessments: Record<string, Assessment>; projects: Record<string, string>; currentProject: string | null; warnings: string[]; packs: Pack[]; offline: boolean; offlineNote: string };
 
 // Star radius from always-on cost, area-proportional (magnitude by area, not radius). cRef is the scan's 95th percentile,
 // so one huge MCP server cannot shrink everything else. Unknown cost gets its own middling size (and is drawn hollow).
@@ -145,7 +157,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   });
   const offlineNote = (data.warnings ?? []).find((w) => w.startsWith("Offline")) ?? "";
   layout(nodes, links, clusters, tall);
-  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, heavyR, usageWindow: data.usage_window ?? null, projects: data.projects ?? {}, currentProject: data.current_project ?? null, warnings: data.warnings ?? [], packs: packsOf(nodes), offline: offlineNote !== "", offlineNote };
+  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, heavyR, usageWindow: data.usage_window ?? null, assessments: data.assessments ?? {}, projects: data.projects ?? {}, currentProject: data.current_project ?? null, warnings: data.warnings ?? [], packs: packsOf(nodes), offline: offlineNote !== "", offlineNote };
 }
 
 // Forgiving search (stopgap until #40/#41); see search.ts for the ranking.

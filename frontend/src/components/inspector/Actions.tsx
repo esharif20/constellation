@@ -6,9 +6,9 @@ import type { BriefData, BriefRow, Cluster, GNode } from "@/graph/model";
 type Props = { item: GNode; instruction: string; brief?: BriefData; onAsk?: (text: string) => void; onCluster?: (c: Cluster) => void; className?: string };
 type State = "idle" | "copied" | "added" | "had" | "failed";
 
-// Only cost and pair rows can be added (scope rows answer 404). Cost rows come first: they name this Item alone.
+// Only safe and look rows can be added (scope and wait rows answer 404). Rows that name this Item alone come first.
 export const briefRow = (brief: BriefData | undefined, item: GNode): BriefRow | undefined =>
-  brief && [...brief.cost.rows, ...brief.pairs.rows].find((r) => r.item_ids.includes(item.id));
+  brief && [...brief.safe.rows, ...brief.look.rows].sort((a, b) => a.item_ids.length - b.item_ids.length).find((r) => r.item_ids.includes(item.id));
 
 const BTN = "h-11 gap-2 px-3 text-[13px] font-normal sm:h-10";
 

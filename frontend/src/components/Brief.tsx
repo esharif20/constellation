@@ -1,4 +1,4 @@
-import { CheckIcon, PlusIcon, TriangleAlertIcon, XIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, ListPlusIcon, PlusIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Preview } from "@/components/Preview";
@@ -8,12 +8,14 @@ import { Receipt } from "@/components/Receipt";
 import { Triggers } from "@/components/Triggers";
 import { useLenses } from "@/components/useLenses";
 import { Separator } from "@/components/ui/separator";
-import { budget, kindName, type Budget, type BriefData, type BriefGroup, type BriefRow, type Checklist, type GNode, type Model } from "@/graph/model";
-import { cn } from "@/lib/utils";
+import { budget, kindName, type Assessment, type Budget, type BriefData, type BriefRow, type Checklist, type GNode, type Model } from "@/graph/model";
+import { instructionFor } from "@/lib/instruction";
+import { verdictOf } from "@/lib/verdict";
 
 type Props = {
   data: BriefData;
   model: Model;
+  assessments?: Record<string, Assessment>;
   open: boolean;
   hidden: boolean;
   footerInset?: number;
@@ -28,7 +30,7 @@ type Props = {
   onReset?: () => void;
 };
 
-export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen, onItem, onPair, whatIf = null, removed = null, onWhatIf, onToggle, onReset }: Props) {
+export function Brief({ data, model, assessments, open, hidden, footerInset = 0, pill, onOpen, onItem, onPair, whatIf = null, removed = null, onWhatIf, onToggle, onReset }: Props) {
   const [checklist, setChecklist] = useState(data.checklist);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -39,7 +41,8 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
   const byId = new Map(model.nodes.map((n) => [n.id, n]));
   const added = new Set(checklist?.ids ?? []);
   const meter = useMemo(() => budget(model.nodes, removed ?? undefined), [model.nodes, removed]);
-  const maxCost = Math.max(1, ...data.cost.rows.flatMap((row) => row.tokens_saved == null ? [] : [row.tokens_saved]));
+  const [copied, setCopied] = useState<"" | "done" | "failed">("");
+  const actionable = data.safe.rows.length + data.look.rows.length;
 
   useEffect(() => {
     const legend = document.querySelector('ul[aria-label="Legend"]');
@@ -54,17 +57,21 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
 
   const nameOf = (row: BriefRow) => row.item_ids.map((id) => byId.get(id)?.name ?? id).join(row.kind === "use_underlying" ? " wraps " : " and ");
 
-  async function add(row: BriefRow) {
-    if (busy.current || added.has(row.id)) return;
+  async function addMany(list: BriefRow[]) {
+    const todo = list.filter((r) => !added.has(r.id));
+    if (busy.current || !todo.length) return;
     busy.current = true;
-    setPending(row.id);
+    setPending(todo[0].id);
     setError("");
     try {
-      const response = await fetch("api/checklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: row.id }) });
-      const result = await response.json();
-      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : `Request failed (${response.status})`);
-      setChecklist(result as Checklist);
-      setAnnouncement(`Added ${nameOf(row)} to checklist`);
+      for (const row of todo) {
+        setPending(row.id);
+        const response = await fetch("api/checklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: row.id }) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : `Request failed (${response.status})`);
+        setChecklist(result as Checklist);
+      }
+      setAnnouncement(todo.length === 1 ? `Added ${nameOf(todo[0])} to checklist` : `Added ${todo.length} Items to checklist`);
     } catch (e) {
       setError(`Could not write the checklist: ${e instanceof Error ? e.message : "Please try again."}`);
     } finally {
@@ -72,27 +79,39 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
       setPending(null);
     }
   }
+  const add = (row: BriefRow) => addMany([row]);
 
-  function rows(group: BriefGroup) {
+  // One instruction per Item, each asking to see the change and wait for an OK; Constellation itself changes nothing.
+  async function copyAll(list: BriefRow[]) {
+    const lines = list.flatMap((row, i) => {
+      const target = byId.get(row.removes ?? row.item_ids[0]);
+      return target ? [`${i + 1}. ${instructionFor(target, model, verdictOf(target, assessments))}`] : [];
+    });
+    try { await navigator.clipboard.writeText(lines.join("\n")); setCopied("done"); setAnnouncement(`Copied ${lines.length} instructions`); } catch { setCopied("failed"); }
+  }
+
+  function rows(list: BriefRow[], canAdd = true) {
+    const maxSaves = Math.max(1, ...list.flatMap((r) => r.saves == null ? [] : [r.saves]));
     return <ul className="-mx-2 mt-2 flex flex-col gap-1">
-      {group.rows.map((row) => {
-        const item = byId.get(row.item_ids[0]), name = nameOf(row), pair = row.kind !== "review_cost", isAdded = added.has(row.id);
-        const target = pair ? (row.removes ? byId.get(row.removes) : undefined) : item;
+      {list.map((row) => {
+        const name = nameOf(row), pair = row.item_ids.length > 1, isAdded = added.has(row.id);
+        const item = byId.get(row.removes ?? row.item_ids[0]), target = item;
+        const why = row.reasons?.[0]?.text ?? row.reason;
         return <li key={row.id} className="flex min-w-0 items-center gap-1">
           {whatIf && <label className="flex size-10 shrink-0 items-center justify-center" title={target ? undefined : "Unknown which one to keep: tick it in the Inspector"}>
             <input type="checkbox" className="size-4 accent-[var(--indigo-bright)]" disabled={!target} checked={!!target && whatIf.has(target)} aria-label={`Remove ${target?.name ?? name} in what-if`} onChange={() => target && onToggle?.(target)} />
           </label>}
-          <Button variant="ghost" className="h-auto min-h-10 min-w-0 flex-1 justify-start gap-3 px-2 py-2 text-left font-normal whitespace-normal" title={row.reason} onClick={() => pair ? onPair(row) : onItem(row.item_ids[0])}>
+          <Button variant="ghost" className="h-auto min-h-10 min-w-0 flex-1 justify-start gap-3 px-2 py-2 text-left font-normal whitespace-normal" onClick={() => pair ? onPair(row) : onItem(row.item_ids[0])}>
             {item && <span aria-hidden className="glyph" data-kind={item.kind} />}
             <span className="min-w-0 flex-1">
-              <span className={cn("block text-sm", pair ? "[overflow-wrap:anywhere]" : "truncate")}>{name}</span>
-              {!pair && row.tokens_saved != null && <span aria-hidden className="mt-1 block h-1 overflow-hidden rounded-full bg-line-1"><span className="block h-full rounded-full bg-indigo-bright/60" style={{ width: `${100 * row.tokens_saved / maxCost}%` }} /></span>}
-              {pair && <span className="block text-xs text-text-3">{row.kind === "use_underlying" ? "wrapper" : "duplicate"}</span>}
-              {!pair && item && <span className="sr-only">{kindName(item.kind)}</span>}
+              <span className="block text-sm [overflow-wrap:anywhere]">{item?.name ?? name}</span>
+              <span className="block text-xs leading-[1.4] text-text-3">{why}{row.confidence && <span className="text-text-2"> · {row.confidence} confidence</span>}</span>
+              {row.saves != null && <span aria-hidden className="mt-1 block h-1 overflow-hidden rounded-full bg-line-1"><span className="block h-full rounded-full bg-indigo-bright/60" style={{ width: `${100 * row.saves / maxSaves}%` }} /></span>}
+              {item && <span className="sr-only">{kindName(item.kind)}</span>}
             </span>
-            <span className="shrink-0 text-right font-mono text-xs tabular-nums" style={pair ? undefined : { minWidth: `${maxCost.toLocaleString().length}ch` }}>{row.tokens_saved == null ? <i className="font-sans text-text-3">unknown</i> : `${pair ? "~" : ""}${row.tokens_saved.toLocaleString()}`}<span className="sr-only"> tokens{pair ? " saved" : " always on"}</span></span>
+            <span className="shrink-0 text-right font-mono text-xs tabular-nums">{row.saves == null ? <i className="font-sans text-text-3">unknown</i> : `~${row.saves.toLocaleString()}`}<span className="sr-only"> tokens saved</span></span>
           </Button>
-          {checklist && <Button variant="ghost" size="icon-lg" disabled={isAdded || pending != null} aria-pressed={isAdded} aria-busy={pending === row.id} aria-label={isAdded ? `On checklist: ${name}` : `Add ${name} to cleanup checklist`} onClick={() => void add(row)}>
+          {canAdd && checklist && <Button variant="ghost" size="icon-lg" disabled={isAdded || pending != null} aria-pressed={isAdded} aria-busy={pending === row.id} aria-label={isAdded ? `On checklist: ${name}` : `Add ${name} to cleanup checklist`} onClick={() => void add(row)}>
             {isAdded ? <CheckIcon aria-hidden /> : <PlusIcon aria-hidden />}
           </Button>}
         </li>;
@@ -117,15 +136,26 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
       </div>
       <div className="flex flex-col gap-6 overflow-y-auto overscroll-contain px-4 pt-3 pb-[max(24px,env(safe-area-inset-bottom))] sm:px-6">
         <Preview onItem={onItem} />
-        {!data.cost.rows.length && !data.pairs.rows.length && <p className="text-[13px] leading-[1.4] text-text-2">Nothing to rank yet. Run <code className="font-mono text-xs">constellation scan</code> with a key to measure cost.</p>}
-        {meter.measured && (data.cost.rows.length > 0 || data.pairs.rows.length > 0) && <Meter b={meter} frees={data.cost.frees} count={data.cost.rows.length} whatIf={!!whatIf} onReset={onReset} onExit={() => onWhatIf?.(false)} />}
-        <div>
-          <h3 className="text-sm font-medium">Most expensive, always on</h3>
-          {data.cost.measured ? <Counter group={data.cost} /> : <p className="mt-1 text-xs text-text-3 italic">Cost was not measured in this scan.</p>}
-          {rows(data.cost)}
-          {data.cost.unknown > 0 && <p className="mt-2 text-xs leading-[1.4] text-text-3">{data.cost.unknown} Items with unknown cost are not ranked.</p>}
-        </div>
-        <Separator />
+        {!actionable && !data.wait.rows.length && <p className="text-[13px] leading-[1.4] text-text-2">Nothing to clean up yet. Run <code className="font-mono text-xs">constellation scan</code> with a key to measure cost.</p>}
+        {meter.measured && actionable > 0 && <Meter b={meter} whatIf={!!whatIf} onReset={onReset} onExit={() => onWhatIf?.(false)} />}
+        {data.range.high > 0 && <Headline range={data.range} evidence={data.evidence} />}
+        {data.safe.rows.length > 0 && <div>
+          <h3 className="text-sm font-medium">Safe wins</h3>
+          <p className="mt-1 text-xs leading-[1.4] text-text-3">Not used, or doing the same job as something you use, and we are confident. {data.safe.saves != null && `Removing these ${data.safe.rows.length} frees ~${data.safe.saves.toLocaleString()} tokens per session (estimate).`}</p>
+          {rows(data.safe.rows)}
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button variant="outline" className="h-11 gap-2 px-3 text-[13px] font-normal sm:h-10" onClick={() => void copyAll(data.safe.rows)}>{copied === "done" ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}{copied === "done" ? "Copied" : "Copy instruction for all safe wins"}</Button>
+            {checklist && <Button variant="outline" className="h-11 gap-2 px-3 text-[13px] font-normal sm:h-10" disabled={pending != null || data.safe.rows.every((r) => added.has(r.id))} onClick={() => void addMany(data.safe.rows)}><ListPlusIcon aria-hidden />{data.safe.rows.every((r) => added.has(r.id)) ? "All on checklist" : "Add all to checklist"}</Button>}
+          </div>
+          {copied === "failed" && <p role="alert" className="mt-2 text-xs text-warn">Could not copy. Select the Items and copy by hand.</p>}
+        </div>}
+        {data.look.rows.length > 0 && <div>
+          <h3 className="text-sm font-medium">Worth a look</h3>
+          <p className="mt-1 text-xs leading-[1.4] text-text-3">Probably fine to change, but check first.{data.look.saves != null && ` Up to ~${data.look.saves.toLocaleString()} tokens.`}{!!data.look.unknown && <span className="mt-1 block">+ {data.look.unknown} with unknown cost, not counted</span>}</p>
+          {rows(data.look.rows)}
+        </div>}
+        {(data.wait.summary.length > 0 || data.wait.rows.length > 0) && <Wait wait={data.wait} byId={byId} onItem={onItem} />}
+        {(actionable > 0 || data.wait.rows.length > 0) && <Separator />}
         {!!data.scope?.rows.length && <>
           <div>
             <h3 className="text-sm font-medium">Scope</h3>
@@ -149,10 +179,6 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
           </div>
           <Separator />
         </>}
-        <div>
-          <h3 className="text-sm font-medium">Duplicates and wrappers</h3>
-          {data.pairs.rows.length ? <><Counter group={data.pairs} />{rows(data.pairs)}</> : <p className="mt-2 text-[13px] leading-[1.4] text-text-2">No duplicates or wrappers found.</p>}
-        </div>
         {lenses && <><Separator /><Receipt data={lenses.receipt} onItem={onItem} /></>}
         {lenses?.hooks && <><Separator /><HookSafety rows={lenses.hooks} onItem={onItem} /></>}
         {lenses?.triggers && <><Separator /><Triggers data={lenses.triggers} onItem={onItem} /></>}
@@ -166,20 +192,47 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
         </footer>}
         {error && <p role="alert" className="flex items-start gap-2 text-xs leading-[1.4] text-warn"><TriangleAlertIcon aria-hidden className="size-4 shrink-0" />{error}</p>}
       </div>
-    </section> : <Button ref={pill} variant="outline" className="glass fixed right-4 bottom-24 h-10 gap-2 rounded-full px-4 sm:top-[76px] sm:right-auto sm:bottom-auto sm:left-4" aria-expanded={false} onClick={() => onOpen(true)}>{whatIf ? <>What-if <span className="font-mono text-xs tabular-nums">−{fmt(meter.saved)}</span></> : <>Cleanup brief <span className="font-mono text-xs tabular-nums">{data.pairs.rows.length}</span></>}</Button>)}
+    </section> : <Button ref={pill} variant="outline" className="glass fixed right-4 bottom-24 h-10 gap-2 rounded-full px-4 sm:top-[76px] sm:right-auto sm:bottom-auto sm:left-4" aria-expanded={false} onClick={() => onOpen(true)}>{whatIf ? <>What-if <span className="font-mono text-xs tabular-nums">−{fmt(meter.saved)}</span></> : <>Cleanup brief <span className="font-mono text-xs tabular-nums">{actionable}</span></>}</Button>)}
     <p className="sr-only" aria-live="polite">{announcement}</p>
   </>;
 }
 
-function Counter({ group }: { group: BriefGroup }) {
-  return <p className="mt-1 text-xs leading-[1.4] text-text-3">
-    {group.frees == null ? "Saving not measured" : `Removing these ${group.rows.length} frees ~${group.frees.toLocaleString()} tokens per session (estimate)`}
-    {group.unknown_rows > 0 && <span className="mt-1 block">+ {group.unknown_rows} with unknown cost, not counted</span>}
-  </p>;
+const WAIT: Record<string, string> = { too_early: "not enough history yet", keep_rare: "made for occasional work, too early to tell", untracked: "cannot be measured from your history", low_confidence: "not sure enough to suggest" };
+const dash = (c: number) => c.toLocaleString();
+
+function Headline({ range, evidence }: { range: BriefData["range"]; evidence: BriefData["evidence"] }) {
+  const span = range.low === range.high ? dash(range.low) : `${dash(range.low)} to ${dash(range.high)}`;
+  return <div>
+    <p className="text-[13px] leading-[1.45]">You could free <b className="font-mono font-medium tabular-nums">{span}</b> tokens at the start of every session (estimate).</p>
+    {range.per_day && <p className="mt-1 text-xs leading-[1.4] text-text-2">About {dash(range.per_day[0])} to {dash(range.per_day[1])} a day at your pace.</p>}
+    {range.unknown > 0 && <p className="mt-1 text-xs leading-[1.4] text-text-3">+ {range.unknown} with unknown cost, not counted</p>}
+    {evidence && <p className="mt-1 text-xs leading-[1.4] text-text-3">Based on {evidence.sessions} sessions over {evidence.active_days} days you used Claude Code.{evidence.ledger === false && " Claude Code keeps transcripts for 30 days by default; Constellation keeps counts across scans, so verdicts sharpen as you rescan."}</p>}
+  </div>;
+}
+
+function Wait({ wait, byId, onItem }: { wait: BriefData["wait"]; byId: Map<string, GNode>; onItem: (id: string) => void }) {
+  return <div>
+    <h3 className="text-sm font-medium">Don&apos;t touch yet</h3>
+    <ul className="mt-1 list-disc pl-4 text-xs leading-[1.45] text-text-3">
+      {wait.summary.map((w) => <li key={w.code}>{w.count} {w.count === 1 ? "Item" : "Items"}: {WAIT[w.code] ?? w.code.replace(/_/g, " ")}{w.recheck_after ? `; check back after about ${w.recheck_after} more active days` : ""}.</li>)}
+    </ul>
+    {wait.rows.length > 0 && <details className="mt-1">
+      <summary className="flex h-10 cursor-pointer items-center text-xs text-text-2">Show which ({wait.rows.length})</summary>
+      <ul className="-mx-2 flex flex-col gap-1">
+        {wait.rows.map((row) => {
+          const item = byId.get(row.item_ids[0]);
+          return <li key={row.id}><Button variant="ghost" className="h-auto min-h-10 w-full min-w-0 justify-start gap-3 px-2 py-2 text-left font-normal whitespace-normal" onClick={() => onItem(row.item_ids[0])}>
+            {item && <span aria-hidden className="glyph" data-kind={item.kind} />}
+            <span className="min-w-0 flex-1"><span className="block text-sm [overflow-wrap:anywhere]">{item?.name ?? row.item_ids[0]}</span><span className="block text-xs leading-[1.4] text-text-3">{row.reasons?.[0]?.text ?? row.reason}</span></span>
+          </Button></li>;
+        })}
+      </ul>
+    </details>}
+  </div>;
 }
 
 const fmt = (n: number) => n.toLocaleString();
-function Meter({ b, frees, count, whatIf, onReset, onExit }: { b: Budget; frees: number | null; count: number; whatIf: boolean; onReset?: () => void; onExit: () => void }) {
+function Meter({ b, whatIf, onReset, onExit }: { b: Budget; whatIf: boolean; onReset?: () => void; onExit: () => void }) {
   const before = b.known + b.saved, w = (n: number) => `${100 * n / (before || 1)}%`;
   return <div>
     <div className="flex flex-wrap items-baseline gap-x-2">
@@ -200,7 +253,6 @@ function Meter({ b, frees, count, whatIf, onReset, onExit }: { b: Budget; frees:
     </p>
     {whatIf && <p className="mt-1 text-xs text-text-2">{b.removed} removed{b.removedUnknown > 0 && ` · ${b.removedUnknown} with unknown cost, not counted`}</p>}
     {b.unknown > 0 && <p className="mt-1 text-xs text-text-3">{b.unknown} with unknown cost, not counted</p>}
-    {!whatIf && frees != null && <p className="mt-1 text-xs text-text-2">Removing the top {count} saves ~{fmt(frees)} (estimate)</p>}
     {whatIf && <div className="mt-2 flex gap-2">
       <Button variant="outline" className="h-10" onClick={onReset}>Reset</Button>
       <Button variant="ghost" className="h-10" onClick={onExit}>Exit what-if</Button>

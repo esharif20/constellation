@@ -14,9 +14,10 @@ import { absentAt, type Timeline } from "@/graph/history";
 import { useRemoteSearch } from "@/components/useRemoteSearch";
 import { searchItems } from "@/graph/search";
 import { matchClusters, mergeResults } from "@/graph/searchMerge";
-import { budget, clusterSummary, withContents, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model, type Scope, scopeSet } from "@/graph/model";
+import { budget, clusterSummary, withContents, type Assessment, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model, type Scope, scopeSet } from "@/graph/model";
 import { InspectorSkeleton } from "@/components/inspector/Skeleton";
 import { verdictOf } from "@/lib/verdict";
+import { briefFrom } from "@/lib/brief";
 
 // The inspector only appears once something is selected, so it loads on its own; it is fetched when the page is idle
 // so the first selection does not wait.
@@ -32,6 +33,8 @@ export default function Atlas({ model }: { model: Model }) {
   const framedPair = useRef<GNode | undefined>(undefined);
   const pill = useRef<HTMLButtonElement>(null);
   const [brief, setBrief] = useState<BriefData | null>(null);
+  const [assess, setAssess] = useState<Record<string, Assessment> | null>(null);
+  const assessments = assess ?? model.assessments;
   const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [briefOpen, setBriefOpen] = useState(() => {
     const onPhone = matchMedia("(max-width: 640px)").matches; // a first visit on a phone starts collapsed so the map stays visible
@@ -77,9 +80,17 @@ export default function Atlas({ model }: { model: Model }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    void fetch("api/assess", { signal: controller.signal }) // the live verdicts; the Constellation's own `assessments` cover a Snapshot
+      .then((response) => { if (!response.ok) throw new Error("Assess unavailable"); return response.json(); })
+      .then((data: { items?: Record<string, Assessment> }) => { if (data.items && typeof data.items === "object") setAssess(data.items); })
+      .catch(() => { /* Static Snapshots and older servers have no /api/assess. */ });
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    const controller = new AbortController();
     void fetch("api/brief", { signal: controller.signal })
       .then((response) => { if (!response.ok) throw new Error("Brief unavailable"); return response.json(); })
-      .then((data: BriefData) => { if (Array.isArray(data.cost?.rows) && Array.isArray(data.pairs?.rows)) setBrief(data); })
+      .then((data) => { const b = briefFrom(data); if (b) setBrief(b); })
       .catch(() => { /* Static Snapshots and older servers have no brief. */ });
     return () => controller.abort();
   }, []);
@@ -267,7 +278,7 @@ export default function Atlas({ model }: { model: Model }) {
         explain={brief ? <ExplainCard model={model} onCluster={(c) => enter(c, true)} onItem={(n) => selectById(n.id)} /> : undefined}
       />
       {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} removed={removed} />}
-      {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}
+      {brief && <Brief data={brief} model={model} assessments={assessments} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}
       <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} draft={draft} />
       <HighlightChip highlight={highlight} onClear={clearHighlight} />
       </div>
@@ -277,12 +288,12 @@ export default function Atlas({ model }: { model: Model }) {
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
       {selected && showInspector && (
         <Suspense fallback={<InspectorSkeleton item={selected} />}>
-          <Inspector model={model} item={selected} brief={brief ?? undefined} onAsk={ask} onCluster={(c) => enter(c, true)} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} whatIf={whatIf} removed={removed} onToggle={toggleRemove} />
+          <Inspector model={model} item={selected} brief={brief ?? undefined} assessments={assessments} onAsk={ask} onCluster={(c) => enter(c, true)} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} whatIf={whatIf} removed={removed} onToggle={toggleRemove} />
         </Suspense>
       )}
       {removed && !showBrief && <WhatIfChip count={removed.size} saved={budget(model.nodes, removed).saved} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} onExit={() => startWhatIf(false)} />}
       <p className="sr-only" aria-live="polite">{live}</p>
-      <p className="sr-only" aria-live="polite">{selected ? `Selected ${selected.name}, ${verdictOf(selected, model.overlapsOf.get(selected) ?? [], model.links.filter((l) => l.source === selected && l.kind === "contains").map((l) => l.target), model.usageWindow).label}` : ""}</p>
+      <p className="sr-only" aria-live="polite">{selected ? `Selected ${selected.name}, ${verdictOf(selected, assessments).label}` : ""}</p>
     </>
   );
 }
