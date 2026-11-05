@@ -754,10 +754,10 @@ def test_safe_overlap_maps_both_ids_and_redacts_the_reason(config):
 def test_restore_puts_the_real_ids_back_into_every_keyed_part_of_the_final_state(config):
     from constellation.models import Cluster, Cost, Overlap, Weight
 
-    base = _context(config, secrets={"firstsecretvalue"})
-    items = [replace(base.items[0], id="x:skill:firstsecretvalue"), *base.items[1:]]
+    base = _context(config, secrets={"firstsecretvalue", "secondsecretvalue"})
+    items = [replace(base.items[0], id="x:skill:firstsecretvalue"), replace(base.items[1], id="y:skill:secondsecretvalue"), *base.items[2:]]
     context = replace(base, items=items)
-    shown, other = context.sid(items[0].id), items[1].id
+    shown, other = context.sid(items[0].id), context.sid(items[1].id)
     state = {
         "labels": {shown: "l"},
         "clusters": [Cluster("c", (shown, other))],
@@ -767,8 +767,8 @@ def test_restore_puts_the_real_ids_back_into_every_keyed_part_of_the_final_state
         "final_warnings": ["w"],
     }
     back = context.restore(state)
-    real = items[0].id
+    real, real_other = items[0].id, items[1].id
     assert back["labels"] == {real: "l"} and back["costs"] == {real: Cost(1, 2)} and back["hook_weights"] == {real: Weight(1, None)}
-    assert back["clusters"] == [Cluster("c", (real, other))]
-    assert back["final_overlaps"] == [Overlap(real, other, "overlap", "r")] and back["final_warnings"] == ["w"]
+    assert back["clusters"] == [Cluster("c", (real, real_other))]
+    assert back["final_overlaps"] == [Overlap(real, real_other, "overlap", "r")] and back["final_warnings"] == ["w"]
     assert context.restore({}) == {}
