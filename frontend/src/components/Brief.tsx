@@ -1,6 +1,7 @@
 import { CheckIcon, PlusIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
+import { Preview } from "@/components/Preview";
 import { Receipt } from "@/components/Receipt";
 import { useLenses } from "@/components/useLenses";
 import { Separator } from "@/components/ui/separator";
@@ -112,6 +113,7 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
         </div>
       </div>
       <div className="flex flex-col gap-6 overflow-y-auto overscroll-contain px-4 pt-3 pb-[max(24px,env(safe-area-inset-bottom))] sm:px-6">
+        <Preview onItem={onItem} />
         {!data.cost.rows.length && !data.pairs.rows.length && <p className="text-[13px] leading-[1.4] text-text-2">Nothing to rank yet. Run <code className="font-mono text-xs">constellation scan</code> with a key to measure cost.</p>}
         {meter.measured && (data.cost.rows.length > 0 || data.pairs.rows.length > 0) && <Meter b={meter} frees={data.cost.frees} count={data.cost.rows.length} whatIf={!!whatIf} onReset={onReset} onExit={() => onWhatIf?.(false)} />}
         <div>
