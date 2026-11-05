@@ -46,7 +46,7 @@ def scan(
     vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
     clusters: list[Cluster] = []
     # The only place providers are called from: both are wrapped here, so everything they receive is redacted first.
-    secrets = read_secrets(config_dir) if llm or embedder or counter or verifier or offline else set()
+    secrets = read_secrets(config_dir, project) if llm or embedder or counter or verifier or offline else set()
     if llm:
         labels, label_warnings = classify(items, guarded(llm, secrets), secrets, label_cache, label_model)
         warnings += sorted(label_warnings)  # branches finish in any order; sorted keeps the output repeatable
