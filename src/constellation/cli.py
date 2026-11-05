@@ -13,7 +13,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import history, scan
+from . import history, scan, scan_graph
 from . import origins as origin_sources
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
@@ -211,6 +211,8 @@ def main(
             origins=not args.no_origins,
             lockfile=args.skill_lock,
             project=args.project,
+            checkpoint=None if args.dry_run else scan_graph.DEFAULT_CHECKPOINT,  # a dry run writes no file
+            on_progress=None if args.dry_run else lambda line: print(line, file=sys.stderr),
         )
     if args.dry_run:
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
