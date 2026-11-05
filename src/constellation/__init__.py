@@ -2,14 +2,11 @@ from collections.abc import Callable
 from pathlib import Path
 
 from . import origins as origin_sources
-from .classify import classify
 from .claude_code import read_items, read_secrets
-from .cluster import cluster, item_vectors
-from .costs import count_texts, measure
-from .hooks import static_hook_texts
-from .models import LLM, Cluster, Constellation, Cost, Embedder, ProjectUsage, TokenCounter, Weight
-from .overlaps import candidates, exact_duplicates, verify, wrappers
+from .cluster import item_vectors
+from .models import LLM, Cluster, Constellation, Embedder, ProjectUsage, TokenCounter
 from .redact import ProviderError, guarded, guarded_count, guarded_embed
+from .scan_graph import Context, run
 from .usage import read_usage
 
 
@@ -42,44 +39,40 @@ def scan(
         read_usage(config_dir, items, relations, project, Path.home()) if usage else ({}, None, [], ProjectUsage())
     )
     warnings += usage_warnings
-    labels: dict[str, str] = {}
-    vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
-    clusters: list[Cluster] = []
-    # The only place providers are called from: both are wrapped here, so everything they receive is redacted first.
+    # The only place providers are called from: all are wrapped here, so everything they receive is redacted first.
     secrets = read_secrets(config_dir, project) if llm or embedder or counter or verifier or offline else set()
-    if llm:
-        labels, label_warnings = classify(items, guarded(llm, secrets), secrets, label_cache, label_model)
-        warnings += sorted(label_warnings)  # branches finish in any order; sorted keeps the output repeatable
+    vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
+    centred = False
+    embed_error = None
     if embedder:  # clusters are built from name and description alone, so they need no model
         try:
             vectors, centred = item_vectors(items, guarded_embed(embedder, secrets))
-            clusters = cluster(items, labels, vectors, centred, cluster_threshold)
         except ProviderError as error:
-            warnings.append(f"could not cluster items: {error}")
-    costs: dict[str, Cost] = {}
-    guarded_counter = guarded_count(counter, secrets) if counter else None
-    if counter or offline:
-        costs, cost_warnings = measure(items, bodies if count_bodies else {}, guarded_counter, secrets, cost_cache)
-        warnings += cost_warnings
-    hook_texts = static_hook_texts(config_dir, items)
-    weights = {id_: Weight(None if t is None else len(t.encode()), None) for id_, t in hook_texts.items()}
-    if count_bodies and (counter or offline):  # hook text is file text, so it follows the same opt-in as skill bodies
-        known_texts = {id_: t for id_, t in hook_texts.items() if t is not None}
-        tokens, hook_warnings = count_texts(known_texts, guarded_counter, secrets, cost_cache)
-        weights |= {id_: Weight(weights[id_].bytes, n) for id_, n in tokens.items()}
-        warnings += hook_warnings
-    overlaps = [*exact_duplicates(items, bodies), *wrappers(items, bodies)]
-    if verifier:
-        decided = {frozenset((o.a_id, o.b_id)) for o in overlaps}
-        pairs, cap_warnings = candidates(items, vectors, decided)
-        verdicts, verify_warnings = verify(
-            pairs, items, bodies, guarded(verifier, secrets), secrets, verdict_cache, on_verify, verifier_model
-        )
-        overlaps += verdicts
-        warnings += sorted(cap_warnings + verify_warnings)  # branches finish in any order; sorted keeps the output repeatable
-    if offline:
-        warnings.append("Offline: no labels or model-checked Overlaps; token costs shown only if already cached.")
-    overlaps.sort(key=lambda o: (o.a_id, o.b_id))
+            embed_error = str(error)
+    context = Context(
+        config_dir,
+        items,
+        bodies,
+        secrets,
+        guarded(llm, secrets) if llm else None,
+        guarded(verifier, secrets) if verifier else None,
+        guarded_count(counter, secrets) if counter else None,
+        embedder,
+        offline,
+        count_bodies,
+        vectors,
+        centred,
+        embed_error,
+        cluster_threshold,
+        cost_cache,
+        label_cache,
+        verdict_cache,
+        label_model,
+        verifier_model,
+        on_verify,
+    )
+    state = run(context)
+    warnings += state["final_warnings"]
     # shortcut: user CLAUDE.md only, no @imports or project CLAUDE.md; upgrade when the scan reads projects (#43)
     memory = Path(config_dir) / "CLAUDE.md"
     try:
@@ -90,13 +83,13 @@ def scan(
         items,
         warnings,
         relations,
-        labels,
-        clusters,
-        costs,
-        overlaps,
+        state.get("labels", {}),
+        state.get("clusters", []),
+        state.get("costs", {}),
+        state["final_overlaps"],
         usage=usages,
         usage_window=window,
-        hook_weights=weights,
+        hook_weights=state["hook_weights"],
         projects=by_project.projects,
         usage_by_project=by_project.by_project,
         current_project=by_project.current,
