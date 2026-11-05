@@ -240,3 +240,7 @@ The sky stays the `--night` / `--night-lift` radial gradient, with two static la
 - **Cost and motion:** pure CSS under the transparent canvas, painted once, nothing per frame. No new motion, so `prefers-reduced-motion` has nothing to turn off (the existing dust parallax is a pan response, not an animation).
 
 Variants shot on demo-250 at 1440 and 390 in `docs/design/screenshots/bg/`: `o` (original), `a` (vignette only), `b` (vignette + nebula, chosen), `c` (vignette + a stronger two-lobe nebula, indigo 14% and indigo-bright 7%). `a` is nearly indistinguishable from `o`. `c` lifts the lower-left ground enough to flatten the halos. `b` reads as depth without being noticed. `layout:check` aaMin is 5.44, unchanged.
+
+### Sky pattern candidates (pending the owner's pick)
+
+Three alpha-only tokens in `index.css`, each painting an existing ink, chosen by the throwaway `?sky=a|b|c|none` switch (see `docs/design/sky-pattern.md`): `--sky-ring: 0.05` (A, graticule in `--halo-name`, canvas, map-anchored), `--sky-grain-opacity: 0.05` (B, `--text` through an SVG noise mask, CSS, fixed), `--sky-dots-opacity: 0.08` (C, `--text` dot lattice fading from the centre, CSS, fixed). Ceiling: every pattern pixel at 1.25:1 or less on its ground, against 1.45:1 for a resting edge. No new colour literals.

@@ -740,3 +740,10 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 
 - Bug: a big star near the top of a cluster sat under the badge's left end. New pure `badgeY` in `frontend/src/graph/badge.ts`: under the name, else above it, else above the topmost member star's top edge (from screen positions and drawn radii). The name anchor and hit box (#38/#50) are untouched; only the badge moves. Badge text now has a low-alpha `ink.night` pill (existing token). No deviation from the plan.
 - `badge:check` asserts the placement incl. a large top-left node. build, layout, chat, badge, inspector checks pass. Not verified: by eye in the app (no screenshot taken) and `chat:cluster:check` (needs a demo-250 server URL).
+
+## Sky pattern candidates (branch `claude/sky-pattern`, follows #60)
+
+- Done: `docs/design/sky-pattern.md` with three candidates (A graticule, B grain, C dot field), budgets in numbers, and a recommendation (A). A throwaway `?sky=a|b|c|none` URL switch (`main.tsx` sets `data-sky`; A in `paint.ts` `pre()`, B and C as one fixed `body::before` layer in `index.css`). Three alpha tokens added to `index.css` and DESIGN.md; no new colour literals. Default (`none`) is the #60 sky unchanged.
+- Deviation (temporary): the switch ships in the production build, because `constellation open` serves the built bundle and the owner must be able to flip it there. Remove it once a candidate is chosen.
+- Gates: build, layout:check (aaMin 5.44, unchanged), chat:check, badge:check, inspector:check pass. Screenshots at 1440 and 390 in `docs/design/screenshots/sky/`. Not checked: frame timing for A, and A at deep zoom by eye.
+- Owner decides: which candidate (or none), and whether B goes under A to break the gradient banding.

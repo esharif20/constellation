@@ -51,6 +51,10 @@
   /* sky layers (#60), static CSS under the transparent canvas: derived from tokens, zero per-frame cost */
   --vignette: radial-gradient(ellipse 100% 100% at 50% 42%, transparent 55%, color-mix(in srgb, var(--surface-0) 55%, transparent) 100%);
   --nebula: radial-gradient(ellipse 70% 60% at 18% 82%, color-mix(in srgb, var(--indigo) 9%, transparent), transparent 70%), radial-gradient(ellipse 55% 50% at 88% 12%, color-mix(in srgb, var(--indigo) 5%, transparent), transparent 70%);
+  /* sky pattern candidates (docs/design/sky-pattern.md), alphas only: each paints an existing ink token */
+  --sky-ring: 0.05; /* A: graticule, --halo-name at this alpha (canvas, map-anchored) */
+  --sky-grain-opacity: 0.05; /* B: grain, --text through a noise mask (CSS, screen-fixed) */
+  --sky-dots-opacity: 0.08; /* C: dot field, --text dots fading out from the centre (CSS, screen-fixed) */
 
   /* shadcn semantic tokens */
   --background: var(--night);
@@ -164,6 +168,17 @@
     font-feature-settings: "cv11", "ss01";
     background: var(--vignette), var(--nebula), radial-gradient(120% 90% at 50% 38%, var(--night-lift) 0%, var(--night) 62%);
     background-color: var(--night);
+  }
+  /* sky candidates B and C: one fixed layer between the sky and the canvas, painted once (z -1 sits under #root) */
+  [data-sky="b"] body::before, [data-sky="c"] body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--text); }
+  [data-sky="b"] body::before {
+    opacity: var(--sky-grain-opacity);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 180px 180px;
+  }
+  [data-sky="c"] body::before {
+    opacity: var(--sky-dots-opacity);
+    mask: radial-gradient(circle, var(--text) 0.7px, transparent 1.3px) 0 0 / 22px 22px, radial-gradient(ellipse 62% 58% at 50% 46%, var(--text) 0%, transparent 100%);
+    mask-composite: intersect;
   }
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
   :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }

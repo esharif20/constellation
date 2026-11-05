@@ -38,6 +38,7 @@ function readInk() {
     color,
     overlap: t("--overlap") || PALETTE.overlap,
     fade: Number(t("--fade")) || 0.1,
+    skyRing: Number(t("--sky-ring")) || 0.05,
     edge: t("--edge"), edgeAlt: t("--edge-alt"), halo: t("--halo"), haloName: t("--halo-name"), dust: t("--dust"),
     ring: t("--ring"), text: t("--text"), text2: t("--text-2"), text3: t("--text-3"), warn: t("--warn"), mono: t("--font-mono-stack"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
   };
@@ -77,6 +78,8 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const start = performance.now();
   let introEnd = start + FEEL.introMs * 1.4 + 400;
   const far = Math.max(1, ...model.nodes.map((n) => Math.hypot(n.x ?? 0, n.y ?? 0)));
+  // shortcut: sky candidate switch (?sky=a|b|c|none, docs/design/sky-pattern.md); remove once the owner picks one
+  const graticule = document.documentElement.dataset.sky === "a";
   for (const n of model.nodes) n.born = reducedMotion ? 0 : start + (Math.hypot(n.x ?? 0, n.y ?? 0) / far) * FEEL.introMs * 0.7 + Math.random() * 120;
 
   function sprite(color: string) {
@@ -173,6 +176,21 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.fillRect((((d.x * w + sc.tx * 0.06) % w) + w) % w, (((d.y * h + sc.ty * 0.06) % h) + h) % h, d.r, d.r);
     }
     ctx.restore();
+    // Sky candidate A: a star-chart graticule anchored to the map (5 rings, 12 meridians, one stroke), gone by 4x the fitted zoom
+    const ga = graticule ? ink.skyRing * clamp01((4 - k / view.fitK) / 2.5) : 0;
+    if (ga > 0.003) {
+      const step = far / 4;
+      ctx.save();
+      ctx.globalAlpha = ga; ctx.strokeStyle = ink.haloName; ctx.lineWidth = 1 / k;
+      ctx.beginPath();
+      for (let i = 1; i <= 5; i++) { ctx.moveTo(step * i, 0); ctx.arc(0, 0, step * i, 0, Math.PI * 2); }
+      for (let j = 0; j < 12; j++) {
+        const c = Math.cos((j * Math.PI) / 6), s = Math.sin((j * Math.PI) / 6);
+        ctx.moveTo(c * step, s * step); ctx.lineTo(c * step * 5, s * step * 5); // the inner ring keeps the centre clear
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
     // cluster halos: soft nebulae, one neutral hue (27 clusters is far past what colour can encode)
     for (const c of model.clusters) {
       if (c.members.length < 3 || c.a < 0.01) continue;
