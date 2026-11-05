@@ -672,3 +672,10 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Not verified: phone sheet scroll to the cost section by eye (standard overflow, unchanged); the Brief on a real scan (demo data only).
 - Opus review fixes: `RecursionError` is caught (deeply nested JSON gives 404, not 500); the file is opened non-blocking and must be a regular file (a FIFO is refused); the route now serves only what the panel shows (pack, item id/kind/name, always-on totals, overlaps, flags); descriptions, counts, note and warnings are validated but not served.
 - Small deviation: `frontend/package.json` (the `preview:check` script) and `frontend/scripts/preview-check.mjs` were added beyond the plan's file list, and the server validator is stricter than the plan asked for (exact keys, caps, no control characters).
+
+## #60 Atlas sky background (branch `claude/bg-60`)
+
+- Done: `--vignette` and `--nebula` token layers on `body` (`frontend/src/index.css`, one small hunk); variant `b` chosen, see DESIGN.md "Sky background". Screenshots in `docs/design/screenshots/bg/`. No change to `StarMap.tsx` or `paint.ts`.
+- Decision: no new dust layer (the canvas already has parallax dust) and no extra parallax; no deviation from the plan.
+- Gates: build, lint and all `*:check` scripts pass; layout aaMin 5.44.
+- Not verified: measured frame time on demo-250 (reasoned zero: static CSS behind the canvas); a reduced-motion run by eye.
