@@ -12,10 +12,12 @@ from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
 from .answer import blocks, card, comparison, cost_value, past, plural, row, to_text, what_line
+from .brief import frees, removes
 from .compare import parse_compare, parse_keep, parse_what
 from .redact import redact
 from .report import _known_costs, _never_used, _ranked
 from .retrieve import Index
+from .suggestions import suggest
 
 _STOP = set("what can help me to do a an the with for please find search show highlight focus filter on items item".split())
 ASK_NEXT = ["What costs the most every session?", "What have I never used?"]
@@ -70,8 +72,8 @@ def _intent(question: str) -> str:
         intent = "whatis"
     elif parse_keep(q) is not None:
         intent = "whatis"
-    elif re.search(r"\b(remove|delete|get rid)\b", q):
-        intent = "unused"
+    elif re.search(r"\b(remove|delete|get rid|clean ?up|prune|trim|declutter)\b|\bsave (me )?tokens?\b", q):
+        intent = "remove"
     elif re.search(r"\b(explain|describe)\b", q):
         intent = "explain"
     elif re.search(r"\b(usage|used|unused|never)\b", q):
@@ -132,6 +134,45 @@ def _cost(state: ChatState) -> dict[str, Any]:
         note=note,
         next_=f"Check whether you still use {top['name']}.",
         follow_ups=[f"Should I keep {top['name']}?", *ASK_NEXT],
+    )
+
+
+def _removal_value(s: Any, id_: str | None, known: dict[str, int], names: dict[str, str]) -> str:
+    other = next((n for i, n in names.items() if i in s.item_ids and i != id_), "")
+    why = {"remove_duplicate": f"Same job as {other}", "use_underlying": f"Only calls {other}", "remove_unused": "Not seen"}[s.kind]
+    return f"{why}; {'saves ' + format(known[id_], ',') + ' tokens' if id_ in known else 'saving unknown'}"
+
+
+def _remove(state: ChatState) -> dict[str, Any]:
+    """Removable Items from suggest(), with one deduplicated saving. Moves are scope advice and name projects, so they are left out."""
+    data = state["data"]
+    known, items = _known_costs(data), _by_id(state)
+    off = {i["id"] for i in data["items"] if i.get("disabled")}  # a switched-off plugin costs nothing now
+    found: dict[Any, tuple[Any, str | None]] = {}
+    for s in suggest(data):
+        if s.kind in ("remove_duplicate", "use_underlying", "remove_unused") and not off & set(s.item_ids):
+            found.setdefault(removes(s, known) or s.item_ids, (s, removes(s, known)))
+    if not found:
+        return _response("Nothing in this scan looks safe to remove.", follow_ups=ASK_NEXT)
+    chosen = list(found.values())
+    saved = [{"removes": id_, "tokens_saved": s.tokens_saved} for s, id_ in chosen]
+    total, unknown = frees(saved, known), sum(id_ is None or id_ not in known for _, id_ in chosen)
+    headline = (
+        f"You could remove {len(chosen)}, saving about {total:,} tokens every session."
+        if total
+        else f"You could remove {plural(len(chosen), 'Item')}, but the saving is unknown."
+    )
+    caveat = "Unused rests on saved transcripts, which Claude Code deletes over time."
+    shown = chosen[:5]
+    names = {i: items[i]["name"] for s, _ in shown for i in s.item_ids}
+    return _response(
+        headline,
+        [id_ or s.item_ids[0] for s, id_ in shown],
+        rows=[row(items[id_ or s.item_ids[0]], _removal_value(s, id_, known, names)) for s, id_ in shown],
+        more=len(chosen) - len(shown),
+        note=f"Plus {plural(unknown, 'Item')} with an unknown saving, not counted as 0. {caveat}" if unknown else caveat,
+        next_="Open one on the map before you decide.",
+        follow_ups=[f"Should I keep {items[chosen[0][1] or chosen[0][0].item_ids[0]]['name']}?", *ASK_NEXT],
     )
 
 
@@ -364,6 +405,7 @@ def _graph() -> Any:
         "top_costs": _cost,
         "pairs": _pairs,
         "usage": _usage,
+        "remove": _remove,
         "count": _count,
         "compare": _compare,
         "whatis": _whatis,
@@ -383,6 +425,7 @@ def _graph() -> Any:
             "pairs": "pairs",
             "usage": "usage",
             "unused": "usage",
+            "remove": "remove",
             "count": "count",
             "compare": "compare",
             "whatis": "whatis",
@@ -404,6 +447,7 @@ class LocalChat:
             "items": [
                 {
                     "id": i["id"],
+                    "disabled": bool(i.get("disabled")),
                     **{key: redact(i[key]) for key in ("name", "kind", "description")},
                 }
                 for i in data["items"]

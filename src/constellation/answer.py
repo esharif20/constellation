@@ -6,6 +6,9 @@ from typing import Any
 
 HEADLINE, WHAT, WHY, NEXT, NOTE, CHIP, TEXT = 140, 120, 90, 100, 160, 40, 1200
 KINDS = {"mcp_server": "MCP server"}
+DORMANT_DAYS = (
+    30  # "Could go" needs this many idle days; equal to DORMANT_DAYS in frontend/src/lib/verdict.ts (tests/test_chat_ask.py checks)
+)
 _SKIP = re.compile(r"^(use when|use this|use for|trigger|invoke)", re.I)
 _EXAMPLE = re.compile(r'"[^"]{2,}"|“[^”]{2,}”|(?:^|\s)/[a-z][\w:-]*(?=\s|$)')
 _ABBREVIATION = re.compile(r"(?:^|\s)(?:(?i:e\.g|i\.e|etc|vs)|[A-Z])$")  # a word abbreviation in any case, or one capital letter
@@ -74,6 +77,19 @@ def _usage(data: dict[str, Any], id_: str) -> tuple[str, int | None]:
     return f"Used {plural(usage['count'], 'time')}{within}{last}", usage["count"]
 
 
+def idle_days(data: dict[str, Any], id_: str) -> tuple[int, bool] | None:
+    """(days idle, exact) to the newest saved session. Never seen = the whole window, a lower bound (exact False). None = unknown."""
+    window, usage = data.get("usage_window"), (data.get("usage") or {}).get(id_)
+    if not window or not window["files"] or usage is None:
+        return None
+    if not usage["count"]:
+        span = _span(window)
+        return (span, False) if span else None
+    if not usage.get("last_used") or not window.get("last"):
+        return None
+    return max(0, (date.fromisoformat(window["last"]) - date.fromisoformat(usage["last_used"][:10])).days), True
+
+
 def _overlap(data: dict[str, Any], id_: str) -> dict[str, Any] | None:
     found = [o for o in data.get("overlaps") or [] if id_ in (o["a_id"], o["b_id"]) and o["verdict"] != "distinct"]
     order = ("duplicate", "wrapper", "overlap")
@@ -97,9 +113,22 @@ def verdict(data: dict[str, Any], id_: str) -> dict[str, str]:
         window = data.get("usage_window")
         where = "in this scan" if not window or not window["files"] else "for this Item"
         return {"label": "Not enough data", "tone": "unknown", "why": f"Usage was not read {where}"}
+    idle = idle_days(data, id_)
     if count:
+        if cost and idle and idle[0] >= DORMANT_DAYS:
+            return {
+                "label": "Review",
+                "tone": "review",
+                "why": cut(f"Idle {plural(idle[0], 'day')}; costs {cost:,} tokens every session", WHY),
+            }
         return {"label": "Keep", "tone": "keep", "why": cut(line.split(", last")[0], WHY)}
     if cost:
+        if idle and idle[0] < DORMANT_DAYS:  # a short history cannot show 30 idle days
+            return {
+                "label": "Review",
+                "tone": "review",
+                "why": cut(f"Not seen in {plural(idle[0], 'day')} (history is short); costs {cost:,} tokens", WHY),
+            }
         return {
             "label": "Could go",
             "tone": "remove",

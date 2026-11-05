@@ -267,7 +267,7 @@ def test_verdict_from_usage_and_cost(tmp_path, monkeypatch):
 
 def test_what_could_i_remove_lists_unused_items(client):
     reply = ask(client, "What could I remove?")
-    assert reply["blocks"]["rows"][0]["name"] == "chisel" and reply["actions"][0]["item_ids"] == ["ch"]
+    assert "chisel" in [r["name"] for r in reply["blocks"]["rows"]] and "ch" in reply["actions"][0]["item_ids"]
 
 
 def test_what_is_weak_or_missing(client):

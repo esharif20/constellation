@@ -45,6 +45,13 @@ def append_line(path: Path, s: Suggestion) -> bool:
     return True
 
 
+def removes(s: Suggestion, known: dict[str, int]) -> str | None:
+    """The one Item a Suggestion would remove; None when that cannot be told (a duplicate pair with an unknown cost)."""
+    if s.kind == "remove_duplicate":
+        return min(s.item_ids, key=lambda id_: (known[id_], id_)) if all(id_ in known for id_ in s.item_ids) else None
+    return s.item_ids[0] if s.kind in ("use_underlying", "remove_unused") else None
+
+
 def frees(rows: list[dict[str, Any]], known: dict[str, int]) -> int | None:
     """Count each removable Item once, excluding rows whose saving is unknown."""
     ids = {row["removes"] for row in rows if row["tokens_saved"] is not None and row["removes"] in known}
@@ -63,12 +70,7 @@ def brief(data: dict[str, Any], top: int = 5) -> dict[str, Any]:
     pairs = []
     candidates = [s for s in suggest(data) if s.kind in ("remove_duplicate", "use_underlying")]
     for s in candidates[:top]:
-        removes = None
-        if s.kind == "use_underlying":
-            removes = s.item_ids[0]
-        elif all(id_ in known for id_ in s.item_ids):
-            removes = min(s.item_ids, key=lambda id_: (known[id_], id_))
-        pairs.append({**asdict(s), "item_ids": list(s.item_ids), "removes": removes})
+        pairs.append({**asdict(s), "item_ids": list(s.item_ids), "removes": removes(s, known)})
     scope = [
         {**asdict(s), "item_ids": list(s.item_ids), "removes": None, "project_label": (data.get("projects") or {}).get(s.project)}
         for s in suggest(data)
