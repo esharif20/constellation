@@ -82,7 +82,10 @@ def scan(
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))
     # shortcut: user CLAUDE.md only, no @imports or project CLAUDE.md; upgrade when the scan reads projects (#43)
     memory = Path(config_dir) / "CLAUDE.md"
-    memory_bytes = memory.stat().st_size if memory.is_file() else None  # stat only: the text is never opened
+    try:
+        memory_bytes = memory.stat().st_size if memory.is_file() else None  # stat only: the text is never opened
+    except OSError:
+        memory_bytes = None
     return Constellation(
         items,
         warnings,

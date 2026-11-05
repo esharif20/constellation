@@ -233,7 +233,7 @@ def _review(args: argparse.Namespace, decide: Callable[[Suggestion], str] | None
         return 2
     suggestions = suggest(data)
     if not suggestions:
-        print("No Suggestions: no duplicate or wrapper Overlaps found.")
+        print("No Suggestions found.")
         return 0
     decide = decide or _ask_stdin
     by_id = {s.id: s for s in suggestions}
