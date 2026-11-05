@@ -2,7 +2,8 @@
 import { layout } from "./layout.ts";
 import { searchItems } from "./search.ts";
 
-export type Item = { id: string; kind: string; name: string; description: string; source: string; disabled?: boolean };
+export type Item = { id: string; kind: string; name: string; description: string; source: string; disabled?: boolean;
+  origin?: string | null; scope?: string; project?: string | null }; // local display data; scope is "global" or "project"
 export type Relation = { source: string; target: string; kind: string };
 export type Cost = { always_on: number | null; on_use: number | null };
 export type Usage = { count: number; last_used: string | null };

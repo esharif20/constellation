@@ -433,3 +433,12 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 ## #42 session-start budget meter (what-if ticket 0, `docs/plans/whatif.md`)
 
 Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: demo-250 shows 20,082 tokens (10,448 Items + 9,634 hooks), 55 unknown not counted, and `data.cost.frees` ~853 for the top 5, all as the plan expected. No deviations. Frontend only, no fetch, no Python change. The not-measured line stays the Brief's existing one (the Meter is hidden when nothing is measured, to avoid saying it twice); `demo-offline.json` has costs, so it shows the Meter without a hooks segment.
+
+## Inspector redesign, ticket A (#73, branch `claude/inspector-a`)
+
+- Done per `docs/design/inspector.md` sections 1 (header, verdict, facts), 2, 6 to 8 for those parts: `components/inspector/{Header,Verdict,Facts,MiniBar}.tsx`, pure `lib/verdict.ts` (one `DORMANT_DAYS = 30` constant), `Inspector.tsx` now composes them. `model.ts` Item gains optional `origin`, `scope`, `project` only. `index.css` gains `fade-in` and `bar-grow` keyframes (zeroed by the existing reduced-motion rule). No new dependency, no provider call.
+- Self-check: `npm run inspector:check` (every verdict row, the 29/30/31-day edge, plugin roll-up, 90-char clip, origin/scope header on an invented fixture; no demo file edited).
+- Kept for ticket B: hook session-start weight is a Facts chip for now (B moves it to KindDetails); the description paragraph, source path and Relation/Overlap groups are unchanged (B splits and regroups them).
+- Not built, by design: cluster button, Compare, Add to checklist, Actions and sticky phone footer (C, need Atlas wiring), shimmer loading state (the lazy chunk is Atlas's Suspense).
+- Open for Atlas wiring (Atlas.tsx not editable here): the selection live region should say `Selected {name}, {verdict word}`; export `verdictOf` is ready. The banner has a visually hidden `Verdict:` prefix meanwhile.
+- Screenshots (demo-250 and demo-offline only): `docs/design/screenshots/inspector/`.
