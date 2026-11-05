@@ -21,6 +21,7 @@ def private_default_caches(tmp_path_factory, monkeypatch):
         # import_module: `constellation.classify` as an attribute is the re-exported function, not the module
         monkeypatch.setattr(importlib.import_module(f"constellation.{module}"), "DEFAULT_CACHE", root / f"{name}.json")
     monkeypatch.setattr(importlib.import_module("constellation.review"), "DEFAULT_CHECKPOINT", root / "review.sqlite")
+    monkeypatch.setattr(importlib.import_module("constellation.scan_graph"), "DEFAULT_CHECKPOINT", root / "scan.sqlite")
     monkeypatch.setattr(importlib.import_module("constellation.server"), "DEFAULT_CHECKLIST", root / "checklist.md")
 
 

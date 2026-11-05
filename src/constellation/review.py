@@ -1,5 +1,3 @@
-import os
-import sqlite3
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypedDict
 
@@ -7,6 +5,8 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
+
+from . import checkpoint
 
 Decision = Literal["approve", "skip"]
 DEFAULT_CHECKPOINT = Path.home() / ".cache" / "constellation" / "review.sqlite"
@@ -47,11 +47,7 @@ def build_review_graph(checkpointer: BaseCheckpointSaver[Any]) -> Any:  # shortc
 
 
 def open_checkpointer(path: Path | None = None) -> SqliteSaver:
-    path = path or DEFAULT_CHECKPOINT
-    path.parent.mkdir(parents=True, exist_ok=True)
-    os.close(os.open(path, os.O_WRONLY | os.O_CREAT, 0o600))
-    os.chmod(path, 0o600)
-    return SqliteSaver(sqlite3.connect(path, check_same_thread=False))
+    return checkpoint.open_checkpointer(path or DEFAULT_CHECKPOINT)
 
 
 def thread_id(file: Path) -> str:

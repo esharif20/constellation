@@ -1,12 +1,15 @@
 """The whole scan as one LangGraph graph (#22). Nodes call the same functions scan() always called; only the wiring is new.
 
-Privacy: `State` is what a checkpointer would save, so it holds ids, cache keys, labels, numbers and model replies only.
-Everything with file text in it (Items, bodies, vectors, secrets) lives in `Context`, which LangGraph never saves."""
+Privacy: `State` is what the checkpointer saves to disk, so it holds ids, cache keys, labels, numbers and model replies only,
+and every string a node puts into it goes through `Context.safe` (redact) first. Everything with file text in it (Items, bodies,
+descriptions, vectors, project labels, secrets) lives in `Context`, which LangGraph never saves."""
 
+import hashlib
 import operator
+import sqlite3
 from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Annotated, Any, TypedDict
 
@@ -14,12 +17,18 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Send
 
+from .checkpoint import open_checkpointer
 from .classify import MAX_CONCURRENCY, _prompt, label_flush, label_one, label_plan
 from .cluster import cluster
 from .costs import cache_key, count_texts, measure
 from .hooks import static_hook_texts
 from .models import LLM, Cluster, Cost, Embedder, Item, Overlap, TokenCounter, Weight
-from .overlaps import announce_cost, candidates, check_one, exact_duplicates, pair_job, verify_flush, verify_plan, wrappers
+from .overlaps import _parse, announce_cost, candidates, check_one, exact_duplicates, pair_job, verify_flush, verify_plan, wrappers
+from .redact import redact
+
+DEFAULT_CHECKPOINT = Path.home() / ".cache" / "constellation" / "scan.sqlite"
+STATE_TYPES = tuple(("constellation.models", name) for name in ("Cluster", "Cost", "Overlap", "Weight"))  # what State may hold
+CHECKPOINT_WARNING = "Ignored an unreadable or foreign scan checkpoint; this scan ran from the start."
 
 
 @dataclass
@@ -50,6 +59,16 @@ class Context:
 
     def item(self, id_: str) -> Item:
         return next(i for i in self.items if i.id == id_)
+
+    def safe(self, text: str) -> str:
+        """The only way a string reaches State: redacted first, because State is written to disk."""
+        return redact(text, self.secrets)
+
+    def safe_overlap(self, overlap: Overlap) -> Overlap:
+        return replace(overlap, reason=self.safe(overlap.reason))
+
+    def safe_warnings(self, stage: str, warnings: list[str]) -> dict[str, list[str]]:
+        return {stage: [self.safe(w) for w in warnings]}
 
 
 def _merge_stage(left: dict[str, list[str]], right: dict[str, list[str]]) -> dict[str, list[str]]:
@@ -91,7 +110,7 @@ def plan_labels(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     if not ctx.llm:
         return {}
     labels, todo = label_plan(ctx.items, ctx.secrets, ctx.label_cache, ctx.label_model)
-    return {"labels": labels, "label_jobs": [i.id for i in todo]}
+    return {"labels": {id_: ctx.safe(text) for id_, text in labels.items()}, "label_jobs": [i.id for i in todo]}
 
 
 def route_labels(state: State) -> list[Send] | str:
@@ -106,15 +125,16 @@ def label(state: _LabelJob, runtime: Runtime[Context]) -> dict[str, Any]:
     item = ctx.item(state["item_id"])
     result = label_one(item, ctx.llm)
     if "warnings" in result:
-        return {"warnings": {"labels": result["warnings"]}}
+        return {"warnings": ctx.safe_warnings("labels", result["warnings"])}
     key = cache_key(_prompt(item), ctx.secrets, ctx.label_model)
-    return {"labels": result["labels"], "label_replies": {key: result["labels"][item.id]}}
+    text = ctx.safe(result["labels"][item.id])  # a model reply may echo a secret; the redacted text is what is saved and cached
+    return {"labels": {item.id: text}, "label_replies": {key: text}}
 
 
 def labels_done(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     """Join (reduce): runs after every label branch, or at once when there were none."""
     ctx = runtime.context
-    return {"warnings": {"labels": label_flush(ctx.label_cache, state["label_replies"])}}
+    return {"warnings": ctx.safe_warnings("labels", label_flush(ctx.label_cache, state["label_replies"]))}
 
 
 def cluster_items(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
@@ -123,8 +143,9 @@ def cluster_items(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     if not ctx.embedder:
         return {}
     if ctx.embed_error:
-        return {"warnings": {"cluster": [f"could not cluster items: {ctx.embed_error}"]}}
-    return {"clusters": cluster(ctx.items, state["labels"], ctx.vectors, ctx.centred, ctx.cluster_threshold)}
+        return {"warnings": ctx.safe_warnings("cluster", [f"could not cluster items: {ctx.embed_error}"])}
+    found = cluster(ctx.items, state["labels"], ctx.vectors, ctx.centred, ctx.cluster_threshold)
+    return {"clusters": [replace(c, name=ctx.safe(c.name)) for c in found]}
 
 
 def costs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
@@ -141,12 +162,13 @@ def costs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
         tokens, hook_warnings = count_texts(known_texts, ctx.counter, ctx.secrets, ctx.cost_cache)
         weights |= {id_: Weight(weights[id_].bytes, n) for id_, n in tokens.items()}
         warnings += hook_warnings
-    return {"costs": costs, "hook_weights": weights, "warnings": {"costs": warnings}}
+    return {"costs": costs, "hook_weights": weights, "warnings": ctx.safe_warnings("costs", warnings)}
 
 
 def local_overlaps(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     ctx = runtime.context
-    return {"local_overlaps": [*exact_duplicates(ctx.items, ctx.bodies), *wrappers(ctx.items, ctx.bodies)]}
+    found = [*exact_duplicates(ctx.items, ctx.bodies), *wrappers(ctx.items, ctx.bodies)]
+    return {"local_overlaps": [ctx.safe_overlap(o) for o in found]}
 
 
 def plan_pairs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
@@ -158,7 +180,11 @@ def plan_pairs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     cached, jobs = verify_plan(pairs, ctx.items, ctx.bodies, ctx.secrets, ctx.verdict_cache, ctx.verifier_model)
     if jobs and ctx.on_verify:  # before the first paid call
         ctx.on_verify(*announce_cost(jobs))
-    return {"verdicts": cached, "pair_jobs": [(j["a"].id, j["b"].id) for j in jobs], "warnings": {"overlaps": cap_warnings}}
+    return {
+        "verdicts": [ctx.safe_overlap(o) for o in cached],
+        "pair_jobs": [(j["a"].id, j["b"].id) for j in jobs],
+        "warnings": ctx.safe_warnings("overlaps", cap_warnings),
+    }
 
 
 def route_pairs(state: State) -> list[Send] | str:
@@ -172,13 +198,15 @@ def verify(state: _PairJob, runtime: Runtime[Context]) -> dict[str, Any]:
     job = pair_job(ctx.item(state["a_id"]), ctx.item(state["b_id"]), ctx.bodies, ctx.secrets, ctx.verifier_model)
     result = check_one(job, ctx.verifier)
     if "warnings" in result:
-        return {"warnings": {"overlaps": result["warnings"]}}
-    return {"verdicts": result["overlaps"], "verdict_replies": result["replies"]}
+        return {"warnings": ctx.safe_warnings("overlaps", result["warnings"])}
+    # The paid reply is model output and may echo a secret or carry extra fields: save only a redacted copy that still parses.
+    replies = {key: clean for key, reply in result["replies"].items() if _parse(clean := ctx.safe(reply))}
+    return {"verdicts": [ctx.safe_overlap(o) for o in result["overlaps"]], "verdict_replies": replies}
 
 
 def verdicts_done(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     ctx = runtime.context
-    return {"warnings": {"overlaps": verify_flush(ctx.verdict_cache, state["verdict_replies"])}}
+    return {"warnings": ctx.safe_warnings("overlaps", verify_flush(ctx.verdict_cache, state["verdict_replies"]))}
 
 
 def assemble(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
@@ -198,7 +226,7 @@ def assemble(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     return {"final_overlaps": overlaps, "final_warnings": warnings}
 
 
-def build_graph() -> Any:  # shortcut: Any for the compiled graph, its generics are noise here
+def build_graph(checkpointer: Any = None) -> Any:  # shortcut: Any for the compiled graph and saver, their generics are noise here
     graph = StateGraph(
         State, context_schema=Context
     )  # pragma: no mutate  (the Runtime annotations on the nodes imply it; it documents the split)
@@ -219,10 +247,108 @@ def build_graph() -> Any:  # shortcut: Any for the compiled graph, its generics 
     graph.add_edge("verify", "verdicts_done")
     graph.add_edge(["cluster", "costs", "verdicts_done"], "assemble")
     graph.add_edge("assemble", END)
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
-def run(context: Context) -> State:
-    """Compiled per call (cheap) so the wiring in build_graph is exercised, and mutation-tested, by every scan."""
+def thread_id(context: Context) -> str:
+    """Names this scan for the checkpointer. Hashes only: for each Item a hash of its redacted name and description and one of its
+    redacted body (the verifier reads bodies), then the model ids and which stages are on. The same
+    setup after a crash gets the same thread and resumes; any change gets a new thread and starts fresh."""
+    parts = [
+        *sorted(
+            f"{cache_key(_prompt(i), context.secrets)}:{cache_key(context.bodies.get(i.id, ''), context.secrets)}" for i in context.items
+        ),
+        context.label_model,
+        context.verifier_model,
+        *(str(flag) for flag in (bool(context.llm), bool(context.verifier), bool(context.counter), bool(context.embedder))),
+        str(context.offline),
+        str(context.count_bodies),
+        str(context.cluster_threshold),
+    ]
+    return "scan:" + hashlib.sha256("\0".join(parts).encode()).hexdigest()  # pragma: no mutate  (any separator keeps the parts apart)
+
+
+class _Progress:
+    """Turns the graph's per-node updates into stderr-style lines: "labelled 12/40", "verified 9/31"."""
+
+    def __init__(self, say: Callable[[str], None], total: dict[str, int]):
+        self.say, self.done, self.total = say, {"label": 0, "verify": 0}, total
+
+    def __call__(self, updates: dict[str, Any]) -> None:
+        for node, update in updates.items():
+            if node == "plan_labels" and update:
+                self.total["label"] = len(update["label_jobs"])
+            elif node == "plan_pairs" and update:
+                self.total["verify"] = len(update["pair_jobs"])
+            elif node in ("label", "verify"):
+                self.done[node] += 1
+                self.say(f"{'labelled' if node == 'label' else 'verified'} {self.done[node]}/{self.total[node]}")
+
+
+def _stream(
+    graph: Any, start: State | None, context: Context, config: Any, progress: Callable[[str], None] | None, total: dict[str, int]
+) -> State:
+    """Runs the graph with `stream`, not `invoke`: the "updates" chunks (one per finished node) drive the progress lines and the
+    "values" chunks end with the final State. durability="sync" saves each step before the next starts."""
+    tracker = _Progress(progress, total) if progress else None
+    final: State = {}  # pragma: no mutate  (a graph always ends with a "values" chunk)
+    options: Any = {"durability": "sync"} if "configurable" in config else {}  # durability needs a checkpointer
+    for mode, chunk in graph.stream(start, config, context=context, stream_mode=["updates", "values"], **options):
+        if mode == "values":
+            final = chunk
+        elif tracker:
+            tracker(chunk)
+    return final
+
+
+def _unchecked(context: Context, config: Any, progress: Callable[[str], None] | None) -> State:
+    """The checkpoint file could not be used: run from the start without one, and say so (a fixed message, never the error text)."""
+    config.pop("configurable", None)
+    state = _stream(build_graph(), {"label_jobs": [], "pair_jobs": []}, context, config, progress, {})
+    state["final_warnings"] = [*state["final_warnings"], CHECKPOINT_WARNING]
+    return state
+
+
+def run(context: Context, checkpoint: Path | None = None, progress: Callable[[str], None] | None = None) -> State:
+    """Compiled per call (cheap) so the wiring in build_graph is exercised, and mutation-tested, by every scan.
+
+    LangGraph lesson, checkpointer + thread_id: with a checkpointer the graph saves its State after every step, under a
+    `thread_id`. If the process dies, `invoke(None, config)` / `stream(None, config)` with the same thread_id resumes from the last
+    saved step and keeps the results of branches that had finished, so paid label and verify calls are not repeated. (Passing a
+    new input instead would start a new run on that thread.) Only State is saved; the Context is handed in again on every run.
+    No `checkpoint` path: nothing is written. The thread is deleted when the scan succeeds, so the file holds at most one
+    unfinished scan."""
     start: State = {"label_jobs": [], "pair_jobs": []}  # the reducer keys (labels, verdicts, warnings...) start empty by themselves
-    return build_graph().invoke(start, context=context, config={"max_concurrency": MAX_CONCURRENCY})  # type: ignore[no-any-return]
+    config: Any = {"max_concurrency": MAX_CONCURRENCY}
+    if checkpoint is None:
+        return _stream(build_graph(), start, context, config, progress, {})
+    try:
+        saver = open_checkpointer(checkpoint, STATE_TYPES)
+    except (OSError, sqlite3.Error):
+        return _unchecked(context, config, progress)
+    try:
+        graph, tid = build_graph(saver), thread_id(context)
+        config["configurable"] = {"thread_id": tid}
+        try:
+            snapshot = graph.get_state(config)  # reading a corrupt or foreign file can fail in many ways
+            resuming = bool(snapshot.next)
+            # a resumed run replays the finished branches' results as updates: the count restarts at 0, the totals come from the plan
+            total = {"label": len(snapshot.values.get("label_jobs", [])), "verify": len(snapshot.values.get("pair_jobs", []))}
+            if not resuming:  # a different or finished scan's leftovers go, so the file holds at most one unfinished scan
+                for old in {c.config["configurable"]["thread_id"] for c in saver.list(None)}:
+                    saver.delete_thread(old)
+        except Exception:
+            return _unchecked(context, config, progress)
+        if resuming and progress:
+            progress("resuming an interrupted scan")
+        try:
+            state = _stream(graph, None if resuming else start, context, config, progress, total)
+        except Exception:
+            if not resuming:
+                raise
+            saver.delete_thread(tid)  # the saved step no longer fits this graph: drop it and start over
+            return _unchecked(context, config, progress)
+        saver.delete_thread(tid)
+        return state
+    finally:
+        saver.conn.close()
