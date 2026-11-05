@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "centre:check": "node scripts/centre-check.ts",
     "layout:check": "node scripts/layout-metrics.ts",
     "history:check": "node scripts/history-check.ts",
     "inspector:check": "node scripts/inspector-check.mjs",

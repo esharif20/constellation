@@ -8,7 +8,7 @@ import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY
 import { strict as assert } from "node:assert";
 import { budget, buildModel, clusterHealth, withContents, clusterSummary, groupWarnings, rankMembers, costRadius, tipBadges, usageLine, RMAX, RMIN, RUNK, type Constellation, type Cluster, type GNode, type GOverlap, type Model, type UsageWindow } from "../src/graph/model.ts";
 import { flightMs, flightPath } from "../src/graph/flight.ts";
-import { fitView, focusView, GAP, haloOf, K, type View } from "../src/graph/layout.ts";
+import { CORE_AREA, fitView, focusView, GAP, haloOf, K, type View } from "../src/graph/layout.ts";
 import { searchItems } from "../src/graph/search.ts";
 import { didYouMean, matchClusters, mergeResults, warningMention } from "../src/graph/searchMerge.ts";
 import { chooseSpot, cutName, hit, labelStart, placeTip, type Box } from "../src/graph/names.ts";
@@ -189,7 +189,7 @@ function measure(file: string, W: number, H: number) {
   let slotGap = Infinity;
   for (const c of m.clusters) {
     const slots: { x: number; y: number; r: number }[] = [];
-    let used = 0;
+    let used = c.core ? CORE_AREA : 0;
     [...c.members].sort((a, b) => b.degree - a.degree || a.id.localeCompare(b.id)).forEach((n, i) => {
       const area = (n.r + GAP) ** 2, rad = K * Math.sqrt(used + area / 2), t = i * 2.39996;
       used += area;

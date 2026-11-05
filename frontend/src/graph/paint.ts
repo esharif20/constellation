@@ -1,6 +1,6 @@
 // Canvas painting for the star atlas. force-graph calls pre -> links -> nodes -> post every frame;
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
-import { FOCUS_FILL, haloOf } from "./layout";
+import { CORE_R, FOCUS_FILL, haloOf } from "./layout";
 import { badgeWanted, badgeY } from "./badge";
 import { chooseSpot, cutName, labelStart, type Box } from "./names";
 import { clusterHealth, rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
@@ -29,7 +29,7 @@ export const FEEL = {
 export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; scope: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null; tip: GNode | null; removed: Set<GNode> | null; absent: Set<GNode> | null }; // removed: what-if ghosts; absent: not yet scanned at the time-travel date
 
 // Colours added after the first look. Each is read from a CSS variable when the stylesheet defines it, else the fallback.
-const PALETTE = { overlap: "#ff5fd2" }; // hot magenta: Overlap links are one family apart from the recessive Relation hairlines
+const PALETTE = { overlap: "#ff5fd2", starlight: "#ece4cc" }; // hot magenta: Overlap links are one family apart from the recessive Relation hairlines
 
 function readInk() {
   const css = getComputedStyle(document.documentElement);
@@ -38,6 +38,7 @@ function readInk() {
   return {
     color,
     overlap: t("--overlap") || PALETTE.overlap,
+    starlight: t("--k-command") || PALETTE.starlight, // the synthetic centre of a hubless cluster: structural starlight, never a kind colour
     fade: Number(t("--fade")) || 0.1,
     edge: t("--edge"), edgeAlt: t("--edge-alt"), halo: t("--halo"), haloName: t("--halo-name"), dust: t("--dust"),
     ring: t("--ring"), text: t("--text"), text2: t("--text-2"), text3: t("--text-3"), warn: t("--warn"), mono: t("--font-mono-stack"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
@@ -183,6 +184,22 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.globalAlpha = c.a;
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, 2 * Math.PI); ctx.fill();
+    }
+    // hubless clusters: a layout-only centre (not an Item: no node, no hit, no label) with faint spokes that go with the cluster names as you zoom in
+    for (const c of model.clusters) {
+      if (!c.core || c.a < 0.01) continue;
+      const h = halos.get(c)!, R = CORE_R * 1.6, px = 1 / k;
+      ctx.strokeStyle = ink.starlight;
+      ctx.lineWidth = px;
+      ctx.globalAlpha = c.a * zoomA * 0.14;
+      ctx.beginPath();
+      for (const n of c.members) if (n.a > 0.05) { ctx.moveTo(h.x, h.y); ctx.lineTo(n.x!, n.y!); }
+      ctx.stroke();
+      const g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, R * 2.2);
+      g.addColorStop(0, ink.starlight); g.addColorStop(0.35, ink.starlight); g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.globalAlpha = c.a * 0.5;
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(h.x, h.y, R * 2.2, 0, 2 * Math.PI); ctx.fill();
     }
     // glows are additive so dense regions bloom
     ctx.globalCompositeOperation = "lighter";

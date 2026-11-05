@@ -10,10 +10,15 @@ export const RIM = 26; // clear space between two circles, room for a cluster na
 const PAD = 12;
 // Each slot claims the area (r + GAP)^2, so a circle holding big stars grows and equal stars give the old even spiral.
 const area = (r: number) => (r + GAP) ** 2;
-export const circleRadius = (rs: number[]) => K * Math.sqrt(rs.reduce((s, r) => s + area(r), 0)) + PAD;
+export const CORE_R = 3; // the synthetic centre of a hubless cluster claims slot 0: a disc of this radius at (c.x, c.y)
+export const CORE_AREA = area(CORE_R);
+export const CENTRE = 0.04; // weak pull of a hubless cluster's members towards its centre, on top of their homes
+// A cluster with no Item of degree >= 2 (and not the catch-all) gets a layout-only centre; it is not an Item.
+export const hubless = (name: string, degrees: number[]) => name !== "Other" && Math.max(...degrees) < 2;
+export const circleRadius = (rs: number[], core = false) => K * Math.sqrt(rs.reduce((s, r) => s + area(r), core ? CORE_AREA : 0)) + PAD;
 
 export type LNode = { id: string; degree: number; r: number; cluster?: LCluster; x?: number; y?: number; vx?: number; vy?: number; sx: number; sy: number };
-export type LCluster = { name: string; members: LNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number }; // mx, my, fr: mean member position and farthest reach at rest
+export type LCluster = { name: string; members: LNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number; core?: boolean }; // core: has a synthetic centre at (x, y); mx, my, fr: mean member position and farthest reach at rest
 export type LLink = { source: LNode; target: LNode; kind: string };
 
 // small deterministic random source (so two runs give the same picture)
@@ -46,6 +51,15 @@ export function applyForces(link: ForceLink<LNode, LLink>, set: Setter) {
   };
   contain.initialize = (ns: LNode[]) => (nodes = ns);
   set("contain", contain);
+  // hubless clusters: members ring the synthetic centre (forceRadial takes one fixed centre, so this is the contain pattern)
+  const centre = (alpha: number) => {
+    for (const n of nodes) {
+      const c = n.cluster;
+      if (c?.core) { n.vx! -= (n.x! - c.x) * CENTRE * alpha; n.vy! -= (n.y! - c.y) * CENTRE * alpha; }
+    }
+  };
+  centre.initialize = (ns: LNode[]) => (nodes = ns);
+  set("centre", centre);
 }
 
 // Where a cluster's halo belongs now: its home circle moved by how far the members' mean has moved from rest, and widened
@@ -63,6 +77,7 @@ export function haloOf(c: LCluster) {
 export function layout(nodes: LNode[], links: LLink[], clusters: LCluster[], tall: number) {
   // Pass A: circles, largest first (ties by name), the catch-all last so it lands on the rim
   const rand = lcg(0x5eed);
+  for (const c of clusters) c.core = hubless(c.name, c.members.map((n) => n.degree));
   type Disc = { c: LCluster; x: number; y: number; R: number };
   const order = [...clusters].sort((a, b) => (a.name === "Other" ? 1 : b.name === "Other" ? -1 : b.members.length - a.members.length || a.name.localeCompare(b.name)));
   const discs: Disc[] = order.map((c, k) => {
@@ -82,7 +97,7 @@ export function layout(nodes: LNode[], links: LLink[], clusters: LCluster[], tal
   // Pass B: slots on a spiral inside each circle, each claiming area for its own radius; hubs (most Relations) first, so they take the middle
   for (const d of discs) {
     d.c.x = d.x; d.c.y = d.y; d.c.r = d.R;
-    let used = 0; // area claimed by the slots so far
+    let used = d.c.core ? CORE_AREA : 0; // area claimed by the slots so far (slot 0 is the synthetic centre, if any)
     [...d.c.members].sort((a, b) => b.degree - a.degree || a.id.localeCompare(b.id)).forEach((n, i) => {
       const t = i * 2.39996, rad = K * Math.sqrt(used + area(n.r) / 2);
       used += area(n.r);

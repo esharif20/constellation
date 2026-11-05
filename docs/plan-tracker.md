@@ -753,3 +753,10 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Labels: zoomed out shows cluster names only (existing chooseSpot collision avoidance). The #71 health badge now shows only for the hovered name, the focused Item's cluster, or from zoom 1.3x on and then only where it fits (`badgeWanted` in graph/badge.ts; `badgeY` kept).
 - Hover: `hoverTarget` (graph/hover.ts) adds hysteresis (padded hit radius with a 9 px floor for tiny stars, rival must be 30% closer); 130 ms dwell from empty space, 50 ms switch when a tooltip is open; no hover while a button is down or dragging; pan/zoom still hides. Touch path unchanged (tap shows, tap elsewhere hides).
 - New check: `npm run labels:check`.
+
+## Hub slice 4: visible centre for hubless clusters (branch `claude/hubs`)
+- Status: done, no deviations. Stack unchanged (d3-force layout in `layout.ts`, canvas painter in `paint.ts`).
+- Rule: a cluster (not "Other") whose top member has degree < 2 gets a layout-only centre at (c.x, c.y): `LCluster.core`, not an Item (not in `model.nodes`, search, Receipt; nothing selectable, no DOM). Slot 0 is reserved (`CORE_AREA`, circle radius grows with it); members get a weak `centre` force (`CENTRE` = 0.04, contain pattern; `forceRadial` takes one fixed centre) on top of the homes.
+- Paint: soft starlight core plus spokes at alpha 0.14 that ride the cluster-name zoom ease (`zoomA`); colour from `--k-command` with `PALETTE.starlight` fallback, no other literals.
+- Test tooling note: the design note said vitest `layout.test.ts`; the repo has none, only node check scripts. New `npm run centre:check` (`scripts/centre-check.ts`) covers anchor-or-centre, no member inside the centre, centre not a node, determinism, on demo, demo-offline, demo-250 at desktop and phone aspect (30 centres, 64 anchored). `layout-metrics.ts` slot-gap replay now starts at `CORE_AREA`; `K` unchanged, all checks pass.
+- Gates: build, layout, chat, badge, labels, inspector, whatif, centre checks. Screenshots of demo-250 at fitted and about 1.3x looked at: centres read as faint glows, spokes subtle.
