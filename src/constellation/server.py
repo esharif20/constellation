@@ -376,4 +376,6 @@ def serve(app: FastAPI, port: int, open_browser: bool) -> None:
 
     if open_browser:
         threading.Timer(1.0, webbrowser.open, [f"http://{HOST}:{port}/"]).start()
-    uvicorn.run(app, host=HOST, port=port, log_level="warning")
+    uvicorn.run(
+        app, host=HOST, port=port, log_level="warning", timeout_graceful_shutdown=2
+    )  # Ctrl-C must not wait on open browser connections
