@@ -16,9 +16,9 @@ from . import retrieve
 from .brief import append_line, brief, checklist_ids, frees
 from .chat import LocalChat
 from .embeddings import fastembed_embedder
-from .explain import explain, render_explain
 from .expansion import Query as ExpansionQuery
 from .expansion import expand
+from .explain import explain, render_explain
 from .models import Embedder
 from .receipt import receipt
 from .report import _known_costs
