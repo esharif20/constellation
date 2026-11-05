@@ -2,10 +2,12 @@
 
 Each row: (name_a, description_a, name_b, description_b, expected verdict). For a wrapper, A is the one that hands off to B."""
 
+import math
+import re
 from collections import Counter
 
 from constellation.models import LLM, Item
-from constellation.overlaps import VERDICTS, check_one, pair_job
+from constellation.overlaps import VERDICTS, ambiguity, check_one, pair_job
 
 PAIRS: list[tuple[str, str, str, str, str]] = [
     # duplicate: the same job under different names
@@ -121,3 +123,19 @@ def report(confusion: Counter[tuple[str, str]], precision: float, recall: float)
     lines = ["expected \\ predicted  " + "  ".join(f"{c:>9}" for c in columns)]
     lines += [f"{row:<21} " + "  ".join(f"{confusion[row, c]:>9}" for c in columns) for row in VERDICTS]
     return "\n".join([*lines, f"flagged precision {precision:.2f}, recall {recall:.2f}"])
+
+
+def _word_cosine(a: str, b: str) -> float:
+    x, y = Counter(re.findall(r"[a-z0-9]+", a.lower())), Counter(re.findall(r"[a-z0-9]+", b.lower()))
+    return sum(x[k] * y[k] for k in x) / math.sqrt(sum(v * v for v in x.values()) * sum(v * v for v in y.values()))
+
+
+def ambiguity_scores() -> list[tuple[str, float]]:
+    """(expected verdict, ambiguity) per labelled pair, with no embedder: similarity is the description word cosine, floored at the
+    0.5 every proposed pair already has."""
+    scores = []
+    for name_a, desc_a, name_b, desc_b, expected in PAIRS:
+        bodies = _bodies(name_a, desc_a, name_b, desc_b, expected)
+        a, b = Item(name_a, "skill", name_a, desc_a, "eval"), Item(name_b, "skill", name_b, desc_b, "eval")
+        scores.append((expected, ambiguity(a, b, max(0.5, _word_cosine(desc_a, desc_b)), bodies[name_a], bodies[name_b])))
+    return scores

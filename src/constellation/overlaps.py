@@ -66,9 +66,8 @@ CANDIDATE_THRESHOLD = 0.5  # on centred cosines, which spread from -1 to 1
 MAX_PAIRS = 150  # keeps one scan's verifier bill bounded
 
 
-def candidates(items: list[Item], vectors: dict[str, list[float]], decided: set[frozenset[str]]) -> tuple[list[tuple[str, str]], list[str]]:
-    """Layer 3: embeddings only propose pairs; the verifier decides. Each skill or agent proposes its nearest neighbours, and
-    same-name copies are always proposed, which finds cross-plugin copies whose bodies drifted."""
+def _proposals(items: list[Item], vectors: dict[str, list[float]]) -> dict[tuple[str, str], float]:
+    """Pair ids (sorted) -> centred cosine, for each skill or agent's nearest neighbours; same-name copies score 2.0."""
     eligible = sorted((i for i in items if i.kind in ("skill", "agent")), key=lambda i: i.id)
     scores: dict[tuple[str, str], float] = {}
     for item in eligible:
@@ -84,11 +83,56 @@ def candidates(items: list[Item], vectors: dict[str, list[float]], decided: set[
     for a, b in combinations(eligible, 2):
         if a.name == b.name:
             scores[a.id, b.id] = 2.0  # pragma: no mutate  (any value above 1 is equivalent: above any cosine, so copies are checked first)
-    ranked = sorted((k for k in scores if frozenset(k) not in decided), key=lambda k: (-scores[k], k))
+    return scores
+
+
+def _cap(keys: list[tuple[str, str]]) -> tuple[list[tuple[str, str]], list[str]]:
     warnings = (
-        [f"checked the {MAX_PAIRS} most similar pairs; {len(ranked) - MAX_PAIRS} more were not checked"] if len(ranked) > MAX_PAIRS else []
+        [f"checked the {MAX_PAIRS} most similar pairs; {len(keys) - MAX_PAIRS} more were not checked"] if len(keys) > MAX_PAIRS else []
     )
-    return ranked[:MAX_PAIRS], warnings
+    return keys[:MAX_PAIRS], warnings
+
+
+def candidates(items: list[Item], vectors: dict[str, list[float]], decided: set[frozenset[str]]) -> tuple[list[tuple[str, str]], list[str]]:
+    """Layer 3: embeddings only propose pairs; the verifier decides. Each skill or agent proposes its nearest neighbours, and
+    same-name copies are always proposed, which finds cross-plugin copies whose bodies drifted."""
+    scores = _proposals(items, vectors)
+    return _cap(sorted((k for k in scores if frozenset(k) not in decided), key=lambda k: (-scores[k], k)))
+
+
+BAND_LOW = 0.30  # tuned on tests/eval/overlap_pairs.py: every non-distinct labelled pair scores at or above it
+_WORDS = re.compile(r"[a-z0-9]+")
+
+
+def _words(text: str) -> set[str]:
+    return {w for w in _WORDS.findall(text.lower()) if len(w) > 2}
+
+
+def ambiguity(a: Item, b: Item, similarity: float, body_a: str, body_b: str) -> float:
+    """Layer 3b, free and local: how hard the pair is to call from signals alone, 0 (clearly distinct) to 1 (send it).
+    A weighted sum of centred cosine, description word overlap, shared headings and a by-name mention either way;
+    same-name copies always score 1. Bodies stay local: only counts derived from them are used."""
+    if a.name == b.name:
+        return 1.0
+    words_a, words_b = _words(a.description), _words(b.description)
+    jaccard = len(words_a & words_b) / max(1, len(words_a | words_b))
+    shared = min(len(_headings(body_a) & _headings(body_b)), 3) / 3
+    mention = _mentions(body_a, b.name) or _mentions(body_b, a.name)
+    return 0.5 * min(max(similarity, 0.0), 1.0) + 0.25 * jaccard + 0.1 * shared + 0.15 * mention
+
+
+def rank(
+    items: list[Item], vectors: dict[str, list[float]], bodies: dict[str, str], decided: set[frozenset[str]]
+) -> tuple[list[tuple[str, str, float]], list[str]]:
+    """Candidate pairs with their ambiguity score, best first, so MAX_PAIRS keeps the best. Nothing is dropped by the band here."""
+    by_id = {i.id: i for i in items}
+    scores = {
+        (a, b): ambiguity(by_id[a], by_id[b], cosine, bodies[a], bodies[b])
+        for (a, b), cosine in _proposals(items, vectors).items()
+        if frozenset((a, b)) not in decided
+    }
+    keys, warnings = _cap(sorted(scores, key=lambda k: (-scores[k], k)))
+    return [(a, b, scores[a, b]) for a, b in keys], warnings
 
 
 VERDICTS = ("duplicate", "wrapper", "overlap", "distinct")

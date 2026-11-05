@@ -11,6 +11,7 @@ import pytest
 from overlap_pairs import PAIRS, evaluate, report
 
 from constellation.anthropic_llm import VERIFIER_MODEL, anthropic_llm
+from constellation.overlaps import BAND_LOW
 from constellation.redact import guarded
 
 EXPECTED = {frozenset({a, b}): expected for a, _, b, _, expected in PAIRS}
@@ -62,3 +63,13 @@ def test_the_real_verifier_flags_overlapping_pairs_accurately():
 
     print("\n" + report(confusion, precision, recall))
     assert precision >= 0.8 and recall >= 0.7  # a regression guard on invented data, not proof of quality on a real setup
+
+
+def test_the_ambiguity_band_keeps_every_non_distinct_labelled_pair():
+    """Recall guard for #18. Real candidates already have a centred cosine of at least 0.5, so the stand-in similarity is the
+    description word cosine floored at that."""
+    from overlap_pairs import ambiguity_scores
+
+    scores = ambiguity_scores()
+    assert min(s for expected, s in scores if expected != "distinct") >= BAND_LOW
+    assert any(s < BAND_LOW for expected, s in scores if expected == "distinct")  # the band does skip something

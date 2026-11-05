@@ -25,7 +25,7 @@ from .cluster import cluster
 from .costs import cache_key, count_texts, measure
 from .hooks import static_hook_texts
 from .models import LLM, Cluster, Cost, Embedder, Item, Overlap, TokenCounter, Weight
-from .overlaps import _parse, announce_cost, candidates, check_one, exact_duplicates, pair_job, verify_flush, verify_plan, wrappers
+from .overlaps import BAND_LOW, _parse, announce_cost, check_one, exact_duplicates, pair_job, rank, verify_flush, verify_plan, wrappers
 from .redact import redact
 
 DEFAULT_CHECKPOINT = Path.home() / ".cache" / "constellation" / "scan.sqlite"
@@ -154,6 +154,8 @@ class State(TypedDict, total=False):
     costs: dict[str, Cost]
     hook_weights: dict[str, Weight]
     local_overlaps: list[Overlap]
+    ranked: list[tuple[str, str, float]]  # candidate Item id pairs with their local ambiguity score, best first
+    routes: Annotated[list[tuple[str, str]], operator.add]  # (pair, one-line reason it was not sent to the verifier)
     pair_jobs: list[tuple[str, str]]  # Item id pairs still to verify
     verdicts: Annotated[list[Overlap], operator.add]
     verdict_replies: Annotated[dict[str, str], operator.or_]  # cache key -> reply
@@ -250,18 +252,31 @@ def local_overlaps(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
 
 
 @_guarded
-def plan_pairs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
+def rank_pairs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
+    """Free, local: order the proposed pairs by ambiguity and keep the verdict-cache hits. Only pairs at or above BAND_LOW
+    and not cached become paid jobs; each skipped pair gets a route reason (the cost rule, written down)."""
     ctx = runtime.context
     if not ctx.verifier:
         return {}
     decided = {frozenset((ctx.rid(o.a_id), ctx.rid(o.b_id))) for o in state["local_overlaps"]}
-    pairs, cap_warnings = candidates(ctx.items, ctx.vectors, decided)
-    cached, jobs = verify_plan(pairs, ctx.items, ctx.bodies, ctx.secrets, ctx.verdict_cache, ctx.verifier_model)
-    if jobs and ctx.on_verify:  # before the first paid call
-        ctx.on_verify(*announce_cost(jobs))
+    ranked, cap_warnings = rank(ctx.items, ctx.vectors, ctx.bodies, decided)
+    score = {(a, b): s for a, b, s in ranked}
+    cached, jobs = verify_plan([(a, b) for a, b, _ in ranked], ctx.items, ctx.bodies, ctx.secrets, ctx.verdict_cache, ctx.verifier_model)
+    sent = [j for j in jobs if score[j["a"].id, j["b"].id] >= BAND_LOW]
+    skipped = [j for j in jobs if score[j["a"].id, j["b"].id] < BAND_LOW]
+    if sent and ctx.on_verify:  # before the first paid call
+        ctx.on_verify(*announce_cost(sent))
     return {
+        "ranked": [(ctx.sid(a), ctx.sid(b), s) for a, b, s in ranked],
+        "routes": [
+            (
+                f"{ctx.sid(j['a'].id)} / {ctx.sid(j['b'].id)}",
+                f"below ambiguity band, {score[j['a'].id, j['b'].id]:.2f} < {BAND_LOW:.2f}",
+            )
+            for j in skipped
+        ],
         "verdicts": [ctx.safe_overlap(o) for o in cached],
-        "pair_jobs": [(ctx.sid(j["a"].id), ctx.sid(j["b"].id)) for j in jobs],
+        "pair_jobs": [(ctx.sid(j["a"].id), ctx.sid(j["b"].id)) for j in sent],
         "warnings": ctx.safe_warnings("overlaps", cap_warnings),
     }
 
@@ -274,7 +289,7 @@ def route_pairs(state: State) -> list[Send] | str:
 @_guarded
 def verify(state: _PairJob, runtime: Runtime[Context]) -> dict[str, Any]:
     ctx = runtime.context
-    assert ctx.verifier  # only reached through a Send from plan_pairs
+    assert ctx.verifier  # only reached through a Send from rank_pairs
     job = pair_job(ctx.item(state["a_id"]), ctx.item(state["b_id"]), ctx.bodies, ctx.secrets, ctx.verifier_model)
     result = check_one(job, ctx.verifier)
     if "warnings" in result:
@@ -312,7 +327,7 @@ def build_graph(checkpointer: Any = None) -> Any:  # shortcut: Any for the compi
     graph = StateGraph(
         State, context_schema=Context
     )  # pragma: no mutate  (the Runtime annotations on the nodes imply it; it documents the split)
-    for node in (plan_labels, label, labels_done, costs, local_overlaps, plan_pairs, verify, verdicts_done, assemble):
+    for node in (plan_labels, label, labels_done, costs, local_overlaps, rank_pairs, verify, verdicts_done, assemble):
         graph.add_node(node)
     graph.add_node("cluster", cluster_items)
     # Parallel branches: three edges out of START run in the same step.
@@ -324,8 +339,8 @@ def build_graph(checkpointer: Any = None) -> Any:  # shortcut: Any for the compi
     )  # pragma: no mutate  (the path list only labels the drawn graph)
     graph.add_edge("label", "labels_done")
     graph.add_edge("labels_done", "cluster")
-    graph.add_edge("local_overlaps", "plan_pairs")
-    graph.add_conditional_edges("plan_pairs", route_pairs, ["verify", "verdicts_done"])  # pragma: no mutate  (only labels the drawn graph)
+    graph.add_edge("local_overlaps", "rank_pairs")
+    graph.add_conditional_edges("rank_pairs", route_pairs, ["verify", "verdicts_done"])  # pragma: no mutate  (only labels the drawn graph)
     graph.add_edge("verify", "verdicts_done")
     graph.add_edge(["cluster", "costs", "verdicts_done"], "assemble")
     graph.add_edge("assemble", END)
@@ -366,7 +381,7 @@ class _Progress:
         for node, update in updates.items():
             if node == "plan_labels" and update:
                 self.total["label"] = len(update["label_jobs"])
-            elif node == "plan_pairs" and update:
+            elif node == "rank_pairs" and update:
                 self.total["verify"] = len(update["pair_jobs"])
             elif node in ("label", "verify"):
                 self.done[node] += 1
