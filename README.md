@@ -44,9 +44,15 @@ constellation scan ~/.claude                   # writes constellation.json (mode
 constellation scan ~/.claude --offline         # no paid or network calls: no labels or verifier, cached token costs only
 constellation scan ~/.claude --no-verify       # skip the stronger model that labels candidate Overlaps
 constellation scan ~/.claude --no-origins      # do not work out where Items came from (no skills lockfile is opened)
+constellation preview ./pack --against constellation.json   # what a downloaded plugin or skill folder would add; nothing run or sent
+constellation delta before.json after.json     # Items, always-on tokens and new Overlaps between two saved scans
 uv run --extra local pytest -m eval -s         # slow clustering quality check with the real embedder
 uv run pytest -m eval -s tests/eval/test_overlap_quality.py   # scores the Overlap verifier on 20 invented pairs (real model, a few cents)
 ```
+
+`preview` reads a folder you downloaded yourself (run `git clone` first; Constellation never fetches anything), refuses symlinks that leave
+it and special files, and never runs a hook or MCP server. Overlap is by same name; add `--meaning` to also compare by meaning with the local
+embedder, which may download its model once from the network (it says so first). `preview` and `delta` call no provider and read no `.env`.
 
 Overlaps: identical instructions and thin wrappers are found locally, embeddings propose similar pairs, and Claude Sonnet 5.5 labels each pair
 from names, descriptions and a few local signals only. File bodies never leave your machine. A real run prints a pair-count and cost estimate
@@ -76,6 +82,7 @@ Everything is read locally. "Taken" is all that leaves the file; the rest is par
 | `<config>/.credentials.json`, `<config>/.env` | secret values only, so they can be scrubbed from everything else | No |
 | `<config>/projects/**/*.jsonl` transcripts (skipped with `--no-usage`) | Item names matched to tool calls, counts and the date | No |
 | `~/.agents/.skill-lock.json` (change with `--skill-lock`; skipped with `--no-origins`) | the `source` of each skill entry only, shortened to 60 safe characters. `sourceUrl`, hashes and dates are never read into anything | No: an origin is never sent to a model, never in a public export |
+| a folder you pass to `preview` | names and descriptions of its skills, agents, commands, MCP entries and hooks, read only, nothing run | No |
 | `.env` in the working directory | `ANTHROPIC_API_KEY` for the run | Only as the API credential |
 | `~/.cache/constellation/*.json` (0600) | Constellation's own caches of labels, Overlap verdicts and token counts | No |
 | `~/.cache/constellation/history.json` (0600, directory 0700) | **Written** by each real `scan` (not by `--dry-run` or `--no-history`): per scan day, the date, the Item and unknown-cost counts, the always-on token total, a hash of the config dir and the sorted 12-character hashes of Item ids. Never names, descriptions, labels, paths, origins, usage, warnings or file bodies (hashed ids keep names out of a long-lived file; they do not stop someone who guesses names). One entry per setup and day (a re-scan replaces it), entries more than 400 days older than the newest are dropped. `open --history FILE` reads another file; delete the file to start over | No |
