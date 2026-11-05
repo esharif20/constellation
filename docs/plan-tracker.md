@@ -429,3 +429,9 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - **Owner APPROVED** the project-label rule: `--project` folder name, else the folder name with the encoded home prefix stripped; the username is never shown. The earlier deviation is closed. Low tier and the paid scope verdict stay not built.
 - Contract only, no logic: `Item.scope`/`Item.project`, `ProjectUsage`, `Constellation.projects`/`usage_by_project`/`current_project`, `scan(project=)`, `read_items(project=)`, `read_usage(project=)` returning a 4th `ProjectUsage` (empty), `Suggestion.project`/`confidence`. Defaults keep behaviour unchanged; brief rows now carry `project`/`confidence` as None. Test proves defaults and that `snapshot()` drops the new keys.
+
+## #66 setup diff (2026-11-04, branch `claude/diff-66`)
+
+- `constellation diff OLD NEW [--json]` (new `src/constellation/diff.py`, `_diff` in `cli.py`, `diff.py` added to `only_mutate`). Reads two saved scans only: no `load_env`, no network, no provider call, exit 2 on a bad file.
+- Matching by id, then by `(kind, name)` when unique among the unmatched on both sides (other machine, shifted `local/<n>/` scope). Changed fields in fixed order `always_on`, `on_use`, `description`, `disabled`; descriptions are compared and never output. Totals sum known always-on only; unknown counted separately.
+- Added a `on-use` shift fragment in the Changed rows (`on-use 5 -> unknown`) alongside `always-on`, mirroring the plan's row shape. No plan deviation. `scan()` and `__init__.py` untouched; `scanned_at` dates show only once #62 writes them (else `unknown date`).
