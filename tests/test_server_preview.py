@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -48,7 +49,9 @@ def client(tmp_path: Path, body: object | None = PREVIEW, raw: bytes | None = No
 
 def test_preview_route_serves_file(tmp_path):
     response = client(tmp_path).get(URL)
-    assert (response.status_code, response.json()) == (200, PREVIEW)
+    shown = {k: v for k, v in PREVIEW.items() if k not in ("counts", "note", "warnings")}
+    shown["items"] = [{"id": "new:s", "kind": "skill", "name": "trace-canvas"}]
+    assert (response.status_code, response.json()) == (200, shown)
 
 
 def test_preview_route_404_without_flag_or_bad_file(tmp_path):
@@ -58,6 +61,21 @@ def test_preview_route_404_without_flag_or_bad_file(tmp_path):
     c = client(tmp_path)
     (tmp_path / "preview.json").unlink()
     assert c.get(URL).status_code == 404
+
+
+def test_preview_route_refuses_deep_nesting_and_fifo(tmp_path):
+    assert client(tmp_path, raw=b"[" * 200000).get(URL).status_code == 404
+    deep = json.dumps(PREVIEW).replace('"counts": {"skill": 1}', '"counts": {"skill": ' + "[" * 200000 + "]" * 200000 + "}")
+    assert client(tmp_path, raw=deep.encode()).get(URL).status_code == 404
+    c = client(tmp_path)
+    (tmp_path / "preview.json").unlink()
+    os.mkfifo(tmp_path / "preview.json")
+    assert c.get(URL).status_code == 404
+
+
+def test_preview_route_does_not_serve_descriptions_or_notes(tmp_path):
+    body = client(tmp_path).get(URL).text
+    assert "Draws traces" not in body and "counts" not in body and "warnings" not in body
 
 
 def test_preview_route_is_local_only(tmp_path):
@@ -132,5 +150,5 @@ def test_open_passes_preview(tmp_path):
     file.write_text(json.dumps(PREVIEW))
     calls = []
     assert main(["open", str(scan), "--preview", str(file), "--no-browser"], serve=lambda app, port, browser: calls.append(app)) == 0
-    assert TestClient(calls[0]).get(URL).json() == PREVIEW
+    assert TestClient(calls[0]).get(URL).json()["pack"] == PREVIEW["pack"]
     assert main(["open", str(scan), "--preview", str(tmp_path / "gone.json")], serve=lambda *a: pytest.fail("must not serve")) == 2

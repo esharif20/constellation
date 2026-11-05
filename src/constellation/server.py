@@ -1,6 +1,8 @@
 import hashlib
 import json
+import os
 import re
+import stat
 import threading
 import unicodedata
 import webbrowser
@@ -113,7 +115,10 @@ def _rows(value: object, cap: int) -> list[Any]:
 
 def _preview_file(path: Path) -> dict[str, Any]:
     """Rebuild a saved install preview field by field. The file is untrusted text: any odd shape, size or character raises ValueError."""
-    with path.open("rb") as handle:
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking, so a FIFO swapped in cannot hang a worker
+    with os.fdopen(fd, "rb") as handle:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("not a regular file")
         raw = handle.read(_PREVIEW_MAX_BYTES + 1)
     if len(raw) > _PREVIEW_MAX_BYTES:
         raise ValueError("too large")
@@ -149,17 +154,20 @@ def _preview_file(path: Path) -> dict[str, Any]:
                 "why": _text(row["why"], 40),
             }
         )
+    for k in counts:  # counts, note and warnings are validated so a bad file is refused whole, but not served
+        _text(k, 40), _count(counts[k])
+    if data["note"] is not None:
+        _text(data["note"], 400)
+    for w in _rows(data["warnings"], 200):
+        _text(w, 200)
     return {
         "version": 1,
         "pack": {"name": _text(pack["name"], 80), "layout": pack["layout"]},
-        "items": items,
-        "counts": {_text(k, 40): _count(v) for k, v in counts.items()},
+        "items": [{k: i[k] for k in ("id", "kind", "name")} for i in items],  # only what the panel shows leaves the server
         "always_on": {k: _count(v) for k, v in totals.items()},
         "overlaps": overlaps,
         "already_installed": _flag(data["already_installed"]),
         "compared": _flag(data["compared"]),
-        "note": None if data["note"] is None else _text(data["note"], 400),
-        "warnings": [_text(w, 200) for w in _rows(data["warnings"], 200)],
     }
 
 
@@ -222,7 +230,11 @@ def create_app(
             if preview is None:
                 raise ValueError
             return _preview_file(preview)
-        except (OSError, ValueError):  # JSONDecodeError and UnicodeDecodeError are ValueErrors
+        except (
+            OSError,
+            ValueError,
+            RecursionError,
+        ):  # deep nesting raises RecursionError; JSONDecodeError and UnicodeDecodeError are ValueErrors
             raise HTTPException(404, "no install preview") from None
 
     @app.get("/api/history", dependencies=[Depends(local_only)])
