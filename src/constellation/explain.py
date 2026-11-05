@@ -5,7 +5,7 @@ from .report import _known_costs, _never_used, _ranked
 from .snapshot import snapshot
 from .suggestions import suggest
 
-PUBLIC_FOOTER = "Shared from Constellation (public summary: no dates, paths or ids)."
+PUBLIC_FOOTER = "Shared from Constellation (public summary: no usage dates, paths or ids)."
 
 
 def explain(data: dict[str, Any], public: bool = False) -> dict[str, Any]:

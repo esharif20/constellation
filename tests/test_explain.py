@@ -19,7 +19,7 @@ def built_app(tmp_path, monkeypatch):
 
 
 def scan(**extra):
-    items = [{"id": i, "kind": "skill", "name": f"item-{n}", "description": "d", "source": "x"} for n, i in enumerate(IDS)]
+    items = [{"id": i, "kind": "skill", "name": f"gizmo-{n}", "description": "d", "source": "x"} for n, i in enumerate(IDS)]
     clusters = [{"name": n, "item_ids": IDS[a:b]} for n, a, b in [("Delta", 0, 1), ("Bravo", 1, 3), ("Alpha", 3, 5), ("Charlie", 5, 8)]]
     overlaps = [
         {"a_id": IDS[0], "b_id": IDS[1], "verdict": "duplicate", "reason": "same"},
@@ -52,8 +52,8 @@ def test_explain_lists_three_largest_clusters_five_costs_unused_and_three_action
     body = get(tmp_path, scan(usage=usage, usage_window=window)).json()
     assert [c["name"] for c in body["clusters"]] == ["Charlie", "Alpha", "Bravo"]
     assert [c["items"] for c in body["clusters"]] == [3, 2, 2]
-    assert [c["name"] for c in body["costs"]] == ["item-5", "item-4", "item-3", "item-2", "item-1"]
-    assert body["costs"][0] == {"name": "item-5", "kind": "skill", "always_on": 60}
+    assert [c["name"] for c in body["costs"]] == ["gizmo-5", "gizmo-4", "gizmo-3", "gizmo-2", "gizmo-1"]
+    assert body["costs"][0] == {"name": "gizmo-5", "kind": "skill", "always_on": 60}
     assert len(body["unused"]) == 5 and len(body["actions"]) == 3
     assert body["window"] == {"files": 4, "days": 10}
     assert (body["items"], body["known"], body["unknown"], body["public"]) == (8, 210, 2, False)
@@ -61,7 +61,7 @@ def test_explain_lists_three_largest_clusters_five_costs_unused_and_three_action
 
 def test_explain_never_counts_unknown_cost_as_zero(tmp_path):
     body = get(tmp_path, scan()).json()
-    assert body["clusters"][0]["always_on"] == 60  # Charlie: item-5 known, 6 and 7 unknown
+    assert body["clusters"][0]["always_on"] == 60  # Charlie: gizmo-5 known, 6 and 7 unknown
     assert body["unknown"] == 2
     none = scan(costs={})
     body = get(tmp_path, none).json()
@@ -80,27 +80,38 @@ def test_explain_ties_are_ordered_by_name(tmp_path):
     data = scan()
     data["costs"] = {i: {"always_on": 5, "on_use": None} for i in IDS}
     data["clusters"] = [{"name": n, "item_ids": [IDS[k]]} for k, n in enumerate(["Zed", "Mid", "Abe", "Kay"])]
-    data["items"][5]["name"] = "item-0"  # a name tie is broken by id
+    data["items"][5]["name"] = "gizmo-0"  # a name tie is broken by id
     body = get(tmp_path, data).json()
     assert [c["name"] for c in body["clusters"]] == ["Abe", "Kay", "Mid"]
-    assert [c["name"] for c in body["costs"]] == ["item-0", "item-0", "item-1", "item-2", "item-3"]
-    assert body["costs"][0]["name"] == "item-0"
+    assert [c["name"] for c in body["costs"]] == ["gizmo-0", "gizmo-0", "gizmo-1", "gizmo-2", "gizmo-3"]
+    assert body["costs"][0]["name"] == "gizmo-0"
 
 
 def test_public_explain_has_no_usage_ids_or_private_text(tmp_path):
+    ghp = "".join(["ghp_", "aB3dE5gH" * 4, "7jK9"])
+    ant = "".join(["sk-ant-", "a1B2c3D4" * 4])
+    leak = f"/Users/demo-person/x a@b.example {ghp} {ant}"
     data = scan(
         usage={i: {"count": 0} for i in IDS},
         usage_window={"files": 4, "first": "2026-10-01", "last": "2026-10-10", "skipped": 0},
+        warnings=["warnmarker-77"],
+        memory_bytes=987654,
+        scope="scopemarker-77",
+        project="projectmarker-77",
     )
-    data["overlaps"][0]["reason"] = "see /Users/demo-person/x and a@b.example"
+    data["overlaps"][0]["reason"] = f"see {leak}"
     data["items"][0]["source"] = "local/1/srv"
+    data["items"][1]["name"] = f"named {leak}"
+    data["items"][2].update(command="commandmarker-77", scope="scopemarker-77", project="projectmarker-77", memory_bytes=987654)
+    data["clusters"][0]["name"] = f"cluster {leak}"
     res = get(tmp_path, data, "?public=true")
     text = res.text
-    for marker in ["/Users/demo-person/x", "a@b.example", "local/1/srv", "2026-10-", *IDS]:
-        assert marker not in text
+    banned = ["/Users/demo-person/x", "a@b.example", ghp, ant, "local/1/srv", "2026-10-", "-77", "987654", *IDS]
+    assert [m for m in banned if m in text] == []
     body = res.json()
     assert body["public"] is True and body["unused"] is None and body["window"] is None
-    assert [a["reason"] for a in body["actions"]].count("") == 0
+    assert set(body) == {"public", "items", "known", "unknown", "clusters", "costs", "unused", "window", "actions", "text"}
+    assert body["actions"] and all(a["reason"].strip() for a in body["actions"])
 
 
 def test_public_explain_has_no_remove_unused_action(tmp_path):
@@ -122,7 +133,7 @@ def test_explain_text_has_fixed_headings_and_public_footer(tmp_path):
     public = get(tmp_path, scan(), "?public=true").json()["text"]
     for text in (local, public):
         assert [line for line in text.splitlines() if line.startswith("#")] == headings
-    footer = "Shared from Constellation (public summary: no dates, paths or ids)."
+    footer = "Shared from Constellation (public summary: no usage dates, paths or ids)."
     assert footer not in local and public.rstrip().endswith(footer)
     assert "Not included in public summaries." in public and "Not included" not in local
 
@@ -144,14 +155,14 @@ def test_render_explain_exact_text_local_and_empty(tmp_path):
         "# My Claude Code setup\n\n"
         "8 items, 210 always-on tokens known, 2 with unknown cost.\n\n"
         "## Largest clusters\n\n- Delta: 1 items, 10 tokens\n\n"
-        "## Costliest always-on\n\n- item-5 (skill): 60 tokens\n- item-4 (skill): 50 tokens\n"
-        "- item-3 (skill): 40 tokens\n- item-2 (skill): 30 tokens\n- item-1 (skill): 20 tokens\n\n"
+        "## Costliest always-on\n\n- gizmo-5 (skill): 60 tokens\n- gizmo-4 (skill): 50 tokens\n"
+        "- gizmo-3 (skill): 40 tokens\n- gizmo-2 (skill): 30 tokens\n- gizmo-1 (skill): 20 tokens\n\n"
         "## Not used lately\n\nChecked 4 transcripts over 10 days.\n\n"
-        "- item-1 (skill): 20 tokens\n- item-0 (skill): 10 tokens\n\n"
+        "- gizmo-1 (skill): 20 tokens\n- gizmo-0 (skill): 10 tokens\n\n"
         "## Three suggested actions\n\n"
-        "- item-1 (skill) was never seen in 4 transcripts (2026-10-01 to 2026-10-10, 10 days). It costs 20 always-on tokens every session."
+        "- gizmo-1 (skill) was never seen in 4 transcripts (2026-10-01 to 2026-10-10, 10 days). It costs 20 always-on tokens every session."
         " Claude Code deletes old transcripts and 0 skipped files were not read, so this is not proof it is unused. (saves 20 tokens)\n"
-        "- item-0 (skill) was never seen in 4 transcripts (2026-10-01 to 2026-10-10, 10 days). It costs 10 always-on tokens every session."
+        "- gizmo-0 (skill) was never seen in 4 transcripts (2026-10-01 to 2026-10-10, 10 days). It costs 10 always-on tokens every session."
         " Claude Code deletes old transcripts and 0 skipped files were not read, so this is not proof it is unused. (saves 10 tokens)\n"
     )
     bare = {"items": [], "clusters": [], "relations": [], "labels": {}, "costs": {}, "overlaps": []}
@@ -181,6 +192,25 @@ def test_render_explain_exact_text_public_and_unknown_costs(tmp_path):
         "## Costliest always-on\n\n- None measured.\n\n"
         "## Not used lately\n\nNot included in public summaries.\n\n"
         "## Three suggested actions\n\n"
-        "- Remove one of these two: item-0 (skill) and item-1 (skill). same (saves cost unknown)\n\n"
-        "Shared from Constellation (public summary: no dates, paths or ids).\n"
+        "- Remove one of these two: gizmo-0 (skill) and gizmo-1 (skill). same (saves cost unknown)\n\n"
+        "Shared from Constellation (public summary: no usage dates, paths or ids).\n"
     )
+
+
+def test_explain_rejects_a_non_local_host(tmp_path):
+    path = tmp_path / "scan.json"
+    path.write_text(json.dumps(scan()))
+    client = TestClient(create_app(path), base_url=BASE_URL)
+    assert client.get("/api/explain", headers={"host": "evil.example:8765"}).status_code == 403
+
+
+def test_explain_public_flag_must_be_boolean_and_defaults_to_private(tmp_path):
+    # Fail-open risk: a missing flag means the PRIVATE summary, so the UI must check response.public before sharing.
+    for query in ("?public=maybe", "?public="):
+        assert get(tmp_path, scan(), query).status_code == 422
+    assert get(tmp_path, scan()).json()["public"] is False
+
+
+def test_explain_404_does_not_show_the_scan_path(tmp_path):
+    res = TestClient(create_app(tmp_path / "missing.json"), base_url=BASE_URL).get("/api/explain")
+    assert res.json() == {"detail": "scan could not be read"}

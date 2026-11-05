@@ -108,7 +108,7 @@ def create_app(scan_file: Path, checklist: Path | None = None, embedder: Embedde
             if not isinstance(data, dict) or not isinstance(data.get("items"), list):
                 raise ValueError
         except (OSError, ValueError):
-            raise HTTPException(404, f"{scan_file} could not be read") from None
+            raise HTTPException(404, "scan could not be read") from None
         return data, brief(data)
 
     @app.get("/api/explain", dependencies=[Depends(local_only)])
