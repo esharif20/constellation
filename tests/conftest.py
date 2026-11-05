@@ -4,6 +4,37 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def no_external_tracing(monkeypatch):
+    """Every test stays offline, including mutants that enable LangSmith tracing."""
+    import requests
+    from langsmith import run_trees, tracing_context
+    from langsmith.client import Client
+
+    class RecordingClient(Client):
+        def __init__(self):
+            self.calls = 0
+
+        def create_run(self, *args, **kwargs):
+            self.calls += 1
+
+        def update_run(self, *args, **kwargs):
+            self.calls += 1
+
+    client = RecordingClient()
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("A real tracing client or external HTTP transport must never be used")
+
+    monkeypatch.setattr(Client, "__init__", forbidden)
+    monkeypatch.setattr(requests.Session, "request", forbidden)
+    monkeypatch.setattr(run_trees, "get_cached_client", lambda **kwargs: client)
+    monkeypatch.setattr(run_trees, "_get_write_replicas_from_env", lambda: [])
+    with tracing_context(enabled=False, client=client):
+        yield client
+    assert client.calls == 0, "The application must disable external tracing"
+
+
+@pytest.fixture(autouse=True)
 def private_default_caches(tmp_path_factory, monkeypatch):
     """No test may read or write the real ~/.cache; each test gets fresh default cache files."""
     root = tmp_path_factory.mktemp("default-caches")

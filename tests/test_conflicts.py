@@ -256,3 +256,18 @@ def test_three_skills_share_multiple_phrases():
             "reason": '3 skills claim the phrase "write notes", so either may answer it.',
         },
     ]
+
+
+@pytest.mark.parametrize("kind, expected_kind", [("hook", "hook"), ("mcp_server", "mcp_name"), ("skill", "trigger")])
+def test_disabled_item_does_not_hide_later_conflicts(kind, expected_kind):
+    data = {
+        "items": [
+            {"id": "disabled", "kind": kind, "name": "same", "description": '"write notes"', "disabled": True},
+            {"id": "a", "kind": kind, "name": "same", "description": '"write notes"'},
+            {"id": "b", "kind": kind, "name": "same", "description": '"write notes"'},
+        ]
+    }
+    result = conflicts(data)
+    assert len(result) == 1
+    assert result[0]["kind"] == expected_kind
+    assert result[0]["item_ids"] == ["a", "b"]

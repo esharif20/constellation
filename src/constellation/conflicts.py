@@ -11,16 +11,14 @@ def conflicts(data: dict[str, Any]) -> list[dict[str, Any]]:
     # tool-name collisions need Expansion (#9) mcp_tool Items
     contained = {relation["target"] for relation in data.get("relations", []) if relation["kind"] == "contains"}
     for item in data["items"]:
-        if item.get("disabled", False):
+        if item.get("disabled"):
             continue
         if item["kind"] == "hook":
             hooks.setdefault(item["name"], []).append(item["id"])
         elif item["kind"] == "mcp_server" and item["id"] not in contained:
             servers.setdefault(item["name"], []).append(item["id"])
-        elif item["kind"] == "skill":
-            unique_phrases = {
-                " ".join(quoted.lower().split()) for quoted in re.findall(r'["“]([^"”]{3,80})["”]', item.get("description", ""))
-            }
+        elif item["kind"] == "skill" and "description" in item:
+            unique_phrases = {" ".join(quoted.lower().split()) for quoted in re.findall(r'["“]([^"”]{3,80})["”]', item["description"])}
             for phrase in unique_phrases:
                 if len(phrase.split()) >= 2:
                     phrases.setdefault(phrase, []).append(item["id"])

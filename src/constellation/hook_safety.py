@@ -17,7 +17,7 @@ def hook_safety(data: dict[str, Any]) -> list[dict[str, Any]]:
     mcp_hooks = {relation["source"] for relation in data.get("relations", []) if relation["kind"] == "triggers"}
     rows = []
     for item in data.get("items", []):
-        if item["kind"] != "hook" or item.get("disabled", False):
+        if item["kind"] != "hook" or item.get("disabled"):
             continue
         parts = item["name"].split(":", 1)
         weight = data.get("hook_weights", {}).get(item["id"], {})

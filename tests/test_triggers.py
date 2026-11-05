@@ -25,9 +25,12 @@ def test_never_fired_skill_flagged():
 
 
 def test_no_window_returns_empty():
-    assert trigger_audit({"items": [], "usage": {}}) == {"files": 0, "rows": []}
-    assert trigger_audit({"items": [], "usage": {}, "usage_window": None}) == {"files": 0, "rows": []}
-    assert trigger_audit({"items": [], "usage": {}, "usage_window": {"files": 0}}) == {"files": 0, "rows": []}
+    data = _audit_data([0, 1, 1, 1, 30])
+    del data["usage_window"]
+    assert trigger_audit(data) == {"files": 0, "rows": []}
+    for window in (None, {}, {"files": 0}):
+        data["usage_window"] = window
+        assert trigger_audit(data) == {"files": 0, "rows": []}
 
 
 def test_greedy_boundary_min():
@@ -159,6 +162,15 @@ def test_even_positive_median():
     data = _audit_data([2, 4, 8, 24])
 
     assert [row["count"] for row in trigger_audit(data)["rows"] if "greedy" in row["flags"]] == [24]
+    assert trigger_audit(_audit_data([2, 4, 8, 23]))["rows"] == []
+
+
+def test_zero_counts_do_not_lower_the_positive_median():
+    assert trigger_audit(_audit_data([0, 0, 0, 1, 20]))["rows"] == [
+        {"id": "skill-0", "name": "skill-0", "count": 0, "last_used": None, "flags": ["never"]},
+        {"id": "skill-1", "name": "skill-1", "count": 0, "last_used": None, "flags": ["never"]},
+        {"id": "skill-2", "name": "skill-2", "count": 0, "last_used": None, "flags": ["never"]},
+    ]
 
 
 def test_audit_has_no_descriptions():

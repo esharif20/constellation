@@ -146,3 +146,14 @@ def test_disabled_hooks_omitted():
 def test_empty_scan_has_no_hooks():
     assert hook_safety({}) == []
     assert hook_safety({"items": [], "relations": [], "hook_weights": {}}) == []
+
+
+def test_one_byte_hook_ranks_before_zero_byte_hook():
+    data = {
+        "items": [
+            {"id": "zero", "kind": "hook", "name": "UserPromptSubmit:A"},
+            {"id": "one", "kind": "hook", "name": "UserPromptSubmit:Z"},
+        ],
+        "hook_weights": {"zero": {"bytes": 0}, "one": {"bytes": 1}},
+    }
+    assert [row["id"] for row in hook_safety(data)] == ["one", "zero"]
