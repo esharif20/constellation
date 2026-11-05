@@ -285,3 +285,12 @@ export function budget(nodes: GNode[], removed: ReadonlySet<GNode> = new Set()):
   }
   return b;
 }
+
+// What-if: the picked Items plus everything they contain (a plugin takes its skills, hooks and servers). A visited set ends cycles.
+export function withContents(model: Pick<Model, "links">, picked: ReadonlySet<GNode>): Set<GNode> {
+  const out = new Set(picked), todo = [...picked];
+  for (let n = todo.pop(); n; n = todo.pop()) {
+    for (const l of model.links) if (l.kind === "contains" && l.source === n && !out.has(l.target)) { out.add(l.target); todo.push(l.target); }
+  }
+  return out;
+}

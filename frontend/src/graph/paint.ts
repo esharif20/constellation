@@ -24,7 +24,7 @@ export const FEEL = {
 
 // cluster: the focused cluster; flying: the camera is on its way (labels wait); landAt: when it landed (Infinity until then);
 // nameHover: the cluster whose name is under the pointer; tip: the star whose tooltip is showing (its canvas name is hidden then)
-export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; scope: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null; tip: GNode | null };
+export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; scope: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null; tip: GNode | null; removed: Set<GNode> | null }; // removed: what-if ghosts
 
 // Colours added after the first look. Each is read from a CSS variable when the stylesheet defines it, else the fallback.
 const PALETTE = { overlap: "#ff5fd2" }; // hot magenta: Overlap links are one family apart from the recessive Relation hairlines
@@ -52,7 +52,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const ink = readInk();
   const colorOf = new Map(model.nodes.map((n) => [n, ink.color(n.kind)]));
   const sprites = new Map<string, HTMLCanvasElement>();
-  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, scope: null, keyFocus: false, cluster: null, flying: false, landAt: Infinity, nameHover: null, tip: null };
+  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, scope: null, keyFocus: false, cluster: null, flying: false, landAt: Infinity, nameHover: null, tip: null, removed: null };
   // fitK: zoom at which the whole map fits (label levels are relative to it); top/bottom/right: px that the top bar,
   // legend and inspector cover, so canvas text keeps out from under them (measured by StarMap)
   // tip: the open tooltip's screen box (names keep out of it)
@@ -126,7 +126,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     for (const n of model.nodes) {
       // in focus a lit neighbour outside the cluster only rises to 0.6, so the cluster stays the subject (search matches stay at 1)
       const base = (fc && n.cluster !== fc) || (focus.scope && !focus.scope.has(n)) ? FEEL.focusDim : 1, up = fc && n.cluster !== fc && !m?.has(n) ? 0.6 : 1;
-      n.a = ease(n.a, now < n.born ? 0 : lit ? (lit.has(n) ? up : ink.fade) : base, lit || !slow ? k : kf);
+      n.a = ease(n.a, (now < n.born ? 0 : lit ? (lit.has(n) ? up : ink.fade) : base) * (focus.removed?.has(n) ? 0.35 : 1), lit || !slow ? k : kf);
       n.s = ease(n.s, n === f ? FEEL.hoverScale : 1, k);
     }
     for (const l of model.links) {
@@ -134,14 +134,14 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       const on = f && !pure ? inc || (!!m && m.has(l.source) && m.has(l.target)) : !lit || (lit.has(l.source) && lit.has(l.target));
       l.hot = inc && on;
       const rest = !fc || lit ? 1 : l.source.cluster === fc && l.target.cluster === fc ? 1 : l.source.cluster === fc || l.target.cluster === fc ? 0.35 : 0.06;
-      l.a = ease(l.a, Math.min(l.source.a, l.target.a) > 0.05 ? (on ? rest : ink.fade * 0.5) : 0, lit || !slow ? k : kf);
+      l.a = ease(l.a, Math.min(l.source.a, l.target.a) > 0.05 && !focus.removed?.has(l.source) && !focus.removed?.has(l.target) ? (on ? rest : ink.fade * 0.5) : 0, lit || !slow ? k : kf);
     }
     for (const o of model.overlaps) {
       // at rest only the actionable verdicts show; any focus shows its own Overlaps and hides the rest; a search hides all
       const rest = o.verdict === "overlap" ? 0 : o.a.cluster === o.b.cluster ? 0.55 : 0.28;
       const inside = fc ? (o.a.cluster === fc ? 1 : 0) + (o.b.cluster === fc ? 1 : 0) : 0; // in focus every verdict of the cluster shows, "overlap" included
       const target = f ? (o.a === f || o.b === f ? 1 : 0) : m ? 0 : fc ? [0, 0.15, 0.7][inside] : rest;
-      o.alpha = ease(o.alpha, target, f || m || !slow ? k : kf);
+      o.alpha = ease(o.alpha, focus.removed?.has(o.a) || focus.removed?.has(o.b) ? 0 : target, f || m || !slow ? k : kf);
     }
     const hk = lk = reducedMotion ? 1 : 1 - Math.exp(-dt / FEEL.labelMs);
     for (const c of model.clusters) {
@@ -184,7 +184,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     // glows are additive so dense regions bloom
     ctx.globalCompositeOperation = "lighter";
     for (const n of model.nodes) {
-      if (n.a < 0.01 || (focus.flying && n.a < 0.15)) continue;
+      if (n.a < 0.01 || (focus.flying && n.a < 0.15) || focus.removed?.has(n)) continue; // a ghost has no glow
       const R = radius(n, k) * FEEL.glow;
       ctx.globalAlpha = n.a * (n === f ? 1 : 0.85) * (n.unknown ? 0.4 : 1);
       ctx.drawImage(sprite(colorOf.get(n)!), n.x! - R, n.y! - R, 2 * R, 2 * R);
@@ -249,7 +249,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     ctx.fillStyle = ctx.strokeStyle = c;
     // Unknown cost is a dashed outline with no fill and no white core (zero is a filled star at the floor size), so the
     // difference survives colour-blindness and greyscale. A plugin ring just turns dashed and keeps its centre dot.
-    const unk = n.unknown, line = unk ? 1.3 * px : 0;
+    const unk = n.unknown || !!focus.removed?.has(n), line = unk ? 1.3 * px : 0;
     if (unk) ctx.setLineDash([2 * px, 2 * px]);
     ctx.beginPath();
     if (n.shape === "ring") {
@@ -347,6 +347,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     const sel = focus.selected, cost = (n: GNode) => n.cost?.always_on ?? -1;
     for (const n of model.nodes) {
       const isSel = n === sel;
+      if (focus.removed?.has(n) && !isSel) { n.la = 0; continue; } // a ghost has no canvas name
       if ((lit && !lit.has(n) && !isSel) || (fc && n.cluster !== fc && !lit && !isSel) || (n === f && focus.tip === f)) { n.la = 0; continue; } // dimmed names are noise; a hovered star's name is its tooltip
       const start = labelStart(n.degree, n.r, n.unknown, model.heavyR); // hubs at the fitted view, leaves from 1.3x (names.ts)
       const litOn = !!lit?.has(n) && n.a > 0.5;
