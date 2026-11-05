@@ -77,8 +77,21 @@ def scan(
     if offline:
         warnings.append("Offline: no labels or model-checked Overlaps; token costs shown only if already cached.")
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))
+    # shortcut: user CLAUDE.md only, no @imports or project CLAUDE.md; upgrade when the scan reads projects (#43)
+    memory = Path(config_dir) / "CLAUDE.md"
+    memory_bytes = memory.stat().st_size if memory.is_file() else None  # stat only: the text is never opened
     return Constellation(
-        items, warnings, relations, labels, clusters, costs, overlaps, usage=usages, usage_window=window, hook_weights=weights
+        items,
+        warnings,
+        relations,
+        labels,
+        clusters,
+        costs,
+        overlaps,
+        usage=usages,
+        usage_window=window,
+        hook_weights=weights,
+        memory_bytes=memory_bytes,
     )
 
 

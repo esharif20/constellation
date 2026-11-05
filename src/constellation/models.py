@@ -80,3 +80,4 @@ class Constellation:
     hook_weights: dict[str, Weight] = field(default_factory=dict)  # hook Item id -> what it injects at SessionStart / UserPromptSubmit
     usage: dict[str, Usage] = field(default_factory=dict)
     usage_window: UsageWindow | None = None
+    memory_bytes: int | None = None  # size of the user CLAUDE.md, from stat only; None when absent

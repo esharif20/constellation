@@ -28,6 +28,14 @@ _Avoid_: Edge, connection, dependency
 A pair of Items that do the same or a similar job. Each Overlap carries a verdict: duplicate, wrapper, overlap, or distinct.
 _Avoid_: Conflict, clash, similarity
 
+**Lens**:
+A read-only view computed from the saved scan at request time (like the cleanup brief), with no provider call and nothing added to the public Snapshot. Served together by `GET /api/lenses`.
+_Avoid_: Report, dashboard, panel
+
+**Session-start receipt**:
+The Lens listing what loads before the first prompt: hooks, CLAUDE.md, always-on descriptions and MCP tool schemas, with tokens, bytes or unknown for each and a total of the known tokens.
+_Avoid_: Invoice, bill, budget
+
 **Expansion**:
 Opening one Item to fetch its detail on demand, for example listing the tools behind an MCP server.
 _Avoid_: Drill-down, zoom, details view

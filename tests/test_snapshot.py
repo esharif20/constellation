@@ -464,3 +464,7 @@ def test_snapshot_replaces_model_text_derived_from_executable_items():
     assert out["labels"] == {"item-1": "Hook", "item-2": "MCP server", "item-3": "Does demo"}
     assert [c["name"] for c in out["clusters"]] == ["Executable setup", "Demos"]
     assert [o["reason"] for o in out["overlaps"]] == ["Involves an executable setup item.", "Both demo"]
+
+
+def test_snapshot_drops_memory_bytes():
+    assert "memory_bytes" not in snapshot({"items": [], "memory_bytes": 9})
