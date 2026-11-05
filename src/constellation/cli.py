@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import importlib.util
 import json
 import os
@@ -16,7 +17,9 @@ from . import origins as origin_sources
 from . import scan
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
+from .diff import diff_scans, render_diff
 from .env import load_env
+from .expansion import Query, expand
 from .models import LLM, Constellation, Embedder, TokenCounter
 from .overlaps import estimate_cost
 from .public_export import LIMITS, NOTICE, write_snapshot
@@ -35,6 +38,7 @@ def main(
     counter: TokenCounter | None = None,
     verifier: LLM | None = None,
     serve: Serve | None = None,
+    expansion_query: Query | None = None,
     decide: Callable[[Suggestion], str] | None = None,  # returns "a", "s" or "q"; the default asks on stdin
 ) -> int:
     parser = argparse.ArgumentParser(prog="constellation")
@@ -47,6 +51,7 @@ def main(
         "--skill-lock", type=Path, help="the skills installer lockfile to read `source` from (default ~/.agents/.skill-lock.json)"
     )
     scan_command.add_argument("--out", type=Path, default=Path("constellation.json"))
+    scan_command.add_argument("--project", type=Path, help="also read this repo's .claude/ folder and .mcp.json as project-scope Items")
     scan_command.add_argument(
         "--count-bodies",
         action="store_true",
@@ -61,6 +66,11 @@ def main(
     open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     open_command.add_argument("--port", type=int, default=8765)
     open_command.add_argument("--no-browser", action="store_true")
+    open_command.add_argument("--config-dir", type=Path, help="enable live MCP tool listing from this config root")
+    expand_command = commands.add_parser("expand", help="list the tools of one configured local MCP server")
+    expand_command.add_argument("item_id")
+    expand_command.add_argument("--config-dir", type=Path, required=True)
+    expand_command.add_argument("--file", type=Path, default=Path("constellation.json"))
     open_command.add_argument("--checklist", type=Path, help="private cleanup checklist path (outside the Claude setup)")
     report_command = commands.add_parser(
         "report", help="print a plain-text report of a saved scan (reads the file only; no network, no cost)"
@@ -80,19 +90,40 @@ def main(
     review_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     review_command.add_argument("--out", type=Path, default=Path("cleanup.md"), help="the checklist to write")
     review_command.add_argument("--force", action="store_true", help="overwrite an existing checklist")
+    diff_command = commands.add_parser("diff", help="list Items added, removed or changed between two saved scans (reads the files only)")
+    diff_command.add_argument("old", type=Path)
+    diff_command.add_argument("new", type=Path)
+    diff_command.add_argument("--json", action="store_true", help="print the diff as JSON")
     args = parser.parse_args(argv)
+    if args.command == "diff":
+        return _diff(args)  # reads the files only, so it skips load_env
     if args.command == "export":
         return _export(args)
+    if args.command == "expand":
+        data = _load_scan(args.file)
+        if data is None:
+            return 2
+        try:
+            expansion_result = asyncio.run(expand(data, args.item_id, args.config_dir, expansion_query))
+        except (KeyError, ValueError):
+            print("Unknown Item or invalid scan/config input.", file=sys.stderr)
+            return 2
+        print(json.dumps(asdict(expansion_result), indent=2))
+        return 0
     if args.command == "review":
         return _review(args, decide)  # reads the scan file only, so it skips load_env
     if args.command == "report":
         return _report(args)  # reads the file only, so it skips load_env
     if args.command == "open":
-        return _open(args, serve)  # serving never needs the API key, so it skips load_env
+        return _open(args, serve, expansion_query)  # serving never needs the API key, so it skips load_env
     load_env()  # a .env file in the working directory may hold ANTHROPIC_API_KEY
 
     if not args.config_dir.is_dir():
         print(f"{args.config_dir} is not a directory.", file=sys.stderr)
+        return 2
+
+    if args.project is not None and not args.project.is_dir():
+        print("--project must be a directory.", file=sys.stderr)
         return 2
 
     lockfile = args.skill_lock or origin_sources.DEFAULT_LOCKFILE
@@ -155,6 +186,7 @@ def main(
             usage=not args.no_usage,
             origins=not args.no_origins,
             lockfile=args.skill_lock,
+            project=args.project,
         )
     if args.dry_run:
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
@@ -168,7 +200,7 @@ def main(
         first = next((w for w in result.warnings if FAILED_PREFIX in w), "unknown")
         print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1
-    _write(result, args.out, read_secrets(args.config_dir))
+    _write(result, args.out, read_secrets(args.config_dir, args.project))
     return 0
 
 
@@ -220,7 +252,7 @@ def _review(args: argparse.Namespace, decide: Callable[[Suggestion], str] | None
         return 2
     suggestions = suggest(data)
     if not suggestions:
-        print("No Suggestions: no duplicate or wrapper Overlaps found.")
+        print("No Suggestions found.")
         return 0
     decide = decide or _ask_stdin
     by_id = {s.id: s for s in suggestions}
@@ -248,6 +280,19 @@ def _review(args: argparse.Namespace, decide: Callable[[Suggestion], str] | None
     return 0
 
 
+def _diff(args: argparse.Namespace) -> int:
+    old, new = _load_scan(args.old), _load_scan(args.new)
+    if old is None or new is None:
+        return 2
+    d = diff_scans(old, new)
+    if args.json:
+        print(json.dumps(d, indent=2))
+    else:
+        color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
+        print(render_diff(d, color=color, width=max(40, min(shutil.get_terminal_size().columns, 100))), end="")
+    return 0
+
+
 def _report(args: argparse.Namespace) -> int:
     data = _load_scan(args.file)
     if data is None:
@@ -263,7 +308,7 @@ def _report(args: argparse.Namespace) -> int:
     return 0
 
 
-def _open(args: argparse.Namespace, serve: Serve | None) -> int:
+def _open(args: argparse.Namespace, serve: Serve | None, expansion_query: Query | None) -> int:
     if not args.file.is_file():
         print(f"{args.file} not found; run `constellation scan` first.", file=sys.stderr)
         return 2
@@ -276,7 +321,7 @@ def _open(args: argparse.Namespace, serve: Serve | None) -> int:
         print(server.BUILD_HINT, file=sys.stderr)
         return 2
     try:
-        app = server.create_app(args.file, checklist=args.checklist)
+        app = server.create_app(args.file, checklist=args.checklist, config_dir=args.config_dir, expansion_query=expansion_query)
     except (OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 2

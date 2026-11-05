@@ -16,7 +16,11 @@ from . import retrieve
 from .brief import append_line, brief, checklist_ids, frees
 from .chat import LocalChat
 from .embeddings import fastembed_embedder
+from .expansion import Query as ExpansionQuery
+from .expansion import expand
+from .explain import explain, render_explain
 from .models import Embedder
+from .receipt import receipt
 from .report import _known_costs
 from .suggestions import Suggestion
 
@@ -25,6 +29,11 @@ STATIC = Path(__file__).parent / "static"  # the frontend build (`npm --prefix f
 BUILD_HINT = "the graph app is not built; run `npm --prefix frontend install && npm --prefix frontend run build`."
 DEFAULT_CHECKLIST = Path.home() / ".cache" / "constellation" / "checklist.md"
 _CHECKLIST_LOCK = threading.Lock()
+
+
+class ExpansionEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: str
 
 
 class ChecklistEntry(BaseModel):
@@ -75,7 +84,14 @@ def _checklist_path(checklist: Path, scan_file: Path) -> Path:
     return path
 
 
-def create_app(scan_file: Path, checklist: Path | None = None, embedder: Embedder | None = None) -> FastAPI:
+def create_app(
+    scan_file: Path,
+    checklist: Path | None = None,
+    embedder: Embedder | None = None,
+    *,
+    config_dir: Path | None = None,
+    expansion_query: ExpansionQuery | None = None,
+) -> FastAPI:
     checklist = DEFAULT_CHECKLIST if checklist is None else checklist
     _checklist_path(checklist, scan_file)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -107,8 +123,19 @@ def create_app(scan_file: Path, checklist: Path | None = None, embedder: Embedde
             if not isinstance(data, dict) or not isinstance(data.get("items"), list):
                 raise ValueError
         except (OSError, ValueError):
-            raise HTTPException(404, f"{scan_file} could not be read") from None
+            raise HTTPException(404, "scan could not be read") from None
         return data, brief(data)
+
+    @app.get("/api/lenses", dependencies=[Depends(local_only)])
+    def get_lenses() -> dict[str, Any]:
+        data, _ = read_brief()
+        return {"receipt": receipt(data)}
+
+    @app.get("/api/explain", dependencies=[Depends(local_only)])
+    def get_explain(public: bool = False) -> dict[str, Any]:
+        data, _ = read_brief()
+        summary = explain(data, public)
+        return {**summary, "text": render_explain(summary)}
 
     def checklist_state(data: dict[str, Any]) -> dict[str, Any]:
         path = _checklist_path(checklist, scan_file)
@@ -150,6 +177,19 @@ def create_app(scan_file: Path, checklist: Path | None = None, embedder: Embedde
         except (OSError, ValueError) as error:
             raise HTTPException(500, f"Could not write checklist {checklist}: {error}") from None
         return {"added": added, **state}
+
+    @app.post("/api/expand", dependencies=[Depends(local_only)])
+    async def expand_item(entry: ExpansionEntry) -> Any:
+        try:
+            data = json.loads(scan_file.read_text())
+        except (OSError, ValueError):
+            raise HTTPException(404, "The scan could not be read") from None
+        try:
+            return await expand(data, entry.id, config_dir, expansion_query)
+        except KeyError:
+            raise HTTPException(404, "Unknown Item") from None
+        except ValueError:
+            raise HTTPException(422, "Invalid scan/config input") from None
 
     def read_items() -> dict[str, Any]:
         try:

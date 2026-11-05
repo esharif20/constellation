@@ -24,7 +24,7 @@ export const FEEL = {
 
 // cluster: the focused cluster; flying: the camera is on its way (labels wait); landAt: when it landed (Infinity until then);
 // nameHover: the cluster whose name is under the pointer; tip: the star whose tooltip is showing (its canvas name is hidden then)
-export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null; tip: GNode | null };
+export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; scope: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null; tip: GNode | null };
 
 // Colours added after the first look. Each is read from a CSS variable when the stylesheet defines it, else the fallback.
 const PALETTE = { overlap: "#ff5fd2" }; // hot magenta: Overlap links are one family apart from the recessive Relation hairlines
@@ -52,7 +52,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const ink = readInk();
   const colorOf = new Map(model.nodes.map((n) => [n, ink.color(n.kind)]));
   const sprites = new Map<string, HTMLCanvasElement>();
-  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, keyFocus: false, cluster: null, flying: false, landAt: Infinity, nameHover: null, tip: null };
+  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, scope: null, keyFocus: false, cluster: null, flying: false, landAt: Infinity, nameHover: null, tip: null };
   // fitK: zoom at which the whole map fits (label levels are relative to it); top/bottom/right: px that the top bar,
   // legend and inspector cover, so canvas text keeps out from under them (measured by StarMap)
   // tip: the open tooltip's screen box (names keep out of it)
@@ -125,7 +125,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     } else lit = m;
     for (const n of model.nodes) {
       // in focus a lit neighbour outside the cluster only rises to 0.6, so the cluster stays the subject (search matches stay at 1)
-      const base = fc && n.cluster !== fc ? FEEL.focusDim : 1, up = fc && n.cluster !== fc && !m?.has(n) ? 0.6 : 1;
+      const base = (fc && n.cluster !== fc) || (focus.scope && !focus.scope.has(n)) ? FEEL.focusDim : 1, up = fc && n.cluster !== fc && !m?.has(n) ? 0.6 : 1;
       n.a = ease(n.a, now < n.born ? 0 : lit ? (lit.has(n) ? up : ink.fade) : base, lit || !slow ? k : kf);
       n.s = ease(n.s, n === f ? FEEL.hoverScale : 1, k);
     }

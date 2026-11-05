@@ -269,3 +269,9 @@ def test_stop_words_and_short_tokens_never_name_a_cluster_but_ai_and_ui_may(tmp_
     assert _together(["ab-one", "ab-two"], tmp_path) in {"ab-one", "ab-two"}
     assert _together(["ai-one", "ai-two"], tmp_path) == "ai"
     assert _together(["ui-one", "ui-two"], tmp_path) == "ui"
+
+
+def test_common_name_orders_tied_tokens_by_first_appearance():
+    from constellation.cluster import _common_name
+
+    assert _common_name(["2026-zeta", "2026-zeta"]) == "2026 zeta"

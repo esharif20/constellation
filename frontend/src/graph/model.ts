@@ -2,7 +2,8 @@
 import { layout } from "./layout.ts";
 import { searchItems } from "./search.ts";
 
-export type Item = { id: string; kind: string; name: string; description: string; source: string; disabled?: boolean };
+export type Item = { id: string; kind: string; name: string; description: string; source: string; disabled?: boolean;
+  origin?: string | null; scope?: string; project?: string | null }; // local display data; scope is "global" or "project"
 export type Relation = { source: string; target: string; kind: string };
 export type Cost = { always_on: number | null; on_use: number | null };
 export type Usage = { count: number; last_used: string | null };
@@ -19,14 +20,20 @@ export type Constellation = {
   usage?: Record<string, Usage>; // only skills, agents and MCP servers/connectors have an entry; no entry means not tracked, not 0
   usage_window?: UsageWindow | null;
   hook_weights?: Record<string, Weight>;
+  projects?: Record<string, string>; // opaque key -> display label; local only, never sent anywhere
+  usage_by_project?: Record<string, Record<string, Usage>>; // Item id -> project key -> Usage
+  current_project?: string | null; // key of the repo the scan was run for
 };
 export type Verdict = "duplicate" | "wrapper" | "overlap" | "distinct";
 export type Overlap = { a_id: string; b_id: string; verdict: Verdict; reason: string };
 
-export type BriefRow = { id: string; kind: "review_cost" | "remove_duplicate" | "use_underlying"; item_ids: string[]; removes: string | null; reason: string; tokens_saved: number | null };
+export type BriefRow = { id: string; kind: "review_cost" | "remove_duplicate" | "use_underlying" | "move_to_project"; item_ids: string[]; removes: string | null; reason: string; tokens_saved: number | null; project?: string | null; project_label?: string | null; confidence?: string | null };
 export type BriefGroup = { rows: BriefRow[]; unknown: number; unknown_rows: number; frees: number | null };
 export type Checklist = { path: string; ids: string[]; frees: number | null; unknown_rows: number };
-export type BriefData = { cost: BriefGroup & { measured: boolean }; pairs: BriefGroup; checklist?: Checklist };
+export type BriefData = { cost: BriefGroup & { measured: boolean }; pairs: BriefGroup; scope?: { rows: BriefRow[]; caveat: string }; checklist?: Checklist };
+
+// The scope filter: which stars stay lit. "repo" is only offered when the scan knows its repo.
+export type Scope = "all" | "global" | "repo";
 
 export type Shape = "dot" | "ring" | "diamond" | "square" | "triangle";
 export type GNode = Item & {
@@ -38,6 +45,7 @@ export type GNode = Item & {
   cluster?: Cluster;
   cost?: Cost;
   usage?: Usage;
+  byProject?: Record<string, Usage>; // uses per project key; labels live in Model.projects
   weight?: Weight;
   // simulation and animation state, mutated in place each frame (never React state)
   x?: number; y?: number; vx?: number; vy?: number; fx?: number; fy?: number;
@@ -50,7 +58,7 @@ export type GOverlap = { a: GNode; b: GNode; verdict: Exclude<Verdict, "distinct
 export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot: boolean };
 // la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
 export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number; a: number; la: number; lx: number; ly: number; pick: number; slug: string; box: [number, number, number, number]; hit: boolean }; // slug: the #cluster= deep link; box/hit: where its name was last drawn on screen (paint.ts post), for clicks
-export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; heavyR: number; usageWindow: UsageWindow | null; warnings: string[]; offline: boolean; offlineNote: string };
+export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; heavyR: number; usageWindow: UsageWindow | null; projects: Record<string, string>; currentProject: string | null; warnings: string[]; offline: boolean; offlineNote: string };
 
 // Star radius from always-on cost, area-proportional (magnitude by area, not radius). cRef is the scan's 95th percentile,
 // so one huge MCP server cannot shrink everything else. Unknown cost gets its own middling size (and is drawn hollow).
@@ -83,7 +91,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   const tall = Math.max(0.55, Math.min(2, aspect)); // wide screens spread the clusters sideways, tall ones downwards
   const byId = new Map<string, GNode>();
   const nodes = data.items.map((it) => {
-    const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, unknown: false, cost: costs[it.id], usage: data.usage?.[it.id], weight: data.hook_weights?.[it.id], a: 0, s: 1, born: 0, la: 0, sx: 0, sy: 0 };
+    const n: GNode = { ...it, label: labels[it.id] ?? "", shape: SHAPE[it.kind] ?? "dot", degree: 0, r: 0, unknown: false, cost: costs[it.id], usage: data.usage?.[it.id], byProject: data.usage_by_project?.[it.id], weight: data.hook_weights?.[it.id], a: 0, s: 1, born: 0, la: 0, sx: 0, sy: 0 };
     byId.set(n.id, n);
     return n;
   });
@@ -136,7 +144,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   });
   const offlineNote = (data.warnings ?? []).find((w) => w.startsWith("Offline")) ?? "";
   layout(nodes, links, clusters, tall);
-  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, heavyR, usageWindow: data.usage_window ?? null, warnings: data.warnings ?? [], offline: offlineNote !== "", offlineNote };
+  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, heavyR, usageWindow: data.usage_window ?? null, projects: data.projects ?? {}, currentProject: data.current_project ?? null, warnings: data.warnings ?? [], offline: offlineNote !== "", offlineNote };
 }
 
 // Forgiving search (stopgap until #40/#41); see search.ts for the ranking.
@@ -246,4 +254,34 @@ export function tipBadges(n: GNode, model: Pick<Model, "overlapsOf">): { disable
   const best = ["Duplicate", "Wraps", "Wrapped by", "Overlaps"].find((r) => os.some((o) => role(o) === r));
   const count = best ? os.filter((o) => role(o) === best).length : 0;
   return { disabled: !!n.disabled, overlap: best ? (count > 1 ? `${best} ${count}` : best) : null };
+}
+
+// The scope filter is offered only when the scan carries project data. "This repo" is what lives in the scanned repo, plus global Items
+// used there; it needs current_project.
+export const hasScopes = (m: Pick<Model, "nodes" | "projects">) => Object.keys(m.projects).length > 0 || m.nodes.some((n) => n.scope === "project");
+export function scopeSet(m: Pick<Model, "nodes" | "currentProject">, scope: Scope): Set<GNode> | null {
+  if (scope === "all") return null;
+  const cur = m.currentProject;
+  return new Set(m.nodes.filter((n) => scope === "global" ? n.scope !== "project" : n.scope === "project" ? n.project == null || n.project === cur : !!cur && (n.byProject?.[cur]?.count ?? 0) > 0));
+}
+
+// "9 in dev-constellation, 1 in another": the current repo and named projects first, labels local. Null when the Item has no per-project counts.
+export function projectUses(n: Pick<GNode, "byProject">, m: Pick<Model, "projects" | "currentProject">): { label: string; count: number; current: boolean }[] | null {
+  const rows = Object.entries(n.byProject ?? {}).filter(([, u]) => u.count > 0).map(([k, u]) => ({ label: m.projects[k] ?? "another project", count: u.count, current: k === m.currentProject }));
+  return rows.length ? rows.sort((a, b) => +b.current - +a.current || b.count - a.count || a.label.localeCompare(b.label)) : null;
+}
+
+// Session-start budget. Unknown cost is counted, never summed as 0. An Item's always-on cost wins; a hook without one falls back to its prompt-time weight.
+export type Budget = { measured: boolean; known: number; items: number; hooks: number; unknown: number; saved: number; removed: number; removedUnknown: number };
+export function budget(nodes: GNode[], removed: ReadonlySet<GNode> = new Set()): Budget {
+  const b: Budget = { measured: false, known: 0, items: 0, hooks: 0, unknown: 0, saved: 0, removed: 0, removedUnknown: 0 };
+  for (const n of nodes) {
+    const gone = removed.has(n), cost = n.cost?.always_on ?? null, tokens = n.kind === "hook" ? n.weight?.tokens ?? null : null;
+    if (gone) b.removed++;
+    if (cost == null && tokens == null) { if (gone) b.removedUnknown++; else b.unknown++; continue; }
+    b.measured = true;
+    if (gone) b.saved += cost ?? tokens!;
+    else if (cost != null) { b.items += cost; b.known += cost; } else { b.hooks += tokens!; b.known += tokens!; }
+  }
+  return b;
 }

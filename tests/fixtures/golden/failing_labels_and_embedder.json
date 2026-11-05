@@ -3,6 +3,7 @@
   "result": {
     "clusters": [],
     "costs": {},
+    "current_project": null,
     "hook_weights": {
       "claude-code:hook:SessionStart:5": {
         "bytes": 15,
@@ -21,6 +22,8 @@
         "kind": "skill",
         "name": "alpha",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -30,6 +33,8 @@
         "kind": "skill",
         "name": "beta",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -39,6 +44,8 @@
         "kind": "agent",
         "name": "reviewer",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -48,6 +55,8 @@
         "kind": "mcp_server",
         "name": "localdb",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -57,6 +66,8 @@
         "kind": "mcp_server",
         "name": "docs",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -66,6 +77,8 @@
         "kind": "hook",
         "name": "SessionStart",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -75,6 +88,8 @@
         "kind": "hook",
         "name": "UserPromptSubmit",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -84,6 +99,8 @@
         "kind": "hook",
         "name": "PreToolUse:Bash",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -93,6 +110,8 @@
         "kind": "hook",
         "name": "PostToolUse:Edit|Write",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -102,6 +121,8 @@
         "kind": "hook",
         "name": "PostToolUse:Write",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -111,6 +132,8 @@
         "kind": "hook",
         "name": "Stop",
         "origin": null,
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -120,6 +143,8 @@
         "kind": "plugin",
         "name": "demo",
         "origin": "demo",
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -129,6 +154,8 @@
         "kind": "agent",
         "name": "helper",
         "origin": "demo",
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -138,6 +165,8 @@
         "kind": "mcp_server",
         "name": "pserver",
         "origin": "demo",
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       },
       {
@@ -147,6 +176,8 @@
         "kind": "hook",
         "name": "PostToolUse:Read",
         "origin": "demo",
+        "project": null,
+        "scope": "global",
         "source": "claude-code"
       }
     ],
@@ -166,7 +197,9 @@
       "claude-code:plugin:demo": "other",
       "claude-code:skill:beta": "beta topic"
     },
+    "memory_bytes": null,
     "overlaps": [],
+    "projects": {},
     "relations": [
       {
         "kind": "triggers",
@@ -219,6 +252,7 @@
         "last_used": null
       }
     },
+    "usage_by_project": {},
     "usage_window": {
       "files": 0,
       "first": null,

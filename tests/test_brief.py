@@ -34,6 +34,8 @@ def test_cost_ranking_keeps_zero_and_counts_unknown_items(data):
         "removes": "a",
         "reason": "Alpha (skill): 20 always-on tokens every session. Is it worth it?",
         "tokens_saved": 20,
+        "project": None,
+        "confidence": None,
     }
     assert len(brief(data, top=2)["cost"]["rows"]) == 2
 

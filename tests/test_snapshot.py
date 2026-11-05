@@ -464,3 +464,21 @@ def test_snapshot_replaces_model_text_derived_from_executable_items():
     assert out["labels"] == {"item-1": "Hook", "item-2": "MCP server", "item-3": "Does demo"}
     assert [c["name"] for c in out["clusters"]] == ["Executable setup", "Demos"]
     assert [o["reason"] for o in out["overlaps"]] == ["Involves an executable setup item.", "Both demo"]
+
+
+def test_per_project_fields_default_and_snapshot_drops_them(tmp_path):
+    from dataclasses import asdict
+
+    from constellation import scan
+    from constellation.suggestions import Suggestion
+
+    result = scan(tmp_path, offline=True, project=tmp_path)
+    assert (result.projects, result.usage_by_project, result.current_project) == ({}, {}, None)
+    assert all(i.scope == "global" and i.project is None for i in result.items)
+    assert Suggestion("x", "remove_unused", ("a",), "r", None).project is None
+    data = asdict(result) | {"projects": {"p1": "zzlabel"}, "usage_by_project": {"a": {"p1": {"count": 1}}}, "current_project": "p1"}
+    assert "zzlabel" not in json.dumps(snapshot(data))
+
+
+def test_snapshot_drops_memory_bytes():
+    assert "memory_bytes" not in snapshot({"items": [], "memory_bytes": 9})

@@ -95,3 +95,38 @@ for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo
   }
   fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
 }
+
+// Per-project fixtures (docs/plans/per-project.md 5): two invented projects, appended after every other stream so no existing name,
+// Relation, Overlap or usage number changes. `alpha-shop` (p1) is the scanned repo. Three project-scope Items are added (one local MCP
+// server with no key), then global skills with usage get per-project counts: one used almost only in p1 (a high-confidence move), one only in
+// p2 (medium), one split between both (no move), so the Inspector rows and the Scope group all have something to show. Idempotent.
+for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo-250.json", 1]]) {
+  const url = new URL(file, import.meta.url), d = JSON.parse(fs.readFileSync(url, "utf8"));
+  if (d.projects) continue;
+  d.projects = { p1: "alpha-shop", p2: "thesis" };
+  d.current_project = "p1";
+  const big = d.clusters.filter((c) => c.item_ids.length >= 8);
+  const mk = (cluster, kind, nm, project, desc) => {
+    const id = `${kind}:proj:${nm}`;
+    d.items.push({ id, kind, name: nm, description: desc, source: kind === "mcp_server" ? `.mcp.json#${nm}` : `.claude/${kind}s/${nm}`, scope: "project", ...(project ? { project } : {}) });
+    cluster.item_ids.push(id);
+    if (d.labels && Object.keys(d.labels).length) d.labels[id] = desc.replace(/\.$/, "");
+    if (d.costs) d.costs[id] = Object.values(d.costs).some((c) => c.always_on != null) ? { always_on: 70, on_use: 800 } : { always_on: null, on_use: null };
+    if (d.usage) d.usage[id] = { count: 4, last_used: "2026-11-01" };
+    return id;
+  };
+  mk(big[Math.min(0 + 4, big.length - 1)], "skill", "cart-checkout-audit", "p1", "Use when reviewing the alpha-shop checkout flow.");
+  mk(big[Math.min(1 + 4, big.length - 1)], "agent", "thesis-citation-checker", "p2", "Checks citations in the thesis draft.");
+  mk(big[Math.min(2 + 4, big.length - 1)], "mcp_server", "shop-catalog-db", null, "Local catalog database for the shop.");
+  const inPlugin = new Set(d.relations.filter((r) => r.kind === "contains").map((r) => r.target));
+  const pool = d.items.filter((i) => i.kind === "skill" && !i.scope && !i.disabled && !inPlugin.has(i.id) && d.usage?.[i.id]?.count >= 6 && !(d.overlaps ?? []).some((o) => o.a_id === i.id || o.b_id === i.id));
+  d.usage_by_project = {};
+  const set = (it, byProject) => {
+    d.usage_by_project[it.id] = Object.fromEntries(Object.entries(byProject).map(([k, count]) => [k, { count, last_used: d.usage[it.id].last_used }]));
+    d.usage[it.id].count = Math.max(d.usage[it.id].count, Object.values(byProject).reduce((a, b) => a + b, 0));
+  };
+  if (pool[0]) set(pool[0], { p1: 18, p2: 1 });
+  if (pool[1]) set(pool[1], { p2: 5 });
+  if (pool[2]) set(pool[2], { p1: 6, p2: 5 });
+  fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
+}

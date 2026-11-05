@@ -7,7 +7,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverAnchor, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { didYouMean, warningMention, type Row } from "@/graph/searchMerge";
-import { groupWarnings, kindName, type Cluster, type GNode, type Model, type WarningGroup } from "@/graph/model";
+import { groupWarnings, hasScopes, kindName, type Cluster, type GNode, type Model, type Scope, type WarningGroup } from "@/graph/model";
 
 type Props = {
   model: Model;
@@ -22,9 +22,11 @@ type Props = {
   onPreview: (n: GNode | null) => void;
   cluster: Cluster | null; // the focused cluster: the count line becomes a breadcrumb
   onCluster: (c: Cluster | null, viaKeyboard?: boolean) => void;
+  scope: Scope;
+  onScope: (s: Scope) => void;
 };
 
-export function TopBar({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, cluster, onCluster }: Props) {
+export function TopBar({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, cluster, onCluster, scope, onScope }: Props) {
   return (
     <header className="pointer-events-none fixed inset-x-4 top-3 flex flex-wrap items-center gap-x-4 gap-y-2 sm:inset-x-6 sm:top-4 sm:flex-nowrap">
       <h1 className="font-serif text-[22px] leading-none tracking-[0.01em] italic sm:text-2 [text-shadow:0_0_18px_rgb(150_170_255/0.35)] ">Constellation</h1>
@@ -42,8 +44,22 @@ export function TopBar({ model, query, found, rows, clusterHits, note, pending, 
         </p>
       )}
       <Warnings warnings={model.warnings} />
+      {hasScopes(model) && <ScopeFilter repo={!!model.currentProject} scope={scope} onScope={onScope} />}
       <Search model={model} query={query} found={found} rows={rows} clusterHits={clusterHits} note={note} pending={pending} onCluster={onCluster} onQuery={onQuery} onChoose={onChoose} onPreview={onPreview} />
     </header>
+  );
+}
+
+// Which stars stay lit: everything, only global Items, or only this repo's. "This repo" needs a scan run with --project.
+function ScopeFilter({ repo, scope, onScope }: { repo: boolean; scope: Scope; onScope: (s: Scope) => void }) {
+  const options: [Scope, string][] = [["all", "All"], ["global", "Global"], ...(repo ? [["repo", "This repo"] as [Scope, string]] : [])];
+  return (
+    <div role="radiogroup" aria-label="Scope" className="pointer-events-auto flex gap-0.5 rounded-full border bg-surface-2 p-0.5 text-xs sm:text-[13px]">
+      {options.map(([value, text]) => (
+        <button key={value} type="button" role="radio" aria-checked={scope === value} onClick={() => onScope(value)}
+          className={cn("min-h-8 cursor-pointer rounded-full px-3 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", scope === value ? "bg-indigo-bright/20 text-foreground" : "text-text-2 hover:text-foreground")}>{text}</button>
+      ))}
+    </div>
   );
 }
 

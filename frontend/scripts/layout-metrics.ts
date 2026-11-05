@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import { strict as assert } from "node:assert";
-import { buildModel, clusterSummary, groupWarnings, rankMembers, costRadius, tipBadges, usageLine, RMAX, RMIN, RUNK, type Constellation, type GNode, type Model, type UsageWindow } from "../src/graph/model.ts";
+import { budget, buildModel, clusterSummary, groupWarnings, rankMembers, costRadius, tipBadges, usageLine, RMAX, RMIN, RUNK, type Constellation, type GNode, type Model, type UsageWindow } from "../src/graph/model.ts";
 import { flightMs, flightPath } from "../src/graph/flight.ts";
 import { fitView, focusView, GAP, haloOf, K, type View } from "../src/graph/layout.ts";
 import { searchItems } from "../src/graph/search.ts";
@@ -344,6 +344,23 @@ assert.equal(cutName("x".repeat(40), 28).length, 28);
   assert.deepEqual(tipBadges(b, model), { disabled: false, overlap: "Overlaps" });
   assert.deepEqual(tipBadges(c, model), { disabled: false, overlap: "Wrapped by" });
   assert.deepEqual(tipBadges({} as GNode, { overlapsOf: new Map() }), { disabled: false, overlap: null });
+}
+
+// session-start budget (#42)
+{
+  const nd = (kind: string, always_on: number | null | undefined, tokens?: number | null) => ({ kind, cost: always_on === undefined ? undefined : { always_on, on_use: null }, weight: tokens === undefined ? undefined : { bytes: null, tokens } }) as GNode;
+  const a = nd("skill", 100), z = nd("skill", 0), c = nd("skill", null);
+  assert.deepEqual(budget([a, z, c]), { measured: true, known: 100, items: 100, hooks: 0, unknown: 1, saved: 0, removed: 0, removedUnknown: 0 });
+  const h = nd("hook", null, 40), hn = nd("hook", null, null);
+  assert.deepEqual([budget([h]).hooks, budget([h]).items, budget([hn]).unknown, budget([hn]).measured], [40, 0, 1, false]);
+  assert.deepEqual([budget([nd("hook", 7, 40)]).items, budget([nd("hook", 7, 40)]).hooks], [7, 0]);
+  const r = budget([a, c], new Set([a]));
+  assert.deepEqual([r.known, r.saved, r.removed], [0, 100, 1]);
+  assert.equal(budget([a, c], new Set([c])).removedUnknown, 1);
+  assert.equal(budget([nd("skill", null), nd("skill", undefined)]).measured, false);
+  const m250 = buildModel(load("demo-250.json"));
+  const b250 = budget(m250.nodes);
+  assert.deepEqual([b250.known, b250.items, b250.hooks, b250.unknown], [20292, 10658, 9634, 55]);
 }
 
 let failed = aa.aaMin < 4.5;

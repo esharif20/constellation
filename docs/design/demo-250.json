@@ -1702,6 +1702,32 @@
    "description": "Use when inspecting a hive. Switched off with its plugin.",
    "disabled": true,
    "source": "~/.claude/skills/idle-hive-inspector"
+  },
+  {
+   "id": "skill:proj:cart-checkout-audit",
+   "kind": "skill",
+   "name": "cart-checkout-audit",
+   "description": "Use when reviewing the alpha-shop checkout flow.",
+   "source": ".claude/skills/cart-checkout-audit",
+   "scope": "project",
+   "project": "p1"
+  },
+  {
+   "id": "agent:proj:thesis-citation-checker",
+   "kind": "agent",
+   "name": "thesis-citation-checker",
+   "description": "Checks citations in the thesis draft.",
+   "source": ".claude/agents/thesis-citation-checker",
+   "scope": "project",
+   "project": "p2"
+  },
+  {
+   "id": "mcp_server:proj:shop-catalog-db",
+   "kind": "mcp_server",
+   "name": "shop-catalog-db",
+   "description": "Local catalog database for the shop.",
+   "source": ".mcp.json#shop-catalog-db",
+   "scope": "project"
   }
  ],
  "relations": [
@@ -2409,7 +2435,10 @@
   "skill:extra:quarterly-ledger-reconciliation-helper": "Use when closing the quarter and matching ledgers",
   "agent:extra:lighthouse-lamp-maintenance-scheduler": "Plans lamp upkeep rounds around the tides",
   "plugin:extra:idle-beekeeping-bundle": "A bundle for hive inspection, switched off",
-  "skill:extra:idle-hive-inspector": "Use when inspecting a hive. Switched off with its plugin"
+  "skill:extra:idle-hive-inspector": "Use when inspecting a hive. Switched off with its plugin",
+  "skill:proj:cart-checkout-audit": "Use when reviewing the alpha-shop checkout flow",
+  "agent:proj:thesis-citation-checker": "Checks citations in the thesis draft",
+  "mcp_server:proj:shop-catalog-db": "Local catalog database for the shop"
  },
  "clusters": [
   {
@@ -2543,7 +2572,8 @@
     "skill:4:sweep-anvil",
     "skill:4:chart-ledger-pro",
     "skill:4:check-tally",
-    "skill:4:fold-canvas-two"
+    "skill:4:fold-canvas-two",
+    "skill:proj:cart-checkout-audit"
    ]
   },
   {
@@ -2561,7 +2591,8 @@
     "skill:5:bind-tally",
     "hook:5:gather-plinth-lite",
     "hook:5:sweep-beacon-two",
-    "hook:5:fold-ribbon"
+    "hook:5:fold-ribbon",
+    "agent:proj:thesis-citation-checker"
    ]
   },
   {
@@ -2578,7 +2609,8 @@
     "agent:6:scout-thread-two",
     "skill:6:weigh-lattice-two",
     "hook:6:mend-lattice-lite",
-    "skill:6:mend-ribbon"
+    "skill:6:mend-ribbon",
+    "mcp_server:proj:shop-catalog-db"
    ]
   },
   {
@@ -3778,6 +3810,18 @@
   "skill:extra:idle-hive-inspector": {
    "always_on": 60,
    "on_use": 700
+  },
+  "skill:proj:cart-checkout-audit": {
+   "always_on": 70,
+   "on_use": 800
+  },
+  "agent:proj:thesis-citation-checker": {
+   "always_on": 70,
+   "on_use": 800
+  },
+  "mcp_server:proj:shop-catalog-db": {
+   "always_on": 70,
+   "on_use": 800
   }
  },
  "overlaps": [
@@ -4926,6 +4970,18 @@
   "skill:extra:idle-hive-inspector": {
    "count": 0,
    "last_used": null
+  },
+  "skill:proj:cart-checkout-audit": {
+   "count": 4,
+   "last_used": "2026-11-01"
+  },
+  "agent:proj:thesis-citation-checker": {
+   "count": 4,
+   "last_used": "2026-11-01"
+  },
+  "mcp_server:proj:shop-catalog-db": {
+   "count": 4,
+   "last_used": "2026-11-01"
   }
  },
  "usage_window": {
@@ -4934,5 +4990,38 @@
   "last": "2026-11-04",
   "skipped": 0
  },
- "warnings": []
+ "warnings": [],
+ "projects": {
+  "p1": "alpha-shop",
+  "p2": "thesis"
+ },
+ "current_project": "p1",
+ "usage_by_project": {
+  "skill:0:trace-ribbon-pro": {
+   "p1": {
+    "count": 18,
+    "last_used": "2026-10-14"
+   },
+   "p2": {
+    "count": 1,
+    "last_used": "2026-10-14"
+   }
+  },
+  "skill:1:scout-wick": {
+   "p2": {
+    "count": 5,
+    "last_used": "2026-10-16"
+   }
+  },
+  "skill:2:sweep-lattice-two": {
+   "p1": {
+    "count": 6,
+    "last_used": "2026-11-02"
+   },
+   "p2": {
+    "count": 5,
+    "last_used": "2026-11-02"
+   }
+  }
+ }
 }
