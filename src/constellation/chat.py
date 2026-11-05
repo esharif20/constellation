@@ -29,6 +29,7 @@ _START = (
     r"\b(before i (type|prompt|ask)|session[- ]start|start of (a |every |each )?(session|conversation)|what do i pay|"
     r"total (always[- ]on )?(cost|tokens?)|always[- ]on total|total every session)\b"
 )
+_GROUPED = r"\b(cost|costs|heav\w*|expensive|tokens?|biggest|most|usage|used|unused|which|group|by|per|roll)\b"
 _NEGATIVE = r"\b(not|never|unused|idle|stale|dormant|haven'?t|hasn'?t|lately|recently)\b|n't"
 
 
@@ -92,6 +93,8 @@ def _intent(question: str) -> str:
         intent = "whatis"
     elif parse_keep(q) is not None:
         intent = "whatis"
+    elif re.search(r"\b(plugins?|packs?|origins?)\b", q) and re.search(_GROUPED, q):
+        intent = "plugins"
     elif re.search(r"\b(remove|delete|get rid|clean ?up|prune|trim|declutter)\b|\bsave (me )?tokens?\b", q):
         intent = "remove"
     elif re.search(r"\b(explain|describe)\b", q):
@@ -185,6 +188,65 @@ def _start(state: ChatState) -> dict[str, Any]:
         more=max(0, len(shown) - 5),
         note=" ".join(notes) or None,
         next_=f"Check whether you still use {items[shown[0]['id']]['name']}." if shown and shown[0]["tokens"] else None,
+        follow_ups=ASK_NEXT,
+    )
+
+
+def _plugins(state: ChatState) -> dict[str, Any]:
+    """Cost, Item count and unused count per origin (plugin or pack). Switched-off Items are out of every total."""
+    data, known, usage = state["data"], _known_costs(state["data"]), state["data"].get("usage") or {}
+    groups: dict[str, list[dict[str, Any]]] = {}
+    off: set[str] = set()
+    for i in data["items"]:
+        if not i.get("origin") or i["kind"] == "plugin":  # the plugin Item itself carries no cost of its own
+            continue
+        if i.get("disabled"):
+            off.add(i["origin"])
+        else:
+            groups.setdefault(i["origin"], []).append(i)
+    off -= set(groups)
+    if not groups:
+        return _response("No Item in this scan has a known plugin or pack.", follow_ups=ASK_NEXT)
+    plugin_item = {i["name"]: i["id"] for i in data["items"] if i["kind"] == "plugin"}
+    table = []
+    for origin, members in groups.items():
+        sure = [known[m["id"]] for m in members if m["id"] in known]
+        heaviest = min(members, key=lambda m: (-known.get(m["id"], -1), m["id"]))
+        table.append(
+            {
+                "origin": origin,
+                "id": plugin_item.get(origin, heaviest["id"]),
+                "items": len(members),
+                "tokens": sum(sure) if sure else None,
+                "unknown": len(members) - len(sure),
+                "unused": sum(m["id"] in usage and not usage[m["id"]]["count"] for m in members),
+            }
+        )
+    table.sort(key=lambda g: (g["tokens"] is None, -(g["tokens"] or 0), -g["unused"], g["origin"]))
+    top = table[0]
+    headline = (
+        f"{top['origin']} is the heaviest: {top['tokens']:,} tokens every session across {plural(top['items'], 'Item')}."
+        if top["tokens"] is not None
+        else "Costs were not measured for any plugin or pack."
+    )
+    note = f"Left out {plural(len(off), 'switched-off plugin or pack')}: they cost nothing now." if off else None
+    return _response(
+        headline,
+        [g["id"] for g in table[:5]],
+        rows=[
+            {
+                "id": g["id"],
+                "name": g["origin"],
+                "kind": "plugin",
+                "what": f"{plural(g['items'], 'Item')}, {g['unused']} not seen"
+                + (f", {g['unknown']} cost unknown" if g["unknown"] else ""),
+                "value": "Cost unknown" if g["tokens"] is None else f"{g['tokens']:,} tokens every session",
+            }
+            for g in table[:5]
+        ],
+        more=max(0, len(table) - 5),
+        note=note,
+        next_=f"One decision on {top['origin']} could replace many.",
         follow_ups=ASK_NEXT,
     )
 
@@ -491,6 +553,7 @@ def _graph() -> Any:
         "usage": _usage,
         "remove": _remove,
         "since": _since_answer,
+        "plugins": _plugins,
         "start": _start,
         "count": _count,
         "compare": _compare,
@@ -514,6 +577,7 @@ def _graph() -> Any:
             "remove": "remove",
             "start": "start",
             "since": "since",
+            "plugins": "plugins",
             "count": "count",
             "compare": "compare",
             "whatis": "whatis",
@@ -536,6 +600,7 @@ class LocalChat:
                 {
                     "id": i["id"],
                     "disabled": bool(i.get("disabled")),
+                    "origin": redact(i["origin"]) if isinstance(i.get("origin"), str) else None,
                     **{key: redact(i[key]) for key in ("name", "kind", "description")},
                 }
                 for i in data["items"]

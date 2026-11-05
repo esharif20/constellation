@@ -255,3 +255,64 @@ def test_not_used_needs_usage(tmp_path, monkeypatch):
         tmp_path, monkeypatch, [item("a", "alpha")], usage={}, usage_window={"files": 0, "first": None, "last": None, "skipped": 0}
     )
     assert ask(client, "what have I not used in 30 days")["blocks"]["headline"] == "No transcripts found."
+
+
+# --- #57: cost and usage by plugin ---------------------------------------------------------------------------------------------
+
+
+def plugin_scan():
+    items = [
+        item("pk", "pdf-tools", "plugin"),
+        item("p1", "pdf-read", origin="pdf-tools"),
+        item("p2", "pdf-merge", "agent", origin="pdf-tools"),
+        item("g1", "git-helper", origin="pat/skills"),
+        item("g2", "git-log", origin="pat/skills"),
+        item("g3", "git-misc", origin="pat/skills"),
+        item("o1", "old-one", origin="retired", disabled=True),
+        item("o2", "old-two", origin="retired", disabled=True),
+        item("plain", "loner"),
+    ]
+    return items, {
+        "costs": {
+            "p1": cost(400),
+            "p2": cost(100),
+            "g1": cost(300),
+            "g2": cost(200),
+            "g3": cost(None),
+            "o1": cost(5000),
+            "plain": cost(10),
+        },
+        "usage": {
+            "p1": {"count": 3, "last_used": "2026-10-29"},
+            "p2": NEVER,
+            "g1": NEVER,
+            "g2": NEVER,
+            "g3": NEVER,
+            "o1": NEVER,
+        },
+        "usage_window": WINDOW,
+    }
+
+
+def test_plugin_roll_up_groups_by_origin_and_leaves_out_switched_off(tmp_path, monkeypatch):
+    items, extra = plugin_scan()
+    reply = ask(make(tmp_path, monkeypatch, items, **extra), "Which plugin is heaviest?")
+    blocks = reply["blocks"]
+    assert blocks["headline"] == "pat/skills is the heaviest: 500 tokens every session across 3 Items."  # tie on tokens: more unused first
+    assert [(r["name"], r["value"], r["what"]) for r in blocks["rows"]] == [
+        ("pat/skills", "500 tokens every session", "3 Items, 3 not seen, 1 cost unknown"),
+        ("pdf-tools", "500 tokens every session", "2 Items, 1 not seen"),
+    ]
+    assert blocks["note"] == "Left out 1 switched-off plugin or pack: they cost nothing now."
+    assert "retired" not in str([r["name"] for r in blocks["rows"]]) and "5,000" not in str(blocks)
+    assert [r["id"] for r in blocks["rows"]] == ["g1", "pk"]  # the plugin Item when there is one, else its heaviest part
+    assert reply["actions"] == [{"kind": "highlight", "item_ids": ["g1", "pk"]}]
+
+
+def test_plugin_roll_up_without_origins_or_costs(tmp_path, monkeypatch):
+    bare = make(tmp_path, monkeypatch, [item("a", "alpha")])
+    assert ask(bare, "cost by plugin")["blocks"]["headline"] == "No Item in this scan has a known plugin or pack."
+    blind = make(tmp_path, monkeypatch, [item("a", "alpha", origin="acme/tools")])
+    blocks = ask(blind, "which plugin costs the most")["blocks"]
+    assert blocks["headline"] == "Costs were not measured for any plugin or pack."
+    assert blocks["rows"][0]["value"] == "Cost unknown"
