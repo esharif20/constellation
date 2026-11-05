@@ -12,7 +12,9 @@ import type { Timeline } from "@/graph/history";
 import { useRemoteSearch } from "@/components/useRemoteSearch";
 import { searchItems } from "@/graph/search";
 import { matchClusters, mergeResults } from "@/graph/searchMerge";
-import { budget, clusterSummary, kindName, withContents, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model, type Scope, scopeSet } from "@/graph/model";
+import { budget, clusterSummary, withContents, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model, type Scope, scopeSet } from "@/graph/model";
+import { InspectorSkeleton } from "@/components/inspector/Skeleton";
+import { verdictOf } from "@/lib/verdict";
 
 // The inspector only appears once something is selected, so it loads on its own; it is fetched when the page is idle
 // so the first selection does not wait.
@@ -45,6 +47,7 @@ export default function Atlas({ model }: { model: Model }) {
   const [card, setCard] = useState<Cluster | null>(cluster);
   const [byKeyboard, setByKeyboard] = useState(false);
   const [live, setLive] = useState("");
+  const [draft, setDraft] = useState<{ text: string; n: number }>();
   const pushed = useRef(false); // our own history entry is on top, so leaving can go back instead of adding one
   const [preview, setPreview] = useState<GNode | null>(null);
   const [query, setQuery] = useState("");
@@ -183,6 +186,7 @@ export default function Atlas({ model }: { model: Model }) {
   };
 
   // Narrow screens show the Inspector instead of the chat, so picking an Item from the chat's list closes it.
+  const ask = (text: string) => { openChat(true); setDraft((d) => ({ text, n: (d?.n ?? 0) + 1 })); };
   const chatItem = (id: string) => { selectById(id); if (narrow) setChatOpen(false); };
 
   const selectPair = (row: BriefRow) => {
@@ -255,20 +259,20 @@ export default function Atlas({ model }: { model: Model }) {
       />
       {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} />}
       {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}
-      <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} />
+      <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} draft={draft} />
       <HighlightChip highlight={highlight} onClear={clearHighlight} />
       </div>
       <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} scope={scoped} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} removed={removed} />
       <Legend model={model} hidden={!!selected || showBrief || chatOpen} />
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
       {selected && showInspector && (
-        <Suspense fallback={null}>
-          <Inspector model={model} item={selected} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} whatIf={whatIf} removed={removed} onToggle={toggleRemove} />
+        <Suspense fallback={<InspectorSkeleton item={selected} />}>
+          <Inspector model={model} item={selected} brief={brief ?? undefined} onAsk={ask} onCluster={(c) => enter(c, true)} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} whatIf={whatIf} removed={removed} onToggle={toggleRemove} />
         </Suspense>
       )}
       {removed && !showBrief && <WhatIfChip count={removed.size} saved={budget(model.nodes, removed).saved} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} onExit={() => startWhatIf(false)} />}
       <p className="sr-only" aria-live="polite">{live}</p>
-      <p className="sr-only" aria-live="polite">{selected ? `${selected.name}, ${kindName(selected.kind)}, ${selected.cost?.always_on == null ? "cost unknown" : `${selected.cost.always_on.toLocaleString()} tokens always on`}` : ""}</p>
+      <p className="sr-only" aria-live="polite">{selected ? `Selected ${selected.name}, ${verdictOf(selected, model.overlapsOf.get(selected) ?? [], model.links.filter((l) => l.source === selected && l.kind === "contains").map((l) => l.target), model.usageWindow).label}` : ""}</p>
     </>
   );
 }

@@ -26,6 +26,7 @@ type Props = {
   onActions: (actions: ChatAction[]) => void;
   onReset: () => void;
   onItem: (id: string) => void;
+  draft?: { text: string; n: number }; // a question to put in the box without sending it (Inspector "Compare with…")
 };
 
 const UNAVAILABLE = "Local chat is unavailable here. Open this Constellation with a current local server to ask questions.";
@@ -180,7 +181,7 @@ export function Answer({ reply, copied, onCopy, onItem, onAsk }: { reply: Reply;
   </>;
 }
 
-export function Chat({ model, selected, open, briefOpen, clusterOpen, onOpen, onActions, onReset, onItem }: Props) {
+export function Chat({ model, selected, open, briefOpen, clusterOpen, onOpen, onActions, onReset, onItem, draft }: Props) {
   const trigger = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
@@ -216,6 +217,9 @@ export function Chat({ model, selected, open, briefOpen, clusterOpen, onOpen, on
     addEventListener("resize", measure);
     return () => { observer.disconnect(); removeEventListener("resize", measure); };
   }, [open]); // the Legend changes height when it hides or the chat opens, so measure again
+  const [seen, setSeen] = useState(draft);
+  if (draft !== seen) { setSeen(draft); setQuestion(draft?.text ?? ""); } // a new draft replaces the box once (not an effect: no extra render)
+  useEffect(() => { if (open && draft) input.current?.focus(); }, [draft, open]);
   useEffect(() => () => request.current?.abort(), []);
   useEffect(() => {
     if (open) { input.current?.focus(); return; }

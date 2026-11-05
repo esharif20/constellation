@@ -1,8 +1,10 @@
-import { ArrowLeftIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, OrbitIcon, XIcon } from "lucide-react";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { withContents, type GNode, type Model } from "@/graph/model";
+import { withContents, type BriefData, type Cluster, type GNode, type Model } from "@/graph/model";
+import { instructionFor } from "@/lib/instruction";
 import { verdictOf } from "@/lib/verdict";
+import { Actions } from "./inspector/Actions";
 import { About } from "./inspector/About";
 import { Facts } from "./inspector/Facts";
 import { Header } from "./inspector/Header";
@@ -10,10 +12,10 @@ import { KindDetails } from "./inspector/KindDetails";
 import { Related } from "./inspector/Related";
 import { VerdictBanner } from "./inspector/Verdict";
 
-type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string; whatIf?: ReadonlySet<GNode> | null; removed?: ReadonlySet<GNode> | null; onToggle?: (n: GNode) => void }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
+type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string; whatIf?: ReadonlySet<GNode> | null; removed?: ReadonlySet<GNode> | null; onToggle?: (n: GNode) => void; brief?: BriefData; onAsk?: (text: string) => void; onCluster?: (c: Cluster) => void }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
 
 // Non-modal on purpose: the map stays live beside it. A side panel on desktop, a bottom sheet on phones.
-export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo, whatIf = null, removed = null, onToggle }, ref) {
+export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo, whatIf = null, removed = null, onToggle, brief, onAsk, onCluster }, ref) {
   const scroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scroll.current?.scrollTo({ top: 0 });
@@ -39,8 +41,12 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
         <About item={item} />
         <KindDetails item={item} model={model} />
         <Related key={item.id} item={item} model={model} onSelect={onSelect} onPreview={onPreview} />
+        {onCluster && item.cluster && <Button variant="ghost" className="-mx-2 mt-3 h-11 max-w-full justify-start gap-2 px-2 text-[13px] text-text-2 sm:h-10" onClick={() => onCluster(item.cluster!)}><OrbitIcon aria-hidden /><span className="truncate">Fly to {item.cluster.name}</span></Button>}
         {whatIf && onToggle && <WhatIfToggle model={model} item={item} whatIf={whatIf} removed={removed} onToggle={onToggle} />}
       </div>
+      <footer className="shrink-0 border-t border-line-1 px-4 pt-2 pb-[max(8px,env(safe-area-inset-bottom))] sm:px-6 sm:pt-3 sm:pb-4">
+        <Actions key={item.id} item={item} instruction={instructionFor(item, model, verdict)} brief={brief} onAsk={onAsk} />
+      </footer>
     </aside>
   );
 });

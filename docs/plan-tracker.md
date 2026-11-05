@@ -623,3 +623,9 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Left for #70: the `Time travel` footer button renders only when `onTimeTravel` is passed (Atlas does not pass it yet), so no dead button ships.
 - A corrupt existing history file warns on stderr (record only) and is replaced; the write is fsynced; an existing history directory is chmodded 0700; the 400-day cutoff counts from min(newest, today) and non-canonical dates are skipped (Opus review fixes).
 
+
+## Inspector ticket C: actions wiring (#73, branch `claude/inspector-c`)
+
+- Frontend only. New `lib/instruction.ts` (the per-kind Copy instruction, a mirror of `handoff()` in `answer.py`, strings pinned by `inspector:check`), `inspector/Actions.tsx` (Copy instruction, Add to checklist, Compare with...), `inspector/Skeleton.tsx` (Suspense fallback: name at once, shimmer after 150 ms). The Inspector gets a footer holding the actions (pinned to the sheet bottom, safe-area padding, 44px targets on phones) and a "Fly to {cluster}" row that calls Atlas `enter`. Atlas: `brief`/`onAsk`/`onCluster` props passed, a `draft` for Chat (new optional prop, put in the box, not sent), live region now `Selected {name}, {verdict}`.
+- Add to checklist is offered only when the Brief checklist writer exists and the Item is in a Brief cost or pairs row (scope rows 404). Decision: the footer is pinned on desktop too (the note says after Related); one component, no duplicate render.
+- Wording is duplicated on purpose in TS rather than served: the Python gates (mutation) stay out of this ticket. If `answer.py` wording changes, update `instruction.ts`. Not verified: an added row does not refresh the Brief panel's own checklist state until reload.
