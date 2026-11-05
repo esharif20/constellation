@@ -26,3 +26,15 @@ assert.equal(chartPoints([entries[0]], box)[0].x, (box.left + box.right) / 2);
 assert.deepEqual(chartPoints([], box), []);
 assert.match(hoverLine({ date: "2026-11-04", items: 212, always_on: 19050, unknown: 0, added: 3, removed: 1, gone: 0 }), /^4 Nov 2026 · 19,050 tokens · 212 Items · \+3 −1$/);
 console.log(`history:check ok (${points.length} points, ${points.filter((p) => p.marker).length} markers)`);
+
+// Time travel (#70): absentAt on the same seeded history
+import { absentAt } from "../src/graph/history.ts";
+const firstSeen: Record<string, string> = {};
+for (const e of raw.entries) for (const id of e.ids) firstSeen[id] ??= e.date;
+const nodes = [...new Set(raw.entries.flatMap((e) => e.ids))].map((id) => ({ id })).concat([{ id: "unknown-id" }]);
+const dates = raw.entries.map((e) => e.date), oldest = dates[0], newest = dates[dates.length - 1];
+const atOldest = absentAt(nodes, firstSeen, oldest);
+assert.ok(nodes.every((n) => atOldest.has(n) === (firstSeen[n.id] !== undefined && firstSeen[n.id] > oldest)), "oldest: only Items first seen then are present");
+assert.equal(absentAt(nodes, firstSeen, newest).size, 0, "newest: nothing is absent");
+assert.ok(![...absentAt(nodes, firstSeen, oldest)].some((n) => n.id === "unknown-id"), "an unknown id is present");
+console.log("absentAt ok");

@@ -16,6 +16,7 @@ type Props = {
   preview: GNode | null; // an Item hovered in the inspector or search list
   matches: Set<GNode> | null;
   removed?: Set<GNode> | null; // what-if ghosts
+  absent?: Set<GNode> | null; // time travel: stars not yet scanned fade out in place
   scope: Set<GNode> | null; // the scope filter: stars outside it dim like out-of-cluster ones
   panelWidth: number; // px the inspector covers on the right (0 on phones, where it is a bottom sheet)
   leftPanel: "brief" | "chat" | null;
@@ -57,7 +58,7 @@ function fittedView(painter: Painter, model: Model): View {
   return fitView(model.nodes, model.clusters, painter.view, innerWidth, innerHeight);
 }
 
-export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, scope, panelWidth, leftPanel, cluster, onSelect, onCluster, removed = null }, ref) {
+export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, scope, panelWidth, leftPanel, cluster, onSelect, onCluster, removed = null, absent = null }, ref) {
   const fg = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined);
   const wrap = useRef<HTMLDivElement>(null);
   const painter = useMemo(() => makePainter(model, reduced()), [model]);
@@ -145,6 +146,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   useEffect(() => () => { clearTimeout(tipRef.current.timer); clearTimeout(tipRef.current.rest); }, []);
 
   useEffect(() => { focus.removed = removed; wake(); }, [focus, removed, wake]);
+  useEffect(() => { focus.absent = absent; wake(); }, [focus, absent, wake]);
 
   useEffect(() => {
     Object.assign(focus, { selected, preview, matches, scope });

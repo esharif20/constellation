@@ -7,8 +7,9 @@ import { ClusterCard } from "@/components/ClusterCard";
 import { WhatIfChip } from "@/components/WhatIfChip";
 import { StarMap, type StarMapHandle } from "@/components/StarMap";
 import { History } from "@/components/History";
+import { Scrubber } from "@/components/Scrubber";
 import { TopBar } from "@/components/TopBar";
-import type { Timeline } from "@/graph/history";
+import { absentAt, type Timeline } from "@/graph/history";
 import { useRemoteSearch } from "@/components/useRemoteSearch";
 import { searchItems } from "@/graph/search";
 import { matchClusters, mergeResults } from "@/graph/searchMerge";
@@ -36,6 +37,8 @@ export default function Atlas({ model }: { model: Model }) {
     try { const saved = localStorage.getItem("constellation.brief"); return saved ? saved === "open" : !onPhone; } catch { return !onPhone; }
   });
   const [chatOpen, setChatOpen] = useState(false);
+  const [scrub, setScrub] = useState<string | null>(null); // time travel: the chosen scan date (null = off)
+  const absent = useMemo(() => (scrub && timeline ? absentAt(model.nodes, timeline.first_seen, scrub) : null), [model, timeline, scrub]);
   const [chatMatches, setChatMatches] = useState<Set<GNode> | null>(null);
   const [whatIf, setWhatIf] = useState<Set<GNode> | null>(null); // what-if ticks, page memory only (null = off)
   const removed = useMemo(() => whatIf && withContents(model, whatIf), [model, whatIf]);
@@ -219,11 +222,11 @@ export default function Atlas({ model }: { model: Model }) {
       if (typing || e.defaultPrevented) return;
       if (e.key === "b" && !e.metaKey && !e.ctrlKey && !e.altKey && brief) { e.preventDefault(); if (cluster) leave(); openBrief(cluster || chatOpen ? true : !briefOpen); } // opening the Brief leaves focus
       if (e.key === "x" && !e.metaKey && !e.ctrlKey && !e.altKey && whatIf && selected) { e.preventDefault(); toggleRemove(selected); }
-      if (e.key === "Escape") { if (chatOpen) openChat(false); else if (cluster && !selected) leave(); else close(); } // search and Brief handle their own Escape first
+      if (e.key === "Escape") { if (scrub) setScrub(null); else if (chatOpen) openChat(false); else if (cluster && !selected) leave(); else close(); } // search and Brief handle their own Escape first
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
-  }, [close, brief, briefOpen, openBrief, cluster, selected, leave, chatOpen, openChat, whatIf, toggleRemove]);
+  }, [close, brief, briefOpen, openBrief, cluster, selected, leave, chatOpen, openChat, whatIf, toggleRemove, scrub]);
 
   const applyChatActions = (actions: ChatAction[]) => {
     const ids = new Set(actions.flatMap((action) => action.item_ids));
@@ -255,15 +258,16 @@ export default function Atlas({ model }: { model: Model }) {
         onCluster={onCluster}
         scope={scope}
         onScope={setScope}
-        extra={<History timeline={timeline} />}
+        extra={<History timeline={timeline} onTimeTravel={() => setScrub(timeline?.entries.at(-1)?.date ?? null)} />}
       />
       {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} removed={removed} />}
       {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}
       <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} draft={draft} />
       <HighlightChip highlight={highlight} onClear={clearHighlight} />
       </div>
-      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} scope={scoped} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} removed={removed} />
-      <Legend model={model} hidden={!!selected || showBrief || chatOpen} />
+      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} scope={scoped} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} removed={removed} absent={absent} />
+      {!scrub && <Legend model={model} hidden={!!selected || showBrief || chatOpen} />}
+      {scrub && timeline && <Scrubber entries={timeline.entries} nodes={model.nodes} firstSeen={timeline.first_seen} date={scrub} onDate={setScrub} onClose={() => setScrub(null)} />}
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
       {selected && showInspector && (
         <Suspense fallback={<InspectorSkeleton item={selected} />}>
