@@ -753,3 +753,11 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Labels: zoomed out shows cluster names only (existing chooseSpot collision avoidance). The #71 health badge now shows only for the hovered name, the focused Item's cluster, or from zoom 1.3x on and then only where it fits (`badgeWanted` in graph/badge.ts; `badgeY` kept).
 - Hover: `hoverTarget` (graph/hover.ts) adds hysteresis (padded hit radius with a 9 px floor for tiny stars, rival must be 30% closer); 130 ms dwell from empty space, 50 ms switch when a tooltip is open; no hover while a button is down or dragging; pan/zoom still hides. Touch path unchanged (tap shows, tap elsewhere hides).
 - New check: `npm run labels:check`.
+
+## Ask placement (2026-11-05, branch `claude/ask-placement`)
+
+- Status: done. Design note `docs/design/ask-placement.md` (three options; option A built). The "Ask locally" trigger moved from a floating bottom-left pill to the top bar beside search (`AskTrigger` in `Chat.tsx`, `ask` slot in `TopBar.tsx`). It is now a toggle with `aria-expanded`, and `A` opens it. The Inspector gains "Ask about this", which drafts "Should I keep X?" without sending. The trigger's Legend and sheet offsets and the Brief's 52 px footer reserve are removed. Chat behaviour and the `/api/chat` contract are unchanged.
+- Deviation (small, layout only): to fit the new button, the 641-1023 px top bar folds the History label, the Explain label and the search `/` kbd. The Ask label folds between 641 and 1379 px. The tablet bar was already overflowing at 768 before this change.
+- Checks updated: `chat:check` renders `AskTrigger` for the collapsed state, and `chat:cluster:check` finds the trigger by `#ask-trigger`.
+- Gates: build, typecheck, layout, chat, badge, labels, inspector and whatif checks pass. `chat:cluster:check` passes at 1440 and fails at 700 on "24 clusters" being covered by the Brief. The same failure happens on the base commit without this change (the wrapped count line sits under the Brief), so it is pre-existing and still open.
+- Screenshots (agent-browser, demo-250, 1440 and 390): `docs/design/screenshots/ask-placement-*.jpg`.

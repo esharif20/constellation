@@ -41,6 +41,7 @@ export function Actions({ item, instruction, brief, onAsk, className }: Props) {
             {added ? <CheckIcon aria-hidden /> : <ListPlusIcon aria-hidden />}{added ? "On checklist" : "Add to checklist"}
           </Button>
         )}
+        {onAsk && <Button variant="outline" className={BTN} onClick={() => onAsk(`Should I keep ${item.name}?`)}><MessageCircleIcon aria-hidden />Ask about this</Button>}
         {onAsk && <Button variant="outline" className={BTN} onClick={() => onAsk(`Compare ${item.name} with `)}><MessageCircleIcon aria-hidden />Compare with…</Button>}
       </div>
       <span role="status" className="sr-only">{state === "copied" ? "Copied" : state === "added" ? "Added to checklist" : ""}</span>

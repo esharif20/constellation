@@ -15,7 +15,7 @@ export function History({ timeline, onTimeTravel }: { timeline: Timeline | null;
       <PopoverTrigger asChild>
         <Button variant="ghost" className="pointer-events-auto h-11 rounded-lg px-3 text-[13px] text-text-2 sm:h-10 sm:order-last">
           <HistoryIcon data-icon="inline-start" aria-hidden />
-          History
+          <span className="sm:max-lg:sr-only">History</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={8} className="glass w-[min(360px,calc(100vw-2rem))] gap-3 p-6">
