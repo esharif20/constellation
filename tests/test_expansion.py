@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import asdict
+from hashlib import sha256
 
 from fastapi.testclient import TestClient
 
@@ -57,8 +58,12 @@ def test_expansion_lists_sorted_tools_through_cli_and_http(tmp_path, monkeypatch
         "relations": [],
         "message": "Tools listed.",
     }
-    for item in expected["items"]:
+    for item, got, name in zip(expected["items"], result["items"], ("alpha", "zeta"), strict=True):
         item["disabled"] = False
+        # Ids are keyed per process: stable here, never the plain digest of the raw tool name.
+        assert got["id"].startswith(id_ + ":tool:") and len(got["id"]) == len(id_) + 6 + 64
+        assert got["id"] != id_ + ":tool:" + sha256(name.encode()).hexdigest()
+        item["id"] = got["id"]
     expected["relations"] = [{"source": id_, "target": i["id"], "kind": "contains"} for i in expected["items"]]
     assert result == expected
     client = TestClient(server.create_app(saved, config_dir=config, expansion_query=query), base_url=BASE_URL)
@@ -370,13 +375,15 @@ def test_malformed_scan_config_and_unsupported_substitutions_do_not_launch(tmp_p
     saved.write_bytes(original)
     for data in (
         "{",
-        '{"mcpServers":[]}',
         '{"mcpServers":{"fixture":{}}}',
         '{"mcpServers":{"fixture":{"command":"synthetic","args":[1]}}}',
         '{"mcpServers":{"fixture":{"command":"synthetic","env":{"secret":1}}}}',
     ):
         (config / ".mcp.json").write_text(data)
         assert client.post("/api/expand", json={"id": id_}).status_code == 422
+    # Like the reader, a config whose server mapping is malformed is skipped: nothing launches, nothing blocks.
+    (config / ".mcp.json").write_text('{"mcpServers":[]}')
+    assert client.post("/api/expand", json={"id": id_}).json()["status"] == "unreachable"
     for field, value in (("command", "${COMMAND}"), ("args", ["${CLAUDE_PLUGIN_ROOT}/main.js"]), ("env", {"TOKEN": "${TOKEN}"})):
         (config / ".mcp.json").write_text(json.dumps({"mcpServers": {"fixture": {"command": "synthetic", field: value}}}))
         assert client.post("/api/expand", json={"id": id_}).json() == {
@@ -1091,7 +1098,7 @@ def test_lookup_rejects_manifest_files_outside_the_plugin(tmp_path, monkeypatch)
     client = TestClient(server.create_app(saved, config_dir=config, expansion_query=never), base_url=BASE_URL)
     for entry in (str(outside), "escape.json", "missing.json", 42, {"s": []}, {"s": None}):
         manifest.write_text(json.dumps({"name": "plugin", "mcpServers": entry}))
-        assert client.post("/api/expand", json={"id": "claude-code:mcp_server:plugin/s"}).status_code == 422
+        assert client.post("/api/expand", json={"id": "claude-code:mcp_server:plugin/s"}).json()["status"] == "unreachable"
 
 
 def test_url_servers_stay_single_items_without_launch_or_input_failure(tmp_path, monkeypatch, capsys):
@@ -1226,3 +1233,141 @@ def test_declared_and_implicit_plugin_mcp_file_is_one_expandable_registration(tm
     assert client.post("/api/expand", json={"id": item_id}).status_code == 422
     assert main(["expand", item_id, "--config-dir", str(config), "--file", str(saved)], expansion_query=query) == 2
     assert len(calls) == 2
+
+
+def _enable(config, key, value):
+    (config / "settings.json").write_text(json.dumps({"enabledPlugins": {key: value}}))
+
+
+def test_disabled_plugin_server_is_not_expandable_and_never_launches(tmp_path, monkeypatch):
+    config, saved, _ = setup_scan(tmp_path, monkeypatch)
+    root = config / "plugins/cache/market/demo/1"
+    (root / ".claude-plugin").mkdir(parents=True)
+    (root / ".claude-plugin/plugin.json").write_text(json.dumps({"name": "demo", "mcpServers": {"s": {"command": "synthetic"}}}))
+    _enable(config, "demo@market", False)
+    data = asdict(scan(config, offline=True, usage=False))
+    saved.write_text(json.dumps(data))
+    plugin_id = "claude-code:mcp_server:demo/s"
+    assert next(i for i in data["items"] if i["id"] == plugin_id)["disabled"] is True
+
+    async def never(registration):
+        raise AssertionError("disabled plugin must not launch")
+
+    client = TestClient(server.create_app(saved, config_dir=config, expansion_query=never), base_url=BASE_URL)
+    assert client.post("/api/expand", json={"id": plugin_id}).json()["status"] == "not_expandable"
+    # A stale saved scan that lacks the flag is still refused when settings now disable the plugin.
+    for item in data["items"]:
+        item["disabled"] = False
+    saved.write_text(json.dumps(data))
+    assert client.post("/api/expand", json={"id": plugin_id}).json()["status"] == "not_expandable"
+    # Enabled again in settings, but the saved Item says disabled: also refused.
+    _enable(config, "demo@market", True)
+    for item in data["items"]:
+        item["disabled"] = True
+    saved.write_text(json.dumps(data))
+    assert client.post("/api/expand", json={"id": plugin_id}).json()["status"] == "not_expandable"
+
+
+def test_non_stdio_types_never_launch_even_with_a_command(tmp_path, monkeypatch):
+    config, saved, id_ = setup_scan(tmp_path, monkeypatch)
+
+    async def never(registration):
+        raise AssertionError("non-stdio must not launch")
+
+    client = TestClient(server.create_app(saved, config_dir=config, expansion_query=never), base_url=BASE_URL)
+    for kind in ("http", "sse", "ws", "other"):
+        (config / ".mcp.json").write_text(json.dumps({"mcpServers": {"fixture": {"type": kind, "command": "synthetic"}}}))
+        assert client.post("/api/expand", json={"id": id_}).json()["status"] == "not_expandable"
+    calls = []
+
+    async def query(registration):
+        calls.append(registration.command)
+        return []
+
+    client = TestClient(server.create_app(saved, config_dir=config, expansion_query=query), base_url=BASE_URL)
+    (config / ".mcp.json").write_text(json.dumps({"mcpServers": {"fixture": {"type": "stdio", "command": "synthetic"}}}))
+    assert client.post("/api/expand", json={"id": id_}).json()["status"] == "expanded"
+    assert calls == ["synthetic"]
+
+
+def test_registration_repr_hides_env_and_args(tmp_path):
+    from constellation.expansion import Registration
+
+    text = repr(Registration("cmd", ["--token=invented-arg-secret"], {"K": "invented-env-secret"}, tmp_path))
+    assert "invented-arg-secret" not in text and "invented-env-secret" not in text
+
+
+def test_one_malformed_server_entry_does_not_block_the_others(tmp_path, monkeypatch):
+    config, saved, id_ = setup_scan(tmp_path, monkeypatch)
+    (config / ".mcp.json").write_text(json.dumps({"mcpServers": {"bad": "not an object", "fixture": {"command": "synthetic"}}}))
+    plugin = config / "plugins/cache/market/demo/1"
+    (plugin / ".claude-plugin").mkdir(parents=True)
+    (plugin / ".claude-plugin/plugin.json").write_text(json.dumps({"name": "demo", "mcpServers": [42, {"s": {"command": "p"}}]}))
+
+    saved.write_text(json.dumps(asdict(scan(config, offline=True, usage=False))))
+
+    async def query(registration):
+        return []
+
+    client = TestClient(server.create_app(saved, config_dir=config, expansion_query=query), base_url=BASE_URL)
+    assert client.post("/api/expand", json={"id": id_}).json()["status"] == "expanded"
+    assert client.post("/api/expand", json={"id": "claude-code:mcp_server:demo/s"}).json()["status"] == "expanded"
+
+
+def test_asyncio_noise_after_the_query_cannot_leak_private_values(tmp_path, monkeypatch, caplog):
+    import logging
+
+    import constellation.expansion as expansion
+
+    monkeypatch.setattr(expansion, "_PRIVATE_TEXT", set())  # isolate from values other tests registered
+    config, saved, id_ = setup_scan(
+        tmp_path, monkeypatch, {"fixture": {"command": "synthetic", "args": ["invented-late-argument", "abc", "abcd"]}}
+    )
+
+    async def query(registration):
+        return []
+
+    client = TestClient(server.create_app(saved, config_dir=config, expansion_query=query), base_url=BASE_URL)
+    assert client.post("/api/expand", json={"id": id_}).json()["status"] == "expanded"
+    logging.getLogger("asyncio").warning("late callback failed for invented-late-argument")
+    logging.getLogger("asyncio").warning("unrelated asyncio message")
+    logging.getLogger("asyncio").warning("short abc stays visible")
+    logging.getLogger("asyncio").warning("four abcd hidden")
+    assert "short abc stays visible" in caplog.text and "four abcd hidden" not in caplog.text
+    assert "invented-late-argument" not in caplog.text
+    assert "unrelated asyncio message" in caplog.text
+
+
+def test_every_disabled_plugin_registration_path_is_refused_using_the_installed_key(tmp_path, monkeypatch):
+    config, saved, _ = setup_scan(tmp_path, monkeypatch)
+    root = config / "plugins/cache/market/demo/1"
+    (root / ".claude-plugin").mkdir(parents=True)
+    (root / ".claude-plugin/plugin.json").write_text(
+        json.dumps({"name": "demo", "mcpServers": [{"inline": {"command": "a"}}, "extra.json", "tool.mcpb"]})
+    )
+    (root / "extra.json").write_text(json.dumps({"fromfile": {"command": "b"}}))
+    (root / ".mcp.json").write_text(json.dumps({"mcpServers": {"implicit": {"command": "c"}}}))
+    (config / "plugins/installed_plugins.json").write_text(json.dumps({"plugins": {"custom@key": [{"installPath": str(root)}]}}))
+    _enable(config, "custom@key", True)
+    saved.write_text(json.dumps(asdict(scan(config, offline=True, usage=False))))
+    launched = []
+
+    async def query(registration):
+        launched.append(registration.command)
+        return []
+
+    client = TestClient(server.create_app(saved, config_dir=config, expansion_query=query), base_url=BASE_URL)
+    names = ("inline", "fromfile", "implicit")
+    assert [client.post("/api/expand", json={"id": f"claude-code:mcp_server:demo/{n}"}).json()["status"] for n in names] == ["expanded"] * 3
+    _enable(config, "custom@key", False)
+    # The default key (name@marketplace) being disabled must not matter once the installed key says enabled, and vice versa.
+    for n in (*names, "tool"):
+        assert client.post("/api/expand", json={"id": f"claude-code:mcp_server:demo/{n}"}).json()["status"] == "not_expandable"
+    assert launched == ["a", "b", "c"]
+
+
+def test_non_object_server_files_are_skipped_not_input_failures(tmp_path, monkeypatch):
+    config, saved, id_ = setup_scan(tmp_path, monkeypatch)
+    (config / ".mcp.json").write_text("[]")
+    client = TestClient(server.create_app(saved, config_dir=config), base_url=BASE_URL)
+    assert client.post("/api/expand", json={"id": id_}).json()["status"] == "unreachable"

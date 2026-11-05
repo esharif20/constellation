@@ -1,9 +1,11 @@
 """On-demand MCP tool discovery. Connection settings are ephemeral and never returned."""
 
+import hmac
 import json
 import logging
 import os
 import re
+import secrets
 import tempfile
 import threading
 from collections.abc import Awaitable, Callable, Iterator
@@ -29,18 +31,32 @@ MAX_TOOLS = 1000
 MAX_TEXT_BYTES = 4096
 MAX_PAGES = 100
 _MCP_FILE = ".mcp.json"
+_SETTINGS_FILE = "settings.json"
+_NO_LAUNCH = {"disabled": True}  # settings stand-in for servers that must never launch (disabled plugin, bundle)
 _INFLIGHT: set[tuple[Path, str]] = set()
 _INFLIGHT_LOCK = threading.Lock()
 _PRIVATE_QUERY: ContextVar[bool] = ContextVar("private_mcp_query", default=False)
+# Launch values seen so far: SDK/asyncio records that echo one stay hidden after the query window too.
+_PRIVATE_TEXT: set[str] = set()
+# shortcut: values under 4 characters are not matched after the window (they would hide unrelated logs); upgrade with word matching.
+_MIN_PRIVATE_TEXT = 4
+# Tool ids are keyed per process, so a raw tool name cannot be confirmed from an id. They stay stable within one process only.
+_ID_KEY = secrets.token_bytes(32)
 
 
 class _PrivateDiagnostics(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        return not _PRIVATE_QUERY.get()
+        if _PRIVATE_QUERY.get():
+            return False
+        # shortcut: substring match on the formatted message only, so a private value passed only as a non-message
+        # attribute is not caught; fine because the SDK and asyncio format into the message.
+        message = record.getMessage()
+        return not any(text in message for text in _PRIVATE_TEXT)
 
 
 # Install on each emitting logger, including SDK children created after this import.
-# Ancestor filters do not run for propagated records.
+# Ancestor filters do not run for propagated records, so a handler-level filter would miss handlers added later;
+# the process-wide logger class is the price of covering late-created SDK children.
 class _PrivateLogger(logging.Logger):
     def __init__(self, name: str, level: int = logging.NOTSET) -> None:
         super().__init__(name, level)
@@ -57,8 +73,8 @@ for _name in list(logging.Logger.manager.loggerDict):
 @dataclass(frozen=True)
 class Registration:
     command: str
-    args: list[str]
-    env: dict[str, str]
+    args: list[str] = field(repr=False)
+    env: dict[str, str] = field(repr=False)
     cwd: Path
 
 
@@ -80,10 +96,13 @@ def _registrations(config_dir: Path) -> Iterator[tuple[str, dict[str, Any], Path
     found: list[tuple[str, dict[str, Any], Path]] = []
     root = config_dir
 
-    def add(data: Any, scope: str) -> None:
-        for raw_name, settings in data.get("mcpServers", data).items():
+    def add(data: Any, scope: str, off: bool = False) -> None:
+        mapping = data.get("mcpServers", data) if isinstance(data, dict) else None
+        for raw_name, settings in mapping.items() if isinstance(mapping, dict) else []:
             if not isinstance(settings, dict):
-                raise ValueError
+                continue  # like the reader: one malformed entry is skipped, never blocking the others
+            if off:
+                settings = _NO_LAUNCH
             name = redact_id(str(raw_name), secrets)
             registration = (f"{SOURCE}:mcp_server:{scope}{name}", settings, root)
             if registration not in found:
@@ -92,7 +111,7 @@ def _registrations(config_dir: Path) -> Iterator[tuple[str, dict[str, Any], Path
     path = claude_code._claude_json(config_dir, [])
     state = claude_code._json_or_empty(path) if path else {}
     if isinstance(state, dict):
-        add(state.get("mcpServers", {}), "user/")
+        add(state.get("mcpServers"), "user/")
         projects = state.get("projects")
         if claude_code.LOCAL_SCOPE and isinstance(projects, dict):
             having = [p for p in sorted(projects) if isinstance(projects[p], dict) and projects[p].get("mcpServers")]
@@ -100,6 +119,8 @@ def _registrations(config_dir: Path) -> Iterator[tuple[str, dict[str, Any], Path
                 add(projects[project]["mcpServers"], f"local/{number}/")
     add(claude_code._json_or_empty(config_dir / _MCP_FILE), "")
     plugins: set[str] = set()
+    enabled = claude_code._json_or_empty(config_dir / _SETTINGS_FILE).get("enabledPlugins")
+    keys = claude_code._installed(config_dir)[0]
     for manifest in claude_code._plugin_manifests(config_dir):
         meta = json.loads(manifest.read_text())
         name, root = meta["name"], manifest.parent.parent
@@ -107,17 +128,16 @@ def _registrations(config_dir: Path) -> Iterator[tuple[str, dict[str, Any], Path
             continue
         plugins.add(name)
         scope = f"{name}/"
+        off = isinstance(enabled, dict) and enabled.get(keys.get(root) or f"{name}@{root.parent.parent.name}") is False
         declared = meta.get("mcpServers")
-        for entry in declared if isinstance(declared, list) else [declared] if declared else []:
+        for entry in declared if isinstance(declared, list) else [declared]:
             if isinstance(entry, dict):
-                add(entry, scope)
+                add(entry, scope, off)
             elif isinstance(entry, str) and entry.lower().endswith((".mcpb", ".dxt")):
-                add({PurePath(entry).stem: {"type": "bundle"}}, scope)
+                add({PurePath(entry).stem: _NO_LAUNCH}, scope)
             elif isinstance(entry, str) and (root / entry).resolve().is_relative_to(root.resolve()) and (root / entry).is_file():
-                add(claude_code._json_or_empty(root / entry), scope)
-            else:
-                raise ValueError
-        add(claude_code._json_or_empty(root / _MCP_FILE), scope)
+                add(claude_code._json_or_empty(root / entry), scope, off)
+        add(claude_code._json_or_empty(root / _MCP_FILE), scope, off)
     yield from found
 
 
@@ -159,7 +179,7 @@ async def expand(data: Any, item_id: str, config_dir: Path | None, query: Query 
     if len(registrations) != 1:
         raise ValueError
     _, settings, root = registrations[0]
-    if "url" in settings or settings.get("type") == "bundle":
+    if item.get("disabled") is True or settings.get("disabled") or "url" in settings or settings.get("type", "stdio") != "stdio":
         return Expansion(item_id, "not_expandable", message="This Item has no local MCP tool list.")
     command, args, env = settings.get("command"), settings.get("args", []), settings.get("env", {})
     if (
@@ -173,6 +193,7 @@ async def expand(data: Any, item_id: str, config_dir: Path | None, query: Query 
         raise ValueError
     if any("$" in value for value in [command, *args, *env.values()]):
         return unreachable
+    _PRIVATE_TEXT.update(v for v in [command, *args, *env.values()] if len(v) >= _MIN_PRIVATE_TEXT)
     key = (config_dir, item_id)
     with _INFLIGHT_LOCK:
         if key in _INFLIGHT:
@@ -218,7 +239,7 @@ def _tool_items(item_id: str, tools: list[tuple[str, str | None]], config_dir: P
     known = [*read_secrets(config_dir), *(v for v in [*env.values(), *argument_values] if v)]
     return [
         Item(
-            f"{item_id}:tool:{sha256(name.encode()).hexdigest()}",
+            f"{item_id}:tool:{hmac.new(_ID_KEY, name.encode(), sha256).hexdigest()}",
             "mcp_tool",
             redact(name, known),
             redact(description or "", known),
