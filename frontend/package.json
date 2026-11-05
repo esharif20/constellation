@@ -17,6 +17,7 @@
     "preview:check": "node scripts/preview-check.mjs",
     "whatif:check": "node scripts/whatif-check.mjs",
     "chat:check": "node scripts/chat-accessibility.mjs",
+    "conflicts:check": "node scripts/conflicts-check.mjs",
     "chat:cluster:check": "node scripts/chat-cluster-check.mjs"
   },
   "dependencies": {

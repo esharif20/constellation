@@ -726,3 +726,5 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - **Deviation kept from Codex**: module unit tests call the functions directly instead of only through HTTP; the route tests above now cover the HTTP seam.
 - Gates: ruff, format, mypy (37 files), pytest 1362 passed. Mutmut per module: hook_safety 131/131, conflicts 146/146, triggers 115/115 (a first run marked one mutant suspicious from a timeout; the rerun killed all). Zero survivors.
 - Not done: frontend panels `HookSafety.tsx`, `Conflicts.tsx`, `Triggers.tsx`, `lenses.ts` types, Brief wiring and screenshots.
+
+- Lenses frontend, Clashes panel (#64): `Conflicts.tsx` under the Receipt in the Brief, rendering `lenses.conflicts` (API reason text, Items click through to the map, kind glyphs, kind-ordered: trigger, MCP name, hook; kind empty state). Types added to `graph/lenses.ts`; check `npm run conflicts:check`. Hook command text is never shown (API does not return it). No deviations. Not done: screenshots (local server could not be started from this agent's sandbox).
