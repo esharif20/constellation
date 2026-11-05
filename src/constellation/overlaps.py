@@ -4,16 +4,12 @@ Privacy: bodies are read here, on the user's machine, but only names, descriptio
 
 import hashlib
 import json
-import operator
 import re
 from collections import defaultdict
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from itertools import combinations
 from pathlib import Path
-from typing import Annotated, Any, TypedDict
-
-from langgraph.graph import END, START, StateGraph
-from langgraph.types import Send
+from typing import Any, TypedDict
 
 from .cluster import dot
 from .costs import cache_key, load_cache, save_cache
@@ -167,15 +163,6 @@ class _Job(TypedDict):
     key: str  # cache key: the hash of the prompt as a provider would see it
 
 
-class _State(TypedDict, total=False):
-    jobs: list[_Job]
-    # Reducers: every parallel branch returns a one-element list, and operator.add concatenates them.
-    overlaps: Annotated[list[Overlap], operator.add]
-    warnings: Annotated[list[str], operator.add]
-    # A third reducer: dicts of {cache key: reply} from the branches are merged with operator.or_.
-    replies: Annotated[dict[str, str], operator.or_]
-
-
 # Sonnet 5.5 list prices per million tokens. shortcut: the output is assumed to be about 300 tokens a call (a short JSON reply plus
 # some thinking at low effort); retune if the bill disagrees.
 INPUT_USD_PER_MTOK = 2.0
@@ -187,60 +174,53 @@ def estimate_cost(calls: int, input_tokens: int) -> float:
     return (input_tokens * INPUT_USD_PER_MTOK + calls * OUTPUT_TOKENS_PER_CALL * OUTPUT_USD_PER_MTOK) / 1_000_000
 
 
-def verify(
-    pairs: list[tuple[str, str]],
-    items: list[Item],
-    bodies: dict[str, str],
-    llm: LLM,
-    known: Iterable[str] = (),
-    cache_path: Path | None = None,
-    announce: Callable[[int, int], None] | None = None,
-    salt: str = "",
-) -> tuple[list[Overlap], list[str]]:
-    """Layer 4: the stronger model labels each pair. `llm` must be the guarded one: it redacts and turns failures into ProviderError.
-    `known` are the secrets, used so the cache key is the hash of the redacted prompt and no secret reaches the file.
-    `salt` is the verifier's model id, so changing the model does not reuse the old model's verdicts."""
+def pair_job(a: Item, b: Item, bodies: dict[str, str], known: Iterable[str], salt: str) -> _Job:
+    prompt = _prompt(a, b, bodies)
+    return {"a": a, "b": b, "prompt": prompt, "key": cache_key(prompt, known, salt)}
+
+
+def verify_plan(
+    pairs: list[tuple[str, str]], items: list[Item], bodies: dict[str, str], known: Iterable[str], cache_path: Path | None, salt: str
+) -> tuple[list[Overlap], list[_Job]]:
+    """Free, local: (Overlaps already in the verdict cache, pairs still to ask the verifier)."""
     known = tuple(known)
-    path = cache_path or DEFAULT_CACHE
-    cache = load_cache(path)
+    cache = load_cache(cache_path or DEFAULT_CACHE)
     by_id = {i.id: i for i in items}
     overlaps: list[Overlap] = []
     jobs: list[_Job] = []
     for a_id, b_id in pairs:
-        a, b = by_id[a_id], by_id[b_id]
-        prompt = _prompt(a, b, bodies)
-        key = cache_key(prompt, known, salt)
-        if key in cache and (cached := _parse(str(cache[key]))):
-            overlaps.append(_overlap(a, b, cached))
+        job = pair_job(by_id[a_id], by_id[b_id], bodies, known, salt)
+        if job["key"] in cache and (cached := _parse(str(cache[job["key"]]))):
+            overlaps.append(_overlap(job["a"], job["b"], cached))
         else:
-            jobs.append({"a": a, "b": b, "prompt": prompt, "key": key})
-    if not jobs:
-        return overlaps, []
-    if announce:  # (calls to make, rough input tokens), before the first call; cached pairs are not counted
-        announce(len(jobs), sum(len(job["prompt"]) // 4 for job in jobs))
+            jobs.append(job)
+    return overlaps, jobs
 
-    def fan_out(state: _State) -> list[Send]:  # map: one branch per pair
-        return [Send("check", job) for job in state["jobs"]]
 
-    def check(state: _Job) -> dict[str, Any]:
-        a, b = state["a"], state["b"]
-        try:
-            reply = llm(state["prompt"])
-        except ProviderError as error:
-            return {"warnings": [f"could not verify '{a.name}' / '{b.name}': {error}"]}
-        if (parsed := _parse(reply)) is None:
-            return {"warnings": [f"could not verify '{a.name}' / '{b.name}': unreadable reply"]}
-        return {"overlaps": [_overlap(a, b, parsed)], "replies": {state["key"]: reply}}
+def check_one(job: _Job, llm: LLM) -> dict[str, Any]:
+    """One model call: a state update with either `overlaps` and `replies`, or `warnings`."""
+    a, b = job["a"], job["b"]
+    try:
+        reply = llm(job["prompt"])
+    except ProviderError as error:
+        return {"warnings": [f"could not verify '{a.name}' / '{b.name}': {error}"]}
+    if (parsed := _parse(reply)) is None:
+        return {"warnings": [f"could not verify '{a.name}' / '{b.name}': unreadable reply"]}
+    return {"overlaps": [_overlap(a, b, parsed)], "replies": {job["key"]: reply}}
 
-    graph = StateGraph(_State)
-    graph.add_node(check)
-    graph.add_conditional_edges(START, fan_out)
-    graph.add_edge("check", END)  # reduce: the branches' outputs are merged by the reducers above
-    result = graph.compile().invoke({"jobs": jobs}, config={"max_concurrency": MAX_CONCURRENCY})
-    warnings: list[str] = result["warnings"]
-    if result["replies"]:
-        try:
-            save_cache(path, cache | result["replies"])
-        except OSError as error:  # the verdicts are paid for and returned; only the next scan loses them
-            warnings.append(f"could not save the verdict cache: {error}")
-    return overlaps + result["overlaps"], warnings
+
+def verify_flush(cache_path: Path | None, replies: dict[str, str]) -> list[str]:
+    """Cache the verdict replies (cache key -> reply); an unwritable cache is a warning."""
+    if not replies:
+        return []
+    path = cache_path or DEFAULT_CACHE
+    try:
+        save_cache(path, load_cache(path) | replies)
+    except OSError as error:  # the verdicts are paid for and returned; only the next scan loses them
+        return [f"could not save the verdict cache: {error}"]
+    return []
+
+
+def announce_cost(jobs: list[_Job]) -> tuple[int, int]:
+    """(calls to make, rough input tokens): cached pairs are not counted."""
+    return len(jobs), sum(len(job["prompt"]) // 4 for job in jobs)

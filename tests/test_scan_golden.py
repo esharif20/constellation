@@ -38,15 +38,22 @@ def _run(tmp_path, config, calls, **kwargs):
         on_verify=lambda n, t: sent.append([n, t]),
         **kwargs,
     )
-    traffic = {
-        name: sorted(getattr(fake, "prompts", None) or getattr(fake, "texts", None) or []) for name, fake in calls.items()
-    }
+    traffic = {name: sorted(getattr(fake, "prompts", None) or getattr(fake, "texts", None) or []) for name, fake in calls.items()}
     return {"result": dataclasses.asdict(result), "traffic": traffic, "on_verify": sent}
 
 
 def _offline(tmp_path):
     fakes = {"llm": FakeLLM(LABELS), "counter": FakeCounter(), "verifier": _verifier(), "embedder": FakeEmbedder(_vectors())}
-    return _run(tmp_path, CLAUDE, fakes, llm=fakes["llm"], counter=fakes["counter"], verifier=fakes["verifier"], embedder=fakes["embedder"], offline=True)
+    return _run(
+        tmp_path,
+        CLAUDE,
+        fakes,
+        llm=fakes["llm"],
+        counter=fakes["counter"],
+        verifier=fakes["verifier"],
+        embedder=fakes["embedder"],
+        offline=True,
+    )
 
 
 def _labels_only(tmp_path):
@@ -56,7 +63,9 @@ def _labels_only(tmp_path):
 
 def _full(tmp_path):
     fakes = {"llm": FakeLLM({}, default="topic"), "embedder": FakeEmbedder(_vectors()), "verifier": _verifier(), "counter": FakeCounter()}
-    return _run(tmp_path, OVERLAP, fakes, llm=fakes["llm"], embedder=fakes["embedder"], verifier=fakes["verifier"], counter=fakes["counter"])
+    return _run(
+        tmp_path, OVERLAP, fakes, llm=fakes["llm"], embedder=fakes["embedder"], verifier=fakes["verifier"], counter=fakes["counter"]
+    )
 
 
 def _count_bodies(tmp_path):

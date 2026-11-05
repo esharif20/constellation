@@ -6,8 +6,6 @@ import pytest
 from fakes import FakeLLM, write_skill
 
 from constellation import scan
-from constellation.classify import classify
-from constellation.claude_code import read_items
 
 
 @pytest.fixture
@@ -162,12 +160,11 @@ def test_without_a_path_the_default_cache_location_is_used(config):
 
 
 def test_the_default_salt_is_no_salt(config, tmp_path):
-    items = read_items(config)[0]
     cache = tmp_path / "labels.json"
-    classify(items, FakeLLM({}), cache_path=cache)
+    scan(config, llm=FakeLLM({}), label_cache=cache)
     llm = FakeLLM({})
 
-    classify(items, llm, cache_path=cache, salt="")
+    scan(config, llm=llm, label_cache=cache, label_model="")
 
     assert llm.prompts == []
 

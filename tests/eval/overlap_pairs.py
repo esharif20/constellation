@@ -2,12 +2,10 @@
 
 Each row: (name_a, description_a, name_b, description_b, expected verdict). For a wrapper, A is the one that hands off to B."""
 
-import tempfile
 from collections import Counter
-from pathlib import Path
 
 from constellation.models import LLM, Item
-from constellation.overlaps import VERDICTS, verify
+from constellation.overlaps import VERDICTS, check_one, pair_job
 
 PAIRS: list[tuple[str, str, str, str, str]] = [
     # duplicate: the same job under different names
@@ -109,8 +107,7 @@ def evaluate(verifier: LLM) -> tuple[Counter[tuple[str, str]], float, float]:
             a.id: _bodies(name_a, desc_a, name_b, desc_b, expected)[name_a],
             b.id: _bodies(name_a, desc_a, name_b, desc_b, expected)[name_b],
         }
-        with tempfile.TemporaryDirectory() as scratch:  # no cache: every pair is judged afresh
-            found, _ = verify([(a.id, b.id)], [a, b], bodies, verifier, (), Path(scratch) / "verdicts.json")
+        found = check_one(pair_job(a, b, bodies, (), ""), verifier).get("overlaps", [])  # no cache: every pair is judged afresh
         confusion[expected, found[0].verdict if found else "none"] += 1
     flagged = {key: n for key, n in confusion.items() if key[1] not in ("distinct", "none")}
     true_positives = sum(n for (expected, _), n in flagged.items() if expected != "distinct")
