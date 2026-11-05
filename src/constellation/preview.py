@@ -184,3 +184,82 @@ def preview(
         "note": note,
         "warnings": [_clean(w, DESCRIPTION_CAP, secrets) for w in warnings],
     }
+
+
+_LABEL = {"mcp_server": "MCP server"}
+
+
+def _kind(kind: str, n: int) -> str:
+    label = _LABEL.get(kind, kind)
+    return f"{n} {label}" + ("" if n == 1 else "s")
+
+
+def _counts(counts: dict[str, int]) -> str:
+    return ", ".join(_kind(k, n) for k, n in sorted(counts.items(), key=lambda kn: (-kn[1], kn[0])))
+
+
+def render_preview(p: dict[str, Any]) -> str:
+    total = sum(p["counts"].values())
+    lines = [f"{p['pack']['name']} ({p['pack']['layout']}): {total} Items - {_counts(p['counts'])}"]
+    cost = p["always_on"]
+    line = (
+        f"Every session: about {cost['counted'] + cost['estimated']} tokens "
+        f"({cost['counted']} counted, {cost['estimated']} estimated from text length)"
+    )
+    if (n := cost["unknown"]) > 0:
+        line += f"; {n} MCP server{'' if n == 1 else 's'} or hook{'' if n == 1 else 's'} unknown until installed"
+    lines.append(line)
+    if p["already_installed"]:
+        lines.append("A plugin with this name is already in your setup.")
+    if p["compared"]:
+        lines.append(f"Possible overlap with your setup: {len(p['overlaps'])}")
+        by_id = {i["id"]: i for i in p["items"]}
+        for o in p["overlaps"]:
+            new = by_id[o["new_id"]]
+            mine = f" ({new['kind']})" if o["why"] == "same name" else ""  # a similar-meaning match may be another kind
+            lines.append(f"  {new['name']} ({new['kind']}) and your {o['existing_name']}{mine}: {o['why']}")
+    if p["note"]:
+        lines.append(p["note"])
+    lines.extend(f"Warning: {w}" for w in p["warnings"])
+    lines.append("Nothing was run or sent. Hook commands and MCP servers are shown as text only.")
+    return "\n".join(lines) + "\n"
+
+
+def _known(scan: dict[str, Any]) -> int:
+    costs = scan.get("costs") or {}
+    return sum((costs.get(i["id"]) or {}).get("always_on") or 0 for i in scan["items"])
+
+
+def delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """What changed between two saved scans: Items, known always-on tokens, and Overlaps that involve an added Item."""
+    old, new = {i["id"] for i in before["items"]}, {i["id"] for i in after["items"]}
+    added = [i for i in after["items"] if i["id"] not in old]
+    costs = after.get("costs") or {}
+    fresh = {i["id"] for i in added}
+    return {
+        "added": [i["id"] for i in added],
+        "removed": [i["id"] for i in before["items"] if i["id"] not in new],
+        "added_by_kind": {k: sum(i["kind"] == k for i in added) for k in sorted({i["kind"] for i in added})},
+        "always_on_known": _known(after) - _known(before),
+        "unknown_added": sum((costs.get(i["id"]) or {}).get("always_on") is None for i in added),
+        "new_overlaps": [
+            {"a_id": o["a_id"], "b_id": o["b_id"], "verdict": o["verdict"], "reason": o["reason"]}
+            for o in after.get("overlaps") or []
+            if o["verdict"] != "distinct" and {o["a_id"], o["b_id"]} & fresh  # an Overlap with an added Item cannot be in the old scan
+        ],
+    }
+
+
+def render_delta(d: dict[str, Any], names: dict[str, str]) -> str:
+    head = f"+{len(d['added'])} Items, -{len(d['removed'])}"
+    if d["added_by_kind"]:
+        head += f" ({_counts(d['added_by_kind'])})"
+    cost = f"Every session: {d['always_on_known']:+d} known tokens"
+    if d["unknown_added"]:
+        cost += f"; {d['unknown_added']} added Items have unknown cost"
+    lines = [head]
+    if d["removed"]:
+        lines.append("Removed: " + ", ".join(names[i] for i in d["removed"]))
+    lines += [cost, f"New Overlaps with added Items: {len(d['new_overlaps'])}"]
+    lines += [f"  {names[o['a_id']]} and {names[o['b_id']]}: {o['verdict']} - {o['reason']}" for o in d["new_overlaps"]]
+    return "\n".join(lines) + "\n"

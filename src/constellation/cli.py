@@ -22,6 +22,7 @@ from .env import load_env
 from .expansion import Query, expand
 from .models import LLM, Constellation, Embedder, TokenCounter
 from .overlaps import estimate_cost
+from .preview import delta, preview, render_delta, render_preview
 from .public_export import LIMITS, NOTICE, write_snapshot
 from .redact import redact
 from .report import render_cleanup, render_report, write_private
@@ -96,7 +97,27 @@ def main(
     diff_command.add_argument("old", type=Path)
     diff_command.add_argument("new", type=Path)
     diff_command.add_argument("--json", action="store_true", help="print the diff as JSON")
+    preview_command = commands.add_parser(
+        "preview", help="show what installing a downloaded plugin or skill folder would add (reads the folder only; nothing is run or sent)"
+    )
+    preview_command.add_argument("dir", type=Path)
+    preview_command.add_argument("--against", type=Path, default=Path("constellation.json"), help="saved scan to compare with")
+    preview_command.add_argument("--out", type=Path, help="also write the preview to this new file (private)")
+    preview_command.add_argument("--force", action="store_true", help="let --out overwrite an existing file")
+    preview_command.add_argument(
+        "--meaning",
+        action="store_true",
+        help="also compare by meaning with the local embedder; its first use may download the model "
+        "(BAAI/bge-small-en-v1.5) from the network",
+    )
+    delta_command = commands.add_parser("delta", help="what changed between two saved scans: Items, always-on tokens, new Overlaps")
+    delta_command.add_argument("before", type=Path)
+    delta_command.add_argument("after", type=Path)
     args = parser.parse_args(argv)
+    if args.command == "preview":
+        return _preview(args, embedder)  # reads the folder and saved scan only, so it skips load_env
+    if args.command == "delta":
+        return _delta(args)
     if args.command == "diff":
         return _diff(args)  # reads the files only, so it skips load_env
     if args.command == "export":
@@ -332,6 +353,46 @@ def _open(args: argparse.Namespace, serve: Serve | None, expansion_query: Query 
         print(str(error), file=sys.stderr)
         return 2
     (serve or server.serve)(app, args.port, not args.no_browser)
+    return 0
+
+
+def _preview(args: argparse.Namespace, embedder: Embedder | None) -> int:
+    if not args.dir.is_dir():
+        print(f"{args.dir} is not a directory.", file=sys.stderr)
+        return 2
+    if args.out and args.out.exists() and not args.force:
+        print(f"{args.out} already exists; pass --force to overwrite it.", file=sys.stderr)
+        return 2
+    scan_data = None
+    if args.against.is_file():
+        if (scan_data := _load_scan(args.against)) is None:
+            return 2
+    else:
+        print(f"No saved scan at {args.against}, so overlap with your setup was not checked. Run `constellation scan` first.")
+    if scan_data is not None and embedder is None and args.meaning:
+        if (embedder := _local_embedder()) is not None:
+            print(
+                "Using the local embedder. If its model is not cached yet, this downloads it from the network once; "
+                "no Item text leaves your machine.",
+                file=sys.stderr,
+            )
+    try:
+        result = preview(args.dir, scan_data, embedder)
+    except ValueError as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(render_preview(result), end="")
+    if args.out:
+        write_private(args.out, json.dumps(result, indent=2))
+    return 0
+
+
+def _delta(args: argparse.Namespace) -> int:
+    before, after = _load_scan(args.before), _load_scan(args.after)
+    if before is None or after is None:
+        return 2
+    names = {i["id"]: i["name"] for scan_data in (before, after) for i in scan_data["items"]}
+    print(render_delta(delta(before, after), names), end="")
     return 0
 
 
