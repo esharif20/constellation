@@ -429,3 +429,8 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - **Owner APPROVED** the project-label rule: `--project` folder name, else the folder name with the encoded home prefix stripped; the username is never shown. The earlier deviation is closed. Low tier and the paid scope verdict stay not built.
 - Contract only, no logic: `Item.scope`/`Item.project`, `ProjectUsage`, `Constellation.projects`/`usage_by_project`/`current_project`, `scan(project=)`, `read_items(project=)`, `read_usage(project=)` returning a 4th `ProjectUsage` (empty), `Suggestion.project`/`confidence`. Defaults keep behaviour unchanged; brief rows now carry `project`/`confidence` as None. Test proves defaults and that `snapshot()` drops the new keys.
+
+## #44 ticket C: move-to-project Suggestions (2026-11-04, branch `claude/pp-c-suggest`)
+
+- `suggestions.py`: new `move_to_project` kind (`_moves`). Eligible: global, enabled, kind skill/agent/mcp_server/plugin, not inside a plugin; a plugin sums its contained Items' per-project counts. Rule: total >= 3 and top/total >= 0.8, no ties, none when 3+ projects have uses, none when a same kind+name project-scope copy exists in the top project. Confidence high at window span >= 14 days and total >= 5, else medium (also medium with no window). `tokens_saved` = always-on cost or None.
+- Reasons and the report/checklist sections ("Used mostly in one project") carry no project name or key. `brief()` gains a `scope` group (rows with `project`, `confidence`, and the local-only `project_label` from `data["projects"]`, plus the window caveat). Not built: low tier, paid scope verdict. No deviation. Tested with hand-built fixtures (`tests/test_suggestions_move.py`); real `usage_by_project` comes from ticket A.

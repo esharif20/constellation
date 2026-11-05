@@ -4,7 +4,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from .report import _known_costs, _names, _ranked, _saving
+from .report import CAVEAT, _known_costs, _names, _ranked, _saving
 from .suggestions import Suggestion, _make, suggest
 
 HEADER = "Constellation never edits your config. Every change below is yours to make by hand.\n\n# Constellation cleanup checklist\n\n"
@@ -69,6 +69,11 @@ def brief(data: dict[str, Any], top: int = 5) -> dict[str, Any]:
         elif all(id_ in known for id_ in s.item_ids):
             removes = min(s.item_ids, key=lambda id_: (known[id_], id_))
         pairs.append({**asdict(s), "item_ids": list(s.item_ids), "removes": removes})
+    scope = [
+        {**asdict(s), "item_ids": list(s.item_ids), "removes": None, "project_label": (data.get("projects") or {}).get(s.project)}
+        for s in suggest(data)
+        if s.kind == "move_to_project"
+    ][:top]
     unknown_pairs = sum(row["tokens_saved"] is None for row in pairs)
     return {
         "cost": {
@@ -78,5 +83,6 @@ def brief(data: dict[str, Any], top: int = 5) -> dict[str, Any]:
             "unknown_rows": 0,
             "frees": frees(rows, known),
         },
+        "scope": {"rows": scope, "caveat": CAVEAT},
         "pairs": {"rows": pairs, "unknown": unknown_pairs, "unknown_rows": unknown_pairs, "frees": frees(pairs, known)},
     }
