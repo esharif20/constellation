@@ -342,8 +342,6 @@ def test_snapshot_drops_preview_fields():
         {".claude-plugin/plugin.json": '{"name": 5}'},
         {".claude-plugin/plugin.json": "[1]"},
         {".claude-plugin/plugin.json": "not json"},
-        {"hooks/hooks.json": "[]"},
-        {"hooks/hooks.json": '{"hooks": {"Stop": [{"hooks": [{"type": "command"}]}]}}'},
         {"SKILL.md": "---\nname: a\n---\n", "skills/x/SKILL.md": b"\xff\xfe"},
     ],
 )
@@ -354,6 +352,15 @@ def test_malformed_pack_is_refused_not_crash(tmp_path, files):
         path.write_bytes(text if isinstance(text, bytes) else text.encode())
     with pytest.raises(ValueError, match=r"^could not read the pack: malformed file$"):
         preview(tmp_path, None)
+
+
+@pytest.mark.parametrize("text", ["[]", '{"hooks": {"Stop": [{"hooks": [{"type": "command"}]}]}}'])
+def test_bad_hooks_file_warns_not_crash(tmp_path, text):
+    # after #72 the shared reader turns these into a fixed warning instead of refusing the whole pack
+    (tmp_path / "hooks").mkdir()
+    (tmp_path / "hooks" / "hooks.json").write_text(text)
+    result = preview(tmp_path, None)  # must not raise
+    assert bool(result["warnings"]) == (text != "[]")  # an empty list is silently fine; a hook without a command warns
 
 
 def test_plugin_manifest_mcp_entries(tmp_path):

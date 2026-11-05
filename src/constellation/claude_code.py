@@ -400,14 +400,14 @@ def read_secrets(config_dir: Path, project: Path | None = None) -> set[str]:
     return {v for v in values if len(v) >= 8}
 
 
-def _env_values(node: object) -> Iterator[str]:
+def _env_in(node: object) -> Iterator[str]:
     """Every string under an `env` key, at any depth."""
     if isinstance(node, dict):
         for key, value in node.items():
-            yield from _strings(value) if key == "env" else _env_values(value)
+            yield from _strings(value) if key == "env" else _env_in(value)
     elif isinstance(node, list):
         for value in node:
-            yield from _env_values(value)
+            yield from _env_in(value)
 
 
 def pack_secrets(root: Path) -> set[str]:
@@ -415,7 +415,7 @@ def pack_secrets(root: Path) -> set[str]:
     values: list[str] = []
     for name in (".mcp.json", "settings.json", ".claude-plugin/plugin.json"):
         try:
-            values += _env_values(json.loads((root / name).read_text()))
+            values += _env_in(json.loads((root / name).read_text()))
         except (OSError, ValueError, RecursionError):
             pass
     return {v for v in values if len(v) >= 8}
