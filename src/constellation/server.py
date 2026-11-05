@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from . import history as scan_history
 from . import retrieve
 from .brief import append_line, brief, checklist_ids, frees
 from .chat import LocalChat
@@ -91,6 +92,7 @@ def create_app(
     *,
     config_dir: Path | None = None,
     expansion_query: ExpansionQuery | None = None,
+    history: Path | None = None,
 ) -> FastAPI:
     checklist = DEFAULT_CHECKLIST if checklist is None else checklist
     _checklist_path(checklist, scan_file)
@@ -125,6 +127,11 @@ def create_app(
         except (OSError, ValueError):
             raise HTTPException(404, "scan could not be read") from None
         return data, brief(data)
+
+    @app.get("/api/history", dependencies=[Depends(local_only)])
+    def get_history() -> dict[str, Any]:
+        data, _ = read_brief()
+        return scan_history.timeline(scan_history.DEFAULT_CACHE if history is None else history, data)
 
     @app.get("/api/lenses", dependencies=[Depends(local_only)])
     def get_lenses() -> dict[str, Any]:

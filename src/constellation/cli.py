@@ -13,8 +13,8 @@ from typing import Any
 
 from langgraph.types import Command
 
+from . import history, scan
 from . import origins as origin_sources
-from . import scan
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
 from .diff import diff_scans, render_diff
@@ -57,6 +57,7 @@ def main(
         action="store_true",
         help="also count each skill's full text (sends redacted bodies to Anthropic's counting endpoint)",
     )
+    scan_command.add_argument("--no-history", action="store_true", help="do not record this scan's counts in the scan history")
     scan_command.add_argument("--dry-run", action="store_true", help="print what would be sent to the providers; send nothing")
     scan_command.add_argument(
         "--offline", action="store_true", help="make no paid or network calls: no labels or verifier, cached token costs only"
@@ -66,6 +67,7 @@ def main(
     open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     open_command.add_argument("--port", type=int, default=8765)
     open_command.add_argument("--no-browser", action="store_true")
+    open_command.add_argument("--history", type=Path, help="scan history file to chart (default ~/.cache/constellation/history.json)")
     open_command.add_argument("--config-dir", type=Path, help="enable live MCP tool listing from this config root")
     expand_command = commands.add_parser("expand", help="list the tools of one configured local MCP server")
     expand_command.add_argument("item_id")
@@ -200,7 +202,9 @@ def main(
         first = next((w for w in result.warnings if FAILED_PREFIX in w), "unknown")
         print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1
-    _write(result, args.out, read_secrets(args.config_dir, args.project))
+    _write(
+        result, args.out, read_secrets(args.config_dir, args.project), args.config_dir, None if args.no_history else history.DEFAULT_CACHE
+    )
     return 0
 
 
@@ -321,7 +325,9 @@ def _open(args: argparse.Namespace, serve: Serve | None, expansion_query: Query 
         print(server.BUILD_HINT, file=sys.stderr)
         return 2
     try:
-        app = server.create_app(args.file, checklist=args.checklist, config_dir=args.config_dir, expansion_query=expansion_query)
+        app = server.create_app(
+            args.file, checklist=args.checklist, config_dir=args.config_dir, expansion_query=expansion_query, history=args.history
+        )
     except (OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 2
@@ -329,13 +335,20 @@ def _open(args: argparse.Namespace, serve: Serve | None, expansion_query: Query 
     return 0
 
 
-def _write(result: Constellation, path: Path, secrets: set[str]) -> None:
+def _write(result: Constellation, path: Path, secrets: set[str], config_dir: Path, history_path: Path | None) -> None:
+    day, setup = history._today(), history.key(str(config_dir.resolve()))
+    result.scanned_at, result.setup = day, setup
     result.items = [replace(i, description=redact(i.description, secrets)) for i in result.items]  # the Items hold raw text
     text = json.dumps(asdict(result), indent=2)  # serialise first: a failure must not leave an empty file behind
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     os.chmod(path, 0o600)  # open() keeps the mode of a file that already existed
     with os.fdopen(fd, "w") as f:
         f.write(text)
+    if history_path is not None:
+        try:
+            history.record(history_path, history.entry(asdict(result), setup, day))
+        except OSError as error:
+            print(f"could not save scan history: {error}", file=sys.stderr)
 
 
 def _local_embedder() -> Embedder | None:

@@ -594,3 +594,12 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - T2 done: `src/constellation/scan_graph.py` holds one `StateGraph` (reducers `or_`/`add`/`_merge_stage`, ids-only `Send` for labels and pair verdicts, conditional edges as the cost rule, multi-source join into `assemble`). `scan()` keeps its signature and results; the golden files are unchanged. **Deviation (small):** the plan kept `classify()`/`verify()` as subgraph wrappers; they would be dead production code, so they are removed. The graph nodes use `label_plan/label_one/label_flush` and `verify_plan/check_one/verify_flush`; the two tests and the paid eval that called them now go through `scan()` / `check_one`.
 - Deviation from the plan's ticket split: T1 and T2 were built in one step (the whole-function-node intermediate graph was skipped; the golden test guards the end state). No checkpointer, file or stderr output added (T3). `Constellation` is built in `scan()` from the prelude plus the graph's final state, so Items never enter graph state.
 - `scan_graph.py` added to mutmut `only_mutate`.
+
+## #62 scan history and the context time-lapse (2026-11-05, branch `claude/history-62`, plan `docs/plans/history.md`)
+
+- Built exactly as the plan, owner-approved decisions applied: hashed ids, same-day replace, 400-day retention, `scanned_at`/`setup` on the scan file (set by CLI `_write`, dropped by `snapshot()`, test), `scan --no-history`, `open --history FILE`. No deviation.
+- `history.py` (`only_mutate`): entry/load/record (0600 file, 0700 new dir, temp file + `os.replace`, unwritable = stderr warning, corrupt or malformed entries read as empty/skipped) and `timeline` for `GET /api/history` (`local_only`, no hashes/setup/path). Mutmut on `constellation.history.*`: zero survivors. Golden scan fixtures re-recorded for the two new null fields only.
+- UI: `History.tsx` (button + popover + SVG chart, hand-drawn, tokens only, focusable points with arrow keys, sr-only table), `graph/history.ts`, `history:check`, `TopBar` `extra` prop, `Atlas` fetches `api/history`. Demo: `make-demo.mjs` writes `setup`/`scanned_at` and `demo-250-history.json` (deterministic). Screenshots `docs/design/screenshots/62-*.jpg`.
+- Left for #70: the `Time travel` footer button renders only when `onTimeTravel` is passed (Atlas does not pass it yet), so no dead button ships.
+- Corrupt history file reads as empty silently (no stderr warning); a failed write warns.
+

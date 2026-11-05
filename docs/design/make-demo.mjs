@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 // Writes demo-250.json: invented names only, shaped like a real setup (about 250 Items, 30 clusters of very different
 // sizes, a few plugin hubs with Relations, most Items with none). Seeded, so identical every run: node docs/design/make-demo.mjs
 let seed = 7;
@@ -129,4 +130,27 @@ for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo
   if (pool[1]) set(pool[1], { p2: 5 });
   if (pool[2]) set(pool[2], { p1: 6, p2: 5 });
   fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
+}
+
+// Scan history fixtures (docs/plans/history.md, #62): demo-250.json gets `setup` and `scanned_at`, and demo-250-history.json holds twelve
+// weekly counts-only entries in the history file format (ids hashed like src/constellation/history.py `key`). Deterministic, no randomness:
+// the Items grow from 55% to all of them, three invented ghosts come and go, and one Item is removed then re-added. Idempotent.
+{
+  const url = new URL("demo-250.json", import.meta.url), d = JSON.parse(fs.readFileSync(url, "utf8"));
+  d.setup = "demo";
+  d.scanned_at = "2026-11-04";
+  fs.writeFileSync(url, JSON.stringify(d, null, 1) + "\n");
+  const key = (t) => crypto.createHash("sha256").update(t).digest("hex").slice(0, 12);
+  const cost = (id) => d.costs?.[id]?.always_on ?? null;
+  const ghosts = [["ghost:one", 2, 5], ["ghost:two", 6, 8], ["ghost:three", 4, 10]]; // id, first and last entry that holds it; each costs 40
+  const entries = [];
+  for (let k = 0; k < 12; k++) {
+    const count = k === 11 ? d.items.length : Math.round(d.items.length * (0.55 + 0.45 * (k / 11)));
+    const held = d.items.slice(0, count).map((i) => i.id).filter((id) => !(id === d.items[5].id && k >= 3 && k <= 5));
+    const known = held.map(cost).filter((c) => c !== null);
+    const live = ghosts.filter(([, from, to]) => k >= from && k <= to);
+    const date = new Date(Date.UTC(2026, 10, 4) - (11 - k) * 7 * 864e5).toISOString().slice(0, 10);
+    entries.push({ setup: "demo", date, items: held.length + live.length, always_on: known.reduce((a, b) => a + b, 0) + 40 * live.length, unknown: held.length - known.length, ids: [...held, ...live.map(([id]) => id)].map(key).sort() });
+  }
+  fs.writeFileSync(new URL("demo-250-history.json", import.meta.url), JSON.stringify({ v: 1, entries }, null, 1) + "\n");
 }
