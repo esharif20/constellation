@@ -2,7 +2,7 @@
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
 import { FOCUS_FILL, haloOf } from "./layout";
 import { chooseSpot, cutName, labelStart, type Box } from "./names";
-import { rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
+import { clusterHealth, rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
 
 // Feel knobs, tuned by eye: change these, not the code below.
 export const FEEL = {
@@ -38,7 +38,7 @@ function readInk() {
     overlap: t("--overlap") || PALETTE.overlap,
     fade: Number(t("--fade")) || 0.1,
     edge: t("--edge"), edgeAlt: t("--edge-alt"), halo: t("--halo"), haloName: t("--halo-name"), dust: t("--dust"),
-    ring: t("--ring"), text: t("--text"), text2: t("--text-2"), text3: t("--text-3"), mono: t("--font-mono-stack"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
+    ring: t("--ring"), text: t("--text"), text2: t("--text-2"), text3: t("--text-3"), warn: t("--warn"), mono: t("--font-mono-stack"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
   };
 }
 
@@ -64,6 +64,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   // Every fade eases toward a target and snaps when close. `busy` says whether anything is still moving, so the
   // canvas can stop repainting once the map is at rest (StarMap wakes it again on any interaction).
   const halos = new Map<Cluster, { x: number; y: number; r: number }>();
+  let healthFor: Set<GNode> | null | undefined, health = clusterHealth(model); // recomputed only when what-if's removed set changes
   let moving = false, busy = true;
   const ease = (a: number, b: number, k: number) => {
     if (Math.abs(b - a) < 0.002) return b;
@@ -476,6 +477,28 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     const zoomAlpha = (zoomA = ease(zoomA, zoomOn ? 1 : 0, lk)), coarse = matchMedia("(pointer: coarse)").matches;
     [...model.clusters].sort((a, b) => b.members.length - a.members.length).forEach((c) => clusterLabel(c, zoomAlpha));
     named.filter((x) => x[0] === 4).forEach(itemLabel);
+    if (!phone && !fc) { // health badge (#71): one line under each drawn cluster name, after every name so it can only be skipped, never move one
+      if (healthFor !== focus.removed) { healthFor = focus.removed; health = clusterHealth(model, focus.removed); }
+      ctx.font = `450 11px ${ink.sans}`;
+      ctx.textAlign = "left";
+      ctx.lineWidth = 4;
+      for (const c of model.clusters) {
+        const m = widths.get(c), h = health.get(c);
+        if (!c.hit || !m || !h) continue;
+        const [sx, sy] = sc.apply(c.lx, c.ly), y = sy + (m.size * m.scale) / 2 + 12;
+        const cost = h.known == null ? "cost unknown" : `${h.known.toLocaleString()} tok`;
+        const rest = [h.useShare == null ? "" : ` · ${h.useShare > 0 && h.useShare < 0.01 ? "<1" : Math.round(h.useShare * 100)}% of uses`, ` · ${h.overlaps === 0 ? "no overlaps" : h.overlaps === 1 ? "1 overlap" : `${h.overlaps} overlaps`}`].join("");
+        const w = ctx.measureText(cost + rest).width, x = sx - w / 2;
+        if (!fits(x - 2, y - 8, x + w + 2, y + 8)) continue;
+        ctx.globalAlpha = (zoomAlpha * c.la * c.a) * 0.9;
+        ctx.strokeText(cost + rest, x, y);
+        ctx.fillStyle = h.rank != null && h.rank <= 3 ? ink.warn : ink.text3;
+        ctx.fillText(cost, x, y);
+        ctx.fillStyle = ink.text3;
+        ctx.fillText(rest, x + ctx.measureText(cost).width, y);
+      }
+      ctx.textAlign = "center";
+    }
     ctx.restore();
     busy = moving || focus.flying || now < introEnd;
     if (import.meta.env.DEV) performance.measure("cx-frame", "cx-pre");

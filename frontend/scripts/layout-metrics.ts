@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import { strict as assert } from "node:assert";
-import { budget, buildModel, withContents, clusterSummary, groupWarnings, rankMembers, costRadius, tipBadges, usageLine, RMAX, RMIN, RUNK, type Constellation, type GNode, type Model, type UsageWindow } from "../src/graph/model.ts";
+import { budget, buildModel, clusterHealth, withContents, clusterSummary, groupWarnings, rankMembers, costRadius, tipBadges, usageLine, RMAX, RMIN, RUNK, type Constellation, type Cluster, type GNode, type GOverlap, type Model, type UsageWindow } from "../src/graph/model.ts";
 import { flightMs, flightPath } from "../src/graph/flight.ts";
 import { fitView, focusView, GAP, haloOf, K, type View } from "../src/graph/layout.ts";
 import { searchItems } from "../src/graph/search.ts";
@@ -373,6 +373,26 @@ assert.equal(cutName("x".repeat(40), 28).length, 28);
   const bw = budget(m250.nodes, gone);
   assert.equal(bw.known + bw.saved, b250.known); // removing never changes the before total
   assert.equal(bw.removed, gone.size);
+}
+
+// cluster health (#71)
+{
+  const nd = (always_on: number | null, count?: number) => ({ unknown: always_on == null, cost: { always_on, on_use: null }, usage: count === undefined ? undefined : { count } }) as GNode;
+  const [a1, a2, b1, u1] = [nd(100, 30), nd(50, 0), nd(400, 70), nd(null, 0)];
+  const cA = { name: "A", members: [a1, a2] } as Cluster, cB = { name: "B", members: [b1] } as Cluster, cU = { name: "U", members: [u1] } as Cluster;
+  a1.cluster = a2.cluster = cA; b1.cluster = cB; u1.cluster = cU;
+  const ov = [{ a: a1, b: a2, verdict: "duplicate" }, { a: a1, b: b1, verdict: "overlap" }] as unknown as GOverlap[];
+  const hm: Pick<Model, "clusters" | "nodes" | "overlaps" | "usageWindow"> = { clusters: [cA, cB, cU], nodes: [a1, a2, b1, u1], overlaps: ov, usageWindow: { files: 3, first: null, last: null } as never };
+  const h = clusterHealth(hm);
+  assert.deepEqual(h.get(cA), { known: 150, unknown: 0, useShare: 0.3, overlaps: 1, rank: 2 }); // 30/100 uses, the cross-cluster overlap is not inside
+  assert.deepEqual(h.get(cB), { known: 400, unknown: 0, useShare: 0.7, overlaps: 0, rank: 1 });
+  assert.deepEqual(h.get(cU), { known: null, unknown: 1, useShare: 0, overlaps: 0, rank: null });
+  assert.equal(clusterHealth({ ...hm, usageWindow: null }).get(cA)!.useShare, null);
+  const hr = clusterHealth(hm, new Set([a2]));
+  assert.deepEqual([hr.get(cA)!.known, hr.get(cA)!.overlaps], [100, 0]); // a removed member drops its cost and its overlaps
+  assert.equal(clusterHealth(hm, new Set([a1])).get(cA)!.useShare, 0);
+  const t = [...clusterHealth(buildModel(load("demo-250.json"))).entries()].filter(([, x]) => x.rank != null && x.rank <= 3).sort((x, y) => x[1].rank! - y[1].rank!).map(([c, x]) => `${c.name}:${x.known}`);
+  assert.deepEqual(t, ["Tidy the changelog:1361", "Hook script execution:1343", "Plan the quarterly review:860"]);
 }
 
 let failed = aa.aaMin < 4.5;
