@@ -515,5 +515,8 @@ def test_origin_is_searchable_and_named_as_the_reason():
 
 
 def test_an_origin_hit_outranks_a_typo_hit():
-    items = [{"id": "b", "kind": "skill", "name": "shadcm", "description": "Other"}, {"id": "a", "kind": "skill", "name": "zeta", "description": "Asks", "origin": "acme/shadcn"}]
+    items = [
+        {"id": "b", "kind": "skill", "name": "shadcm", "description": "Other"},
+        {"id": "a", "kind": "skill", "name": "zeta", "description": "Asks", "origin": "acme/shadcn"},
+    ]
     assert ids(Index(items).query("shadcn")) == ["a", "b"]
