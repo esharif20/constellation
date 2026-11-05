@@ -747,3 +747,5 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Deviation (temporary): the switch ships in the production build, because `constellation open` serves the built bundle and the owner must be able to flip it there. Remove it once a candidate is chosen.
 - Gates: build, layout:check (aaMin 5.44, unchanged), chat:check, badge:check, inspector:check pass. Screenshots at 1440 and 390 in `docs/design/screenshots/sky/`. Not checked: frame timing for A, and A at deep zoom by eye.
 - Owner decides: which candidate (or none), and whether B goes under A to break the gradient banding.
+- Round 2 (owner: too subtle): candidates now A atlas graticule (rings, ticks, RA/Dec labels; cached Path2D, 0.15 ms/frame), B deep field (two-tone nebula band, dark lane, band-weighted specks, 11 anchors; rendered once per viewport size by `graph/sky.ts` into a CSS layer, zero per-frame cost, opt-in `&drift`, off under reduced motion), C = A over B (recommended). Budget raised: lines 1.24, field core 1.32, against edges 1.45; aaMin 5.44 unchanged. Constellation lines rejected (they would read as Relations). Zoomed screenshots added.
+

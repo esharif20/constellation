@@ -52,9 +52,11 @@
   --vignette: radial-gradient(ellipse 100% 100% at 50% 42%, transparent 55%, color-mix(in srgb, var(--surface-0) 55%, transparent) 100%);
   --nebula: radial-gradient(ellipse 70% 60% at 18% 82%, color-mix(in srgb, var(--indigo) 9%, transparent), transparent 70%), radial-gradient(ellipse 55% 50% at 88% 12%, color-mix(in srgb, var(--indigo) 5%, transparent), transparent 70%);
   /* sky pattern candidates (docs/design/sky-pattern.md), alphas only: each paints an existing ink token */
-  --sky-ring: 0.05; /* A: graticule, --halo-name at this alpha (canvas, map-anchored) */
-  --sky-grain-opacity: 0.05; /* B: grain, --text through a noise mask (CSS, screen-fixed) */
-  --sky-dots-opacity: 0.08; /* C: dot field, --text dots fading out from the centre (CSS, screen-fixed) */
+  --sky-ring: 0.1; /* graticule lines and ticks, --halo-name (canvas, map-anchored) */
+  --sky-ring-label: 0.42; /* graticule labels, --text-3 */
+  --sky-nebula: 0.09; /* deep field band, --indigo outside, --halo-name core at half this */
+  --sky-star: 0.34; /* deep field specks, --text, peak */
+  --sky-anchor: 0.45; /* the few anchor stars, --text */
 
   /* shadcn semantic tokens */
   --background: var(--night);
@@ -158,6 +160,7 @@
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes bar-grow { from { transform: scaleX(0); } }
 @keyframes sheet-in { from { transform: translateY(100%); } }
+@keyframes sky-drift { to { transform: translate3d(-18px, 10px, 0); } }
 @keyframes pulse-star { 50% { transform: scale(0.6); opacity: 0.5; } }
 
 @layer base {
@@ -169,17 +172,11 @@
     background: var(--vignette), var(--nebula), radial-gradient(120% 90% at 50% 38%, var(--night-lift) 0%, var(--night) 62%);
     background-color: var(--night);
   }
-  /* sky candidates B and C: one fixed layer between the sky and the canvas, painted once (z -1 sits under #root) */
-  [data-sky="b"] body::before, [data-sky="c"] body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--text); }
-  [data-sky="b"] body::before {
-    opacity: var(--sky-grain-opacity);
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 180px 180px;
-  }
-  [data-sky="c"] body::before {
-    opacity: var(--sky-dots-opacity);
-    mask: radial-gradient(circle, var(--text) 0.7px, transparent 1.3px) 0 0 / 22px 22px, radial-gradient(ellipse 62% 58% at 50% 46%, var(--text) 0%, transparent 100%);
-    mask-composite: intersect;
-  }
+  /* deep field (sky b and c): an image rendered once by graph/sky.ts, on a fixed layer under #root (z -1); the
+     compositor moves it for the opt-in drift, so no frame of JS or canvas work */
+  [data-sky="b"] body::before, [data-sky="c"] body::before { content: ""; position: fixed; inset: -24px; z-index: -1; pointer-events: none; background: var(--sky-field, none) center / cover no-repeat; }
+  [data-drift] body::before { animation: sky-drift 180s ease-in-out infinite alternate; }
+  @media (prefers-reduced-motion: reduce) { [data-drift] body::before { animation: none; } }
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
   :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 }
