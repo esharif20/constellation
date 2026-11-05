@@ -1,7 +1,10 @@
 import hashlib
 import json
+import os
 import re
+import stat
 import threading
+import unicodedata
 import webbrowser
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -76,6 +79,98 @@ def local_only(request: Request) -> None:
             raise HTTPException(415, "application/json is required")
 
 
+_PREVIEW_MAX_BYTES = 1_000_000
+_PREVIEW_KEYS = {"version", "pack", "items", "counts", "always_on", "overlaps", "already_installed", "compared", "note", "warnings"}
+
+
+def _text(value: object, cap: int) -> str:
+    if not isinstance(value, str) or len(value) > cap or any(unicodedata.category(c).startswith("C") for c in value):
+        raise ValueError("bad text")
+    return value
+
+
+def _count(value: object) -> int | None:
+    if value is None or (type(value) is int and 0 <= value <= 10_000_000):
+        return value
+    raise ValueError("bad number")
+
+
+def _flag(value: object) -> bool:
+    if type(value) is not bool:
+        raise ValueError("bad flag")
+    return value
+
+
+def _exact(value: object, keys: set[str]) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != keys:
+        raise ValueError("bad shape")
+    return value
+
+
+def _rows(value: object, cap: int) -> list[Any]:
+    if not isinstance(value, list) or len(value) > cap:
+        raise ValueError("bad list")
+    return value
+
+
+def _preview_file(path: Path) -> dict[str, Any]:
+    """Rebuild a saved install preview field by field. The file is untrusted text: any odd shape, size or character raises ValueError."""
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)  # non-blocking, so a FIFO swapped in cannot hang a worker
+    with os.fdopen(fd, "rb") as handle:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("not a regular file")
+        raw = handle.read(_PREVIEW_MAX_BYTES + 1)
+    if len(raw) > _PREVIEW_MAX_BYTES:
+        raise ValueError("too large")
+    data = _exact(json.loads(raw), _PREVIEW_KEYS)
+    pack = _exact(data["pack"], {"name", "layout"})
+    totals = _exact(data["always_on"], {"counted", "estimated", "unknown"})
+    if data["version"] != 1 or pack["layout"] not in ("plugin", "pack", "skill"):
+        raise ValueError("bad version")
+    counts = data["counts"]
+    if not isinstance(counts, dict) or len(counts) > 20:
+        raise ValueError("bad counts")
+    items = []
+    for row in _rows(data["items"], 2000):
+        row = _exact(row, {"id", "kind", "name", "description", "always_on", "estimated"})
+        items.append(
+            {
+                "id": _text(row["id"], 400),
+                "kind": _text(row["kind"], 40),
+                "name": _text(row["name"], 80),
+                "description": _text(row["description"], 200),
+                "always_on": _count(row["always_on"]),
+                "estimated": _flag(row["estimated"]),
+            }
+        )
+    overlaps = []
+    for row in _rows(data["overlaps"], 2000):
+        row = _exact(row, {"new_id", "existing_id", "existing_name", "why"})
+        overlaps.append(
+            {
+                "new_id": _text(row["new_id"], 400),
+                "existing_id": _text(row["existing_id"], 400),
+                "existing_name": _text(row["existing_name"], 80),
+                "why": _text(row["why"], 40),
+            }
+        )
+    for k in counts:  # counts, note and warnings are validated so a bad file is refused whole, but not served
+        _text(k, 40), _count(counts[k])
+    if data["note"] is not None:
+        _text(data["note"], 400)
+    for w in _rows(data["warnings"], 200):
+        _text(w, 200)
+    return {
+        "version": 1,
+        "pack": {"name": _text(pack["name"], 80), "layout": pack["layout"]},
+        "items": [{k: i[k] for k in ("id", "kind", "name")} for i in items],  # only what the panel shows leaves the server
+        "always_on": {k: _count(v) for k, v in totals.items()},
+        "overlaps": overlaps,
+        "already_installed": _flag(data["already_installed"]),
+        "compared": _flag(data["compared"]),
+    }
+
+
 def _checklist_path(checklist: Path, scan_file: Path) -> Path:
     path = checklist.resolve()
     if ".claude" in path.parts or path.is_relative_to((Path.home() / ".claude").resolve()):
@@ -93,6 +188,7 @@ def create_app(
     config_dir: Path | None = None,
     expansion_query: ExpansionQuery | None = None,
     history: Path | None = None,
+    preview: Path | None = None,
 ) -> FastAPI:
     checklist = DEFAULT_CHECKLIST if checklist is None else checklist
     _checklist_path(checklist, scan_file)
@@ -127,6 +223,19 @@ def create_app(
         except (OSError, ValueError):
             raise HTTPException(404, "scan could not be read") from None
         return data, brief(data)
+
+    @app.get("/api/preview", dependencies=[Depends(local_only)])
+    def get_preview() -> dict[str, Any]:  # the path is fixed at startup; nothing from the request names a file
+        try:
+            if preview is None:
+                raise ValueError
+            return _preview_file(preview)
+        except (
+            OSError,
+            ValueError,
+            RecursionError,
+        ):  # deep nesting raises RecursionError; JSONDecodeError and UnicodeDecodeError are ValueErrors
+            raise HTTPException(404, "no install preview") from None
 
     @app.get("/api/history", dependencies=[Depends(local_only)])
     def get_history() -> dict[str, Any]:

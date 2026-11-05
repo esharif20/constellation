@@ -69,6 +69,7 @@ def main(
     open_command.add_argument("--port", type=int, default=8765)
     open_command.add_argument("--no-browser", action="store_true")
     open_command.add_argument("--history", type=Path, help="scan history file to chart (default ~/.cache/constellation/history.json)")
+    open_command.add_argument("--preview", type=Path, help="saved `preview --out` file to show in the Brief (read-only)")
     open_command.add_argument("--config-dir", type=Path, help="enable live MCP tool listing from this config root")
     expand_command = commands.add_parser("expand", help="list the tools of one configured local MCP server")
     expand_command.add_argument("item_id")
@@ -337,6 +338,9 @@ def _open(args: argparse.Namespace, serve: Serve | None, expansion_query: Query 
     if not args.file.is_file():
         print(f"{args.file} not found; run `constellation scan` first.", file=sys.stderr)
         return 2
+    if args.preview and not args.preview.is_file():
+        print(f"{args.preview} not found; make it with `constellation preview DIR --out FILE`.", file=sys.stderr)
+        return 2
     try:
         from . import server
     except ImportError:
@@ -347,7 +351,12 @@ def _open(args: argparse.Namespace, serve: Serve | None, expansion_query: Query 
         return 2
     try:
         app = server.create_app(
-            args.file, checklist=args.checklist, config_dir=args.config_dir, expansion_query=expansion_query, history=args.history
+            args.file,
+            checklist=args.checklist,
+            config_dir=args.config_dir,
+            expansion_query=expansion_query,
+            history=args.history,
+            preview=args.preview,
         )
     except (OSError, ValueError) as error:
         print(str(error), file=sys.stderr)

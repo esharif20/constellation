@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "pack": {
+    "name": "pdf-kit",
+    "layout": "plugin"
+  },
+  "items": [
+    {
+      "id": "new:claude-code:plugin:pdf-kit",
+      "kind": "plugin",
+      "name": "pdf-kit",
+      "description": "Read and fold PDF files.",
+      "always_on": null,
+      "estimated": false
+    },
+    {
+      "id": "new:claude-code:skill:pdf-kit/pdf-reader",
+      "kind": "skill",
+      "name": "pdf-reader",
+      "description": "Read the text out of a PDF file.",
+      "always_on": 11,
+      "estimated": true
+    },
+    {
+      "id": "new:claude-code:skill:pdf-kit/trace-canvas",
+      "kind": "skill",
+      "name": "trace-canvas",
+      "description": "Trace shapes on a canvas and export them.",
+      "always_on": 14,
+      "estimated": true
+    },
+    {
+      "id": "new:claude-code:command:pdf-kit/fold-beacon",
+      "kind": "command",
+      "name": "fold-beacon",
+      "description": "Fold a beacon into a page.",
+      "always_on": 10,
+      "estimated": true
+    },
+    {
+      "id": "new:claude-code:mcp_server:pdf-kit/pdfd",
+      "kind": "mcp_server",
+      "name": "pdfd",
+      "description": "stdio: pdfd",
+      "always_on": null,
+      "estimated": false
+    }
+  ],
+  "counts": {
+    "command": 1,
+    "mcp_server": 1,
+    "plugin": 1,
+    "skill": 2
+  },
+  "always_on": {
+    "counted": 0,
+    "estimated": 35,
+    "unknown": 1
+  },
+  "overlaps": [
+    {
+      "new_id": "new:claude-code:skill:pdf-kit/trace-canvas",
+      "existing_id": "skill:0:trace-canvas",
+      "existing_name": "trace-canvas",
+      "why": "same name"
+    }
+  ],
+  "already_installed": false,
+  "compared": true,
+  "note": "Meaning-based overlap is off (the local embedder is unavailable); only same names were compared.",
+  "warnings": []
+}
