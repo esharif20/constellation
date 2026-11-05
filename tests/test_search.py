@@ -100,10 +100,10 @@ def test_vector_cache_is_private_keyed_by_text_and_reused(tmp_path):
     warm(Index(ITEMS), cache, counting)
     assert stat.S_IMODE(cache.stat().st_mode) == 0o600 and calls == [5]
     warm(Index(ITEMS), cache, counting)
-    assert calls == [5]
+    assert calls == [5, 1]  # one probe of the embedder's dimension, nothing re-embedded
     changed = [{**ITEMS[0], "description": "new words"}, *ITEMS[1:]]
     warm(Index(changed), cache, counting)
-    assert calls == [5, 1]
+    assert calls == [5, 1, 1]
     assert "gmail-helper" not in cache.read_text()
 
 
@@ -421,3 +421,87 @@ def test_each_list_can_find_an_item_alone():
 def test_a_multi_word_query_is_exact_on_the_joined_name():
     items = [item("pdf-reader", "junk " * 30, id_="exact"), item("a-pdf-reader", "pdf reader", id_="better")]
     assert Index(items).query("pdf reader")[0]["id"] == "exact"
+
+
+# --- #74: a stale or mismatched vector cache must never crash search or chat --------------------------------------------------------
+
+DROPPED = "Some saved search vectors did not match the local embedder and were rebuilt."
+
+
+def invented_cache(tmp_path, dim=7):
+    """A cache made by another embedder: right keys for some Items, vectors of a different length, plus junk and an other-model key."""
+    path = tmp_path / "stale.json"
+    keys = [retrieve._key(f"{i['name']}: {i['description']}") for i in ITEMS]
+    stored = {k: [0.5] * dim for k in keys[:3]}
+    stored.update({"sha-of-another-model": [0.1] * dim, keys[3]: "junk", keys[4]: [True, None]})
+    path.write_text(json.dumps(stored))
+    path.chmod(0o644)
+    return path
+
+
+def wait_for(http, predicate):
+    for _ in range(200):  # vectors warm in a background thread
+        got = http.get("/api/search", params={"q": "slides"}).json()
+        if predicate(got):
+            return got
+        time.sleep(0.02)
+    raise AssertionError(got)
+
+
+def test_api_search_survives_a_cache_of_the_wrong_dimension_and_cleans_it(client, tmp_path, monkeypatch):
+    http, _ = client
+    stale = invented_cache(tmp_path)
+    monkeypatch.setattr(retrieve, "DEFAULT_CACHE", stale)
+    got = wait_for(http, lambda g: g["note"] is not None)
+    assert got["note"] == DROPPED
+    got = wait_for(http, lambda g: g["results"])
+    assert got["results"][0] == {"id": "pp", "why": "similar meaning"}
+    stored = json.loads(stale.read_text())
+    assert len(stored) == 5 and {len(v) for v in stored.values()} == {3} and "sha-of-another-model" not in stored
+    assert stat.S_IMODE(stale.stat().st_mode) == 0o600
+
+
+def test_api_chat_survives_a_cache_of_the_wrong_dimension(client, tmp_path, monkeypatch):
+    http, _ = client
+    monkeypatch.setattr(retrieve, "DEFAULT_CACHE", invented_cache(tmp_path))
+    wait_for(http, lambda g: g["note"] is not None)
+    answered = http.post("/api/chat", json={"question": "should I keep gmail-helper"})
+    assert answered.status_code == 200, answered.text
+
+
+def test_fully_cached_wrong_dimension_is_rebuilt_without_a_mixed_file(tmp_path):
+    stale = tmp_path / "all.json"
+    stale.write_text(json.dumps({retrieve._key(f"{i['name']}: {i['description']}"): [1.0, 0.0] for i in ITEMS}))
+    index = warm(Index(ITEMS), stale)
+    assert index.note == DROPPED and index.query("slides")[0]["id"] == "pp"
+    assert {len(v) for v in json.loads(stale.read_text()).values()} == {3}
+    assert warm(Index(ITEMS), stale).note is None  # clean now: no warning, no rewrite needed
+
+
+def test_a_matching_cache_gives_no_warning(tmp_path):
+    cache = tmp_path / "ok.json"
+    warm(Index(ITEMS), cache)
+    assert warm(Index(ITEMS), cache).note is None
+
+
+@pytest.mark.parametrize(
+    ("value", "ok"),
+    [
+        ([1, 2.5], True),
+        ([], False),
+        ("ab", False),
+        ([1, "x"], False),
+        ([1, None], False),
+        ([True], False),
+        ({"a": 1}, False),
+        (None, False),
+    ],
+)
+def test_only_a_non_empty_list_of_numbers_is_a_cached_vector(value, ok):
+    assert retrieve._is_vector(value) is ok
+
+
+def test_an_embedder_with_ragged_lengths_switches_meaning_off_and_writes_nothing(tmp_path):
+    cache = tmp_path / "r.json"
+    index = warm(Index(ITEMS), cache, lambda texts: [[1.0] * (2 + n % 2) for n, _ in enumerate(texts)])
+    assert index.vectors is None and "Meaning-based search is off" in index.note and not cache.exists()

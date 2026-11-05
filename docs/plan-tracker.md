@@ -623,3 +623,10 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Left for #70: the `Time travel` footer button renders only when `onTimeTravel` is passed (Atlas does not pass it yet), so no dead button ships.
 - A corrupt existing history file warns on stderr (record only) and is replaced; the write is fsynced; an existing history directory is chmodded 0700; the 400-day cutoff counts from min(newest, today) and non-canonical dates are skipped (Opus review fixes).
 
+
+## #74 stale or mismatched embedding cache (2026-11-05, branch `claude/embed-cache-fix`)
+
+- Bug: a cache written by another embedder (different vector length) made `cluster.dot`'s strict zip raise inside `/api/search`, `/api/chat` and the preview overlap path. Reproduced first with an invented cache file (dimension 7, junk entries, an other-model key) through the HTTP API.
+- Fix in `retrieve.Index.add_vectors` only: cached entries must be non-empty lists of numbers of the active embedder's dimension (taken from the fresh vectors, or from a one-text probe when everything is cached); others are re-embedded, never mixed. The file is rewritten whole (still 0600) only when something was missing or dropped, so it never holds two dimensions. Entries under another model id already had a different key (`sha256(MODEL + text)`) and are pruned as before. Dropped entries set the fixed note "Some saved search vectors did not match the local embedder and were rebuilt." (a ragged embedder switches meaning search off, writes nothing).
+- Deviation (small, no privacy or cost change): a fully cached, unchanged setup now makes one local embedder call (a one-text probe) instead of zero. It is free and local; the existing cache-reuse test now expects `[5, 1]`.
+- Tests: `tests/test_search.py` (API search and chat with an invented wrong-dimension cache, fully cached wrong dimension, no warning when matching, `_is_vector`, ragged embedder) and `tests/test_preview.py`. Mutmut on `constellation.retrieve.*`: zero survivors. No real cache, scan or `.env` was read.
