@@ -429,3 +429,12 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - **Owner APPROVED** the project-label rule: `--project` folder name, else the folder name with the encoded home prefix stripped; the username is never shown. The earlier deviation is closed. Low tier and the paid scope verdict stay not built.
 - Contract only, no logic: `Item.scope`/`Item.project`, `ProjectUsage`, `Constellation.projects`/`usage_by_project`/`current_project`, `scan(project=)`, `read_items(project=)`, `read_usage(project=)` returning a 4th `ProjectUsage` (empty), `Suggestion.project`/`confidence`. Defaults keep behaviour unchanged; brief rows now carry `project`/`confidence` as None. Test proves defaults and that `snapshot()` drops the new keys.
+
+## Inspector redesign, ticket A (#73, branch `claude/inspector-a`)
+
+- Done per `docs/design/inspector.md` sections 1 (header, verdict, facts), 2, 6 to 8 for those parts: `components/inspector/{Header,Verdict,Facts,MiniBar}.tsx`, pure `lib/verdict.ts` (one `DORMANT_DAYS = 30` constant), `Inspector.tsx` now composes them. `model.ts` Item gains optional `origin`, `scope`, `project` only. `index.css` gains `fade-in` and `bar-grow` keyframes (zeroed by the existing reduced-motion rule). No new dependency, no provider call.
+- Self-check: `npm run inspector:check` (every verdict row, the 29/30/31-day edge, plugin roll-up, 90-char clip, origin/scope header on an invented fixture; no demo file edited).
+- Kept for ticket B: hook session-start weight is a Facts chip for now (B moves it to KindDetails); the description paragraph, source path and Relation/Overlap groups are unchanged (B splits and regroups them).
+- Not built, by design: cluster button, Compare, Add to checklist, Actions and sticky phone footer (C, need Atlas wiring), shimmer loading state (the lazy chunk is Atlas's Suspense).
+- Open for Atlas wiring (Atlas.tsx not editable here): the selection live region should say `Selected {name}, {verdict word}`; export `verdictOf` is ready. The banner has a visually hidden `Verdict:` prefix meanwhile.
+- Screenshots (demo-250 and demo-offline only): `docs/design/screenshots/inspector/`.
