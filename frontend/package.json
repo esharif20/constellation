@@ -12,6 +12,7 @@
     "history:check": "node scripts/history-check.ts",
     "inspector:check": "node scripts/inspector-check.mjs",
     "badge:check": "node scripts/badge-check.mjs",
+    "explain:check": "node scripts/explain-check.mjs",
     "whatif:check": "node scripts/whatif-check.mjs",
     "chat:check": "node scripts/chat-accessibility.mjs",
     "chat:cluster:check": "node scripts/chat-cluster-check.mjs"

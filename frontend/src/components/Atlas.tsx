@@ -8,6 +8,7 @@ import { WhatIfChip } from "@/components/WhatIfChip";
 import { StarMap, type StarMapHandle } from "@/components/StarMap";
 import { History } from "@/components/History";
 import { TopBar } from "@/components/TopBar";
+import { ExplainCard } from "@/components/ExplainCard";
 import type { Timeline } from "@/graph/history";
 import { useRemoteSearch } from "@/components/useRemoteSearch";
 import { searchItems } from "@/graph/search";
@@ -256,6 +257,7 @@ export default function Atlas({ model }: { model: Model }) {
         scope={scope}
         onScope={setScope}
         extra={<History timeline={timeline} />}
+        explain={brief ? <ExplainCard model={model} onCluster={(c) => enter(c, true)} onItem={(n) => selectById(n.id)} /> : undefined}
       />
       {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} removed={removed} />}
       {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}
