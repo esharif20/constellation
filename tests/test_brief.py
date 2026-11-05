@@ -187,3 +187,15 @@ def test_append_adds_a_missing_final_newline_inside_the_same_write(tmp_path):
     path.write_text("- [ ] x (id 0123456789ab)")
     append_line(path, Suggestion("abcdef012345", "review_cost", ("b",), "Review Beta.", None))
     assert path.read_text().splitlines()[1].startswith("- [ ] Review Beta.")
+
+
+def test_removes_picks_the_cheaper_duplicate_then_the_smaller_id():
+    from constellation.brief import removes
+
+    dup = Suggestion("s1", "remove_duplicate", ("b", "a"), "r", 5)
+    assert removes(dup, {"a": 5, "b": 5}) == "a"  # a tie on cost falls back to the smaller id
+    assert removes(dup, {"a": 9, "b": 5}) == "b"  # otherwise the cheaper Item goes
+    assert removes(dup, {"a": 5}) is None  # a duplicate with an unknown cost cannot be told
+    assert removes(Suggestion("s2", "use_underlying", ("w", "u"), "r", 1), {}) == "w"
+    assert removes(Suggestion("s3", "remove_unused", ("z",), "r", 1), {}) == "z"
+    assert removes(Suggestion("s4", "review_cost", ("z",), "r", 1), {}) is None
