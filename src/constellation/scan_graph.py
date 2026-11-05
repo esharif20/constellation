@@ -21,10 +21,10 @@ from langgraph.types import Send
 
 from .checkpoint import close_checkpointer, open_checkpointer
 from .classify import MAX_CONCURRENCY, _prompt, label_flush, label_one, label_plan
-from .cluster import cluster
+from .cluster import cluster, join_contents
 from .costs import cache_key, count_texts, measure
 from .hooks import static_hook_texts
-from .models import LLM, Cluster, Cost, Embedder, Item, Overlap, TokenCounter, Weight
+from .models import LLM, Cluster, Cost, Embedder, Item, Overlap, Relation, TokenCounter, Weight
 from .overlaps import BAND_LOW, _parse, announce_cost, check_one, exact_duplicates, pair_job, rank, verify_flush, verify_plan, wrappers
 from .redact import redact
 
@@ -61,6 +61,7 @@ class Context:
     label_model: str = ""
     verifier_model: str = ""
     on_verify: Callable[[int, int], None] | None = None
+    relations: list[Relation] = field(default_factory=list)
     _alias: dict[str, str] = field(init=False, repr=False, default_factory=dict)  # Item id -> the id State holds
     _back: dict[str, str] = field(init=False, repr=False, default_factory=dict)
 
@@ -218,7 +219,7 @@ def cluster_items(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     if ctx.embed_error:
         return {"warnings": ctx.safe_warnings("cluster", [f"could not cluster items: {ctx.embed_error}"])}
     labels = {ctx.rid(k): v for k, v in state["labels"].items()}
-    found = cluster(ctx.items, labels, ctx.vectors, ctx.centred, ctx.cluster_threshold)
+    found = join_contents(ctx.items, cluster(ctx.items, labels, ctx.vectors, ctx.centred, ctx.cluster_threshold), ctx.relations)
     return {"clusters": [replace(c, name=ctx.safe(c.name), item_ids=tuple(ctx.sid(i) for i in c.item_ids)) for c in found]}
 
 

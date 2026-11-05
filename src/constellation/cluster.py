@@ -2,10 +2,11 @@
 
 import math
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from operator import add
 
-from .models import Cluster, Embedder, Item
+from .models import Cluster, Embedder, Item, Relation
 
 # Raw embedding cosines are squeezed together (eval F1 0.33 at best), so with enough Items the mean vector is subtracted first
 # (eval F1 0.67). Centred cosines spread from -1 to 1, so they need a different threshold. See docs/ideas/clustering-quality.md.
@@ -91,3 +92,23 @@ def cluster(
             name = _common_name([items[i].name for i in group.members]) or items[by_closeness[0]].name
         clusters.append(Cluster(name, tuple(items[i].id for i in group.members)))
     return clusters
+
+
+def join_contents(items: list[Item], clusters: list[Cluster], relations: list[Relation]) -> list[Cluster]:
+    """Move each plugin into the cluster holding most of the Items it contains, if that cluster has at least two of them.
+    Ties go to the larger cluster, then the lower name. Labels and cluster names do not change."""
+    kinds = {i.id: i.kind for i in items}
+    home = {item_id: n for n, c in enumerate(clusters) for item_id in c.item_ids}
+    sizes = [len(c.item_ids) for c in clusters]  # snapshot, so the result does not depend on plugin order
+    moves: dict[str, int] = {}
+    for plugin in sorted(i for i, kind in kinds.items() if kind == "plugin" and i in home):
+        counts = Counter(home[r.target] for r in relations if r.source == plugin and r.kind == "contains" and r.target in home)
+        best = min(counts, key=lambda n: (-counts[n], -sizes[n], clusters[n].name), default=None)
+        if best is not None and counts[best] >= 2:
+            moves[plugin] = best
+    if not moves:
+        return clusters
+    joined = [[i for i in c.item_ids if i not in moves] for c in clusters]
+    for plugin, n in moves.items():
+        joined[n].append(plugin)
+    return [Cluster(clusters[n].name, tuple(ids)) for n, ids in enumerate(joined) if ids]

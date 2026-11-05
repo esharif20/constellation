@@ -75,6 +75,7 @@ def scan(
         label_model,
         verifier_model,
         on_verify,
+        relations=relations,
     )
     state = run(context, checkpoint, on_progress)
     warnings += state["final_warnings"]
