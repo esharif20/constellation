@@ -165,7 +165,7 @@ def test_offline_scan_with_null_costs_and_no_labels(data):
 
 def test_missing_cost_entries_are_unknown(data):
     data["costs"] = {"skill:deploy": {"always_on": 10, "on_use": None}, "skill:ship": None}
-    assert "10 tokens across 1 Items; 7 Items" in report(data)
+    assert "10 tokens across 1 Items; 7 Items" in report(data, width=300)
 
 
 def test_bar_scales_to_the_biggest_item(data):
@@ -195,7 +195,7 @@ def test_all_shows_distinct_last_and_drops_the_hint(data):
 
 def test_no_overlaps(data):
     data["overlaps"] = None
-    assert "  None found." in report(data)
+    assert "  None found." in report(data, width=300)
     data["overlaps"] = [o for o in json.loads(FIXTURE.read_text())["overlaps"] if o["verdict"] == "distinct"]
     out = report(data)
     assert "None found." in out and "(1 distinct hidden" in out
@@ -204,14 +204,14 @@ def test_no_overlaps(data):
 
 def test_overlap_with_unknown_id_falls_back_to_the_id(data):
     data["overlaps"] = [{"a_id": "gone:1", "b_id": "skill:ship", "verdict": "duplicate", "reason": "x"}]
-    assert "gone:1 and ship (skill)" in report(data)
+    assert "gone:1 and ship (skill)" in report(data, width=300)
 
 
 def test_warnings_listed_sorted_or_none(data):
     out = report(data)
     assert out.index("could not read") < out.index("mcp server github")
     data["warnings"] = []
-    assert "Warnings" in report(data) and "  None.\n" in report(data)
+    assert "Warnings" in report(data) and "  None.\n" in report(data, width=300)
 
 
 def test_header_counts(data):
@@ -220,7 +220,7 @@ def test_header_counts(data):
     assert "Relations: 1   Clusters: 2" in out
     data["relations"] = None
     del data["clusters"]
-    assert "Relations: 0   Clusters: 0" in report(data)
+    assert "Relations: 0   Clusters: 0" in report(data, width=300)
 
 
 @pytest.mark.parametrize("width", [40, 60, 80])
@@ -241,7 +241,7 @@ def test_long_name_is_truncated_with_an_ellipsis(data):
 
 def test_no_ansi_without_colour_and_ansi_with_it(data):
     assert "\033" not in report(data, show_all=True)
-    assert "█" not in report(data)
+    assert "█" not in report(data, width=300)
     coloured = report(data, color=True, show_all=True)
     assert "\033[1mConstellation report\033[0m" in coloured
     assert "█" in coloured and "─" in coloured and "#" not in coloured.split("Overlaps")[0]
@@ -268,7 +268,7 @@ def test_secret_in_description_reason_and_warning_is_redacted(data):
 
 
 def test_redaction_note_is_in_the_report(data):
-    assert NOTE.split(";")[0] in report(data)
+    assert NOTE.split(";")[0] in report(data, width=300)
 
 
 def test_deterministic_and_does_not_mutate_input(data):
@@ -317,4 +317,10 @@ def test_empty_states_are_plain_lines_in_report_and_cleanup(data):
 
 def test_second_id_of_an_unknown_overlap_falls_back_to_the_id(data):
     data["overlaps"] = [{"a_id": "skill:ship", "b_id": "gone:2", "verdict": "duplicate", "reason": "x"}]
-    assert "ship (skill) and gone:2" in report(data)
+    assert "ship (skill) and gone:2" in report(data, width=300)
+
+
+def test_usage_note_names_the_covered_span(data):
+    data["usage"] = {}
+    data["usage_window"] = {"files": 2, "first": "2026-10-01", "last": "2026-10-30", "skipped": 1}
+    assert "Covers 2 transcript files from 2026-10-01 to 2026-10-30 (30 days); 1 files skipped." in report(data, width=300)
