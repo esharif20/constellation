@@ -294,3 +294,27 @@ export function withContents(model: Pick<Model, "links">, picked: ReadonlySet<GN
   }
   return out;
 }
+
+// Cluster health (#71): what each named cluster costs, its share of recorded uses, its Overlaps and its cost rank. Follows what-if.
+// Unknown cost is never summed as 0; rank is by known cost, ties by name, null when the cluster has no known cost.
+export type Health = { known: number | null; unknown: number; useShare: number | null; overlaps: number; rank: number | null };
+export function clusterHealth(model: Pick<Model, "clusters" | "nodes" | "overlaps" | "usageWindow">, removed?: ReadonlySet<GNode> | null): Map<Cluster, Health> {
+  const gone = (n: GNode) => !!removed?.has(n);
+  const total = model.nodes.reduce((s, n) => s + (gone(n) ? 0 : n.usage?.count ?? 0), 0);
+  const out = new Map<Cluster, Health>();
+  for (const c of model.clusters) {
+    let known: number | null = null, unknown = 0, uses = 0;
+    for (const n of c.members) {
+      if (gone(n)) continue;
+      if (n.unknown) unknown++; else known = (known ?? 0) + n.cost!.always_on!;
+      uses += n.usage?.count ?? 0;
+    }
+    out.set(c, {
+      known, unknown, rank: null,
+      useShare: model.usageWindow && total > 0 ? uses / total : null,
+      overlaps: model.overlaps.filter((o) => o.a.cluster === c && o.b.cluster === c && !gone(o.a) && !gone(o.b)).length,
+    });
+  }
+  [...out].filter(([, h]) => h.known != null).sort((a, b) => b[1].known! - a[1].known! || a[0].name.localeCompare(b[0].name)).forEach(([, h], i) => { h.rank = i + 1; });
+  return out;
+}

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { clusterSummary, kindName, rankMembers, type Cluster, type GNode, type GOverlap, type Model } from "@/graph/model";
+import { clusterHealth, clusterSummary, kindName, rankMembers, type Cluster, type GNode, type GOverlap, type Model } from "@/graph/model";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -16,6 +16,7 @@ type Props = {
   onPreview: (n: GNode | null) => void;
   onPair: (o: GOverlap) => void;
   onGone: () => void;
+  removed?: Set<GNode> | null; // what-if ghosts
 };
 
 const n1 = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -25,8 +26,10 @@ const day = (iso: string) => new Date(`${iso}T00:00:00Z`).getTime();
 
 // What one cluster costs: the left card while a cluster is focused (the left slot has one occupant: this, the Brief or the chat).
 // Unknown cost is said as "unknown", never added in and never shown as 0.
-export function ClusterCard({ cluster, model, leaving, focusTitle, onBack, onItem, onPreview, onPair, onGone }: Props) {
+export function ClusterCard({ cluster, model, leaving, focusTitle, onBack, onItem, onPreview, onPair, onGone, removed = null }: Props) {
   const s = clusterSummary(cluster, model);
+  const health = clusterHealth(model, removed);
+  const hc = health.get(cluster)!;
   const title = useRef<HTMLHeadingElement>(null);
   const [bottom, setBottom] = useState(96);
   const maxTop = s.top[0]?.cost?.always_on ?? 0;
@@ -98,6 +101,8 @@ export function ClusterCard({ cluster, model, leaving, focusTitle, onBack, onIte
             : <p className="font-mono text-2xl leading-none tabular-nums">{s.known.toLocaleString()}</p>}
           <p className="mt-1.5 text-xs text-text-3">{s.known == null ? "tokens always on, not measured" : "tokens always on (known)"}</p>
           {s.unknown > 0 && s.known != null && <p className="mt-1 text-xs leading-[1.4] text-text-3">{s.unknown} of {s.count} have unknown cost, not counted</p>}
+          {hc.useShare != null && <p className="mt-1 text-xs text-text-3">{hc.useShare > 0 && hc.useShare < 0.01 ? "<1" : Math.round(hc.useShare * 100)}% of all recorded uses</p>}
+          {hc.rank != null && <p className="mt-1 text-xs text-text-3">Costliest cluster: {hc.rank} of {[...health.values()].filter((h) => h.rank != null).length}</p>}
         </div>
 
         {s.top.length > 0 && <section aria-labelledby="card-top">
