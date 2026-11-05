@@ -226,7 +226,7 @@ def _transcripts(config_dir: Path) -> Iterator[tuple[int, str, str] | str | None
     # Keep every ancestor pinned; subsequent opens resolve only one child component.
     with _directory(config_dir) as config:
         with _directory(PROJECTS, config) as projects:
-            yield from _walk(projects, 0, "")
+            yield from _walk(projects, 0, "")  # pragma: no mutate (root level has no project; children replace it)
 
 
 def _drain(stream: BinaryIO) -> None:

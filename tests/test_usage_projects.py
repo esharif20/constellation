@@ -70,11 +70,18 @@ def test_current_project_label_keeps_hyphens_and_gets_a_key_without_usage(tmp_pa
     put(config, _encode(repo), [tool(value="absent")])
     put(config, folder(home, "dev-other"), [tool(id_="o")])
     put(config, folder(home, "dev-quiet"), [tool(value="absent", id_="q")])  # uncredited and not current: no key
+    put(config, "XXXX", [tool(value="absent", id_="x")])
     result = scan(config, project=repo)
     assert len(result.projects) == 2
     assert result.projects == {"p1": "plan-43-44", "p2": "dev-other"} or result.projects == {"p1": "dev-other", "p2": "plan-43-44"}
     assert result.projects[result.current_project] == "plan-43-44"
     assert result.usage_by_project["claude-code:skill:tdd"].keys() == {"p1", "p2"} - {result.current_project}
+
+
+def test_no_project_means_no_current_key_even_for_an_odd_folder(tmp_path, home):
+    config = tmp_path / "cfg"
+    put(config, "XXXX", [tool(value="absent")])
+    assert scan(config).projects == {} and scan(config).current_project is None
 
 
 def test_current_project_without_a_transcript_folder_has_no_key(tmp_path, home):
@@ -96,6 +103,7 @@ def test_label_rules(home):
     assert _label("-Mixed-CaseX-", 1, None, None) == "Mixed-CaseX"  # strips only dashes; keeps upper case
     assert _label(folder(home, "Dev-Z9"), 1, None, home) == "Dev-Z9"
     assert _label("-a.b_c", 1, None, None) == "a.b_c"
+    assert _label("None-x", 1, None, None) == "None-x"  # no home: nothing is stripped
     assert _encode(Path("/A/b_c.d z")) == "-A-b-c-d-z"
 
 
