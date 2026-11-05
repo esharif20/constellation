@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "layout:check": "node scripts/layout-metrics.ts",
     "inspector:check": "node scripts/inspector-check.mjs",
+    "whatif:check": "node scripts/whatif-check.mjs",
     "chat:check": "node scripts/chat-accessibility.mjs",
     "chat:cluster:check": "node scripts/chat-cluster-check.mjs"
   },

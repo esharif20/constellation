@@ -1,7 +1,7 @@
 import { ArrowLeftIcon, XIcon } from "lucide-react";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import type { GNode, Model } from "@/graph/model";
+import { withContents, type GNode, type Model } from "@/graph/model";
 import { verdictOf } from "@/lib/verdict";
 import { About } from "./inspector/About";
 import { Facts } from "./inspector/Facts";
@@ -10,10 +10,10 @@ import { KindDetails } from "./inspector/KindDetails";
 import { Related } from "./inspector/Related";
 import { VerdictBanner } from "./inspector/Verdict";
 
-type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
+type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string; whatIf?: ReadonlySet<GNode> | null; removed?: ReadonlySet<GNode> | null; onToggle?: (n: GNode) => void }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
 
 // Non-modal on purpose: the map stays live beside it. A side panel on desktop, a bottom sheet on phones.
-export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo }, ref) {
+export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo, whatIf = null, removed = null, onToggle }, ref) {
   const scroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scroll.current?.scrollTo({ top: 0 });
@@ -39,7 +39,16 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
         <About item={item} />
         <KindDetails item={item} model={model} />
         <Related key={item.id} item={item} model={model} onSelect={onSelect} onPreview={onPreview} />
+        {whatIf && onToggle && <WhatIfToggle model={model} item={item} whatIf={whatIf} removed={removed} onToggle={onToggle} />}
       </div>
     </aside>
   );
 });
+
+function WhatIfToggle({ model, item, whatIf, removed, onToggle }: { model: Model; item: GNode; whatIf: ReadonlySet<GNode>; removed: ReadonlySet<GNode> | null; onToggle: (n: GNode) => void }) {
+  const ticked = whatIf.has(item), viaParent = !ticked && !!removed?.has(item), n = withContents(model, new Set([item])).size;
+  return <div className="mt-4">
+    <Button variant="outline" className="h-10" aria-pressed={ticked || viaParent} disabled={viaParent} onClick={() => onToggle(item)}>{viaParent ? "Removed with its plugin" : ticked ? "Put back" : "Remove in what-if"}</Button>
+    {n > 1 && !ticked && <p className="mt-1 text-xs text-text-3">Removes {n} Items</p>}
+  </div>;
+}

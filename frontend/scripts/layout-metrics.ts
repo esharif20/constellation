@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import { strict as assert } from "node:assert";
-import { budget, buildModel, clusterSummary, groupWarnings, rankMembers, costRadius, tipBadges, usageLine, RMAX, RMIN, RUNK, type Constellation, type GNode, type Model, type UsageWindow } from "../src/graph/model.ts";
+import { budget, buildModel, withContents, clusterSummary, groupWarnings, rankMembers, costRadius, tipBadges, usageLine, RMAX, RMIN, RUNK, type Constellation, type GNode, type Model, type UsageWindow } from "../src/graph/model.ts";
 import { flightMs, flightPath } from "../src/graph/flight.ts";
 import { fitView, focusView, GAP, haloOf, K, type View } from "../src/graph/layout.ts";
 import { searchItems } from "../src/graph/search.ts";
@@ -361,6 +361,18 @@ assert.equal(cutName("x".repeat(40), 28).length, 28);
   const m250 = buildModel(load("demo-250.json"));
   const b250 = budget(m250.nodes);
   assert.deepEqual([b250.known, b250.items, b250.hooks, b250.unknown], [20292, 10658, 9634, 55]);
+
+  // withContents: a plugin takes what it contains; a leaf takes only itself; a cycle ends
+  const [P, s1, s2] = [{ id: "P" }, { id: "s1" }, { id: "s2" }] as GNode[];
+  const lk = (source: GNode, target: GNode) => ({ source, target, kind: "contains" });
+  const wm = { links: [lk(P, s1), lk(P, s2), lk(s2, P)] } as Pick<Model, "links">;
+  assert.deepEqual([...withContents(wm, new Set([P]))].map((n) => n.id).sort(), ["P", "s1", "s2"]);
+  assert.deepEqual([...withContents(wm, new Set([s1]))].map((n) => n.id), ["s1"]);
+  assert.equal(withContents(wm, new Set([s2])).size, 3); // s2 contains P (cycle), which contains s1
+  const gone = withContents(m250, new Set(m250.nodes.filter((n) => n.kind === "plugin").slice(0, 1)));
+  const bw = budget(m250.nodes, gone);
+  assert.equal(bw.known + bw.saved, b250.known); // removing never changes the before total
+  assert.equal(bw.removed, gone.size);
 }
 
 let failed = aa.aaMin < 4.5;
