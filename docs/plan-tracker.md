@@ -726,3 +726,7 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - **Deviation kept from Codex**: module unit tests call the functions directly instead of only through HTTP; the route tests above now cover the HTTP seam.
 - Gates: ruff, format, mypy (37 files), pytest 1362 passed. Mutmut per module: hook_safety 131/131, conflicts 146/146, triggers 115/115 (a first run marked one mutant suspicious from a timeout; the rerun killed all). Zero survivors.
 - Not done: frontend panels `HookSafety.tsx`, `Conflicts.tsx`, `Triggers.tsx`, `lenses.ts` types, Brief wiring and screenshots.
+
+## #65 Trigger audit panel (2026-11-05, branch `claude/panel-triggers`)
+
+- Frontend panel `Triggers.tsx` renders `lenses.triggers` under the Receipt in the Cleanup brief: per skill, plain-English reasons (never used in the last N session files, very short description, used far more than others), click selects the Item on the map, kind empty/no-history states, top 8 plus "+ N more". Shows only the API's fields. Gate: `npm run triggers:check` (reasons wording and states). Build, layout:check, chat:check pass. No screenshots taken; no deviations.
