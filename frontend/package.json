@@ -16,6 +16,7 @@
     "explain:check": "node scripts/explain-check.mjs",
     "preview:check": "node scripts/preview-check.mjs",
     "whatif:check": "node scripts/whatif-check.mjs",
+    "hooks:check": "node scripts/hooks-check.mjs",
     "chat:check": "node scripts/chat-accessibility.mjs",
     "chat:cluster:check": "node scripts/chat-cluster-check.mjs"
   },

@@ -2,4 +2,5 @@
 export type ReceiptGroup = { kind: string; count: number; tokens: number | null; bytes: number; unknown: number };
 export type ReceiptRow = { id: string | null; kind: string; name: string; tokens: number | null; bytes: number | null };
 export type Receipt = { total_tokens: number | null; uncounted_bytes: number; unknown: number; groups: ReceiptGroup[]; rows: ReceiptRow[] };
-export type Lenses = { receipt: Receipt };
+export type HookRow = { id: string; name: string; event: string; matcher: string | null; phase: string; can_block: boolean; runs: string; bytes: number | null; tokens: number | null };
+export type Lenses = { receipt: Receipt; hooks?: HookRow[] };

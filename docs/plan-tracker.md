@@ -726,3 +726,8 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - **Deviation kept from Codex**: module unit tests call the functions directly instead of only through HTTP; the route tests above now cover the HTTP seam.
 - Gates: ruff, format, mypy (37 files), pytest 1362 passed. Mutmut per module: hook_safety 131/131, conflicts 146/146, triggers 115/115 (a first run marked one mutant suspicious from a timeout; the rerun killed all). Zero survivors.
 - Not done: frontend panels `HookSafety.tsx`, `Conflicts.tsx`, `Triggers.tsx`, `lenses.ts` types, Brief wiring and screenshots.
+
+## #67 Hook safety panel (2026-11-05, branch `claude/panel-hooks`)
+
+- Added `HookSafety.tsx` under the Receipt in the Brief, rendering `lenses.hooks` (guarded by `lenses?.hooks`). Each row: hook name, plain-English line (when it runs, can it stop work, MCP or shell), weight, click selects the Item. Top 6 with a "Show all" toggle; kind empty state. Never shows command text.
+- `Lenses.hooks` is optional in `graph/lenses.ts` so sibling panels merge cleanly. New check: `npm run hooks:check`. No deviations. Gates: build, layout:check, chat:check, hooks:check, inspector:check pass. Screenshots not taken.
