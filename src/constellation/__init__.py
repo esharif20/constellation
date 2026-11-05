@@ -46,7 +46,7 @@ def scan(
     vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
     clusters: list[Cluster] = []
     # The only place providers are called from: both are wrapped here, so everything they receive is redacted first.
-    secrets = read_secrets(config_dir) if llm or embedder or counter or verifier or offline else set()
+    secrets = read_secrets(config_dir, project) if llm or embedder or counter or verifier or offline else set()
     if llm:
         labels, label_warnings = classify(items, guarded(llm, secrets), secrets, label_cache, label_model)
         warnings += sorted(label_warnings)  # branches finish in any order; sorted keeps the output repeatable
@@ -80,6 +80,12 @@ def scan(
     if offline:
         warnings.append("Offline: no labels or model-checked Overlaps; token costs shown only if already cached.")
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))
+    # shortcut: user CLAUDE.md only, no @imports or project CLAUDE.md; upgrade when the scan reads projects (#43)
+    memory = Path(config_dir) / "CLAUDE.md"
+    try:
+        memory_bytes = memory.stat().st_size if memory.is_file() else None  # stat only: the text is never opened
+    except OSError:
+        memory_bytes = None
     return Constellation(
         items,
         warnings,
@@ -94,6 +100,7 @@ def scan(
         projects=by_project.projects,
         usage_by_project=by_project.by_project,
         current_project=by_project.current,
+        memory_bytes=memory_bytes,
     )
 
 

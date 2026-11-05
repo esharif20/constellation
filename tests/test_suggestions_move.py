@@ -146,3 +146,75 @@ def test_exact_texts():
         "confidence": "medium",
         "project_label": LABEL,
     }
+
+
+def test_malformed_window_means_unknown_days():
+    for window in (
+        {"files": 1, "first": "2026-10-01", "last": None, "skipped": 0},
+        {"files": 1, "first": "nope", "last": "x", "skipped": 0},
+    ):
+        d = data({"p1": 9})
+        d["usage_window"] = window
+        (s,) = moves(d)
+        assert "days" not in s.reason and s.confidence == "medium"
+        render_report(d, top=5, color=False, width=100, show_all=False)
+        brief(d)
+
+
+def _write_scan(tmp_path, counts=None):
+    import json
+
+    d = data(counts or {"p1": 9, "p2": 1})
+    path = tmp_path / "constellation.json"
+    path.write_text(json.dumps(d))
+    return path, d
+
+
+def test_scope_rows_cannot_be_added_to_the_checklist(tmp_path, monkeypatch):
+    from constellation import server
+
+    (tmp_path / "static").mkdir()
+    (tmp_path / "static" / "index.html").write_text("<html></html>")
+    monkeypatch.setattr(server, "STATIC", tmp_path / "static")
+    from fastapi.testclient import TestClient
+
+    from constellation.server import create_app
+
+    path, d = _write_scan(tmp_path)
+    checklist = tmp_path / "checklist.md"
+    client = TestClient(create_app(path, checklist=checklist), base_url="http://127.0.0.1:8765")
+    row = client.get("/api/brief").json()["scope"]["rows"][0]
+    assert client.post("/api/checklist", json={"id": row["id"]}).status_code == 404
+    assert not checklist.exists() or (LABEL not in checklist.read_text() and "p1" not in checklist.read_text())
+
+
+def test_review_of_an_approved_move_has_no_label_key_or_duplicate(tmp_path, monkeypatch):
+    from constellation.cli import main
+
+    monkeypatch.chdir(tmp_path)
+    _write_scan(tmp_path)
+    assert main(["review"], decide=lambda s: "a") == 0
+    text = (tmp_path / "cleanup.md").read_text()
+    assert LABEL not in text and "p1" not in text
+    assert text.count("was used 10 times") == 1
+    assert "## Used mostly in one project" not in text
+    report = render_report(_write_scan(tmp_path)[1], top=5, color=False, width=100, show_all=False)
+    assert "p1" not in report and LABEL not in report
+
+
+def test_unreadable_memory_file_gives_none(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from constellation import scan
+
+    real = Path.stat
+
+    def boom(self, *a, **k):
+        if self.name == "CLAUDE.md":
+            raise OSError("denied")
+        return real(self, *a, **k)
+
+    (tmp_path / "CLAUDE.md").write_text("x")
+    monkeypatch.setattr(Path, "stat", boom)
+    monkeypatch.setattr(Path, "is_file", lambda self, **k: True if self.name == "CLAUDE.md" else real(self).st_mode & 0o100000 != 0)
+    assert scan(tmp_path, offline=True).memory_bytes is None

@@ -92,3 +92,4 @@ class Constellation:
     projects: dict[str, str] = field(default_factory=dict)  # key -> label; local only, dropped by snapshot()
     usage_by_project: dict[str, dict[str, Usage]] = field(default_factory=dict)  # kept apart from `usage` so nothing else sees keys
     current_project: str | None = None
+    memory_bytes: int | None = None  # size of the user CLAUDE.md, from stat only; None when absent

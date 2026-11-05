@@ -1,7 +1,6 @@
 import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
 from typing import Any, Literal
 
 from .redact import redact
@@ -89,7 +88,7 @@ def _moves(data: dict[str, Any]) -> list[Suggestion]:
             contents.setdefault(r["source"], []).append(r["target"])
             inside.add(r["target"])
     window = data.get("usage_window")
-    days = (date.fromisoformat(window["last"]) - date.fromisoformat(window["first"])).days + 1 if window and window["first"] else None
+    days = int(span) if window and (span := _span(window, "{2}")) else None  # "" when the window is missing or malformed
     copies = {(i["kind"], i["name"], i.get("project")) for i in items if i.get("scope") == "project"}
     found = []
     for item in items:

@@ -93,7 +93,10 @@ def _never_used(data: dict[str, Any]) -> list[dict[str, Any]]:
 def _span(window: dict[str, Any], template: str) -> str:
     if not window["first"]:  # the reader sets first and last together
         return ""
-    days = (date.fromisoformat(window["last"]) - date.fromisoformat(window["first"])).days + 1
+    try:
+        days = (date.fromisoformat(window["last"]) - date.fromisoformat(window["first"])).days + 1
+    except (ValueError, TypeError):  # a hand-edited scan with a bad date: leave the span out rather than crash
+        return ""
     return template.format(window["first"], window["last"], days)
 
 
@@ -218,7 +221,8 @@ def render_cleanup(data: dict[str, Any], *, top: int, approved: list[Suggestion]
     ]
     from .suggestions import suggest  # late: suggestions imports this module
 
-    moves = [f"- [ ] {s.reason}" for s in suggest(data) if s.kind == "move_to_project"]
+    listed = {a.id for a in approved or []}
+    moves = [f"- [ ] {s.reason}" for s in suggest(data) if s.kind == "move_to_project" and s.id not in listed]
     if moves:
         lines += ["", "## Used mostly in one project", ""] + moves
     lines += ["", "## Never used", "", redact(_usage_note(data))]

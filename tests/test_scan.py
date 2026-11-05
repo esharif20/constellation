@@ -155,3 +155,21 @@ def test_skills_synced_from_claude_ai_are_read_too_with_ids_that_do_not_collide(
         "From skills/synced/abc123/stop-slop",
     ]
     assert len({i.id for i in constellation.items}) == 3
+
+
+def test_scan_records_claude_md_size(tmp_path):
+    (tmp_path / "CLAUDE.md").write_text("hello")
+
+    assert scan(tmp_path).memory_bytes == 5
+
+
+def test_scan_without_claude_md_is_none(tmp_path):
+    assert scan(tmp_path).memory_bytes is None
+
+
+def test_claude_md_text_never_saved(tmp_path):
+    from dataclasses import asdict
+
+    (tmp_path / "CLAUDE.md").write_text("key sk-ant-api03-PLANTED")
+
+    assert "sk-ant-api03-PLANTED" not in json.dumps(asdict(scan(tmp_path)))

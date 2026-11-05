@@ -434,3 +434,43 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - `suggestions.py`: new `move_to_project` kind (`_moves`). Eligible: global, enabled, kind skill/agent/mcp_server/plugin, not inside a plugin; a plugin sums its contained Items' per-project counts. Rule: total >= 3 and top/total >= 0.8, no ties, none when 3+ projects have uses, none when a same kind+name project-scope copy exists in the top project. Confidence high at window span >= 14 days and total >= 5, else medium (also medium with no window). `tokens_saved` = always-on cost or None.
 - Reasons and the report/checklist sections ("Used mostly in one project") carry no project name or key. `brief()` gains a `scope` group (rows with `project`, `confidence`, and the local-only `project_label` from `data["projects"]`, plus the window caveat). Not built: low tier, paid scope verdict. No deviation. Tested with hand-built fixtures (`tests/test_suggestions_move.py`); real `usage_by_project` comes from ticket A.
+
+## #42 session-start budget meter (what-if ticket 0, `docs/plans/whatif.md`)
+
+Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: demo-250 shows 20,082 tokens (10,448 Items + 9,634 hooks), 55 unknown not counted, and `data.cost.frees` ~853 for the top 5, all as the plan expected. No deviations. Frontend only, no fetch, no Python change. The not-measured line stays the Brief's existing one (the Meter is hidden when nothing is measured, to avoid saying it twice); `demo-offline.json` has costs, so it shows the Meter without a hooks segment.
+
+## Inspector redesign, ticket A (#73, branch `claude/inspector-a`)
+
+- Done per `docs/design/inspector.md` sections 1 (header, verdict, facts), 2, 6 to 8 for those parts: `components/inspector/{Header,Verdict,Facts,MiniBar}.tsx`, pure `lib/verdict.ts` (one `DORMANT_DAYS = 30` constant), `Inspector.tsx` now composes them. `model.ts` Item gains optional `origin`, `scope`, `project` only. `index.css` gains `fade-in` and `bar-grow` keyframes (zeroed by the existing reduced-motion rule). No new dependency, no provider call.
+- Self-check: `npm run inspector:check` (every verdict row, the 29/30/31-day edge, plugin roll-up, 90-char clip, origin/scope header on an invented fixture; no demo file edited).
+- Kept for ticket B: hook session-start weight is a Facts chip for now (B moves it to KindDetails); the description paragraph, source path and Relation/Overlap groups are unchanged (B splits and regroups them).
+- Not built, by design: cluster button, Compare, Add to checklist, Actions and sticky phone footer (C, need Atlas wiring), shimmer loading state (the lazy chunk is Atlas's Suspense).
+- Open for Atlas wiring (Atlas.tsx not editable here): the selection live region should say `Selected {name}, {verdict word}`; export `verdictOf` is ready. The banner has a visually hidden `Verdict:` prefix meanwhile.
+- Screenshots (demo-250 and demo-offline only): `docs/design/screenshots/inspector/`.
+
+## #66 setup diff (2026-11-04, branch `claude/diff-66`)
+
+- `constellation diff OLD NEW [--json]` (new `src/constellation/diff.py`, `_diff` in `cli.py`, `diff.py` added to `only_mutate`). Reads two saved scans only: no `load_env`, no network, no provider call, exit 2 on a bad file.
+- Matching by id, then by `(kind, name)` when unique among the unmatched on both sides (other machine, shifted `local/<n>/` scope). Changed fields in fixed order `always_on`, `on_use`, `description`, `disabled`; descriptions are compared and never output. Totals sum known always-on only; unknown counted separately.
+- Added a `on-use` shift fragment in the Changed rows (`on-use 5 -> unknown`) alongside `always-on`, mirroring the plan's row shape. No plan deviation. `scan()` and `__init__.py` untouched; `scanned_at` dates show only once #62 writes them (else `unknown date`).
+
+## #59 repo scan, ticket B (2026-11-04, branch `claude/pp-b-repo`)
+
+- `scan --project PATH` (must be a directory, else exit 2 "--project must be a directory."). `read_items(project=)` reads `PATH/.claude` (skills, agents, commands, `settings.json` hooks) and `PATH/.mcp.json` as ids `claude-code:<kind>:project/<name>` with `scope="project"`; `local/<n>/` MCP servers also get `scope="project"`. `read_secrets(config_dir, project)` adds the repo's settings env and `.mcp.json` env values; `scan()` and the CLI writer pass `project` to it.
+- Warnings from the repo show `<project>/...` (the repo path is swapped for the placeholder after the read, whether it printed as `~/...` or absolute). Fixed the existing leak: the skipped-command warning now uses `_shown(path)` instead of the raw path.
+- Symlinks: `.claude`, `.mcp.json` and `settings.json`/`hooks.json`/`.mcp.json` inside a root (plugin or project) that resolve outside it are refused with a fixed warning (`_contained`).
+- #72: a hook with no (or non-string) `command` is skipped with the fixed warning `skipped a hook in <scope>settings.json: it has no command`; an unreadable or invalid hooks file is a fixed warning, not a crash.
+- Plugin `SKILL.md` step 2 now passes `--project=PROJECT_DIRECTORY` (the session working dir) as one more quoted literal; still `--offline --no-usage`.
+- **Integration for the merge (not done here, belongs to ticket A's `__init__` wiring):** `Item.project` stays None on project Items because the key `p1..pN` comes from `read_usage`; after A merges, `scan()` should stamp `project=current_project` on `scope == "project"` Items from `--project` (not on `local/<n>/` servers). `claude_code.py` is not a mutmut target.
+## #61 Session-start receipt (2026-11-04, branch `claude/receipt-61`, plan `docs/plans/lenses.md`)
+
+- Done per the plan. `receipt.py` (`receipt(data)`), `GET /api/lenses` (`local_only`, body `{"receipt": ...}`; the other tickets add their key), `Constellation.memory_bytes` (user `CLAUDE.md` size by `stat` only; never opened, absent from `snapshot()`), `lenses.ts`, `useLenses.ts`, `Receipt.tsx` inside the Brief below the cost and pairs groups, `docs/design/demo-lenses.json` (16 Items), `GLOSSARY.md` (Lens, Session-start receipt). `receipt.py` is in `only_mutate`.
+- The `scan()` change is one stat and the extra constructor argument (the call is now spread over lines), so a rebase onto the LangGraph refactor should only need the stat and the `memory_bytes=` argument carried over.
+- Decision: the route reuses `read_brief()` as its validator (the plan names `read_items()`, which does not exist); the 404 text is the existing "{file} could not be read". It runs `brief()` needlessly; cheap at a few hundred Items.
+- Decision: a hook row that has tokens carries no bytes, so `uncounted_bytes` counts only what has no token figure.
+- Ask #55: `answer.py` does not exist on this branch; the Ask owner should call `receipt(data)["total_tokens"]`. `test_receipt_total_matches_ask_total` is not added.
+- Known: the existing Brief cost list still ranks a disabled plugin's skill (seen on demo-lenses); not part of this ticket. The legend under the bar repeats the segments as text because colour alone must not carry the group.
+- Screenshots: `docs/design/screenshots/lens-61-*.jpg` (demo data only). demo-offline.json has measured costs, so the null-total copy was not seen in a browser.
+- Needs the short Opus privacy check named in the plan before merge.
+- **Opus review fixes (#44):** (1) tests prove a scope row id gets 404 from `/api/checklist` and neither the checklist nor the review `--out` file holds the planted label or key `p1`; (2) `_span` now tolerates a missing or malformed window date, so report, brief and Suggestions never crash on a hand-edited scan; (3) `review` says "No Suggestions found." and an approved move is not listed a second time; (4) `memory_bytes` stat wrapped in `try/except OSError` (merged main into this branch to get it).
+- **Deviations from the plan (record, owner may object):** the window caveat is one fixed sentence without "based on N days"; reason text includes the Item name and kind (plan example omitted them; still no project name or key); scope rows cannot be added to the checklist (404), so the UI (ticket D) must not offer "Add" for them.
