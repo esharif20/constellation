@@ -11,7 +11,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
-from .answer import blocks, card, comparison, cost_value, past, plural, row, to_text, tokens, what_line
+from .answer import DORMANT_DAYS, blocks, card, comparison, cost_value, idle_days, past, plural, row, to_text, tokens, what_line
 from .brief import frees, removes
 from .compare import parse_compare, parse_keep, parse_what
 from .receipt import receipt
@@ -29,6 +29,17 @@ _START = (
     r"\b(before i (type|prompt|ask)|session[- ]start|start of (a |every |each )?(session|conversation)|what do i pay|"
     r"total (always[- ]on )?(cost|tokens?)|always[- ]on total|total every session)\b"
 )
+_NEGATIVE = r"\b(not|never|unused|idle|stale|dormant|haven'?t|hasn'?t|lately|recently)\b|n't"
+
+
+def _since(question: str) -> int | None:
+    """N days from "not used in 60 days", "haven't touched in 2 months"; DORMANT_DAYS for "lately"; None when the question has no span."""
+    q = question.lower().replace("’", "'")
+    if not re.search(_NEGATIVE, q):
+        return None
+    if m := re.search(r"\b(\d{1,4})\s*(day|week|month)s?\b", q):
+        return int(m[1]) * {"day": 1, "week": 7, "month": 30}[m[2]] or None
+    return DORMANT_DAYS if re.search(r"\b(lately|recently)\b", q) else None
 
 
 class ChatState(TypedDict):
@@ -75,6 +86,8 @@ def _intent(question: str) -> str:
         intent = "count"
     elif re.search(_START, q):
         intent = "start"
+    elif _since(q):
+        intent = "since"
     elif parse_what(q) and not re.search(_NOT_WHAT, q):
         intent = "whatis"
     elif parse_keep(q) is not None:
@@ -279,6 +292,38 @@ def _usage(state: ChatState) -> dict[str, Any]:
     )
 
 
+def _since_answer(state: ChatState) -> dict[str, Any]:
+    data, days = state["data"], _since(state["question"]) or DORMANT_DAYS  # pragma: no mutate (routing saw a span)
+    window = data.get("usage_window")
+    if not window:
+        return _response("Usage was not read in this scan.")
+    if not window["files"]:
+        return _response("No transcripts found.")
+    found = []
+    for i in _by_id(state).values():
+        idle = idle_days(data, i["id"])
+        if idle and idle[0] >= days and not i.get("disabled") and (not state["scope"] or i["id"] in state["scope"]):
+            found.append((i, idle))
+    cost = _known_costs(data)
+    found.sort(key=lambda f: (f[0]["id"] not in cost, -cost.get(f[0]["id"], 0), -f[1][0], f[0]["name"], f[0]["id"]))
+    note = (
+        f"Measured to {window['last']}, the newest saved session. "
+        "A never-seen Item is idle at least as long as the history (older sessions are deleted)."
+    )
+    if not found:
+        return _response(f"Nothing is recorded as unused for {plural(days, 'day')} in {past(window)}.", note=note, follow_ups=ASK_NEXT)
+    first = found[0][0]
+    return _response(
+        f"{plural(len(found), 'Item')} not used for {plural(days, 'day')} or more, starting with {first['name']}.",
+        [i["id"] for i, _ in found[:5]],
+        rows=[row(i, f"{'' if exact else 'At least '}{plural(n, 'day')} idle; {cost_value(data, i['id'])}") for i, (n, exact) in found[:5]],
+        more=max(0, len(found) - 5),
+        note=note,
+        next_=f"Ask whether to keep {first['name']}.",
+        follow_ups=[f"Should I keep {first['name']}?", *ASK_NEXT],
+    )
+
+
 def _usage_value(usage: dict[str, Any], id_: str) -> str:
     return plural(usage[id_]["count"], "use") if id_ in usage else "Usage unknown"
 
@@ -445,6 +490,7 @@ def _graph() -> Any:
         "pairs": _pairs,
         "usage": _usage,
         "remove": _remove,
+        "since": _since_answer,
         "start": _start,
         "count": _count,
         "compare": _compare,
@@ -467,6 +513,7 @@ def _graph() -> Any:
             "unused": "usage",
             "remove": "remove",
             "start": "start",
+            "since": "since",
             "count": "count",
             "compare": "compare",
             "whatis": "whatis",

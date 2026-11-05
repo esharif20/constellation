@@ -189,3 +189,69 @@ def test_session_start_with_nothing_measured_says_so_not_zero(tmp_path, monkeypa
     assert "0" not in blocks["headline"]
     empty = make(tmp_path, monkeypatch, [item("n", "notes", "memory")])
     assert ask(empty, "session start total")["blocks"]["headline"] == "Nothing in this scan loads before your first prompt."
+
+
+# --- #56: not used since N days ------------------------------------------------------------------------------------------------
+
+
+def idle_scan(window=WINDOW):
+    items = [
+        item("a", "alpha"),
+        item("b", "beta"),
+        item("c", "gamma"),
+        item("d", "delta"),
+        item("e", "eps"),
+        item("off", "sleeper", disabled=True),
+    ]
+    return items, {
+        "costs": {"a": cost(100), "b": cost(300), "c": cost(50), "d": cost(900), "off": cost(700)},
+        "usage": {
+            "a": {"count": 2, "last_used": "2026-09-25"},  # 35 days before the newest session
+            "b": {"count": 1, "last_used": "2026-08-30"},  # 61 days
+            "c": {"count": 5, "last_used": "2026-10-28"},  # 2 days
+            "d": NEVER,
+            "e": {"count": 1, "last_used": "2026-09-01"},  # unknown cost, 59 days
+            "off": NEVER,
+        },
+        "usage_window": window,
+    }
+
+
+def test_not_used_since_n_days_ranks_by_cost_and_states_the_lower_bound(tmp_path, monkeypatch):
+    items, extra = idle_scan()
+    client = make(tmp_path, monkeypatch, items, **extra)
+    blocks = ask(client, "What have I not used in 30 days?")["blocks"]
+    assert blocks["headline"] == "4 Items not used for 30 days or more, starting with delta."
+    assert [(r["name"], r["value"]) for r in blocks["rows"]] == [
+        ("delta", "At least 41 days idle; 900 tokens every session"),
+        ("beta", "61 days idle; 300 tokens every session"),
+        ("alpha", "35 days idle; 100 tokens every session"),
+        ("eps", "59 days idle; Cost unknown"),
+    ]
+    assert "newest saved session" in blocks["note"] and "at least as long as the history" in blocks["note"]
+    two_months = ask(client, "anything I haven't touched in 2 months?")["blocks"]
+    # beta (61 days) only: the never-seen delta is idle 41+ days, which cannot prove 60
+    assert two_months["headline"] == "1 Item not used for 60 days or more, starting with beta."
+    assert ask(client, "what have I not used lately")["blocks"]["headline"].endswith("starting with delta.")
+    nothing = ask(client, "what have I not used in 100 days")["blocks"]
+    assert nothing["headline"] == "Nothing is recorded as unused for 100 days in 41 days of past sessions."
+
+
+def test_short_history_cannot_prove_a_long_idle_span(tmp_path, monkeypatch):
+    items, extra = idle_scan({"files": 2, "first": "2026-10-20", "last": "2026-10-30", "skipped": 0})
+    extra["usage"].update({k: {"count": 1, "last_used": "2026-10-29"} for k in "be"})
+    extra["usage"]["a"] = {"count": 2, "last_used": "2026-10-21"}
+    blocks = ask(make(tmp_path, monkeypatch, items, **extra), "what have I not used in 30 days")["blocks"]
+    assert blocks["headline"] == "Nothing is recorded as unused for 30 days in 11 days of past sessions."
+    short = ask(make(tmp_path, monkeypatch, items, **extra), "what have I not used in 7 days")["blocks"]
+    assert [r["value"] for r in short["rows"]][0] == "At least 11 days idle; 900 tokens every session"
+    assert "alpha" in [r["name"] for r in short["rows"]]  # exactly 9 days idle
+
+
+def test_not_used_needs_usage(tmp_path, monkeypatch):
+    client = make(tmp_path, monkeypatch, [item("a", "alpha")])
+    assert ask(client, "what have I not used in 30 days")["blocks"]["headline"] == "Usage was not read in this scan."
+    client = make(
+        tmp_path, monkeypatch, [item("a", "alpha")], usage={}, usage_window={"files": 0, "first": None, "last": None, "skipped": 0}
+    )
+    assert ask(client, "what have I not used in 30 days")["blocks"]["headline"] == "No transcripts found."
