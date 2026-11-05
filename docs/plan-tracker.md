@@ -747,3 +747,9 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Golden files did not change (their verifier pairs score above the band), so no regeneration was needed.
 - Note for owner: because candidates start at cosine 0.5 (0.25 of score), the band only skips pairs with a low cosine (under 0.6) and almost no word, heading or mention overlap. Raising `BAND_LOW` saves more but needs real-setup recall numbers. Trigger collisions remain a separate ticket. T5 (interrupt pause) not started.
 - Gates: ruff check/format, mypy, pytest green; mutmut on `constellation.overlaps.*` and `constellation.scan_graph.*` run separately, no survivors.
+
+## Declutter the zoomed-out Atlas (branch `claude/declutter`)
+- Status: done, no deviations. Stack unchanged (react-force-graph-2d canvas, painter in paint.ts).
+- Labels: zoomed out shows cluster names only (existing chooseSpot collision avoidance). The #71 health badge now shows only for the hovered name, the focused Item's cluster, or from zoom 1.3x on and then only where it fits (`badgeWanted` in graph/badge.ts; `badgeY` kept).
+- Hover: `hoverTarget` (graph/hover.ts) adds hysteresis (padded hit radius with a 9 px floor for tiny stars, rival must be 30% closer); 130 ms dwell from empty space, 50 ms switch when a tooltip is open; no hover while a button is down or dragging; pan/zoom still hides. Touch path unchanged (tap shows, tap elsewhere hides).
+- New check: `npm run labels:check`.
