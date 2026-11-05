@@ -15,6 +15,7 @@ type Props = {
   selected: GNode | null;
   preview: GNode | null; // an Item hovered in the inspector or search list
   matches: Set<GNode> | null;
+  scope: Set<GNode> | null; // the scope filter: stars outside it dim like out-of-cluster ones
   panelWidth: number; // px the inspector covers on the right (0 on phones, where it is a bottom sheet)
   leftPanel: "brief" | "chat" | null;
   cluster: Cluster | null; // the focused cluster: the camera flies to it, the rest of the sky dims
@@ -55,7 +56,7 @@ function fittedView(painter: Painter, model: Model): View {
   return fitView(model.nodes, model.clusters, painter.view, innerWidth, innerHeight);
 }
 
-export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, panelWidth, leftPanel, cluster, onSelect, onCluster }, ref) {
+export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, scope, panelWidth, leftPanel, cluster, onSelect, onCluster }, ref) {
   const fg = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined);
   const wrap = useRef<HTMLDivElement>(null);
   const painter = useMemo(() => makePainter(model, reduced()), [model]);
@@ -143,11 +144,11 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   useEffect(() => () => { clearTimeout(tipRef.current.timer); clearTimeout(tipRef.current.rest); }, []);
 
   useEffect(() => {
-    Object.assign(focus, { selected, preview, matches });
+    Object.assign(focus, { selected, preview, matches, scope });
     measureInsets(painter.view); // a highlight chip appears with a new match set
     if (tipRef.current.n === selected) hideTip(); // the Inspector shows the selected star
     wake();
-  }, [focus, painter, selected, preview, matches, wake, hideTip]);
+  }, [focus, painter, selected, preview, matches, scope, wake, hideTip]);
 
   // One camera owner. Everything that moves the camera by itself (enter, exit, hop, glide) goes through fly(), a single rAF
   // loop on d3's smooth zoom-and-pan path; force-graph's own zoom(k, ms) and centerAt(x, y, ms) are two uncoupled tweens

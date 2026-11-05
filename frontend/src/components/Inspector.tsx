@@ -2,7 +2,7 @@ import { ArrowLeftIcon, XIcon } from "lucide-react";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { day, kindName, noun, relName, type GNode, type GOverlap, type Model, type UsageWindow } from "@/graph/model";
+import { day, kindName, noun, projectUses, relName, type GNode, type GOverlap, type Model, type UsageWindow } from "@/graph/model";
 
 type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
 
@@ -43,12 +43,14 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
         {item.label && <p className="text-[15px] leading-[1.45] tracking-[-0.005em] text-text-2">{item.label}</p>}
 
         <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-t pt-4 text-[13px]">
+          <dt className="text-text-3">Scope</dt>
+          <dd>{item.scope === "project" ? (item.project && model.projects[item.project]) ? `Project: ${model.projects[item.project]}` : "Project" : "Global"}</dd>
           <dt className="text-text-3">Cluster</dt>
           <dd className="font-serif text-[17px] leading-tight tracking-[0.01em] italic">{item.cluster?.name ?? "Not clustered"}</dd>
         </dl>
 
         <Cost item={item} />
-        <Usage item={item} window={model.usageWindow} />
+        <Usage item={item} window={model.usageWindow} model={model} />
 
         <p className="mt-6 max-w-[65ch] text-sm leading-[1.55] text-text-2 whitespace-pre-wrap [overflow-wrap:anywhere]">{item.description || "No description."}</p>
         <p className="mt-3 font-mono text-xs leading-[1.45] text-text-3 [overflow-wrap:anywhere]">{item.source}</p>
@@ -100,8 +102,8 @@ function Cost({ item }: { item: GNode }) {
 
 // No usage entry means the kind is not tracked (hooks, plugins): said as such, never as 0. Count 0 is "never seen" in the window scanned.
 // A prompt-time hook also shows what it injects at session start: bytes are static, tokens only after --count-bodies, unknown never 0.
-function Usage({ item, window }: { item: GNode; window: UsageWindow | null }) {
-  const u = item.usage, w = item.weight;
+function Usage({ item, window, model }: { item: GNode; window: UsageWindow | null; model: Model }) {
+  const u = item.usage, w = item.weight, where = projectUses(item, model);
   if (!u && !w && !(item.kind === "hook" || item.kind === "plugin")) return null;
   const seen = !u ? null : u.count > 0
     ? <>{noun(u.count, "use")}{u.last_used && <span className="text-text-3"> · last {day(u.last_used)}</span>}</>
@@ -112,6 +114,10 @@ function Usage({ item, window }: { item: GNode; window: UsageWindow | null }) {
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border bg-surface-2 px-4 py-3 text-[13px]">
         <dt className="text-text-3">Seen in transcripts</dt>
         <dd className="text-right">{seen ?? <i className="text-text-3">not tracked</i>}</dd>
+        {where && <>
+          <dt className="text-text-3">By project</dt>
+          <dd className="text-right">{where.map((r) => <span key={r.label} className="block [overflow-wrap:anywhere]">{noun(r.count, "use")} in {r.label}{r.current && <span className="text-text-3"> (this repo)</span>}</span>)}</dd>
+        </>}
         {w && <>
           <dt className="text-text-3">Session-start weight</dt>
           <dd className="text-right font-mono tabular-nums">

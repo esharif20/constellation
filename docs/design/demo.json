@@ -659,6 +659,32 @@
       "description": "Use when inspecting a hive. Switched off with its plugin.",
       "disabled": true,
       "source": "~/.claude/skills/idle-hive-inspector"
+    },
+    {
+      "id": "skill:proj:cart-checkout-audit",
+      "kind": "skill",
+      "name": "cart-checkout-audit",
+      "description": "Use when reviewing the alpha-shop checkout flow.",
+      "source": ".claude/skills/cart-checkout-audit",
+      "scope": "project",
+      "project": "p1"
+    },
+    {
+      "id": "agent:proj:thesis-citation-checker",
+      "kind": "agent",
+      "name": "thesis-citation-checker",
+      "description": "Checks citations in the thesis draft.",
+      "source": ".claude/agents/thesis-citation-checker",
+      "scope": "project",
+      "project": "p2"
+    },
+    {
+      "id": "mcp_server:proj:shop-catalog-db",
+      "kind": "mcp_server",
+      "name": "shop-catalog-db",
+      "description": "Local catalog database for the shop.",
+      "source": ".mcp.json#shop-catalog-db",
+      "scope": "project"
     }
   ],
   "warnings": [
@@ -1051,7 +1077,10 @@
     "skill:extra:quarterly-ledger-reconciliation-helper": "Use when closing the quarter and matching ledgers",
     "agent:extra:lighthouse-lamp-maintenance-scheduler": "Plans lamp upkeep rounds around the tides",
     "plugin:extra:idle-beekeeping-bundle": "A bundle for hive inspection, switched off",
-    "skill:extra:idle-hive-inspector": "Use when inspecting a hive. Switched off with its plugin"
+    "skill:extra:idle-hive-inspector": "Use when inspecting a hive. Switched off with its plugin",
+    "skill:proj:cart-checkout-audit": "Use when reviewing the alpha-shop checkout flow",
+    "agent:proj:thesis-citation-checker": "Checks citations in the thesis draft",
+    "mcp_server:proj:shop-catalog-db": "Local catalog database for the shop"
   },
   "clusters": [
     {
@@ -1142,7 +1171,8 @@
         "hook:guard-env-files",
         "agent:cartographer",
         "skill:timezone-math",
-        "mcp_server:orrery"
+        "mcp_server:orrery",
+        "skill:proj:cart-checkout-audit"
       ]
     },
     {
@@ -1156,7 +1186,9 @@
         "hook:run-tests-on-stop",
         "agent:scribe",
         "skill:branch-tidy",
-        "connector:inkwell"
+        "connector:inkwell",
+        "agent:proj:thesis-citation-checker",
+        "mcp_server:proj:shop-catalog-db"
       ]
     },
     {
@@ -1537,6 +1569,18 @@
     "skill:extra:idle-hive-inspector": {
       "always_on": 60,
       "on_use": 700
+    },
+    "skill:proj:cart-checkout-audit": {
+      "always_on": 70,
+      "on_use": 800
+    },
+    "agent:proj:thesis-citation-checker": {
+      "always_on": 70,
+      "on_use": 800
+    },
+    "mcp_server:proj:shop-catalog-db": {
+      "always_on": 70,
+      "on_use": 800
     }
   },
   "overlaps": [
@@ -1582,5 +1626,11 @@
       "verdict": "duplicate",
       "reason": "Same steps and trigger wording; one could go."
     }
-  ]
+  ],
+  "projects": {
+    "p1": "alpha-shop",
+    "p2": "thesis"
+  },
+  "current_project": "p1",
+  "usage_by_project": {}
 }
