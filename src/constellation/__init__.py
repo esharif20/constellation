@@ -39,7 +39,7 @@ def scan(
         llm = counter = verifier = None
     items, warnings, relations, bodies = read_items(config_dir, (lockfile or origin_sources.DEFAULT_LOCKFILE) if origins else None, project)
     usages, window, usage_warnings, by_project = (
-        read_usage(config_dir, items, relations, project) if usage else ({}, None, [], ProjectUsage())
+        read_usage(config_dir, items, relations, project, Path.home()) if usage else ({}, None, [], ProjectUsage())
     )
     warnings += usage_warnings
     labels: dict[str, str] = {}
