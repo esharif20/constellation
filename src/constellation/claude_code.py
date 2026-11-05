@@ -350,3 +350,73 @@ def read_secrets(config_dir: Path) -> set[str]:
                 values.append(line.split("=", 1)[1].strip().strip("\"'"))
     # shortcut: values under 8 chars are skipped so "1" or "true" doesn't get redacted everywhere; a short real secret would leak.
     return {v for v in values if len(v) >= 8}
+
+
+def _env_values(node: object) -> Iterator[str]:
+    """Every string under an `env` key, at any depth."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield from _strings(value) if key == "env" else _env_values(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _env_values(value)
+
+
+def pack_secrets(root: Path) -> set[str]:
+    """Secret values a pack's own manifests carry in `env`. Reads only these files inside root, never a `.env`."""
+    values: list[str] = []
+    for name in (".mcp.json", "settings.json", ".claude-plugin/plugin.json"):
+        try:
+            values += _env_values(json.loads((root / name).read_text()))
+        except (OSError, ValueError, RecursionError):
+            pass
+    return {v for v in values if len(v) >= 8}
+
+
+def read_pack(root: Path) -> tuple[str, str, list[Item], list[str], list[Relation]]:
+    """(pack name, layout "plugin"|"pack"|"skill", items, warnings, relations); reads only inside root. The caller has already refused
+    symlinks pointing out of root (preview.check_tree); `_inside` refuses them again. Bodies are dropped, nothing is run."""
+    root = Path(root).resolve()
+    manifest = root / ".claude-plugin" / "plugin.json"
+    if manifest.is_file():
+        layout = "plugin"
+    elif any((root / part).exists() for part in ("skills", "agents", "commands", ".mcp.json", "hooks/hooks.json")):
+        layout = "pack"
+    elif (root / "SKILL.md").is_file():
+        layout = "skill"
+    else:
+        raise ValueError(f"No plugin, skill pack or SKILL.md found in {root.name}.")
+    items: list[Item] = []
+    warnings: list[str] = []
+    relations: list[Relation] = []
+    name = root.name
+    secrets = pack_secrets(root)
+    try:
+        if layout == "skill":
+            meta, problem = _frontmatter(root / "SKILL.md")
+            if problem:
+                warnings.append(problem)
+            if meta.get("name") and meta.get("description"):
+                items.append(Item(f"{SOURCE}:skill:{root.name}/{meta['name']}", "skill", meta["name"], meta["description"], SOURCE))
+            else:
+                warnings.append("skipped SKILL.md: it needs a name and a description")
+        else:
+            scope = f"{name}/"
+            if layout == "plugin":
+                meta = json.loads(manifest.read_text())
+                name = meta["name"]
+                if not isinstance(name, str) or not name:
+                    raise ValueError
+                scope = f"{name}/"
+                plugin = Item(f"{SOURCE}:plugin:{name}", "plugin", name, meta.get("description", ""), SOURCE)
+                items.append(plugin)
+                _plugin_servers(meta, root, scope, items, warnings, secrets)
+            _read_root(root, scope, items, warnings, relations, {}, secrets, None, root)
+            if layout == "plugin":
+                relations += [Relation(plugin.id, item.id, "contains") for item in items[1:]]
+    except (KeyError, TypeError, AttributeError, ValueError, OSError, RecursionError):
+        raise ValueError("could not read the pack: malformed file") from None
+    # Warnings name files by their path; the pack folder's own path (absolute, or `~/` under home) becomes the pack name.
+    for path in sorted({str(root), _shown(root)}, key=len, reverse=True):
+        warnings = [w.replace(path, name) for w in warnings]
+    return name, layout, items, warnings, relations
