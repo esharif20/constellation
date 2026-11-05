@@ -26,9 +26,10 @@ type Props = {
   onScope: (s: Scope) => void;
   extra?: ReactNode; // sits beside the warnings button (the History button)
   explain?: ReactNode; // the Explain my setup button and dialog
+  ask?: ReactNode; // the Ask locally trigger, kept beside search: both are ways to question the map
 };
 
-export function TopBar({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, cluster, onCluster, scope, onScope, extra, explain }: Props) {
+export function TopBar({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, cluster, onCluster, scope, onScope, extra, explain, ask }: Props) {
   return (
     <header className="pointer-events-none fixed inset-x-4 top-3 flex flex-wrap items-center gap-x-4 gap-y-2 sm:inset-x-6 sm:top-4 sm:flex-nowrap">
       <h1 className="font-serif text-[22px] leading-none tracking-[0.01em] italic sm:text-2 [text-shadow:0_0_18px_rgb(150_170_255/0.35)] ">Constellation</h1>
@@ -49,7 +50,10 @@ export function TopBar({ model, query, found, rows, clusterHits, note, pending, 
       {extra}
       {explain}
       {hasScopes(model) && <ScopeFilter repo={!!model.currentProject} scope={scope} onScope={onScope} />}
-      <Search model={model} query={query} found={found} rows={rows} clusterHits={clusterHits} note={note} pending={pending} onCluster={onCluster} onQuery={onQuery} onChoose={onChoose} onPreview={onPreview} />
+      <div className="pointer-events-auto order-last flex w-full min-w-0 items-center gap-2 sm:order-none sm:ml-auto sm:w-auto">
+        <Search model={model} query={query} found={found} rows={rows} clusterHits={clusterHits} note={note} pending={pending} onCluster={onCluster} onQuery={onQuery} onChoose={onChoose} onPreview={onPreview} />
+        {ask}
+      </div>
     </header>
   );
 }
@@ -133,7 +137,7 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
   }, [open, active, found, onPreview]);
 
   return (
-    <Command shouldFilter={false} value={active} onValueChange={setActive} className="pointer-events-auto order-last w-full overflow-visible! bg-transparent p-0 sm:order-none sm:ml-auto sm:w-80">
+    <Command shouldFilter={false} value={active} onValueChange={setActive} className="min-w-0 flex-1 overflow-visible! bg-transparent p-0 sm:w-80 sm:flex-initial">
       <Popover open={open}>
         <PopoverAnchor asChild>
           <div className="relative">
@@ -155,7 +159,7 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
             <p id="search-count" className="sr-only" aria-live="polite">
               {query.trim() && !pending ? `${found.length} ${found.length === 1 ? "Item matches" : "Items match"}, all lit on the map${clusterHits.length ? `, ${clusterHits.length} ${clusterHits.length === 1 ? "cluster" : "clusters"}` : ""}` : ""}
             </p>
-            {!focused && !query && <Kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 sm:inline-flex">/</Kbd>}
+            {!focused && !query && <Kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 lg:inline-flex">/</Kbd>}
           </div>
         </PopoverAnchor>
         <PopoverContent

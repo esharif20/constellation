@@ -142,7 +142,7 @@ Ask locally starts collapsed and opens a 340 px left panel using the established
 
 Validated known-id actions reuse the map's match rings, dimming and camera glide. Filter results explicitly say that other Items are dimmed. Result Item buttons select existing stars. Reset clears the answer and chat highlights; Escape collapses the panel and returns focus to its trigger.
 
-Below 960 px, opening Chat preserves selection as question context and hides the Inspector. Focus actions keep the answer visible; closing Chat restores the selected Item's Inspector. At 640 px and below Chat is a non-modal 58dvh sheet. Desktop panels and the collapsed chat trigger reserve the measured Legend height, including its extra rows at narrow widths; the Brief reserves another 52 px for that trigger. On phones the trigger sits above the open Brief or Inspector sheet. Crossing the phone breakpoint reframes the selected star.
+Below 960 px, opening Chat preserves selection as question context and hides the Inspector. Focus actions keep the answer visible; closing Chat restores the selected Item's Inspector. At 640 px and below Chat is a non-modal 58dvh sheet. Desktop panels reserve the measured Legend height, including its extra rows at narrow widths. The trigger lives in the top bar beside search (shortcut `A`), see `ask-placement.md`. Crossing the phone breakpoint reframes the selected star.
 
 Automatic fits recompute their zoom limits before applying the camera, so a newly opened panel cannot be clipped by stale minimum zoom. Resize fitting remeasures after the panel's breakpoint animation settles. Manual zoom is preserved when panels toggle.
 

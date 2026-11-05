@@ -2,6 +2,7 @@ import { ArrowRightIcon, CheckIcon, CopyIcon, ListPlusIcon, MessageCircleIcon, R
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import type { GNode, Model } from "@/graph/model";
 import { cn } from "@/lib/utils";
 
@@ -20,8 +21,6 @@ type Props = {
   model: Model;
   selected: GNode | null;
   open: boolean;
-  briefOpen: boolean;
-  clusterOpen: boolean;
   onOpen: (open: boolean) => void;
   onActions: (actions: ChatAction[]) => void;
   onReset: () => void;
@@ -181,8 +180,7 @@ export function Answer({ reply, copied, onCopy, onItem, onAsk }: { reply: Reply;
   </>;
 }
 
-export function Chat({ model, selected, open, briefOpen, clusterOpen, onOpen, onActions, onReset, onItem, draft }: Props) {
-  const trigger = useRef<HTMLButtonElement>(null);
+export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem, draft }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const request = useRef<AbortController | null>(null);
   const [bottom, setBottom] = useState(96);
@@ -231,7 +229,7 @@ export function Chat({ model, selected, open, briefOpen, clusterOpen, onOpen, on
 
   function collapse() {
     onOpen(false);
-    requestAnimationFrame(() => trigger.current?.focus());
+    requestAnimationFrame(() => document.getElementById("ask-trigger")?.focus());
   }
 
   function reset() {
@@ -325,6 +323,15 @@ export function Chat({ model, selected, open, briefOpen, clusterOpen, onOpen, on
           <Button type="submit" disabled={pending || unavailable || !question.trim()} aria-busy={pending} className="h-11 gap-2 sm:h-10"><SendIcon aria-hidden />{pending ? "Looking…" : "Ask locally"}</Button>
         </div>
       </form>
-    </section> : <Button ref={trigger} variant="outline" style={{ "--chat-bottom": `${bottom}px` } as CSSProperties} className={cn("glass fixed bottom-24 left-4 h-11 gap-2 rounded-full px-4 sm:bottom-(--chat-bottom) sm:h-10", selected ? "bottom-[calc(58dvh+12px)] sm:bottom-(--chat-bottom)" : clusterOpen ? "bottom-[calc(40dvh+12px)] sm:bottom-(--chat-bottom)" : briefOpen ? "bottom-[calc(46dvh+12px)] sm:bottom-(--chat-bottom)" : "")} aria-expanded={false} onClick={() => onOpen(true)}><MessageCircleIcon aria-hidden />Ask locally</Button>}
+    </section> : null}
   </>;
+}
+
+// Lives in the top bar beside search (docs/design/ask-placement.md), so it never competes with the Legend or a sheet for the bottom-left corner.
+export function AskTrigger({ open, onOpen }: { open: boolean; onOpen: (open: boolean) => void }) {
+  return <Button id="ask-trigger" variant="outline" aria-expanded={open} aria-controls={open ? "chat-panel" : undefined} aria-keyshortcuts="A" title="Ask locally (A)" onClick={() => onOpen(!open)}
+    className="glass h-11 shrink-0 gap-2 rounded-lg border-indigo-bright/40 px-3 text-[13px] text-foreground hover:border-indigo-bright/70 aria-expanded:bg-indigo-bright/20 sm:h-10">
+    {/* the label folds to an icon where the one-row desktop bar is full (641-1379px); it stays on phones, where the button has its own row */}
+    <MessageCircleIcon aria-hidden /><span className="sm:max-[1379px]:sr-only">Ask locally</span><Kbd aria-hidden className="hidden lg:inline-flex">A</Kbd>
+  </Button>;
 }

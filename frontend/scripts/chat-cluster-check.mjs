@@ -22,7 +22,7 @@ try {
     browser("wait", "--fn", `!!${card}`);
     check(`!${brief} && !${chat}`, "Entering a cluster occupies the left slot");
     if (width <= 640) {
-      check(`Array.from(document.querySelectorAll("button")).find(b => b.textContent === "Ask locally").getBoundingClientRect().bottom <= ${card}.getBoundingClientRect().top`, "Phone Chat trigger clears the cluster sheet");
+      check(`document.querySelector("#ask-trigger").getBoundingClientRect().bottom <= ${card}.getBoundingClientRect().top`, "Phone Chat trigger clears the cluster sheet");
     }
     browser("find", "role", "button", "click", "--name", "Ask locally");
     browser("wait", "--fn", `!!${chat} && ${chat}.getBoundingClientRect().bottom <= innerHeight + 1`);

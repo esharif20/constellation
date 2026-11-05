@@ -80,7 +80,7 @@ export function ExplainCard({ model, onCluster, onItem }: { model: Model; onClus
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button variant="ghost" aria-label="Explain my setup" className="pointer-events-auto h-11 rounded-lg px-3 text-[13px] text-text-2 sm:h-10 sm:order-last">
-          <BookOpenIcon data-icon="inline-start" aria-hidden /><span className="hidden sm:inline">Explain my setup</span>
+          <BookOpenIcon data-icon="inline-start" aria-hidden /><span className="hidden lg:inline">Explain my setup</span>
         </Button>
       </DialogTrigger>
       <DialogContent

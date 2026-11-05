@@ -6,13 +6,13 @@ import { createServer } from "vite";
 
 const vite = await createServer({ server: { middlewareMode: true, watch: null, ws: false }, appType: "custom" });
 try {
-  const { Chat, Answer, readBlocks } = await vite.ssrLoadModule("/src/components/Chat.tsx");
+  const { Chat, AskTrigger, Answer, readBlocks } = await vite.ssrLoadModule("/src/components/Chat.tsx");
   const props = {
     model: { nodes: [], overlaps: [], clusters: [] }, selected: null, briefOpen: false, clusterOpen: false,
     onOpen() {}, onActions() {}, onReset() {}, onItem() {},
   };
   for (const open of [false, true]) {
-    const html = renderToStaticMarkup(createElement(Chat, { ...props, open }));
+    const html = renderToStaticMarkup(createElement(AskTrigger, { open, onOpen() {} })) + renderToStaticMarkup(createElement(Chat, { ...props, open }));
     for (const [, targets] of html.matchAll(/aria-controls="([^"]+)"/g)) {
       for (const target of targets.split(" ")) assert.ok(html.includes(`id="${target}"`), `Missing controlled region: ${target}`);
     }
