@@ -13,6 +13,8 @@ try {
   const { relatedGroups, CAP } = await vite.ssrLoadModule("/src/lib/related.ts");
   const { KindDetails } = await vite.ssrLoadModule("/src/components/inspector/KindDetails.tsx");
   const { About } = await vite.ssrLoadModule("/src/components/inspector/About.tsx");
+  const { instructionFor } = await vite.ssrLoadModule("/src/lib/instruction.ts");
+  const { Actions, briefRow } = await vite.ssrLoadModule("/src/components/inspector/Actions.tsx");
   const win = { files: 40, first: "2026-09-04", last: "2026-11-04", skipped: 0 };
   const node = (name, o = {}) => ({ id: name, kind: "skill", name, ...o });
   const dayBefore = (n) => new Date(Date.parse(win.last) - n * 864e5).toISOString().slice(0, 10);
@@ -98,6 +100,27 @@ try {
   assert.match(ab(node("s", { description: "Fixes typos. Use when editing docs.", label: "L" })), /What it does[\s\S]*Fixes typos\.[\s\S]*When it triggers[\s\S]*Use when editing docs\./);
   assert.match(ab(node("s", { description: "" })), /No description\./);
   assert.doesNotMatch(ab(node("h", { kind: "hook", description: "Use when x." })), /What it does|When it triggers/);
+
+  // Actions (section 5): instruction wording matches answer.py handoff(); Add only for Brief cost/pairs rows; Compare only with onAsk.
+  const noOs = { overlapsOf: new Map() }, V = (label, tone) => ({ label, tone, why: "", basis: false });
+  assert.equal(instructionFor(node("release-notes"), noOs, V("Could go", "destructive")), 'Remove the skill "release-notes": find its folder (under ~/.claude/skills) and delete only that folder. Show me exactly what will change and wait for my OK.');
+  assert.equal(instructionFor(node("pdf-tools", { kind: "plugin" }), noOs, V("Not enough data", "none")), 'Disable the plugin "pdf-tools" in my user settings.json enabledPlugins; do not delete files. Show me exactly what will change and wait for my OK.');
+  assert.equal(instructionFor(node("s"), noOs, V("Keep", "keep")), 'Review the skill "s": tell me what it does and whether I still need it. Change nothing.');
+  assert.match(instructionFor(node("srv", { kind: "mcp_server", origin: "acme" }), noOs, V("Could go", "destructive")), /^Remove the MCP server "srv" from my Claude Code config.*It came from "acme": if that is a plugin or pack/);
+  const dupOs = { overlapsOf: new Map([[me, [{ a: me, b: other, verdict: "duplicate" }]]]) };
+  assert.equal(instructionFor(me, dupOs, V("Keep one", "destructive")), 'The skill "me" and "changelog-draft" do the same job. Compare them and recommend which to remove; remove nothing until I choose. Show me exactly what will change and wait for my OK.');
+  assert.match(instructionFor(me, { overlapsOf: new Map([[me, [{ a: me, b: other, verdict: "wrapper" }]]]) }, V("Keep the wrapped one", "warn")), /only calls "changelog-draft"\. Show me how to use/);
+  assert.ok(instructionFor(node("w".repeat(500)), noOs, V("Could go", "destructive")).length <= 400);
+  const row = { id: "r1", kind: "review_cost", item_ids: ["me"] }, grp = (rows) => ({ rows });
+  const brief = { cost: grp([row]), pairs: grp([]), scope: { rows: [{ id: "s1", kind: "move_to_project", item_ids: ["scoped"] }] }, checklist: { ids: [] } };
+  assert.equal(briefRow(brief, me).id, "r1");
+  assert.equal(briefRow(brief, node("scoped")), undefined); // scope rows 404: never offered
+  const act = (p) => renderToStaticMarkup(createElement(Actions, { item: me, instruction: "x", ...p }));
+  assert.match(act({ brief }), /Copy instruction for Claude Code[\s\S]*Add to checklist/);
+  assert.doesNotMatch(act({}), /Add to checklist|Compare with/);
+  assert.doesNotMatch(act({ brief: { ...brief, checklist: undefined } }), /Add to checklist/);
+  assert.match(act({ brief: { ...brief, checklist: { ids: ["r1"] } } }), /disabled[^>]*>[\s\S]*On checklist/);
+  assert.match(act({ onAsk: () => {} }), /Compare with…/);
 
   console.log("Inspector verdict rows, the 29/30/31-day edge, header, description split, kind details and Related groups pass.");
 } finally {
