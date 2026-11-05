@@ -80,7 +80,7 @@ def _usage(data: dict[str, Any], id_: str) -> tuple[str, int | None]:
 def idle_days(data: dict[str, Any], id_: str) -> tuple[int, bool] | None:
     """(days idle, exact) to the newest saved session. Never seen = the whole window, a lower bound (exact False). None = unknown."""
     window, usage = data.get("usage_window"), (data.get("usage") or {}).get(id_)
-    if not window or not window["files"] or usage is None:
+    if not window or usage is None:  # the callers have already checked that transcripts exist
         return None
     if not usage["count"]:
         span = _span(window)
@@ -157,7 +157,7 @@ INSTRUCTION = 400
 def handoff(data: dict[str, Any], item: dict[str, Any], tone: str, overlap: dict[str, Any] | None) -> dict[str, Any]:
     """A copyable instruction for Claude Code and the checklist row that can be added for this Item (None when there is none)."""
     id_, name, label = item["id"], quote(item["name"]), kind_label(item["kind"])
-    other = None
+    other = None  # pragma: no mutate (equivalent: only read when there is an overlap)
     if overlap:
         names = {i["id"]: i["name"] for i in data["items"]}
         other = quote(names[overlap["b_id"] if overlap["a_id"] == id_ else overlap["a_id"]])

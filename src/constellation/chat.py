@@ -57,7 +57,7 @@ _BODY = (
 )
 _DEBUG = (
     r"(?<![\w-])(?:debug|stack ?trace|exception|crash\w*|not working|isn'?t working|doesn'?t work|failing|failed|errors?)(?![\w-])"
-    r"|(?<![\w-])why (?:did|does|is|isn'?t|won'?t|are)\b.*(?<![\w-])(?:fail\w*|break|broke|slow|hang\w*|work)(?![\w-])"
+    r"|(?<![\w-])why (?:did|does|is|isn'?t|won'?t|are)\b.*(?<![\w-])(?:fail\w*|break|broke|slow|hang\w*|work(?:ing|s)?)(?![\w-])"
 )
 _GENERAL = (
     r"^(?:how (?:do|can|should|would|to)\b|why\b|who\b|where\b|tell me (?:a |how )"
@@ -265,7 +265,8 @@ def _plugins(state: ChatState) -> dict[str, Any]:
     table = []
     for origin, members in groups.items():
         sure = [known[m["id"]] for m in members if m["id"] in known]
-        heaviest = min(members, key=lambda m: (-known.get(m["id"], -1), m["id"]))
+        costed = [m for m in members if m["id"] in known]
+        heaviest = min(costed, key=lambda m: (-known[m["id"]], m["id"])) if costed else members[0]
         table.append(
             {
                 "origin": origin,
@@ -306,8 +307,12 @@ def _plugins(state: ChatState) -> dict[str, Any]:
 
 
 def _removal_value(s: Any, id_: str | None, known: dict[str, int], names: dict[str, str]) -> str:
-    other = next((n for i, n in names.items() if i in s.item_ids and i != id_), "")
-    why = {"remove_duplicate": f"Same job as {other}", "use_underlying": f"Only calls {other}", "remove_unused": "Not seen"}[s.kind]
+    shown = id_ or s.item_ids[0]  # the row's Item; when the cheaper twin is unknown it is the first
+    if s.kind == "remove_unused":
+        why = "Not seen"
+    else:
+        other = next(n for i, n in names.items() if i in s.item_ids and i != shown)
+        why = f"Same job as {other}" if s.kind == "remove_duplicate" else f"Only calls {other}"
     return f"{why}; {'saves ' + format(known[id_], ',') + ' tokens' if id_ in known else 'saving unknown'}"
 
 
@@ -439,7 +444,10 @@ def _since_answer(state: ChatState) -> dict[str, Any]:
         if idle and idle[0] >= days and not i.get("disabled") and (not state["scope"] or i["id"] in state["scope"]):
             found.append((i, idle))
     cost = _known_costs(data)
-    found.sort(key=lambda f: (f[0]["id"] not in cost, -cost.get(f[0]["id"], 0), -f[1][0], f[0]["name"], f[0]["id"]))
+    priced = [f for f in found if f[0]["id"] in cost]
+    priced.sort(key=lambda f: (-cost[f[0]["id"]], -f[1][0], f[0]["name"], f[0]["id"]))
+    blind = sorted((f for f in found if f[0]["id"] not in cost), key=lambda f: (-f[1][0], f[0]["name"], f[0]["id"]))
+    found = priced + blind  # unknown cost goes last, never counted as 0
     note = (
         f"Measured to {window['last']}, the newest saved session. "
         "A never-seen Item is idle at least as long as the history (older sessions are deleted)."

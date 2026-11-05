@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from constellation import server
@@ -46,7 +47,10 @@ def ask(client, question, **body):
 
 
 def test_dormant_days_matches_the_frontend_constant():
-    source = (Path(__file__).parents[1] / "frontend/src/lib/verdict.ts").read_text()
+    path = Path(__file__).parents[1] / "frontend/src/lib/verdict.ts"
+    if not path.exists():  # mutmut runs tests from a copy without the frontend
+        pytest.skip("frontend sources are not in this checkout")
+    source = path.read_text()
     assert int(re.search(r"export const DORMANT_DAYS = (\d+)", source)[1]) == DORMANT_DAYS == 30
 
 
@@ -479,3 +483,323 @@ def test_the_remove_list_ends_in_one_instruction_for_its_rows(tmp_path, monkeypa
     assert hand["checklist_id"] is None
     assert hand["instruction"].startswith('Review these in my Claude Code setup as removal candidates: skill "skill-5", ')
     assert hand["instruction"].endswith("Show me each one and wait for my OK before you remove anything.")
+
+
+# --- exact fields, boundaries and wording (mutation kills) ---------------------------------------------------------------------
+
+FOLLOW = ["What costs the most every session?", "What have I never used?"]
+
+
+def sk(n, prefix="skill"):
+    return item(f"{prefix}{n}", f"{prefix}-{n}")
+
+
+def unused(items, costs=None):
+    return {"usage": {i["id"]: NEVER for i in items}, "usage_window": WINDOW, "costs": costs or {}}
+
+
+def test_remove_exact_fields_and_row_limits(tmp_path, monkeypatch):
+    items, extra = removal_scan()
+    reply = ask(make(tmp_path, monkeypatch, items, **extra), "What could I remove?")
+    blocks = reply["blocks"]
+    assert blocks["next"] == "Open one on the map before you decide."
+    assert blocks["follow_ups"] == ["Should I keep alpha?", *FOLLOW]
+    assert blocks["more"] == 0
+    assert blocks["note"] == (
+        "Plus 1 Item with an unknown saving, not counted as 0. Unused rests on saved transcripts, which Claude Code deletes over time."
+    )
+    for count, more in ((5, 0), (6, 1)):
+        many = [sk(n) for n in range(count)]
+        costs = {i["id"]: cost(1500) for i in many}
+        reply = ask(make(tmp_path, monkeypatch, many, **unused(many, costs)), "what could I remove")
+        assert len(reply["blocks"]["rows"]) == 5 and reply["blocks"]["more"] == more
+        assert len(reply["actions"][0]["item_ids"]) == 5
+        assert reply["blocks"]["rows"][0]["value"] == "Not seen; saves 1,500 tokens"
+        assert reply["blocks"]["note"] == "Unused rests on saved transcripts, which Claude Code deletes over time."
+        assert len(reply["blocks"]["handoff"]["instruction"].split('skill "')) == 6  # five names
+    empty = ask(make(tmp_path, monkeypatch, [item("a", "alpha")]), "what could I remove")["blocks"]
+    assert empty["follow_ups"] == FOLLOW and empty["handoff"] is None
+
+
+def test_remove_wrapper_and_unknown_duplicate_rows(tmp_path, monkeypatch):
+    items = [item("w", "shim"), item("c", "core")]
+    extra = {
+        "costs": {"w": cost(40), "c": cost(5)},
+        "usage": {"w": {"count": 2, "last_used": "2026-10-29"}, "c": {"count": 2, "last_used": "2026-10-29"}},
+        "usage_window": WINDOW,
+        "overlaps": [{"a_id": "w", "b_id": "c", "verdict": "wrapper", "reason": "Calls."}],
+    }
+    blocks = ask(make(tmp_path, monkeypatch, items, **extra), "what could I remove")["blocks"]
+    assert blocks["headline"] == "You could remove 1, saving about 40 tokens every session."
+    assert blocks["rows"][0]["value"] == "Only calls core; saves 40 tokens"
+    pair = [item("d1", "dup-one"), item("d2", "dup-two")]
+    extra = {"overlaps": [{"a_id": "d1", "b_id": "d2", "verdict": "duplicate", "reason": "Same."}]}
+    reply = ask(make(tmp_path, monkeypatch, pair, **extra), "what could I remove")
+    assert reply["blocks"]["rows"][0]["name"] == "dup-one" and reply["blocks"]["follow_ups"][0] == "Should I keep dup-one?"
+    assert reply["blocks"]["rows"][0]["value"] == "Same job as dup-two; saving unknown"
+    assert reply["actions"][0]["item_ids"] == ["d1"] and 'skill "dup-one"' in reply["blocks"]["handoff"]["instruction"]
+    costed = {"costs": {"d1": cost(200), "d2": cost(100)}, **extra}
+    reply = ask(make(tmp_path, monkeypatch, pair, **costed), "what could I remove")
+    assert reply["blocks"]["rows"][0]["name"] == "dup-two" and reply["blocks"]["follow_ups"][0] == "Should I keep dup-two?"
+
+
+def test_start_exact_fields_and_limits(tmp_path, monkeypatch):
+    for count, more in ((5, 0), (6, 1)):
+        many = [sk(n) for n in range(count)]
+        costs = {i["id"]: cost(100 + n) for n, i in enumerate(many)}
+        reply = ask(make(tmp_path, monkeypatch, many, costs=costs), "what do I pay before I type anything")
+        blocks = reply["blocks"]
+        assert len(blocks["rows"]) == 5 and blocks["more"] == more and len(reply["actions"][0]["item_ids"]) == 5
+        assert blocks["next"] == f"Check whether you still use skill-{count - 1}." and blocks["follow_ups"] == FOLLOW
+        assert blocks["note"] is None
+    mixed = [item("h1", "hook-one", "hook"), item("s", "alpha")]
+    reply = ask(
+        make(tmp_path, monkeypatch, mixed, costs={"s": cost(5)}, hook_weights={"h1": {"bytes": 9, "tokens": None}}), "session start total"
+    )
+    assert reply["blocks"]["rows"][0]["name"] == "alpha" and reply["blocks"]["next"] == "Check whether you still use alpha."
+    only_bytes = make(tmp_path, monkeypatch, mixed[:1], hook_weights={"h1": {"bytes": 9, "tokens": None}})
+    assert ask(only_bytes, "session start total")["blocks"]["next"] is None
+    heavy_bytes = [item("h1", "hook-one", "hook"), item("h2", "hook-two", "hook"), item("s", "alpha")]
+    weights = {"h1": {"bytes": 9, "tokens": None}, "h2": {"bytes": 7, "tokens": None}}
+    second = make(tmp_path, monkeypatch, heavy_bytes, costs={"s": cost(5)}, hook_weights=weights)
+    assert ask(second, "session start total")["blocks"]["next"] == "Check whether you still use alpha."
+    two = [item("s1", "alpha"), item("s2", "beta")]
+    zero = ask(make(tmp_path, monkeypatch, two, costs={"s1": cost(0), "s2": cost(0)}), "session start total")["blocks"]
+    assert zero["next"] is None and zero["headline"] == "Before you type anything, your setup loads about 0 tokens."
+    first_bytes = [item("h1", "hook-one", "hook"), item("s", "alpha"), item("t", "beta")]
+    third = make(tmp_path, monkeypatch, first_bytes, costs={"s": cost(0), "t": cost(5)}, hook_weights={"h1": {"bytes": 9, "tokens": None}})
+    assert ask(third, "session start total")["blocks"]["next"] == "Check whether you still use beta."
+    empty = ask(make(tmp_path, monkeypatch, [item("n", "notes", "memory")]), "session start total")["blocks"]
+    assert empty["follow_ups"] == FOLLOW
+
+
+def test_hook_weights_that_are_not_objects_are_ignored(tmp_path, monkeypatch):
+    items = [item("h", "hook-one", "hook"), item("s", "alpha")]
+    client = make(tmp_path, monkeypatch, items, costs={"s": cost(7)}, hook_weights={"h": "junk", "ghost": {"bytes": 1, "tokens": 999}})
+    assert ask(client, "session start total")["blocks"]["headline"] == "Before you type anything, your setup loads about 7 tokens."
+
+
+def plugin_groups(count):
+    items, costs = [], {}
+    for n in range(count):
+        member = item(f"m{n}", f"part-{n}", origin=f"pack-{n}")
+        items.append(member)
+        costs[member["id"]] = cost(100 * (n + 1))
+    return items, {"costs": costs}
+
+
+def test_plugin_roll_up_exact_fields_ordering_and_limits(tmp_path, monkeypatch):
+    for count, more in ((5, 0), (6, 1)):
+        items, extra = plugin_groups(count)
+        reply = ask(make(tmp_path, monkeypatch, items, **extra), "cost by plugin")
+        blocks = reply["blocks"]
+        assert len(blocks["rows"]) == 5 and blocks["more"] == more and len(reply["actions"][0]["item_ids"]) == 5
+        assert blocks["follow_ups"] == FOLLOW and blocks["note"] is None
+        assert blocks["next"] == f"One decision on pack-{count - 1} could replace many."
+        assert blocks["rows"][0]["kind"] == "plugin" and blocks["rows"][0]["value"] == f"{100 * count:,} tokens every session"
+        assert [r["name"] for r in blocks["rows"]][:2] == [f"pack-{count - 1}", f"pack-{count - 2}"]  # most expensive first
+    none = ask(make(tmp_path, monkeypatch, [item("a", "alpha")]), "cost by plugin")["blocks"]
+    assert none["follow_ups"] == FOLLOW
+
+
+def test_plugin_roll_up_unknown_last_ties_zero_and_the_heaviest_part(tmp_path, monkeypatch):
+    items = [
+        item("a1", "a-blind", origin="aaa-blind"),
+        item("b1", "b-zero-one", origin="bbb-zero"),
+        item("b2", "b-zero-two", origin="bbb-zero"),
+        item("c1", "c-one", origin="ccc-one"),
+        item("d1", "d-light", origin="ddd-mixed"),
+        item("d2", "d-heavy", origin="ddd-mixed"),
+        item("d3", "d-blind", origin="ddd-mixed"),
+        item("pk", "ddd-mixed", "plugin", origin="ddd-mixed"),
+        item("z1", "z-off-one", origin="off-one", disabled=True),
+        item("z2", "z-off-two", origin="off-two", disabled=True),
+    ]
+    costs = {"b1": cost(0), "b2": cost(0), "c1": cost(1), "d1": cost(10), "d2": cost(20), "z1": cost(9)}
+    usage = {"b1": NEVER, "b2": NEVER, "c1": {"count": 1, "last_used": "2026-10-29"}}
+    reply = ask(make(tmp_path, monkeypatch, items, costs=costs, usage=usage, usage_window=WINDOW), "which plugin costs the most")
+    rows = reply["blocks"]["rows"]
+    assert [(r["name"], r["value"]) for r in rows] == [
+        ("ddd-mixed", "30 tokens every session"),
+        ("ccc-one", "1 tokens every session"),
+        ("bbb-zero", "0 tokens every session"),
+        ("aaa-blind", "Cost unknown"),
+    ]
+    assert rows[3]["id"] == "a1" and rows[0]["id"] == "pk"
+    assert rows[0]["what"] == "3 Items, 0 not seen, 1 cost unknown"
+    assert reply["blocks"]["note"] == "Left out 2 switched-off plugin or packs: they cost nothing now."
+    solo = [item("m", "part", origin="acme/x"), item("p", "other", origin="acme/x"), item("q", "third", origin="acme/x")]
+    heaviest = ask(make(tmp_path, monkeypatch, solo, costs={"m": cost(1), "p": cost(5)}), "cost by plugin")["blocks"]["rows"][0]
+    assert heaviest["id"] == "p"
+    blind = ask(make(tmp_path, monkeypatch, solo), "cost by plugin")["blocks"]["rows"][0]
+    assert blind["id"] == "m"
+
+
+def test_plugin_note_counts_each_switched_off_origin_once(tmp_path, monkeypatch):
+    items = [
+        item("a", "alpha", origin="acme"),
+        item("b", "beta", origin="gone", disabled=True),
+        item("c", "gamma", origin="gone", disabled=True),
+    ]
+    blocks = ask(make(tmp_path, monkeypatch, items, costs={"a": cost(3)}), "cost by plugin")["blocks"]
+    assert blocks["note"] == "Left out 1 switched-off plugin or pack: they cost nothing now."
+
+
+def idle_items():
+    return [
+        item("z1", "zzz"),
+        item("a1", "aaa"),
+        item("m1", "mid"),
+        item("n1", "none"),
+        item("t1", "today"),
+        item("d1", "dis", disabled=True),
+    ]
+
+
+def idle_extra():
+    return {
+        "costs": {"z1": cost(100), "a1": cost(100), "m1": cost(100), "t1": cost(100), "d1": cost(100)},
+        "usage": {
+            "z1": {"count": 1, "last_used": "2026-09-01"},  # 59 days
+            "a1": {"count": 1, "last_used": "2026-09-25"},  # 35
+            "m1": {"count": 1, "last_used": "2026-09-30"},  # 30
+            "t1": {"count": 1, "last_used": "2026-10-30"},  # 0
+            "d1": NEVER,
+        },
+        "usage_window": WINDOW,
+    }
+
+
+def test_since_boundaries_ordering_scope_and_fields(tmp_path, monkeypatch):
+    client = make(tmp_path, monkeypatch, idle_items(), **idle_extra())
+    reply = ask(client, "What have I not used in 30 days?")
+    blocks = reply["blocks"]
+    assert [(r["name"], r["value"]) for r in blocks["rows"]] == [
+        ("zzz", "59 days idle; 100 tokens every session"),
+        ("aaa", "35 days idle; 100 tokens every session"),
+        ("mid", "30 days idle; 100 tokens every session"),
+    ]  # exactly 30 days is in; today and the switched-off Item are out; the Item with no usage record is not guessed
+    assert blocks["next"] == "Ask whether to keep zzz." and blocks["follow_ups"] == ["Should I keep zzz?", *FOLLOW]
+    assert blocks["more"] == 0 and reply["actions"] == [{"kind": "highlight", "item_ids": ["z1", "a1", "m1"]}]
+    assert blocks["note"] == (
+        "Measured to 2026-10-30, the newest saved session. "
+        "A never-seen Item is idle at least as long as the history (older sessions are deleted)."
+    )
+    assert [r["name"] for r in ask(client, "have I not used mid in 30 days")["blocks"]["rows"]] == ["mid"]
+    assert [r["name"] for r in ask(client, "what have I not used in 1 day")["blocks"]["rows"]] == [
+        "zzz",
+        "aaa",
+        "mid",
+    ]  # idle 0 is not 1 day
+    assert ask(client, "what have I not used in 2 weeks")["blocks"]["headline"].startswith("3 Items not used for 14 days or more")
+    assert ask(client, "what have I not used in 1 month")["blocks"]["headline"].startswith("3 Items not used for 30 days or more")
+    assert ask(client, "what have I not used in 3 weeks")["blocks"]["headline"].startswith("3 Items not used for 21 days or more")
+    assert ask(client, "what have I not used in 2 months")["blocks"]["headline"].startswith("1 Item not used for 60 days or more") is False
+    assert (
+        ask(client, "what have I not used in 2 months")["blocks"]["headline"]
+        == "Nothing is recorded as unused for 60 days in 41 days of past sessions."
+    )
+    nothing = ask(client, "what have I not used in 100 days")
+    assert nothing["blocks"]["note"] is not None and nothing["blocks"]["follow_ups"] == FOLLOW and nothing["actions"] == []
+
+
+def test_since_orders_equal_cost_by_idle_days_and_puts_unknown_cost_last(tmp_path, monkeypatch):
+    items = [item("a1", "aaa"), item("z1", "zzz"), item("u1", "aaa-blind"), item("u2", "zzz-blind")]
+    extra = {
+        "costs": {"a1": cost(100), "z1": cost(100)},
+        "usage": {
+            "a1": {"count": 1, "last_used": "2026-09-25"},
+            "z1": {"count": 1, "last_used": "2026-09-01"},
+            "u1": {"count": 1, "last_used": "2026-09-25"},
+            "u2": {"count": 1, "last_used": "2026-09-01"},
+        },
+        "usage_window": WINDOW,
+    }
+    rows = ask(make(tmp_path, monkeypatch, items, **extra), "what have I not used in 30 days")["blocks"]["rows"]
+    assert [r["name"] for r in rows] == ["zzz", "aaa", "zzz-blind", "aaa-blind"] and rows[2]["value"] == "59 days idle; Cost unknown"
+    exact = [item("a1", "aaa"), item("z1", "zzz")]
+    extra = {
+        "costs": {"a1": cost(100), "z1": cost(100)},
+        "usage": {"a1": {"count": 1, "last_used": "2026-09-25"}, "z1": NEVER},
+        "usage_window": WINDOW,
+    }
+    rows = ask(make(tmp_path, monkeypatch, exact, **extra), "what have I not used in 30 days")["blocks"]["rows"]
+    assert [r["name"] for r in rows] == ["zzz", "aaa"] and rows[0]["value"].startswith("At least 41 days idle")
+    five = [sk(n) for n in range(6)]
+    for count, more in ((5, 0), (6, 1)):
+        reply = ask(make(tmp_path, monkeypatch, five[:count], **unused(five[:count])), "what have I not used in 30 days")
+        assert len(reply["blocks"]["rows"]) == 5 and reply["blocks"]["more"] == more and len(reply["actions"][0]["item_ids"]) == 5
+
+
+def test_curly_apostrophes_are_understood(tmp_path, monkeypatch):
+    client = make(tmp_path, monkeypatch, idle_items(), **idle_extra())
+    assert ask(client, "what haven’t I used in 30 days")["blocks"]["headline"].startswith("3 Items not used for 30 days")
+    assert ask(client, "Why isn’t my hook working")["blocks"]["handoff"] is not None
+
+
+def test_verdict_boundaries_and_short_history_wording(tmp_path, monkeypatch):
+    items = [item("a", "alpha"), item("b", "beta")]
+    usage = {"a": {"count": 1, "last_used": "2026-09-30"}, "b": {"count": 1, "last_used": "2026-10-01"}}  # 30 and 29 days idle
+    client = make(tmp_path, monkeypatch, items, costs={"a": cost(100), "b": cost(100)}, usage=usage, usage_window=WINDOW)
+    verdict = lambda name: ask(client, f"Should I keep {name}?")["blocks"]["cards"][0]["verdict"]  # noqa: E731
+    assert verdict("alpha") == {"label": "Review", "tone": "review", "why": "Idle 30 days; costs 100 tokens every session"}
+    assert verdict("beta")["label"] == "Keep"
+    short = {"files": 2, "first": "2026-10-20", "last": "2026-10-30", "skipped": 0}
+    client = make(tmp_path, monkeypatch, [item("a", "alpha")], costs={"a": cost(100)}, usage={"a": NEVER}, usage_window=short)
+    assert ask(client, "Should I keep alpha?")["blocks"]["cards"][0]["verdict"] == {
+        "label": "Review",
+        "tone": "review",
+        "why": "Not seen in 11 days (history is short); costs 100 tokens",
+    }
+    thirty = {"files": 2, "first": "2026-10-01", "last": "2026-10-30", "skipped": 0}
+    client = make(tmp_path, monkeypatch, [item("a", "alpha")], costs={"a": cost(100)}, usage={"a": NEVER}, usage_window=thirty)
+    assert ask(client, "Should I keep alpha?")["blocks"]["cards"][0]["verdict"]["label"] == "Could go"
+
+
+def test_refusal_fields_and_wording_edges(tmp_path, monkeypatch):
+    client = make(tmp_path, monkeypatch, [item("x", "pdfX"), item("q", 'say "hi"'), item("a", "alpha")])
+    reply = ask(client, "Disable the plugin pdfX")["blocks"]
+    assert reply["handoff"]["instruction"] == "Disable the plugin pdfX. Show me every change before you make it and wait for my OK."
+    assert reply["next"] == "Copy the instruction below and paste it into Claude Code." and reply["follow_ups"] == FOLLOW
+    assert ask(client, "Disable something")["blocks"]["handoff"]["instruction"].startswith("Disable something.")
+    exactly = "disable " + "a" * 192  # 200 characters
+    assert ask(client, exactly)["blocks"]["handoff"]["instruction"].startswith(exactly + ".")
+    cut_off = ask(client, exactly + "a")["blocks"]["handoff"]["instruction"]
+    assert cut_off.startswith("disable….")
+    assert ask(client, "Should I keep alpha?")["blocks"]["handoff"] is None
+
+
+def test_origin_sentence_per_kind(tmp_path, monkeypatch):
+    for kind in ("skill", "agent", "command", "hook", "mcp_server"):
+        client = make(
+            tmp_path,
+            monkeypatch,
+            [item("a", "alpha", kind, origin="acme/tools")],
+            costs={"a": cost(100)},
+            **{"usage": {"a": NEVER}, "usage_window": WINDOW},
+        )
+        text = ask(client, "Should I keep alpha?")["blocks"]["cards"][0]["handoff"]["instruction"]
+        assert 'It came from "acme/tools": if that is a plugin or pack' in text, kind
+    client = make(
+        tmp_path,
+        monkeypatch,
+        [item("a", "alpha", "connector", origin="acme/tools")],
+        costs={"a": cost(100)},
+        usage={"a": NEVER},
+        usage_window=WINDOW,
+    )
+    assert "It came from" not in ask(client, "Should I keep alpha?")["blocks"]["cards"][0]["handoff"]["instruction"]
+
+
+def test_unknown_kinds_and_quoted_names_in_instructions(tmp_path, monkeypatch):
+    items = [item("m", "notes", "memory"), item("q", 'say "hi"'), item("h", "pre-hook", "hook")]
+    extra = {"costs": {"m": cost(100), "q": cost(100)}, "usage": {"m": NEVER, "q": NEVER}, "usage_window": WINDOW}
+    client = make(tmp_path, monkeypatch, items, **extra)
+    confirm = " Show me exactly what will change and wait for my OK."
+    memory = ask(client, "Should I keep notes?")["blocks"]["cards"][0]["handoff"]["instruction"]
+    assert memory == 'Review the memory "notes" and tell me how to remove it.' + confirm
+    quoted = ask(client, "what is this", selected_ids=["q"])["blocks"]["cards"][0]["handoff"]["instruction"]
+    assert quoted.startswith("Remove the skill \"say 'hi'\": find its folder")
+    hook = ask(client, "Should I keep pre-hook?")["blocks"]["cards"][0]
+    assert hook["verdict"]["label"] == "Not enough data"
+    assert hook["handoff"]["instruction"] == 'Review the hook "pre-hook": tell me what it does and whether I still need it. Change nothing.'
