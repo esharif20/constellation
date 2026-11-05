@@ -93,3 +93,5 @@ class Constellation:
     usage_by_project: dict[str, dict[str, Usage]] = field(default_factory=dict)  # kept apart from `usage` so nothing else sees keys
     current_project: str | None = None
     memory_bytes: int | None = None  # size of the user CLAUDE.md, from stat only; None when absent
+    scanned_at: str | None = None  # UTC date of the scan, set by the CLI; dropped by snapshot()
+    setup: str | None = None  # hash of the config dir, keys the scan history; dropped by snapshot()

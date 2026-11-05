@@ -615,3 +615,11 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Verdict change: a never-seen costed Item with under 30 days of history, or a used one idle 30+ days, says "Review" (matches the Inspector for used Items). Not yet matched in `verdict.ts`: it still says "Could go" for a never-seen Item on a short history. Open item for the Inspector.
 - Reply contract grew: `blocks.handoff` (`{instruction, checklist_id}` or null) and `cards[].handoff`. `checklist_id` is set only for rows in today's brief (cost and pairs); anything else (sixth costed Item, remember-scope rows) gets null, so the button is hidden and the 404 is never hit.
 - Chat.tsx: hand-off buttons and two new starters only. No StarMap/Atlas change.
+## #62 scan history and the context time-lapse (2026-11-05, branch `claude/history-62`, plan `docs/plans/history.md`)
+
+- Built exactly as the plan, owner-approved decisions applied: hashed ids, same-day replace, 400-day retention, `scanned_at`/`setup` on the scan file (set by CLI `_write`, dropped by `snapshot()`, test), `scan --no-history`, `open --history FILE`. No deviation.
+- `history.py` (`only_mutate`): entry/load/record (0600 file, 0700 new dir, temp file + `os.replace`, unwritable = stderr warning, corrupt or malformed entries read as empty/skipped) and `timeline` for `GET /api/history` (`local_only`, no hashes/setup/path). Mutmut on `constellation.history.*`: zero survivors. Golden scan fixtures re-recorded for the two new null fields only.
+- UI: `History.tsx` (button + popover + SVG chart, hand-drawn, tokens only, focusable points with arrow keys, sr-only table), `graph/history.ts`, `history:check`, `TopBar` `extra` prop, `Atlas` fetches `api/history`. Demo: `make-demo.mjs` writes `setup`/`scanned_at` and `demo-250-history.json` (deterministic). Screenshots `docs/design/screenshots/62-*.jpg`.
+- Left for #70: the `Time travel` footer button renders only when `onTimeTravel` is passed (Atlas does not pass it yet), so no dead button ships.
+- A corrupt existing history file warns on stderr (record only) and is replaced; the write is fsynced; an existing history directory is chmodded 0700; the 400-day cutoff counts from min(newest, today) and non-canonical dates are skipped (Opus review fixes).
+

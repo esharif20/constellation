@@ -162,6 +162,8 @@
     ],
     "projects": {},
     "relations": [],
+    "scanned_at": null,
+    "setup": null,
     "usage": {
       "claude-code:skill:bake-bread": {
         "count": 0,

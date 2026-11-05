@@ -6,7 +6,9 @@ import { HighlightChip } from "@/components/HighlightChip";
 import { ClusterCard } from "@/components/ClusterCard";
 import { WhatIfChip } from "@/components/WhatIfChip";
 import { StarMap, type StarMapHandle } from "@/components/StarMap";
+import { History } from "@/components/History";
 import { TopBar } from "@/components/TopBar";
+import type { Timeline } from "@/graph/history";
 import { useRemoteSearch } from "@/components/useRemoteSearch";
 import { searchItems } from "@/graph/search";
 import { matchClusters, mergeResults } from "@/graph/searchMerge";
@@ -26,6 +28,7 @@ export default function Atlas({ model }: { model: Model }) {
   const framedPair = useRef<GNode | undefined>(undefined);
   const pill = useRef<HTMLButtonElement>(null);
   const [brief, setBrief] = useState<BriefData | null>(null);
+  const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [briefOpen, setBriefOpen] = useState(() => {
     const onPhone = matchMedia("(max-width: 640px)").matches; // a first visit on a phone starts collapsed so the map stays visible
     try { const saved = localStorage.getItem("constellation.brief"); return saved ? saved === "open" : !onPhone; } catch { return !onPhone; }
@@ -79,6 +82,14 @@ export default function Atlas({ model }: { model: Model }) {
     setLive(`${next.has(n) ? "Removed" : "Put back"} ${n.name}. Session start ${b.known.toLocaleString()} tokens, saves ${b.saved.toLocaleString()}.`);
   }, [model, whatIf]);
   const startWhatIf = (on: boolean) => { setWhatIf(on ? new Set() : null); setLive(on ? "What-if on. Nothing in your setup changes." : "What-if ended, nothing changed"); };
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("api/history", { signal: controller.signal })
+      .then((response) => { if (!response.ok) throw new Error("History unavailable"); return response.json(); })
+      .then((data: Timeline) => { if (Array.isArray(data.entries)) setTimeline(data); })
+      .catch(() => { /* Static Snapshots and older servers have no history. */ });
+    return () => controller.abort();
+  }, []);
 
   const openBrief = useCallback((open: boolean) => {
     setBriefOpen(open);
@@ -240,6 +251,7 @@ export default function Atlas({ model }: { model: Model }) {
         onCluster={onCluster}
         scope={scope}
         onScope={setScope}
+        extra={<History timeline={timeline} />}
       />
       {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} />}
       {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}

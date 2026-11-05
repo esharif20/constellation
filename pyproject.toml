@@ -52,7 +52,7 @@ markers = ["eval: slow quality check using the real local embedder or the real A
 
 [tool.mutmut]
 source_paths = ["src"]
-only_mutate = ["src/constellation/redact.py", "src/constellation/cluster.py", "src/constellation/classify.py", "src/constellation/env.py", "src/constellation/costs.py", "src/constellation/overlaps.py", "src/constellation/report.py", "src/constellation/suggestions.py", "src/constellation/hooks.py", "src/constellation/usage.py", "src/constellation/brief.py", "src/constellation/chat.py", "src/constellation/snapshot.py", "src/constellation/retrieve.py", "src/constellation/origins.py", "src/constellation/public_export.py", "src/constellation/diff.py", "src/constellation/receipt.py", "src/constellation/answer.py", "src/constellation/explain.py", "src/constellation/preview.py", "src/constellation/expansion.py", "src/constellation/scan_graph.py"]
+only_mutate = ["src/constellation/redact.py", "src/constellation/cluster.py", "src/constellation/classify.py", "src/constellation/env.py", "src/constellation/costs.py", "src/constellation/overlaps.py", "src/constellation/report.py", "src/constellation/suggestions.py", "src/constellation/hooks.py", "src/constellation/usage.py", "src/constellation/brief.py", "src/constellation/chat.py", "src/constellation/snapshot.py", "src/constellation/retrieve.py", "src/constellation/origins.py", "src/constellation/public_export.py", "src/constellation/diff.py", "src/constellation/history.py", "src/constellation/receipt.py", "src/constellation/answer.py", "src/constellation/explain.py", "src/constellation/preview.py", "src/constellation/expansion.py", "src/constellation/scan_graph.py"]
 pytest_add_cli_args_test_selection = ["tests"]
 
 [tool.ruff]

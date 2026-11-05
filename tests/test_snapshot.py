@@ -482,3 +482,9 @@ def test_per_project_fields_default_and_snapshot_drops_them(tmp_path):
 
 def test_snapshot_drops_memory_bytes():
     assert "memory_bytes" not in snapshot({"items": [], "memory_bytes": 9})
+
+
+def test_snapshot_drops_scan_date_and_setup():
+    out = snapshot({"items": [], "scanned_at": "2026-11-04", "setup": "3f9a1c0b2e7d"})
+    assert "scanned_at" not in out and "setup" not in out
+    assert "2026-11-04" not in json.dumps(out) and "3f9a1c0b2e7d" not in json.dumps(out)

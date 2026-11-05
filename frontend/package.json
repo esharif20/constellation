@@ -9,6 +9,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "layout:check": "node scripts/layout-metrics.ts",
+    "history:check": "node scripts/history-check.ts",
     "inspector:check": "node scripts/inspector-check.mjs",
     "whatif:check": "node scripts/whatif-check.mjs",
     "chat:check": "node scripts/chat-accessibility.mjs",

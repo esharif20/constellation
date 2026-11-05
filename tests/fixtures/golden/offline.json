@@ -359,6 +359,8 @@
         "target": "claude-code:hook:demo/PostToolUse:Read:14"
       }
     ],
+    "scanned_at": null,
+    "setup": null,
     "usage": {
       "claude-code:agent:demo/helper": {
         "count": 0,

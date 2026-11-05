@@ -78,6 +78,7 @@ Everything is read locally. "Taken" is all that leaves the file; the rest is par
 | `~/.agents/.skill-lock.json` (change with `--skill-lock`; skipped with `--no-origins`) | the `source` of each skill entry only, shortened to 60 safe characters. `sourceUrl`, hashes and dates are never read into anything | No: an origin is never sent to a model, never in a public export |
 | `.env` in the working directory | `ANTHROPIC_API_KEY` for the run | Only as the API credential |
 | `~/.cache/constellation/*.json` (0600) | Constellation's own caches of labels, Overlap verdicts and token counts | No |
+| `~/.cache/constellation/history.json` (0600, directory 0700) | **Written** by each real `scan` (not by `--dry-run` or `--no-history`): per scan day, the date, the Item and unknown-cost counts, the always-on token total, a hash of the config dir and the sorted 12-character hashes of Item ids. Never names, descriptions, labels, paths, origins, usage, warnings or file bodies (hashed ids keep names out of a long-lived file; they do not stop someone who guesses names). One entry per setup and day (a re-scan replaces it), entries more than 400 days older than the newest are dropped. `open --history FILE` reads another file; delete the file to start over | No |
 
 Origins: a plugin's contents show the plugin name, skills synced from claude.ai show `claude.ai`, and a user skill takes the lockfile `source`, else
 the folder name of the installer it is symlinked from (for example `agents`), else a `repository` line in its own frontmatter. The scan prints
