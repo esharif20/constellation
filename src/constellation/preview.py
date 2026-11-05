@@ -12,16 +12,17 @@ from pathlib import Path
 from typing import Any
 
 from . import retrieve
-from .claude_code import pack_secrets, read_pack
+from .claude_code import MAX_PACK_FILE, pack_secrets, read_pack
 from .cluster import dot
 from .costs import measure
 from .models import Embedder, Item
 from .redact import redact
 
 MAX_ENTRIES = 2000
-MAX_FILE_BYTES = 1_000_000
+MAX_FILE_BYTES = MAX_PACK_FILE
 NAME_CAP = 80
 DESCRIPTION_CAP = 200
+ID_CAP = 300
 _PRUNED = {".git", "node_modules"}
 _TEXT_SUFFIXES = {".md", ".json"}
 _ESCAPES = re.compile(r"(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]|(?:\x1b\]|\x9d)[^\x07\x1b\x9c]*(?:\x07|\x1b\\|\x9c)?")
@@ -50,32 +51,45 @@ def check_tree(root: Path) -> str | None:
     seen = 0
     stack = [base]
     while stack:
-        with os.scandir(stack.pop()) as entries:
-            for entry in sorted(entries, key=lambda e: e.name):
-                if entry.name in _PRUNED:
-                    continue
-                seen += 1
-                rel = _strip(str(Path(entry.path).relative_to(base)))
-                if seen > MAX_ENTRIES:
-                    return f"{rel}: more than {MAX_ENTRIES} entries in the folder"
-                link = entry.is_symlink()
-                if link and not Path(entry.path).resolve().is_relative_to(base):
-                    return f"{rel}: symlink points outside the folder"
-                try:
-                    info = os.stat(entry.path)  # follows a symlink that was just checked to stay inside; a FIFO is only stat-ed
-                except OSError:
-                    return f"{rel}: cannot be read"
-                if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
-                    return f"{rel}: not a regular file or folder"
-                if stat.S_ISREG(info.st_mode) and Path(entry.name).suffix.lower() in _TEXT_SUFFIXES and info.st_size > MAX_FILE_BYTES:
-                    return f"{rel}: file is larger than {MAX_FILE_BYTES} bytes"
-                if stat.S_ISDIR(info.st_mode) and not link:
-                    stack.append(Path(entry.path))
+        folder = stack.pop()
+        try:
+            with os.scandir(folder) as found:
+                entries = sorted(found, key=lambda e: e.name)
+        except OSError:
+            return f"{_strip(str(folder.relative_to(base)) if folder != base else root.name)}: cannot be read"
+        for entry in entries:
+            if folder == base and entry.name in _PRUNED:  # only the top level: deeper ones are read by the globs
+                continue
+            seen += 1
+            rel = _strip(str(Path(entry.path).relative_to(base)))
+            if seen > MAX_ENTRIES:
+                return f"{rel}: more than {MAX_ENTRIES} entries in the folder"
+            link = entry.is_symlink()
+            if link and not Path(entry.path).resolve().is_relative_to(base):
+                return f"{rel}: symlink points outside the folder"
+            try:
+                info = os.stat(entry.path)  # follows a symlink that was just checked to stay inside; a FIFO is only stat-ed
+            except OSError:
+                return f"{rel}: cannot be read"
+            if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
+                return f"{rel}: not a regular file or folder"
+            if stat.S_ISREG(info.st_mode) and Path(entry.name).suffix.lower() in _TEXT_SUFFIXES and info.st_size > MAX_FILE_BYTES:
+                return f"{rel}: file is larger than {MAX_FILE_BYTES} bytes"
+            if stat.S_ISDIR(info.st_mode) and not link:
+                stack.append(Path(entry.path))
     return None
 
 
 def _pack_items(items: list[Item], secrets: set[str]) -> list[Item]:
-    return [replace(i, name=_clean(i.name, NAME_CAP, secrets), description=_clean(i.description, DESCRIPTION_CAP, secrets)) for i in items]
+    return [
+        replace(
+            i,
+            id=_clean(i.id, ID_CAP, secrets),
+            name=_clean(i.name, NAME_CAP, secrets),
+            description=_clean(i.description, DESCRIPTION_CAP, secrets),
+        )
+        for i in items
+    ]
 
 
 def _tokens(items: list[Item], cost_cache: Path | None) -> dict[str, tuple[int | None, bool]]:
@@ -107,7 +121,7 @@ def _overlaps(
     old = [e for e in existing if e["kind"] in _COUNTED]
     index = retrieve.Index([*new, *old])
     try:
-        index.add_vectors(embedder, vector_cache or retrieve.DEFAULT_CACHE)
+        index.add_vectors(embedder, vector_cache)
         if index.vectors is None:
             return found, index.note
         named = {o["new_id"] for o in found}

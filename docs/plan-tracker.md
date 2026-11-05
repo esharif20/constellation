@@ -432,3 +432,12 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 - Tokens: exact cached count (free `costs.measure`, no write), else `ceil(bytes / 4)` marked estimated; MCP servers and hooks unknown (never 0), the plugin container uncounted.
 - Small additions beyond the text of the plan (no deviation in stack): a dangling symlink inside the folder is refused ("cannot be read"); a symlink that stays inside the folder is allowed (not followed by the walk); a plugin Item never counts as an Overlap with itself (`already_installed` reports it); when the local embedder is missing the note reads "Meaning-based overlap is off ..."; a failed embedder keeps the Index note.
 - Skipped/limits: TOCTOU between `check_tree` and the read (named in the plan); a single `SKILL.md` layout reads only that file.
+
+### #63a Opus security review fixes (2026-11-05)
+
+- **DEVIATION, needs owner approval:** the plan says redact with the pack's own `read_secrets(DIR)`. That function reads `DIR/.env` and `.credentials.json`, which the preview must never open, so P1 uses a new `pack_secrets(DIR)` that reads only the `env` blocks of `.mcp.json`, `settings.json` and `.claude-plugin/plugin.json`. A secret that appears only in a `.env` is therefore not known to the redactor (the generic secret patterns still apply).
+- HIGH: `.git` and `node_modules` are pruned from `check_tree` only at the top level (they are never read there); deeper ones are vetted, so a FIFO or oversized `SKILL.md` at `skills/node_modules/` or `skills/.git/` is refused.
+- HIGH: YAML billion laughs. `read_pack` refuses (malformed) any frontmatter holding an anchor or alias where a value starts (rare in real skills), and drops any Item whose name or description is not text, with a fixed warning.
+- MEDIUM: Item ids are cleaned, redacted and capped like names. A preview no longer prunes the user's vector cache: with no `vector_cache` given it embeds in memory and touches no file. A root that is a file or an unreadable subfolder is refused as `<relative path>: cannot be read`, with no absolute path.
+- LOW: any `mcpServers` file declared in `plugin.json` is size-checked whatever its extension.
+- Accepted limits: TOCTOU between `check_tree` and the read; hardlinks inside the folder are treated as ordinary files.

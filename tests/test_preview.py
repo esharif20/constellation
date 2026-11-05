@@ -148,12 +148,6 @@ def test_same_name_wins_over_similar_meaning_and_failed_embedder_is_noted(tmp_pa
     assert len(result["overlaps"]) == 1
 
 
-def test_default_vector_cache_is_the_redirected_one(monkeypatch, tmp_path):
-    monkeypatch.setattr(preview_module.retrieve, "DEFAULT_CACHE", tmp_path / "default-vectors.json")
-    preview(PACK, scan_with(("s1", "skill", "zzz", "Other.")), embedder=lambda t: [[1.0, 0.0] for _ in t])
-    assert (tmp_path / "default-vectors.json").exists()
-
-
 def test_already_installed_plugin():
     scan = scan_with(("claude-code:plugin:pdf-kit", "plugin", "pdf-kit", "Read and fold PDF files."))
     result = preview(PACK, scan)
@@ -306,14 +300,6 @@ def test_long_name_and_description_are_capped(tmp_path):
     assert item["description"].startswith("red evil w") and len(item["description"]) == 200
 
 
-def test_odd_yaml_values_become_text(tmp_path):
-    where = tmp_path / "skills" / "a"
-    where.mkdir(parents=True)
-    (where / "SKILL.md").write_text("---\nname: 42\ndescription: [one, two]\n---\nbody\n")
-    item = preview(tmp_path, None)["items"][0]
-    assert (item["name"], item["description"]) == ("42", "['one', 'two']")
-
-
 def test_no_absolute_path_and_secrets_redacted(tmp_path):
     secret = "hunter2hunter"
     (tmp_path / ".mcp.json").write_text(json.dumps({"mcpServers": {"srv": {"command": "run", "env": {"TOKEN": secret}}}}))
@@ -455,3 +441,92 @@ def test_similar_match_shows_a_capped_name(tmp_path):
     long = "pdf-" + "m" * 100
     out = preview(PACK, scan_with(("s1", "skill", long, "pdf files")), embedder=concepts, vector_cache=tmp_path / "v.json")
     assert [o["existing_name"] for o in out["overlaps"]] == [long[:80]]
+
+
+@pytest.mark.parametrize("folder", ["node_modules", ".git"])
+def test_nested_pruned_names_are_still_vetted(tmp_path, folder):
+    fifo = tmp_path / "fifo"
+    skill(fifo, "a", "x")
+    (fifo / "skills" / folder).mkdir()
+    os.mkfifo(fifo / "skills" / folder / "SKILL.md")
+    assert check_tree(fifo) == f"skills/{folder}/SKILL.md: not a regular file or folder"
+    big = tmp_path / "big"
+    skill(big, "a", "x")
+    (big / "skills" / folder).mkdir()
+    (big / "skills" / folder / "SKILL.md").write_text("---\nname: b\ndescription: " + "x" * 3_000_000 + "\n---\n")
+    assert check_tree(big) == f"skills/{folder}/SKILL.md: file is larger than {MAX_FILE_BYTES} bytes"
+    with pytest.raises(ValueError, match="larger than"):
+        preview(big, None)
+
+
+def test_alias_bomb_is_refused_quickly(tmp_path):
+    import signal
+
+    bomb = "a: &a [x,x,x,x,x,x,x,x,x]\n" + "".join(
+        f"{c}: &{c} [*{p},*{p},*{p},*{p},*{p},*{p},*{p},*{p},*{p}]\n" for p, c in zip("abcdefgh", "bcdefghi", strict=True)
+    )
+    assert len(bomb) < 1024
+    where = tmp_path / "skills" / "s"
+    where.mkdir(parents=True)
+    (where / "SKILL.md").write_text(f"---\n{bomb}name: *i\ndescription: *i\n---\nbody")
+    signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(TimeoutError("hung")))
+    signal.alarm(10)
+    try:
+        with pytest.raises(ValueError, match=r"^could not read the pack: malformed file$"):
+            preview(tmp_path, None)
+    finally:
+        signal.alarm(0)
+
+
+def test_frontmatter_with_asterisks_in_text_is_fine(tmp_path):
+    skill(tmp_path, "a", "Uses *bold* and a&b and x * y")
+    assert preview(tmp_path, None)["items"][0]["description"] == "Uses *bold* and a&b and x * y"
+
+
+def test_non_text_name_or_description_is_dropped_with_a_fixed_warning(tmp_path):
+    where = tmp_path / "skills" / "a"
+    where.mkdir(parents=True)
+    (where / "SKILL.md").write_text("---\nname: 42\ndescription: [one, two]\n---\nbody\n")
+    result = preview(tmp_path, None)
+    assert result["items"] == []
+    assert result["warnings"] == ["skipped an item: its name or description is not text"]
+
+
+def test_item_ids_are_cleaned(tmp_path):
+    skill(tmp_path, "a‮b\x1b[31mc​" + "z" * 400, "Fine.", folder="s")
+    ident = preview(tmp_path, None)["items"][0]["id"]
+    assert ident.startswith("new:claude-code:skill:") and "‮" not in ident and "\x1b" not in ident and "​" not in ident
+    assert len(ident) == 304  # 4 for the "new:" prefix
+
+
+def test_preview_leaves_the_default_vector_cache_alone(tmp_path, monkeypatch):
+    cache = tmp_path / "default.json"
+    cache.write_text('{"keep": [1.0]}')
+    monkeypatch.setattr(preview_module.retrieve, "DEFAULT_CACHE", cache)
+    preview(PACK, scan_with(("s1", "skill", "zzz", "Other.")), embedder=concepts)
+    assert cache.read_text() == '{"keep": [1.0]}'
+
+
+def test_unreadable_folders_are_refused_without_absolute_paths(tmp_path):
+    with pytest.raises(ValueError) as error:
+        preview(Path(__file__), None)
+    assert str(error.value) == "test_preview.py: cannot be read"
+    pack = tmp_path / "pk"
+    skill(pack, "a", "x")
+    locked = pack / "sub"
+    locked.mkdir()
+    locked.chmod(0)
+    try:
+        assert check_tree(pack) == "sub: cannot be read"
+    finally:
+        locked.chmod(0o700)
+
+
+def test_declared_mcp_file_of_any_type_is_size_checked(tmp_path):
+    (tmp_path / ".claude-plugin").mkdir()
+    (tmp_path / ".claude-plugin" / "plugin.json").write_text(json.dumps({"name": "e", "mcpServers": ["m.txt"]}))
+    (tmp_path / "m.txt").write_text(json.dumps({"mcpServers": {"s": {"command": "x"}}}) + " " * (MAX_FILE_BYTES + 1))
+    with pytest.raises(ValueError, match="malformed"):
+        preview(tmp_path, None)
+    (tmp_path / "m.txt").write_text(json.dumps({"mcpServers": {"s": {"command": "x"}}}))
+    assert preview(tmp_path, None)["counts"] == {"plugin": 1, "mcp_server": 1}

@@ -373,6 +373,24 @@ def pack_secrets(root: Path) -> set[str]:
     return {v for v in values if len(v) >= 8}
 
 
+MAX_PACK_FILE = 1_000_000
+# A YAML anchor or alias where a value starts. Expanding aliases turns 1 KB of frontmatter into gigabytes, so such a pack is refused.
+_YAML_REFERENCE = re.compile(r"(?:^|[:\-\[{,])[ \t]*[&*][\w-]+", re.MULTILINE)
+
+
+def _vet_pack_files(root: Path, meta: dict[str, Any] | None) -> None:
+    """Refuse (ValueError) a frontmatter with a YAML anchor or alias, and a declared MCP file over the size cap, before either is read."""
+    for pattern in ("SKILL.md", "skills/*/SKILL.md", "skills/synced/*/*/SKILL.md", "agents/*.md", "commands/*.md"):
+        for path in _inside(root, pattern, "pack", []):
+            parts = path.read_text().split("---", 2) if path.is_file() else []
+            if len(parts) > 1 and _YAML_REFERENCE.search(parts[1]):
+                raise ValueError
+    declared = meta.get("mcpServers") if meta else None
+    for entry in declared if isinstance(declared, list) else [declared]:
+        if isinstance(entry, str) and (root / entry).is_file() and (root / entry).stat().st_size > MAX_PACK_FILE:
+            raise ValueError
+
+
 def read_pack(root: Path) -> tuple[str, str, list[Item], list[str], list[Relation]]:
     """(pack name, layout "plugin"|"pack"|"skill", items, warnings, relations); reads only inside root. The caller has already refused
     symlinks pointing out of root (preview.check_tree); `_inside` refuses them again. Bodies are dropped, nothing is run."""
@@ -392,6 +410,8 @@ def read_pack(root: Path) -> tuple[str, str, list[Item], list[str], list[Relatio
     name = root.name
     secrets = pack_secrets(root)
     try:
+        declared_in: Any = json.loads(manifest.read_text()) if layout == "plugin" else None
+        _vet_pack_files(root, declared_in)
         if layout == "skill":
             meta, problem = _frontmatter(root / "SKILL.md")
             if problem:
@@ -403,15 +423,19 @@ def read_pack(root: Path) -> tuple[str, str, list[Item], list[str], list[Relatio
         else:
             scope = f"{name}/"
             if layout == "plugin":
-                meta = json.loads(manifest.read_text())
+                meta = declared_in
                 name = meta["name"]
                 if not isinstance(name, str) or not name:
                     raise ValueError
                 scope = f"{name}/"
-                plugin = Item(f"{SOURCE}:plugin:{name}", "plugin", name, meta.get("description", ""), SOURCE)
+                about = meta.get("description", "")
+                plugin = Item(f"{SOURCE}:plugin:{name}", "plugin", name, about if isinstance(about, str) else "", SOURCE)
                 items.append(plugin)
                 _plugin_servers(meta, root, scope, items, warnings, secrets)
             _read_root(root, scope, items, warnings, relations, {}, secrets, None, root)
+            if any(not isinstance(i.name, str) or not isinstance(i.description, str) for i in items):
+                warnings.append("skipped an item: its name or description is not text")
+                items[:] = [i for i in items if isinstance(i.name, str) and isinstance(i.description, str)]
             if layout == "plugin":
                 relations += [Relation(plugin.id, item.id, "contains") for item in items[1:]]
     except (KeyError, TypeError, AttributeError, ValueError, OSError, RecursionError):
