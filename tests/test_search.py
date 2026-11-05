@@ -505,3 +505,15 @@ def test_an_embedder_with_ragged_lengths_switches_meaning_off_and_writes_nothing
     cache = tmp_path / "r.json"
     index = warm(Index(ITEMS), cache, lambda texts: [[1.0] * (2 + n % 2) for n, _ in enumerate(texts)])
     assert index.vectors is None and "Meaning-based search is off" in index.note and not cache.exists()
+
+
+def test_origin_is_searchable_and_named_as_the_reason():
+    items = [{"id": "a", "kind": "skill", "name": "ask-one", "description": "Asks", "origin": "mattpocock/skills"}, *ITEMS]
+    assert Index(items).query("mattpocock") == [{"id": "a", "why": "from mattpocock/skills"}]
+    assert Index(items).query("mattpocock skills") == [{"id": "a", "why": "from mattpocock/skills"}]
+    assert Index(ITEMS).query("mattpocock") == []
+
+
+def test_an_origin_hit_outranks_a_typo_hit():
+    items = [{"id": "b", "kind": "skill", "name": "shadcm", "description": "Other"}, {"id": "a", "kind": "skill", "name": "zeta", "description": "Asks", "origin": "acme/shadcn"}]
+    assert ids(Index(items).query("shadcn")) == ["a", "b"]

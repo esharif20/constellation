@@ -64,6 +64,9 @@ def _tier(item: dict[str, Any], toks: list[str], joined: str) -> tuple[int, str]
     hay = f"{name_hay}{' '.join(_words(item['description']))} {' '.join(_words(item['kind']))} "  # pragma: no mutate
     if all(t in hay for t in toks):
         return 3, "name" if all(t in name_hay for t in toks) else "in description"
+    origin = item.get("origin")  # local display data: searched here, never part of the embedder text
+    if origin and all(t in f"{hay}{' '.join(_words(origin))} " for t in toks):  # pragma: no mutate (the separator cannot matter)
+        return 3, f"from {origin}"
     for q in (joined, *toks):
         if len(q) >= 5 and any(_near(q, c) for c in (name, *name_words)):
             return 4, f'close to "{item["name"]}"'
