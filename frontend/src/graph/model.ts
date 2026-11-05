@@ -58,7 +58,8 @@ export type GOverlap = { a: GNode; b: GNode; verdict: Exclude<Verdict, "distinct
 export type GLink = { source: GNode; target: GNode; kind: string; a: number; hot: boolean };
 // la/lx/ly/pick: the cluster name's eased alpha, its position in graph units, and which candidate spot it last took (see paint.ts)
 export type Cluster = { name: string; members: GNode[]; x: number; y: number; r: number; mx: number; my: number; fr: number; a: number; la: number; lx: number; ly: number; pick: number; slug: string; box: [number, number, number, number]; hit: boolean }; // slug: the #cluster= deep link; box/hit: where its name was last drawn on screen (paint.ts post), for clicks
-export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; heavyR: number; usageWindow: UsageWindow | null; projects: Record<string, string>; currentProject: string | null; warnings: string[]; offline: boolean; offlineNote: string };
+export type Pack = { origin: string; members: GNode[] }; // Items that share an origin, biggest first
+export type Model = { nodes: GNode[]; links: GLink[]; clusters: Cluster[]; neighbours: Map<GNode, Set<GNode>>; overlaps: GOverlap[]; overlapsOf: Map<GNode, GOverlap[]>; costRef: number; heavyR: number; usageWindow: UsageWindow | null; projects: Record<string, string>; currentProject: string | null; warnings: string[]; packs: Pack[]; offline: boolean; offlineNote: string };
 
 // Star radius from always-on cost, area-proportional (magnitude by area, not radius). cRef is the scan's 95th percentile,
 // so one huge MCP server cannot shrink everything else. Unknown cost gets its own middling size (and is drawn hollow).
@@ -144,7 +145,7 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   });
   const offlineNote = (data.warnings ?? []).find((w) => w.startsWith("Offline")) ?? "";
   layout(nodes, links, clusters, tall);
-  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, heavyR, usageWindow: data.usage_window ?? null, projects: data.projects ?? {}, currentProject: data.current_project ?? null, warnings: data.warnings ?? [], offline: offlineNote !== "", offlineNote };
+  return { nodes, links, clusters, neighbours, overlaps, overlapsOf, costRef, heavyR, usageWindow: data.usage_window ?? null, projects: data.projects ?? {}, currentProject: data.current_project ?? null, warnings: data.warnings ?? [], packs: packsOf(nodes), offline: offlineNote !== "", offlineNote };
 }
 
 // Forgiving search (stopgap until #40/#41); see search.ts for the ranking.
@@ -248,6 +249,15 @@ export function usageLine(n: Pick<GNode, "usage">, w: UsageWindow | null): strin
 }
 
 // Badges under the tooltip: disabled, and the strongest Overlap verdict of the Item (duplicate > wrapper > overlap) with its count.
+export const originTail = (origin: string) => origin.slice(origin.lastIndexOf("/") + 1);
+
+// Origins with three or more members (a lone plugin name is not a pack worth a filter), biggest first, then by name.
+export function packsOf(nodes: GNode[]): Pack[] {
+  const by = new Map<string, GNode[]>();
+  for (const n of nodes) if (n.origin) by.set(n.origin, [...(by.get(n.origin) ?? []), n]);
+  return [...by].filter(([, m]) => m.length >= 3).map(([origin, members]) => ({ origin, members })).sort((a, b) => b.members.length - a.members.length || a.origin.localeCompare(b.origin));
+}
+
 export function tipBadges(n: GNode, model: Pick<Model, "overlapsOf">): { disabled: boolean; overlap: string | null } {
   const os = model.overlapsOf.get(n) ?? [];
   const role = (o: GOverlap) => (o.verdict === "duplicate" ? "Duplicate" : o.verdict === "wrapper" ? (o.a === n ? "Wraps" : "Wrapped by") : "Overlaps");

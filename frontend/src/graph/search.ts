@@ -1,5 +1,5 @@
 // Forgiving Item search. STOPGAP until the real natural-language search (#40/#41) lands; pure, no DOM.
-type Searchable = { name: string; description: string; kind: string; label?: string; degree?: number };
+type Searchable = { name: string; description: string; kind: string; label?: string; origin?: string | null; degree?: number };
 export type Hit<T> = { item: T; why: string };
 
 const FILLER = new Set("where is are the my find show me a an of to for do i which what skill skills plugin plugins agent agents hook hooks".split(" "));
@@ -32,6 +32,7 @@ function tier(it: Searchable, toks: string[], joined: string): [number, string] 
   if (name.includes(joined)) return [2, "name"];
   const nameHay = ` ${nameWords.join(" ")} `, hay = ` ${nameWords.join(" ")} ${words(it.description).join(" ")} ${words(it.kind).join(" ")} ${words(it.label ?? "").join(" ")} `;
   if (toks.every((t) => hay.includes(t))) return [3, toks.every((t) => nameHay.includes(t)) ? "name" : "in description"];
+  if (it.origin && toks.every((t) => `${hay}${words(it.origin!).join(" ")} `.includes(t))) return [3, `from ${it.origin}`]; // local display data, searched here only
   for (const q of [joined, ...toks]) {
     if (q.length < 5) continue;
     for (const c of [name, ...nameWords]) if (near(q, c)) return [4, `close to "${it.name}"`];

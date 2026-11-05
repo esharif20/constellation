@@ -154,3 +154,20 @@ for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo
   }
   fs.writeFileSync(new URL("demo-250-history.json", import.meta.url), JSON.stringify({ v: 1, entries }, null, 1) + "\n");
 }
+
+// Origin fixtures (docs/plans/matt-and-labels.md F3, #52c): invented packs so the tooltip, search and Packs legend have something to show.
+// Appended last, deterministic (first Items in file order), idempotent. Two packs of skills, and the first two plugins name their contents.
+for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo-250.json", 1]]) {
+  const url = new URL(file, import.meta.url), d = JSON.parse(fs.readFileSync(url, "utf8"));
+  if (d.items.some((i) => i.origin)) continue;
+  const inPlugin = new Set(d.relations.filter((r) => r.kind === "contains").map((r) => r.target));
+  const loose = d.items.filter((i) => i.kind === "skill" && !i.scope && !i.disabled && !inPlugin.has(i.id));
+  loose.slice(0, 8).forEach((i) => (i.origin = "example-org/skill-pack"));
+  loose.slice(8, 12).forEach((i) => (i.origin = "demo/field-tools"));
+  const byId = new Map(d.items.map((i) => [i.id, i]));
+  for (const hub of d.items.filter((i) => i.kind === "plugin" && !i.disabled && d.relations.some((r) => r.source === i.id && r.kind === "contains")).slice(0, 2)) {
+    hub.origin = hub.name;
+    for (const r of d.relations) if (r.source === hub.id && r.kind === "contains") byId.get(r.target).origin = hub.name;
+  }
+  fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
+}

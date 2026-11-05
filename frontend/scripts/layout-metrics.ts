@@ -239,6 +239,18 @@ function measure(file: string, W: number, H: number) {
   return { ...f, ...nm, items: m.nodes.length, clusters: m.clusters.length, minDist: +minDist.toFixed(2), starOverlaps: overlaps, inside: +(inside * 100).toFixed(1), circleClash, named: `${named}/${eligible.length}`, namedShare: eligible.length ? named / eligible.length : 1, labelOnStar, labelClash, deterministic: first === second, sizeRule, overlapLinks, slotGap: +slotGap.toFixed(2), haloBad };
 }
 
+// Packs (#52c): origin groups, and searching by origin
+{
+  const m = buildModel(load("demo-250.json"));
+  assert.ok(m.packs.length >= 2 && m.packs.every((p) => p.members.length >= 3 && p.members.every((n) => n.origin === p.origin)), "packs share an origin");
+  const pack = m.packs.find((p) => p.origin === "example-org/skill-pack")!;
+  assert.equal(pack.members.length, m.nodes.filter((n) => n.origin === pack.origin).length, "the pack lights exactly its members");
+  const hits = searchItems(m.nodes, "skill-pack", Infinity);
+  assert.ok(pack.members.every((n) => hits.some((h) => h.item === n)), "searching the pack name finds every member");
+  assert.equal(searchItems([{ name: "zz", description: "d", kind: "skill", origin: "pat/skills" }], "pat")[0].why, "from pat/skills");
+  assert.deepEqual(searchItems([{ name: "zz", description: "d", kind: "skill" }], "pat"), []);
+}
+
 // forgiving search, on invented Items
 {
   const mk = (name: string, description: string, kind = "skill") => ({ name, description, kind });

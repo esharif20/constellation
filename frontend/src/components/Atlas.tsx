@@ -63,9 +63,12 @@ export default function Atlas({ model }: { model: Model }) {
   const found = useMemo(() => rows.map((r) => r.item), [rows]);
   const clusterHits = useMemo(() => matchClusters(model.clusters, query), [model, query]);
   // One owner for the highlighted set: search wins while a query is typed, otherwise the last chat answer. The chip names it and clears it.
-  const highlight = query.trim() ? { from: "search" as const, count: found.length } : chatMatches ? { from: "chat" as const, count: chatMatches.size } : null;
-  const matches = useMemo(() => (query.trim() ? new Set(found) : chatMatches), [found, query, chatMatches]);
-  const clearHighlight = useCallback(() => { setQuery(""); setChatMatches(null); }, []);
+  const [pack, setPack] = useState<string | null>(null); // a Packs legend choice: an origin whose members are lit
+  if (pack && query.trim()) setPack(null); // typing takes the highlight over
+  const packSet = useMemo(() => (pack ? new Set(model.packs.find((p) => p.origin === pack)?.members) : null), [model, pack]);
+  const highlight = query.trim() ? { from: "search" as const, count: found.length } : packSet ? { from: "pack" as const, count: packSet.size, detail: pack! } : chatMatches ? { from: "chat" as const, count: chatMatches.size } : null;
+  const matches = useMemo(() => (query.trim() ? new Set(found) : packSet ?? chatMatches), [found, query, packSet, chatMatches]);
+  const clearHighlight = useCallback(() => { setQuery(""); setChatMatches(null); setPack(null); }, []);
   const showBrief = !!brief && briefOpen && !chatOpen && !(narrow && selected) && !cluster;
   const showInspector = !(narrow && chatOpen);
   if (!chatOpen && chatMatches) setChatMatches(null); // chat highlights end with the chat
@@ -232,6 +235,7 @@ export default function Atlas({ model }: { model: Model }) {
   const applyChatActions = (actions: ChatAction[]) => {
     const ids = new Set(actions.flatMap((action) => action.item_ids));
     setQuery("");
+    setPack(null);
     setChatMatches(ids.size ? new Set(model.nodes.filter((n) => ids.has(n.id))) : null);
     const focus = actions.find((action) => action.kind === "focus" && action.item_ids.length);
     const node = focus && model.nodes.find((n) => n.id === focus.item_ids[0]);
@@ -268,7 +272,7 @@ export default function Atlas({ model }: { model: Model }) {
       <HighlightChip highlight={highlight} onClear={clearHighlight} />
       </div>
       <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} scope={scoped} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} removed={removed} absent={absent} />
-      {!scrub && <Legend model={model} hidden={!!selected || showBrief || chatOpen} />}
+      {!scrub && <Legend model={model} hidden={!!selected || showBrief || chatOpen} pack={pack} onPack={(o) => { setPack((p) => (p === o ? null : o)); setChatMatches(null); }} />}
       {scrub && timeline && <Scrubber entries={timeline.entries} nodes={model.nodes} firstSeen={timeline.first_seen} date={scrub} onDate={setScrub} onClose={() => setScrub(null)} />}
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
       {selected && showInspector && (
