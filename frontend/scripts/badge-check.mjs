@@ -18,6 +18,15 @@ try {
   assert.match(html(cB), /99% of all recorded uses/);
   assert.match(html(cB), /Costliest cluster: 2 of 2/);
   assert.doesNotMatch(html(cB, new Set([b])), /Costliest cluster/); // nothing known left after removal
+  const { badgeY } = await vite.ssrLoadModule("/src/graph/badge.ts");
+  const name = { x: 100, y: 100, h: 16 }, below = 100 + 8 + 12;
+  assert.equal(badgeY(name, 160, 16, []), below); // nothing near: stays under the name
+  const big = { x: 40, y: 120, r: 30 }; // large node at the top-left, under the badge's left end
+  const y = badgeY(name, 160, 16, [big]);
+  assert.notEqual(y, below);
+  assert.ok(Math.hypot(Math.max(Math.abs(big.x - 100) - 82, 0), Math.max(Math.abs(big.y - y) - 8, 0)) >= big.r, "badge clear of the big node");
+  const wall = [big, { x: 100, y: 80, r: 30 }]; // above is blocked too: sits over the topmost edge
+  assert.ok(badgeY(name, 160, 16, wall) <= 80 - 30 - 8);
   console.log("Cluster health card lines pass.");
 } finally {
   await vite.close();

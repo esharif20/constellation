@@ -1,6 +1,7 @@
 // Canvas painting for the star atlas. force-graph calls pre -> links -> nodes -> post every frame;
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
 import { FOCUS_FILL, haloOf } from "./layout";
+import { badgeY } from "./badge";
 import { chooseSpot, cutName, labelStart, type Box } from "./names";
 import { clusterHealth, rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
 
@@ -486,12 +487,16 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       for (const c of model.clusters) {
         const m = widths.get(c), h = health.get(c);
         if (!c.hit || !m || !h) continue;
-        const [sx, sy] = sc.apply(c.lx, c.ly), y = sy + (m.size * m.scale) / 2 + 12;
+        const [sx, sy] = sc.apply(c.lx, c.ly);
         const cost = h.known == null ? "cost unknown" : `${h.known.toLocaleString()} tok`;
         const rest = [h.useShare == null ? "" : ` · ${h.useShare > 0 && h.useShare < 0.01 ? "<1" : Math.round(h.useShare * 100)}% of uses`, ` · ${h.overlaps === 0 ? "no overlaps" : h.overlaps === 1 ? "1 overlap" : `${h.overlaps} overlaps`}`].join("");
         const w = ctx.measureText(cost + rest).width, x = sx - w / 2;
+        const discs = c.members.filter((n) => n.a > 0.05).map((n) => ({ x: n.x! * sc.k + sc.tx, y: n.y! * sc.k + sc.ty, r: radius(n, sc.k) * sc.k }));
+        const y = badgeY({ x: sx, y: sy, h: m.size * m.scale }, w, 16, discs);
         if (!fits(x - 2, y - 8, x + w + 2, y + 8)) continue;
         ctx.globalAlpha = (zoomAlpha * c.la * c.a) * 0.9;
+        ctx.save(); ctx.globalAlpha *= 0.55; ctx.fillStyle = ink.night; // subtle backing so the text reads over glow and edges
+        ctx.beginPath(); ctx.roundRect(x - 6, y - 8, w + 12, 16, 8); ctx.fill(); ctx.restore();
         ctx.strokeText(cost + rest, x, y);
         ctx.fillStyle = h.rank != null && h.rank <= 3 ? ink.warn : ink.text3;
         ctx.fillText(cost, x, y);
