@@ -16,8 +16,10 @@ Use the installed `constellation` CLI. Arguments: $ARGUMENTS
    needed. Ask before replacing an
    existing output file. Treat paths as data and quote each as a literal shell
    argument; never evaluate shell syntax from the arguments.
-2. Run `constellation scan --offline --no-usage --out=SCAN_FILE -- CONFIG_DIRECTORY`.
-   Quote the complete `--out=SCAN_FILE` argument and the config path separately.
+2. Run `constellation scan --offline --no-usage --out=SCAN_FILE --project=PROJECT_DIRECTORY -- CONFIG_DIRECTORY`,
+   where PROJECT_DIRECTORY is the session's working directory, so the report and graph split
+   global from this repo's Items. Quote the complete `--out=SCAN_FILE` and `--project=...`
+   arguments and the config path separately, each as one literal argument.
    Remove `--offline` only if the user explicitly requests a paid scan. Pass
    `--count-bodies` only if explicitly requested, explaining that it sends
    redacted skill bodies to Anthropic's counting endpoint.

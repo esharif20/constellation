@@ -5,7 +5,8 @@
    "kind": "plugin",
    "name": "tidy0",
    "description": "A bundle for tidy the changelog.",
-   "source": "~/.claude/plugins/p0/plugin.json"
+   "source": "~/.claude/plugins/p0/plugin.json",
+   "origin": "tidy0"
   },
   {
    "id": "hook:0:mend-gasket-mini",
@@ -19,7 +20,8 @@
    "kind": "skill",
    "name": "fold-canvas-pro",
    "description": "Use when the task involves fold canvas-pro. Keeps the work small.",
-   "source": "~/.claude/skills/fold-canvas-pro"
+   "source": "~/.claude/skills/fold-canvas-pro",
+   "origin": "tidy0"
   },
   {
    "id": "agent:0:label-valve",
@@ -33,63 +35,72 @@
    "kind": "skill",
    "name": "trace-canvas",
    "description": "Use when the task involves trace canvas. Keeps the work small.",
-   "source": "~/.claude/skills/trace-canvas"
+   "source": "~/.claude/skills/trace-canvas",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:gather-crate",
    "kind": "skill",
    "name": "gather-crate",
    "description": "Use when the task involves gather crate. Keeps the work small.",
-   "source": "~/.claude/skills/gather-crate"
+   "source": "~/.claude/skills/gather-crate",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:label-wick",
    "kind": "skill",
    "name": "label-wick",
    "description": "Use when the task involves label wick. Keeps the work small.",
-   "source": "~/.claude/skills/label-wick"
+   "source": "~/.claude/skills/label-wick",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:trace-ribbon-pro",
    "kind": "skill",
    "name": "trace-ribbon-pro",
    "description": "Use when the task involves trace ribbon-pro. Keeps the work small.",
-   "source": "~/.claude/skills/trace-ribbon-pro"
+   "source": "~/.claude/skills/trace-ribbon-pro",
+   "origin": "example-org/skill-pack"
   },
   {
    "id": "skill:0:check-compass-pro",
    "kind": "skill",
    "name": "check-compass-pro",
    "description": "Use when the task involves check compass-pro. Keeps the work small.",
-   "source": "~/.claude/skills/check-compass-pro"
+   "source": "~/.claude/skills/check-compass-pro",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:label-crate-lite",
    "kind": "skill",
    "name": "label-crate-lite",
    "description": "Use when the task involves label crate-lite. Keeps the work small.",
-   "source": "~/.claude/skills/label-crate-lite"
+   "source": "~/.claude/skills/label-crate-lite",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:sort-lattice-mini",
    "kind": "skill",
    "name": "sort-lattice-mini",
    "description": "Use when the task involves sort lattice-mini. Keeps the work small.",
-   "source": "~/.claude/skills/sort-lattice-mini"
+   "source": "~/.claude/skills/sort-lattice-mini",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:mend-gasket",
    "kind": "skill",
    "name": "mend-gasket",
    "description": "Use when the task involves mend gasket. Keeps the work small.",
-   "source": "~/.claude/skills/mend-gasket"
+   "source": "~/.claude/skills/mend-gasket",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:fold-beacon",
    "kind": "skill",
    "name": "fold-beacon",
    "description": "Use when the task involves fold beacon. Keeps the work small.",
-   "source": "~/.claude/skills/fold-beacon"
+   "source": "~/.claude/skills/fold-beacon",
+   "origin": "tidy0"
   },
   {
    "id": "agent:0:fold-crate-pro",
@@ -103,14 +114,16 @@
    "kind": "skill",
    "name": "bind-compass",
    "description": "Use when the task involves bind compass. Keeps the work small.",
-   "source": "~/.claude/skills/bind-compass"
+   "source": "~/.claude/skills/bind-compass",
+   "origin": "example-org/skill-pack"
   },
   {
    "id": "skill:0:mend-canvas",
    "kind": "skill",
    "name": "mend-canvas",
    "description": "Use when the task involves mend canvas. Keeps the work small.",
-   "source": "~/.claude/skills/mend-canvas"
+   "source": "~/.claude/skills/mend-canvas",
+   "origin": "tidy0"
   },
   {
    "id": "agent:0:sort-ledger",
@@ -138,56 +151,64 @@
    "kind": "skill",
    "name": "trace-valve",
    "description": "Use when the task involves trace valve. Keeps the work small.",
-   "source": "~/.claude/skills/trace-valve"
+   "source": "~/.claude/skills/trace-valve",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:sort-crate-pro",
    "kind": "skill",
    "name": "sort-crate-pro",
    "description": "Use when the task involves sort crate-pro. Keeps the work small.",
-   "source": "~/.claude/skills/sort-crate-pro"
+   "source": "~/.claude/skills/sort-crate-pro",
+   "origin": "example-org/skill-pack"
   },
   {
    "id": "skill:0:sort-lattice-two",
    "kind": "skill",
    "name": "sort-lattice-two",
    "description": "Use when the task involves sort lattice-two. Keeps the work small.",
-   "source": "~/.claude/skills/sort-lattice-two"
+   "source": "~/.claude/skills/sort-lattice-two",
+   "origin": "example-org/skill-pack"
   },
   {
    "id": "skill:0:mend-anvil-two",
    "kind": "skill",
    "name": "mend-anvil-two",
    "description": "Use when the task involves mend anvil-two. Keeps the work small.",
-   "source": "~/.claude/skills/mend-anvil-two"
+   "source": "~/.claude/skills/mend-anvil-two",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:sort-thread",
    "kind": "skill",
    "name": "sort-thread",
    "description": "Use when the task involves sort thread. Keeps the work small.",
-   "source": "~/.claude/skills/sort-thread"
+   "source": "~/.claude/skills/sort-thread",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:sort-tally-lite",
    "kind": "skill",
    "name": "sort-tally-lite",
    "description": "Use when the task involves sort tally-lite. Keeps the work small.",
-   "source": "~/.claude/skills/sort-tally-lite"
+   "source": "~/.claude/skills/sort-tally-lite",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:sort-compass-pro",
    "kind": "skill",
    "name": "sort-compass-pro",
    "description": "Use when the task involves sort compass-pro. Keeps the work small.",
-   "source": "~/.claude/skills/sort-compass-pro"
+   "source": "~/.claude/skills/sort-compass-pro",
+   "origin": "tidy0"
   },
   {
    "id": "skill:0:sort-gasket-lite",
    "kind": "skill",
    "name": "sort-gasket-lite",
    "description": "Use when the task involves sort gasket-lite. Keeps the work small.",
-   "source": "~/.claude/skills/sort-gasket-lite"
+   "source": "~/.claude/skills/sort-gasket-lite",
+   "origin": "example-org/skill-pack"
   },
   {
    "id": "agent:0:bind-crate",
@@ -201,42 +222,48 @@
    "kind": "plugin",
    "name": "plan1",
    "description": "A bundle for plan the quarterly review.",
-   "source": "~/.claude/plugins/p1/plugin.json"
+   "source": "~/.claude/plugins/p1/plugin.json",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:bind-anvil-pro",
    "kind": "skill",
    "name": "bind-anvil-pro",
    "description": "Use when the task involves bind anvil-pro. Keeps the work small.",
-   "source": "~/.claude/skills/bind-anvil-pro"
+   "source": "~/.claude/skills/bind-anvil-pro",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:draft-valve",
    "kind": "skill",
    "name": "draft-valve",
    "description": "Use when the task involves draft valve. Keeps the work small.",
-   "source": "~/.claude/skills/draft-valve"
+   "source": "~/.claude/skills/draft-valve",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:polish-beacon",
    "kind": "skill",
    "name": "polish-beacon",
    "description": "Use when the task involves polish beacon. Keeps the work small.",
-   "source": "~/.claude/skills/polish-beacon"
+   "source": "~/.claude/skills/polish-beacon",
+   "origin": "example-org/skill-pack"
   },
   {
    "id": "skill:1:scout-wick",
    "kind": "skill",
    "name": "scout-wick",
    "description": "Use when the task involves scout wick. Keeps the work small.",
-   "source": "~/.claude/skills/scout-wick"
+   "source": "~/.claude/skills/scout-wick",
+   "origin": "example-org/skill-pack"
   },
   {
    "id": "skill:1:chart-beacon",
    "kind": "skill",
    "name": "chart-beacon",
    "description": "Use when the task involves chart beacon. Keeps the work small.",
-   "source": "~/.claude/skills/chart-beacon"
+   "source": "~/.claude/skills/chart-beacon",
+   "origin": "plan1"
   },
   {
    "id": "agent:1:polish-tally-lite",
@@ -250,63 +277,72 @@
    "kind": "skill",
    "name": "trace-ribbon",
    "description": "Use when the task involves trace ribbon. Keeps the work small.",
-   "source": "~/.claude/skills/trace-ribbon"
+   "source": "~/.claude/skills/trace-ribbon",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:draft-valve-mini",
    "kind": "skill",
    "name": "draft-valve-mini",
    "description": "Use when the task involves draft valve-mini. Keeps the work small.",
-   "source": "~/.claude/skills/draft-valve-mini"
+   "source": "~/.claude/skills/draft-valve-mini",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:draft-canvas",
    "kind": "skill",
    "name": "draft-canvas",
    "description": "Use when the task involves draft canvas. Keeps the work small.",
-   "source": "~/.claude/skills/draft-canvas"
+   "source": "~/.claude/skills/draft-canvas",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:scout-ledger",
    "kind": "skill",
    "name": "scout-ledger",
    "description": "Use when the task involves scout ledger. Keeps the work small.",
-   "source": "~/.claude/skills/scout-ledger"
+   "source": "~/.claude/skills/scout-ledger",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:gather-wick-two",
    "kind": "skill",
    "name": "gather-wick-two",
    "description": "Use when the task involves gather wick-two. Keeps the work small.",
-   "source": "~/.claude/skills/gather-wick-two"
+   "source": "~/.claude/skills/gather-wick-two",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:tune-valve",
    "kind": "skill",
    "name": "tune-valve",
    "description": "Use when the task involves tune valve. Keeps the work small.",
-   "source": "~/.claude/skills/tune-valve"
+   "source": "~/.claude/skills/tune-valve",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:sort-plinth-lite",
    "kind": "skill",
    "name": "sort-plinth-lite",
    "description": "Use when the task involves sort plinth-lite. Keeps the work small.",
-   "source": "~/.claude/skills/sort-plinth-lite"
+   "source": "~/.claude/skills/sort-plinth-lite",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:sort-valve-lite",
    "kind": "skill",
    "name": "sort-valve-lite",
    "description": "Use when the task involves sort valve-lite. Keeps the work small.",
-   "source": "~/.claude/skills/sort-valve-lite"
+   "source": "~/.claude/skills/sort-valve-lite",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:draft-beacon",
    "kind": "skill",
    "name": "draft-beacon",
    "description": "Use when the task involves draft beacon. Keeps the work small.",
-   "source": "~/.claude/skills/draft-beacon"
+   "source": "~/.claude/skills/draft-beacon",
+   "origin": "example-org/skill-pack"
   },
   {
    "id": "hook:1:bind-compass-lite",
@@ -320,14 +356,16 @@
    "kind": "skill",
    "name": "trace-ledger-pro",
    "description": "Use when the task involves trace ledger-pro. Keeps the work small.",
-   "source": "~/.claude/skills/trace-ledger-pro"
+   "source": "~/.claude/skills/trace-ledger-pro",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:mend-anvil-pro",
    "kind": "skill",
    "name": "mend-anvil-pro",
    "description": "Use when the task involves mend anvil-pro. Keeps the work small.",
-   "source": "~/.claude/skills/mend-anvil-pro"
+   "source": "~/.claude/skills/mend-anvil-pro",
+   "origin": "plan1"
   },
   {
    "id": "hook:1:draft-compass-lite",
@@ -341,7 +379,8 @@
    "kind": "skill",
    "name": "mend-tally",
    "description": "Use when the task involves mend tally. Keeps the work small.",
-   "source": "~/.claude/skills/mend-tally"
+   "source": "~/.claude/skills/mend-tally",
+   "origin": "plan1"
   },
   {
    "id": "hook:1:trace-anvil",
@@ -355,21 +394,24 @@
    "kind": "skill",
    "name": "fold-gasket-lite",
    "description": "Use when the task involves fold gasket-lite. Keeps the work small.",
-   "source": "~/.claude/skills/fold-gasket-lite"
+   "source": "~/.claude/skills/fold-gasket-lite",
+   "origin": "plan1"
   },
   {
    "id": "skill:1:gather-stencil",
    "kind": "skill",
    "name": "gather-stencil",
    "description": "Use when the task involves gather stencil. Keeps the work small.",
-   "source": "~/.claude/skills/gather-stencil"
+   "source": "~/.claude/skills/gather-stencil",
+   "origin": "demo/field-tools"
   },
   {
    "id": "skill:1:chart-gasket-lite",
    "kind": "skill",
    "name": "chart-gasket-lite",
    "description": "Use when the task involves chart gasket-lite. Keeps the work small.",
-   "source": "~/.claude/skills/chart-gasket-lite"
+   "source": "~/.claude/skills/chart-gasket-lite",
+   "origin": "demo/field-tools"
   },
   {
    "id": "hook:1:check-anvil",
@@ -404,7 +446,8 @@
    "kind": "skill",
    "name": "sweep-lattice-two",
    "description": "Use when the task involves sweep lattice-two. Keeps the work small.",
-   "source": "~/.claude/skills/sweep-lattice-two"
+   "source": "~/.claude/skills/sweep-lattice-two",
+   "origin": "demo/field-tools"
   },
   {
    "id": "skill:2:draft-wick",
@@ -418,7 +461,8 @@
    "kind": "skill",
    "name": "weigh-stencil",
    "description": "Use when the task involves weigh stencil. Keeps the work small.",
-   "source": "~/.claude/skills/weigh-stencil"
+   "source": "~/.claude/skills/weigh-stencil",
+   "origin": "demo/field-tools"
   },
   {
    "id": "skill:2:sort-tally",
@@ -1702,6 +1746,32 @@
    "description": "Use when inspecting a hive. Switched off with its plugin.",
    "disabled": true,
    "source": "~/.claude/skills/idle-hive-inspector"
+  },
+  {
+   "id": "skill:proj:cart-checkout-audit",
+   "kind": "skill",
+   "name": "cart-checkout-audit",
+   "description": "Use when reviewing the alpha-shop checkout flow.",
+   "source": ".claude/skills/cart-checkout-audit",
+   "scope": "project",
+   "project": "p1"
+  },
+  {
+   "id": "agent:proj:thesis-citation-checker",
+   "kind": "agent",
+   "name": "thesis-citation-checker",
+   "description": "Checks citations in the thesis draft.",
+   "source": ".claude/agents/thesis-citation-checker",
+   "scope": "project",
+   "project": "p2"
+  },
+  {
+   "id": "mcp_server:proj:shop-catalog-db",
+   "kind": "mcp_server",
+   "name": "shop-catalog-db",
+   "description": "Local catalog database for the shop.",
+   "source": ".mcp.json#shop-catalog-db",
+   "scope": "project"
   }
  ],
  "relations": [
@@ -2409,7 +2479,10 @@
   "skill:extra:quarterly-ledger-reconciliation-helper": "Use when closing the quarter and matching ledgers",
   "agent:extra:lighthouse-lamp-maintenance-scheduler": "Plans lamp upkeep rounds around the tides",
   "plugin:extra:idle-beekeeping-bundle": "A bundle for hive inspection, switched off",
-  "skill:extra:idle-hive-inspector": "Use when inspecting a hive. Switched off with its plugin"
+  "skill:extra:idle-hive-inspector": "Use when inspecting a hive. Switched off with its plugin",
+  "skill:proj:cart-checkout-audit": "Use when reviewing the alpha-shop checkout flow",
+  "agent:proj:thesis-citation-checker": "Checks citations in the thesis draft",
+  "mcp_server:proj:shop-catalog-db": "Local catalog database for the shop"
  },
  "clusters": [
   {
@@ -2543,7 +2616,8 @@
     "skill:4:sweep-anvil",
     "skill:4:chart-ledger-pro",
     "skill:4:check-tally",
-    "skill:4:fold-canvas-two"
+    "skill:4:fold-canvas-two",
+    "skill:proj:cart-checkout-audit"
    ]
   },
   {
@@ -2561,7 +2635,8 @@
     "skill:5:bind-tally",
     "hook:5:gather-plinth-lite",
     "hook:5:sweep-beacon-two",
-    "hook:5:fold-ribbon"
+    "hook:5:fold-ribbon",
+    "agent:proj:thesis-citation-checker"
    ]
   },
   {
@@ -2578,7 +2653,8 @@
     "agent:6:scout-thread-two",
     "skill:6:weigh-lattice-two",
     "hook:6:mend-lattice-lite",
-    "skill:6:mend-ribbon"
+    "skill:6:mend-ribbon",
+    "mcp_server:proj:shop-catalog-db"
    ]
   },
   {
@@ -3778,6 +3854,18 @@
   "skill:extra:idle-hive-inspector": {
    "always_on": 60,
    "on_use": 700
+  },
+  "skill:proj:cart-checkout-audit": {
+   "always_on": 70,
+   "on_use": 800
+  },
+  "agent:proj:thesis-citation-checker": {
+   "always_on": 70,
+   "on_use": 800
+  },
+  "mcp_server:proj:shop-catalog-db": {
+   "always_on": 70,
+   "on_use": 800
   }
  },
  "overlaps": [
@@ -4926,6 +5014,18 @@
   "skill:extra:idle-hive-inspector": {
    "count": 0,
    "last_used": null
+  },
+  "skill:proj:cart-checkout-audit": {
+   "count": 4,
+   "last_used": "2026-11-01"
+  },
+  "agent:proj:thesis-citation-checker": {
+   "count": 4,
+   "last_used": "2026-11-01"
+  },
+  "mcp_server:proj:shop-catalog-db": {
+   "count": 4,
+   "last_used": "2026-11-01"
   }
  },
  "usage_window": {
@@ -4934,5 +5034,40 @@
   "last": "2026-11-04",
   "skipped": 0
  },
- "warnings": []
+ "warnings": [],
+ "projects": {
+  "p1": "alpha-shop",
+  "p2": "thesis"
+ },
+ "current_project": "p1",
+ "usage_by_project": {
+  "skill:0:trace-ribbon-pro": {
+   "p1": {
+    "count": 18,
+    "last_used": "2026-10-14"
+   },
+   "p2": {
+    "count": 1,
+    "last_used": "2026-10-14"
+   }
+  },
+  "skill:1:scout-wick": {
+   "p2": {
+    "count": 5,
+    "last_used": "2026-10-16"
+   }
+  },
+  "skill:2:sweep-lattice-two": {
+   "p1": {
+    "count": 6,
+    "last_used": "2026-11-02"
+   },
+   "p2": {
+    "count": 5,
+    "last_used": "2026-11-02"
+   }
+  }
+ },
+ "setup": "demo",
+ "scanned_at": "2026-11-04"
 }

@@ -1,28 +1,12 @@
-"""Label every Item with the LLM, one parallel LangGraph branch per Item, skipping Items whose label is cached."""
+"""Label helpers for the scan graph: the free cache plan, one model call per Item, and the cache flush."""
 
-import operator
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Annotated, Any, TypedDict
-
-from langgraph.graph import END, START, StateGraph
-from langgraph.types import Send
+from typing import Any
 
 from .costs import cache_key, load_cache, save_cache
 from .models import LLM, Item
 from .redact import ProviderError
-
-
-class _State(TypedDict, total=False):  # only `items` goes in; the reducers start `labels` and `warnings` empty
-    items: list[Item]
-    # Reducer: parallel branches each return one {id: label}; operator.or_ merges the dicts.
-    labels: Annotated[dict[str, str], operator.or_]
-    # Second reducer: branches that fail each return a one-line list, and operator.add concatenates them.
-    warnings: Annotated[list[str], operator.add]
-
-
-class _Branch(TypedDict):
-    item: Item
 
 
 def _prompt(item: Item) -> str:
@@ -43,43 +27,34 @@ def _clean(reply: str) -> str:
     return lines[0][:MAX_LABEL] if lines else ""
 
 
-def classify(
-    items: list[Item], llm: LLM, known: Iterable[str] = (), cache_path: Path | None = None, salt: str = ""
-) -> tuple[dict[str, str], list[str]]:
-    """`llm` must be the guarded one. Labels are cached by the hash of the redacted prompt, so a changed Item or prompt is
-    labelled again; `known` are the secrets and `salt` the model id (see cache_key)."""
+def label_plan(items: list[Item], known: Iterable[str], cache_path: Path | None, salt: str) -> tuple[dict[str, str], list[Item]]:
+    """Free, local: (labels already in the cache, Items still to label)."""
     known = tuple(known)
+    cache = load_cache(cache_path or DEFAULT_CACHE)
+    labels = {
+        i.id: text for i in items if (text := _clean(str(cache.get(cache_key(_prompt(i), known, salt), ""))))
+    }  # cleaned again: the file is editable
+    return labels, [i for i in items if i.id not in labels]
+
+
+def label_one(item: Item, llm: LLM) -> dict[str, Any]:
+    """One model call: a state update with either `labels` or `warnings`."""
+    try:
+        text = _clean(llm(_prompt(item)))
+    except ProviderError as error:
+        return {"warnings": [f"{FAILED_PREFIX} '{item.name}': {error}"]}
+    if not text:
+        return {"warnings": [f"{FAILED_PREFIX} '{item.name}': empty reply"]}
+    return {"labels": {item.id: text}}
+
+
+def label_flush(cache_path: Path | None, fresh: dict[str, str]) -> list[str]:
+    """Cache the successful labels (`fresh`: cache key -> label); an unwritable cache is a warning."""
+    if not fresh:
+        return []
     path = cache_path or DEFAULT_CACHE
-    cache = load_cache(path)
-    keys = {i.id: cache_key(_prompt(i), known, salt) for i in items}
-    labels = {i.id: text for i in items if (text := _clean(str(cache.get(keys[i.id], ""))))}  # cleaned again: the file is editable
-    todo = [i for i in items if i.id not in labels]
-    if not todo:
-        return labels, []
-
-    def fan_out(state: _State) -> list[Send]:
-        return [Send("label", {"item": item}) for item in state["items"]]
-
-    def label(state: _Branch) -> dict[str, Any]:
-        item = state["item"]
-        try:
-            text = _clean(llm(_prompt(item)))
-        except ProviderError as error:
-            return {"warnings": [f"{FAILED_PREFIX} '{item.name}': {error}"]}
-        if not text:
-            return {"warnings": [f"{FAILED_PREFIX} '{item.name}': empty reply"]}
-        return {"labels": {item.id: text}}
-
-    graph = StateGraph(_State)
-    graph.add_node(label)  # the node is named after the function; fan_out sends to "label"
-    graph.add_conditional_edges(START, fan_out)
-    graph.add_edge("label", END)
-    result = graph.compile().invoke({"items": todo}, config={"max_concurrency": MAX_CONCURRENCY})
-    fresh: dict[str, str] = result["labels"]
-    warnings: list[str] = result["warnings"]
-    if fresh:  # only successful labels are cached
-        try:
-            save_cache(path, cache | {keys[id_]: text for id_, text in fresh.items()})
-        except OSError as error:  # the labels are paid for and returned; only the next scan loses them
-            warnings.append(f"could not save the label cache: {error}")
-    return labels | fresh, warnings
+    try:
+        save_cache(path, load_cache(path) | fresh)
+    except OSError as error:  # the labels are paid for and returned; only the next scan loses them
+        return [f"could not save the label cache: {error}"]
+    return []

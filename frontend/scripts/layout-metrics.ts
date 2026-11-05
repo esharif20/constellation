@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
 import { strict as assert } from "node:assert";
-import { buildModel, clusterSummary, groupWarnings, rankMembers, costRadius, tipBadges, usageLine, RMAX, RMIN, RUNK, type Constellation, type GNode, type Model, type UsageWindow } from "../src/graph/model.ts";
+import { budget, buildModel, clusterHealth, withContents, clusterSummary, groupWarnings, rankMembers, costRadius, tipBadges, usageLine, RMAX, RMIN, RUNK, type Constellation, type Cluster, type GNode, type GOverlap, type Model, type UsageWindow } from "../src/graph/model.ts";
 import { flightMs, flightPath } from "../src/graph/flight.ts";
 import { fitView, focusView, GAP, haloOf, K, type View } from "../src/graph/layout.ts";
 import { searchItems } from "../src/graph/search.ts";
@@ -239,6 +239,18 @@ function measure(file: string, W: number, H: number) {
   return { ...f, ...nm, items: m.nodes.length, clusters: m.clusters.length, minDist: +minDist.toFixed(2), starOverlaps: overlaps, inside: +(inside * 100).toFixed(1), circleClash, named: `${named}/${eligible.length}`, namedShare: eligible.length ? named / eligible.length : 1, labelOnStar, labelClash, deterministic: first === second, sizeRule, overlapLinks, slotGap: +slotGap.toFixed(2), haloBad };
 }
 
+// Packs (#52c): origin groups, and searching by origin
+{
+  const m = buildModel(load("demo-250.json"));
+  assert.ok(m.packs.length >= 2 && m.packs.every((p) => p.members.length >= 3 && p.members.every((n) => n.origin === p.origin)), "packs share an origin");
+  const pack = m.packs.find((p) => p.origin === "example-org/skill-pack")!;
+  assert.equal(pack.members.length, m.nodes.filter((n) => n.origin === pack.origin).length, "the pack lights exactly its members");
+  const hits = searchItems(m.nodes, "skill-pack", Infinity);
+  assert.ok(pack.members.every((n) => hits.some((h) => h.item === n)), "searching the pack name finds every member");
+  assert.equal(searchItems([{ name: "zz", description: "d", kind: "skill", origin: "pat/skills" }], "pat")[0].why, "from pat/skills");
+  assert.deepEqual(searchItems([{ name: "zz", description: "d", kind: "skill" }], "pat"), []);
+}
+
 // forgiving search, on invented Items
 {
   const mk = (name: string, description: string, kind = "skill") => ({ name, description, kind });
@@ -344,6 +356,55 @@ assert.equal(cutName("x".repeat(40), 28).length, 28);
   assert.deepEqual(tipBadges(b, model), { disabled: false, overlap: "Overlaps" });
   assert.deepEqual(tipBadges(c, model), { disabled: false, overlap: "Wrapped by" });
   assert.deepEqual(tipBadges({} as GNode, { overlapsOf: new Map() }), { disabled: false, overlap: null });
+}
+
+// session-start budget (#42)
+{
+  const nd = (kind: string, always_on: number | null | undefined, tokens?: number | null) => ({ kind, cost: always_on === undefined ? undefined : { always_on, on_use: null }, weight: tokens === undefined ? undefined : { bytes: null, tokens } }) as GNode;
+  const a = nd("skill", 100), z = nd("skill", 0), c = nd("skill", null);
+  assert.deepEqual(budget([a, z, c]), { measured: true, known: 100, items: 100, hooks: 0, unknown: 1, saved: 0, removed: 0, removedUnknown: 0 });
+  const h = nd("hook", null, 40), hn = nd("hook", null, null);
+  assert.deepEqual([budget([h]).hooks, budget([h]).items, budget([hn]).unknown, budget([hn]).measured], [40, 0, 1, false]);
+  assert.deepEqual([budget([nd("hook", 7, 40)]).items, budget([nd("hook", 7, 40)]).hooks], [7, 0]);
+  const r = budget([a, c], new Set([a]));
+  assert.deepEqual([r.known, r.saved, r.removed], [0, 100, 1]);
+  assert.equal(budget([a, c], new Set([c])).removedUnknown, 1);
+  assert.equal(budget([nd("skill", null), nd("skill", undefined)]).measured, false);
+  const m250 = buildModel(load("demo-250.json"));
+  const b250 = budget(m250.nodes);
+  assert.deepEqual([b250.known, b250.items, b250.hooks, b250.unknown], [20292, 10658, 9634, 55]);
+
+  // withContents: a plugin takes what it contains; a leaf takes only itself; a cycle ends
+  const [P, s1, s2] = [{ id: "P" }, { id: "s1" }, { id: "s2" }] as GNode[];
+  const lk = (source: GNode, target: GNode) => ({ source, target, kind: "contains" });
+  const wm = { links: [lk(P, s1), lk(P, s2), lk(s2, P)] } as Pick<Model, "links">;
+  assert.deepEqual([...withContents(wm, new Set([P]))].map((n) => n.id).sort(), ["P", "s1", "s2"]);
+  assert.deepEqual([...withContents(wm, new Set([s1]))].map((n) => n.id), ["s1"]);
+  assert.equal(withContents(wm, new Set([s2])).size, 3); // s2 contains P (cycle), which contains s1
+  const gone = withContents(m250, new Set(m250.nodes.filter((n) => n.kind === "plugin").slice(0, 1)));
+  const bw = budget(m250.nodes, gone);
+  assert.equal(bw.known + bw.saved, b250.known); // removing never changes the before total
+  assert.equal(bw.removed, gone.size);
+}
+
+// cluster health (#71)
+{
+  const nd = (always_on: number | null, count?: number) => ({ unknown: always_on == null, cost: { always_on, on_use: null }, usage: count === undefined ? undefined : { count } }) as GNode;
+  const [a1, a2, b1, u1] = [nd(100, 30), nd(50, 0), nd(400, 70), nd(null, 0)];
+  const cA = { name: "A", members: [a1, a2] } as Cluster, cB = { name: "B", members: [b1] } as Cluster, cU = { name: "U", members: [u1] } as Cluster;
+  a1.cluster = a2.cluster = cA; b1.cluster = cB; u1.cluster = cU;
+  const ov = [{ a: a1, b: a2, verdict: "duplicate" }, { a: a1, b: b1, verdict: "overlap" }] as unknown as GOverlap[];
+  const hm: Pick<Model, "clusters" | "nodes" | "overlaps" | "usageWindow"> = { clusters: [cA, cB, cU], nodes: [a1, a2, b1, u1], overlaps: ov, usageWindow: { files: 3, first: null, last: null } as never };
+  const h = clusterHealth(hm);
+  assert.deepEqual(h.get(cA), { known: 150, unknown: 0, useShare: 0.3, overlaps: 1, rank: 2 }); // 30/100 uses, the cross-cluster overlap is not inside
+  assert.deepEqual(h.get(cB), { known: 400, unknown: 0, useShare: 0.7, overlaps: 0, rank: 1 });
+  assert.deepEqual(h.get(cU), { known: null, unknown: 1, useShare: 0, overlaps: 0, rank: null });
+  assert.equal(clusterHealth({ ...hm, usageWindow: null }).get(cA)!.useShare, null);
+  const hr = clusterHealth(hm, new Set([a2]));
+  assert.deepEqual([hr.get(cA)!.known, hr.get(cA)!.overlaps], [100, 0]); // a removed member drops its cost and its overlaps
+  assert.equal(clusterHealth(hm, new Set([a1])).get(cA)!.useShare, 0);
+  const t = [...clusterHealth(buildModel(load("demo-250.json"))).entries()].filter(([, x]) => x.rank != null && x.rank <= 3).sort((x, y) => x[1].rank! - y[1].rank!).map(([c, x]) => `${c.name}:${x.known}`);
+  assert.deepEqual(t, ["Tidy the changelog:1361", "Hook script execution:1343", "Plan the quarterly review:860"]);
 }
 
 let failed = aa.aaMin < 4.5;

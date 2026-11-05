@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 // Writes demo-250.json: invented names only, shaped like a real setup (about 250 Items, 30 clusters of very different
 // sizes, a few plugin hubs with Relations, most Items with none). Seeded, so identical every run: node docs/design/make-demo.mjs
 let seed = 7;
@@ -92,6 +93,81 @@ for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo
   if (d.overlaps) { // a duplicate of an existing skill in the same cluster, so the Overlap badge and arc can be screenshotted
     const twin = d.items.find((i) => i.kind === "skill" && big[0].item_ids.includes(i.id) && !i.id.includes(":extra:"));
     d.overlaps.push({ a_id: twin.id, b_id: "skill:extra:quarterly-ledger-reconciliation-helper", verdict: "duplicate", reason: "Same steps and trigger wording; one could go." });
+  }
+  fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
+}
+
+// Per-project fixtures (docs/plans/per-project.md 5): two invented projects, appended after every other stream so no existing name,
+// Relation, Overlap or usage number changes. `alpha-shop` (p1) is the scanned repo. Three project-scope Items are added (one local MCP
+// server with no key), then global skills with usage get per-project counts: one used almost only in p1 (a high-confidence move), one only in
+// p2 (medium), one split between both (no move), so the Inspector rows and the Scope group all have something to show. Idempotent.
+for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo-250.json", 1]]) {
+  const url = new URL(file, import.meta.url), d = JSON.parse(fs.readFileSync(url, "utf8"));
+  if (d.projects) continue;
+  d.projects = { p1: "alpha-shop", p2: "thesis" };
+  d.current_project = "p1";
+  const big = d.clusters.filter((c) => c.item_ids.length >= 8);
+  const mk = (cluster, kind, nm, project, desc) => {
+    const id = `${kind}:proj:${nm}`;
+    d.items.push({ id, kind, name: nm, description: desc, source: kind === "mcp_server" ? `.mcp.json#${nm}` : `.claude/${kind}s/${nm}`, scope: "project", ...(project ? { project } : {}) });
+    cluster.item_ids.push(id);
+    if (d.labels && Object.keys(d.labels).length) d.labels[id] = desc.replace(/\.$/, "");
+    if (d.costs) d.costs[id] = Object.values(d.costs).some((c) => c.always_on != null) ? { always_on: 70, on_use: 800 } : { always_on: null, on_use: null };
+    if (d.usage) d.usage[id] = { count: 4, last_used: "2026-11-01" };
+    return id;
+  };
+  mk(big[Math.min(0 + 4, big.length - 1)], "skill", "cart-checkout-audit", "p1", "Use when reviewing the alpha-shop checkout flow.");
+  mk(big[Math.min(1 + 4, big.length - 1)], "agent", "thesis-citation-checker", "p2", "Checks citations in the thesis draft.");
+  mk(big[Math.min(2 + 4, big.length - 1)], "mcp_server", "shop-catalog-db", null, "Local catalog database for the shop.");
+  const inPlugin = new Set(d.relations.filter((r) => r.kind === "contains").map((r) => r.target));
+  const pool = d.items.filter((i) => i.kind === "skill" && !i.scope && !i.disabled && !inPlugin.has(i.id) && d.usage?.[i.id]?.count >= 6 && !(d.overlaps ?? []).some((o) => o.a_id === i.id || o.b_id === i.id));
+  d.usage_by_project = {};
+  const set = (it, byProject) => {
+    d.usage_by_project[it.id] = Object.fromEntries(Object.entries(byProject).map(([k, count]) => [k, { count, last_used: d.usage[it.id].last_used }]));
+    d.usage[it.id].count = Math.max(d.usage[it.id].count, Object.values(byProject).reduce((a, b) => a + b, 0));
+  };
+  if (pool[0]) set(pool[0], { p1: 18, p2: 1 });
+  if (pool[1]) set(pool[1], { p2: 5 });
+  if (pool[2]) set(pool[2], { p1: 6, p2: 5 });
+  fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
+}
+
+// Scan history fixtures (docs/plans/history.md, #62): demo-250.json gets `setup` and `scanned_at`, and demo-250-history.json holds twelve
+// weekly counts-only entries in the history file format (ids hashed like src/constellation/history.py `key`). Deterministic, no randomness:
+// the Items grow from 55% to all of them, three invented ghosts come and go, and one Item is removed then re-added. Idempotent.
+{
+  const url = new URL("demo-250.json", import.meta.url), d = JSON.parse(fs.readFileSync(url, "utf8"));
+  d.setup = "demo";
+  d.scanned_at = "2026-11-04";
+  fs.writeFileSync(url, JSON.stringify(d, null, 1) + "\n");
+  const key = (t) => crypto.createHash("sha256").update(t).digest("hex").slice(0, 12);
+  const cost = (id) => d.costs?.[id]?.always_on ?? null;
+  const ghosts = [["ghost:one", 2, 5], ["ghost:two", 6, 8], ["ghost:three", 4, 10]]; // id, first and last entry that holds it; each costs 40
+  const entries = [];
+  for (let k = 0; k < 12; k++) {
+    const count = k === 11 ? d.items.length : Math.round(d.items.length * (0.55 + 0.45 * (k / 11)));
+    const held = d.items.slice(0, count).map((i) => i.id).filter((id) => !(id === d.items[5].id && k >= 3 && k <= 5));
+    const known = held.map(cost).filter((c) => c !== null);
+    const live = ghosts.filter(([, from, to]) => k >= from && k <= to);
+    const date = new Date(Date.UTC(2026, 10, 4) - (11 - k) * 7 * 864e5).toISOString().slice(0, 10);
+    entries.push({ setup: "demo", date, items: held.length + live.length, always_on: known.reduce((a, b) => a + b, 0) + 40 * live.length, unknown: held.length - known.length, ids: [...held, ...live.map(([id]) => id)].map(key).sort() });
+  }
+  fs.writeFileSync(new URL("demo-250-history.json", import.meta.url), JSON.stringify({ v: 1, entries }, null, 1) + "\n");
+}
+
+// Origin fixtures (docs/plans/matt-and-labels.md F3, #52c): invented packs so the tooltip, search and Packs legend have something to show.
+// Appended last, deterministic (first Items in file order), idempotent. Two packs of skills, and the first two plugins name their contents.
+for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo-250.json", 1]]) {
+  const url = new URL(file, import.meta.url), d = JSON.parse(fs.readFileSync(url, "utf8"));
+  if (d.items.some((i) => i.origin)) continue;
+  const inPlugin = new Set(d.relations.filter((r) => r.kind === "contains").map((r) => r.target));
+  const loose = d.items.filter((i) => i.kind === "skill" && !i.scope && !i.disabled && !inPlugin.has(i.id));
+  loose.slice(0, 8).forEach((i) => (i.origin = "example-org/skill-pack"));
+  loose.slice(8, 12).forEach((i) => (i.origin = "demo/field-tools"));
+  const byId = new Map(d.items.map((i) => [i.id, i]));
+  for (const hub of d.items.filter((i) => i.kind === "plugin" && !i.disabled && d.relations.some((r) => r.source === i.id && r.kind === "contains")).slice(0, 2)) {
+    hub.origin = hub.name;
+    for (const r of d.relations) if (r.source === hub.id && r.kind === "contains") byId.get(r.target).origin = hub.name;
   }
   fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
 }

@@ -123,7 +123,9 @@ def _read_claude_json(config_dir: Path, items: list[Item], warnings: list[str], 
     # The project path stays out of the id (it holds the username); a per-scan index in sorted path order keeps same-named servers apart.
     having = [p for p in sorted(projects, key=str) if isinstance(projects[p], dict) and projects[p].get("mcpServers")]
     for number, project in enumerate(having, 1):
+        first = len(items)
         _add_servers(projects[project]["mcpServers"], f"local/{number}/", items, warnings, secrets, ".claude.json")
+        items[first:] = [replace(i, scope="project") for i in items[first:]]
 
 
 def _plugin_servers(meta: dict[str, Any], root: Path, scope: str, items: list[Item], warnings: list[str], secrets: set[str]) -> None:
@@ -162,6 +164,14 @@ def _command(path: Path, warnings: list[str]) -> tuple[str, str] | None:
             warnings.append(problem)
     first = next((line.strip() for line in body.splitlines() if line.strip()), "")
     return str(meta.get("description") or first)[:DESCRIPTION_CAP], path.stem
+
+
+def _contained(path: Path, root: Path, scope: str, warnings: list[str]) -> bool:
+    """In a plugin or project (non-empty scope) a file whose symlink resolves outside the root is refused, not read."""
+    if scope and not path.resolve().is_relative_to(root.resolve()):
+        warnings.append(f"skipped {path.name} in {scope.rstrip('/')}: it is a symlink pointing outside it")
+        return False
+    return True
 
 
 def _inside(root: Path, pattern: str, scope: str, warnings: list[str]) -> Iterator[Path]:
@@ -214,22 +224,26 @@ def _read_root(
             continue
         description, name = redact(parsed[0], secrets), parsed[1]
         if not description:
-            warnings.append(f"skipped command '{name}': no description ({path})")
+            warnings.append(f"skipped command '{name}': no description ({_shown(path)})")
             continue
         items.append(Item(f"{SOURCE}:command:{scope}{name}", "command", name, description, SOURCE))
     mcp_file = root / ".mcp.json"
-    if mcp_file.exists():
+    if mcp_file.exists() and _contained(mcp_file, root, scope, warnings):
         data = _load(mcp_file, warnings, f"{scope or 'config'}.mcp.json")
         if data is not None:
             _add_servers(data, scope, items, warnings, secrets, f"{scope or 'config'}.mcp.json")
     # User hooks live in settings.json; plugin hooks in hooks/hooks.json.
     for hooks_file in (root / "settings.json", root / "hooks" / "hooks.json"):
-        if not hooks_file.exists():
+        if not hooks_file.exists() or not _contained(hooks_file, root, scope, warnings):
             continue
-        for event, groups in json.loads(hooks_file.read_text()).get("hooks", {}).items():
+        data = _load(hooks_file, warnings, f"{scope or 'config/'}{hooks_file.name}")
+        for event, groups in (data.get("hooks", {}) if isinstance(data, dict) else {}).items():
             for group in groups:
                 name = ":".join(filter(None, [event, group.get("matcher")]))
                 for handler in group["hooks"]:
+                    if handler.get("type") != "mcp_tool" and not isinstance(handler.get("command"), str):
+                        warnings.append(f"skipped a hook in {scope or 'config/'}{hooks_file.name}: it has no command")
+                        continue
                     # Index keeps ids unique when several handlers share an event and matcher.
                     id_ = f"{SOURCE}:hook:{scope}{name}:{len(items)}"
                     if handler["type"] == "mcp_tool":
@@ -280,6 +294,25 @@ def _plugin_manifests(config_dir: Path) -> list[Path]:
     return list(newest.values())
 
 
+def _read_project(
+    project: Path, items: list[Item], warnings: list[str], relations: list[Relation], bodies: dict[str, str], secrets: set[str]
+) -> None:
+    """Items from a repo's `.claude/` and `.mcp.json`, scope `project`. Warnings show `<project>`, never the path."""
+    root = project.resolve()
+    first, mine = len(items), list[str]()
+    claude = root / ".claude"
+    if claude.is_dir() and _contained(claude, root, "project/", mine):
+        _read_root(claude, "project/", items, mine, relations, bodies, secrets, None, root)
+    mcp_file = root / ".mcp.json"
+    if mcp_file.is_file() and _contained(mcp_file, root, "project/", mine):
+        data = _load(mcp_file, mine, "project/.mcp.json")
+        if data is not None:
+            _add_servers(data, "project/", items, mine, secrets, "project/.mcp.json")
+    items[first:] = [replace(i, scope="project") for i in items[first:]]
+    for warning in mine:  # _shown wrote ~/... for a repo under home, the absolute path elsewhere
+        warnings.append(warning.replace(_shown(root), "<project>").replace(str(root), "<project>"))
+
+
 def read_items(
     config_dir: Path, lockfile: Path | None = None, project: Path | None = None
 ) -> tuple[list[Item], list[str], list[Relation], dict[str, str]]:
@@ -289,7 +322,7 @@ def read_items(
     relations: list[Relation] = []
     bodies: dict[str, str] = {}  # skill/agent Item id -> file text after the frontmatter
     config_dir = Path(config_dir)
-    secrets = read_secrets(config_dir)
+    secrets = read_secrets(config_dir, project)
     lock = None
     if lockfile is not None:
         lock, lock_warnings = read_lock(lockfile, secrets)
@@ -316,6 +349,8 @@ def read_items(
         key = keys.get(root) or f"{meta['name']}@{root.parent.parent.name}"
         if isinstance(enabled, dict) and enabled.get(key) is False:  # off in settings: still on the map, flagged, with its contents
             items[first - 1 :] = [replace(i, disabled=True) for i in items[first - 1 :]]
+    if project is not None:
+        _read_project(Path(project), items, warnings, relations, bodies, secrets)
     return items, warnings, relations, bodies
 
 
@@ -334,16 +369,27 @@ def _json_or_empty(path: Path) -> Any:
     return json.loads(path.read_text()) if path.exists() else {}
 
 
-def read_secrets(config_dir: Path) -> set[str]:
-    """Secret values held in the config's own secret-bearing files. Never reads the process environment or anything outside config_dir."""
+def _env_values(settings: Path, mcp: Path) -> list[str]:
+    values = list(_strings(_json_or_empty(settings).get("env", {})))
+    try:  # a malformed .mcp.json is read_items' warning to give; here it only means no env values to collect
+        values += [v for s in _json_or_empty(mcp).get("mcpServers", {}).values() for v in _strings(s.get("env", {}))]
+    except (ValueError, AttributeError):
+        pass
+    return values
+
+
+def read_secrets(config_dir: Path, project: Path | None = None) -> set[str]:
+    """Secret values held in the config's own secret-bearing files, and a --project repo's settings and .mcp.json env values.
+    Never reads the process environment or anything else."""
     config_dir = Path(config_dir)
     plugin_roots = [m.parent.parent for m in _plugin_manifests(config_dir)]
     values = list(_strings(_json_or_empty(config_dir / ".credentials.json")))  # an auth file: every value is secret
     for root in [config_dir, *plugin_roots]:
-        values += _strings(_json_or_empty(root / "settings.json").get("env", {}))
-        try:  # a malformed .mcp.json is read_items' warning to give; here it only means no env values to collect
-            values += [v for s in _json_or_empty(root / ".mcp.json").get("mcpServers", {}).values() for v in _strings(s.get("env", {}))]
-        except (ValueError, AttributeError):
+        values += _env_values(root / "settings.json", root / ".mcp.json")
+    if project is not None:
+        try:  # a repo's malformed settings.json is read_items' warning to give
+            values += _env_values(Path(project) / ".claude" / "settings.json", Path(project) / ".mcp.json")
+        except (OSError, ValueError, AttributeError):
             pass
     dotenv = config_dir / ".env"
     if dotenv.exists():
@@ -352,3 +398,97 @@ def read_secrets(config_dir: Path) -> set[str]:
                 values.append(line.split("=", 1)[1].strip().strip("\"'"))
     # shortcut: values under 8 chars are skipped so "1" or "true" doesn't get redacted everywhere; a short real secret would leak.
     return {v for v in values if len(v) >= 8}
+
+
+def _env_in(node: object) -> Iterator[str]:
+    """Every string under an `env` key, at any depth."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield from _strings(value) if key == "env" else _env_in(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _env_in(value)
+
+
+def pack_secrets(root: Path) -> set[str]:
+    """Secret values a pack's own manifests carry in `env`. Reads only these files inside root, never a `.env`."""
+    values: list[str] = []
+    for name in (".mcp.json", "settings.json", ".claude-plugin/plugin.json"):
+        try:
+            values += _env_in(json.loads((root / name).read_text()))
+        except (OSError, ValueError, RecursionError):
+            pass
+    return {v for v in values if len(v) >= 8}
+
+
+MAX_PACK_FILE = 1_000_000
+# A YAML anchor or alias where a value starts. Expanding aliases turns 1 KB of frontmatter into gigabytes, so such a pack is refused.
+_YAML_REFERENCE = re.compile(r"(?:^|[:\-\[{,])[ \t]*[&*][\w-]+", re.MULTILINE)
+
+
+def _vet_pack_files(root: Path, meta: dict[str, Any] | None) -> None:
+    """Refuse (ValueError) a frontmatter with a YAML anchor or alias, and a declared MCP file over the size cap, before either is read."""
+    for pattern in ("SKILL.md", "skills/*/SKILL.md", "skills/synced/*/*/SKILL.md", "agents/*.md", "commands/*.md"):
+        for path in _inside(root, pattern, "pack", []):
+            parts = path.read_text().split("---", 2) if path.is_file() else []
+            if len(parts) > 1 and _YAML_REFERENCE.search(parts[1]):
+                raise ValueError
+    declared = meta.get("mcpServers") if meta else None
+    for entry in declared if isinstance(declared, list) else [declared]:
+        if isinstance(entry, str) and (root / entry).is_file() and (root / entry).stat().st_size > MAX_PACK_FILE:
+            raise ValueError
+
+
+def read_pack(root: Path) -> tuple[str, str, list[Item], list[str], list[Relation]]:
+    """(pack name, layout "plugin"|"pack"|"skill", items, warnings, relations); reads only inside root. The caller has already refused
+    symlinks pointing out of root (preview.check_tree); `_inside` refuses them again. Bodies are dropped, nothing is run."""
+    root = Path(root).resolve()
+    manifest = root / ".claude-plugin" / "plugin.json"
+    if manifest.is_file():
+        layout = "plugin"
+    elif any((root / part).exists() for part in ("skills", "agents", "commands", ".mcp.json", "hooks/hooks.json")):
+        layout = "pack"
+    elif (root / "SKILL.md").is_file():
+        layout = "skill"
+    else:
+        raise ValueError(f"No plugin, skill pack or SKILL.md found in {root.name}.")
+    items: list[Item] = []
+    warnings: list[str] = []
+    relations: list[Relation] = []
+    name = root.name
+    secrets = pack_secrets(root)
+    try:
+        declared_in: Any = json.loads(manifest.read_text()) if layout == "plugin" else None
+        _vet_pack_files(root, declared_in)
+        if layout == "skill":
+            meta, problem = _frontmatter(root / "SKILL.md")
+            if problem:
+                warnings.append(problem)
+            if meta.get("name") and meta.get("description"):
+                items.append(Item(f"{SOURCE}:skill:{root.name}/{meta['name']}", "skill", meta["name"], meta["description"], SOURCE))
+            else:
+                warnings.append("skipped SKILL.md: it needs a name and a description")
+        else:
+            scope = f"{name}/"
+            if layout == "plugin":
+                meta = declared_in
+                name = meta["name"]
+                if not isinstance(name, str) or not name:
+                    raise ValueError
+                scope = f"{name}/"
+                about = meta.get("description", "")
+                plugin = Item(f"{SOURCE}:plugin:{name}", "plugin", name, about if isinstance(about, str) else "", SOURCE)
+                items.append(plugin)
+                _plugin_servers(meta, root, scope, items, warnings, secrets)
+            _read_root(root, scope, items, warnings, relations, {}, secrets, None, root)
+            if any(not isinstance(i.name, str) or not isinstance(i.description, str) for i in items):
+                warnings.append("skipped an item: its name or description is not text")
+                items[:] = [i for i in items if isinstance(i.name, str) and isinstance(i.description, str)]
+            if layout == "plugin":
+                relations += [Relation(plugin.id, item.id, "contains") for item in items[1:]]
+    except (KeyError, TypeError, AttributeError, ValueError, OSError, RecursionError):
+        raise ValueError("could not read the pack: malformed file") from None
+    # Warnings name files by their path; the pack folder's own path (absolute, or `~/` under home) becomes the pack name.
+    for path in sorted({str(root), _shown(root)}, key=len, reverse=True):
+        warnings = [w.replace(path, name) for w in warnings]
+    return name, layout, items, warnings, relations

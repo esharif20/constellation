@@ -9,6 +9,13 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "layout:check": "node scripts/layout-metrics.ts",
+    "history:check": "node scripts/history-check.ts",
+    "inspector:check": "node scripts/inspector-check.mjs",
+    "timetravel:check": "node scripts/timetravel-check.mjs",
+    "badge:check": "node scripts/badge-check.mjs",
+    "explain:check": "node scripts/explain-check.mjs",
+    "preview:check": "node scripts/preview-check.mjs",
+    "whatif:check": "node scripts/whatif-check.mjs",
     "chat:check": "node scripts/chat-accessibility.mjs",
     "chat:cluster:check": "node scripts/chat-cluster-check.mjs"
   },

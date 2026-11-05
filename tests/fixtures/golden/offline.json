@@ -1,0 +1,428 @@
+{
+  "on_verify": [],
+  "result": {
+    "clusters": [
+      {
+        "item_ids": [
+          "claude-code:agent:demo/helper"
+        ],
+        "name": "helper"
+      },
+      {
+        "item_ids": [
+          "claude-code:agent:reviewer"
+        ],
+        "name": "reviewer"
+      },
+      {
+        "item_ids": [
+          "claude-code:hook:PostToolUse:Edit|Write:8"
+        ],
+        "name": "PostToolUse:Edit|Write"
+      },
+      {
+        "item_ids": [
+          "claude-code:hook:PostToolUse:Write:9"
+        ],
+        "name": "PostToolUse:Write"
+      },
+      {
+        "item_ids": [
+          "claude-code:hook:PreToolUse:Bash:7"
+        ],
+        "name": "PreToolUse:Bash"
+      },
+      {
+        "item_ids": [
+          "claude-code:hook:SessionStart:5"
+        ],
+        "name": "SessionStart"
+      },
+      {
+        "item_ids": [
+          "claude-code:hook:Stop:10"
+        ],
+        "name": "Stop"
+      },
+      {
+        "item_ids": [
+          "claude-code:hook:UserPromptSubmit:6"
+        ],
+        "name": "UserPromptSubmit"
+      },
+      {
+        "item_ids": [
+          "claude-code:hook:demo/PostToolUse:Read:14"
+        ],
+        "name": "PostToolUse:Read"
+      },
+      {
+        "item_ids": [
+          "claude-code:mcp_server:demo/pserver"
+        ],
+        "name": "pserver"
+      },
+      {
+        "item_ids": [
+          "claude-code:mcp_server:docs"
+        ],
+        "name": "docs"
+      },
+      {
+        "item_ids": [
+          "claude-code:mcp_server:localdb"
+        ],
+        "name": "localdb"
+      },
+      {
+        "item_ids": [
+          "claude-code:plugin:demo"
+        ],
+        "name": "demo"
+      },
+      {
+        "item_ids": [
+          "claude-code:skill:alpha"
+        ],
+        "name": "alpha"
+      },
+      {
+        "item_ids": [
+          "claude-code:skill:beta"
+        ],
+        "name": "beta"
+      }
+    ],
+    "costs": {
+      "claude-code:agent:demo/helper": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:agent:reviewer": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:hook:PostToolUse:Edit|Write:8": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:hook:PostToolUse:Write:9": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:hook:PreToolUse:Bash:7": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:hook:SessionStart:5": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:hook:Stop:10": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:hook:UserPromptSubmit:6": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:hook:demo/PostToolUse:Read:14": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:mcp_server:demo/pserver": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:mcp_server:docs": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:mcp_server:localdb": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:plugin:demo": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:skill:alpha": {
+        "always_on": null,
+        "on_use": null
+      },
+      "claude-code:skill:beta": {
+        "always_on": null,
+        "on_use": null
+      }
+    },
+    "current_project": null,
+    "hook_weights": {
+      "claude-code:hook:SessionStart:5": {
+        "bytes": 15,
+        "tokens": null
+      },
+      "claude-code:hook:UserPromptSubmit:6": {
+        "bytes": 6,
+        "tokens": null
+      }
+    },
+    "items": [
+      {
+        "description": "Does the alpha thing when asked.",
+        "disabled": false,
+        "id": "claude-code:skill:alpha",
+        "kind": "skill",
+        "name": "alpha",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "Handles beta: with a colon in the text.",
+        "disabled": false,
+        "id": "claude-code:skill:beta",
+        "kind": "skill",
+        "name": "beta",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "Reviews code for quality and best practices",
+        "disabled": false,
+        "id": "claude-code:agent:reviewer",
+        "kind": "agent",
+        "name": "reviewer",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "stdio: npx",
+        "disabled": false,
+        "id": "claude-code:mcp_server:localdb",
+        "kind": "mcp_server",
+        "name": "localdb",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "remote http: https://mcp.example.com",
+        "disabled": false,
+        "id": "claude-code:mcp_server:docs",
+        "kind": "mcp_server",
+        "name": "docs",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "echo session started",
+        "disabled": false,
+        "id": "claude-code:hook:SessionStart:5",
+        "kind": "hook",
+        "name": "SessionStart",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "echo prompt",
+        "disabled": false,
+        "id": "claude-code:hook:UserPromptSubmit:6",
+        "kind": "hook",
+        "name": "UserPromptSubmit",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "./block-rm.sh",
+        "disabled": false,
+        "id": "claude-code:hook:PreToolUse:Bash:7",
+        "kind": "hook",
+        "name": "PreToolUse:Bash",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "./lint.sh",
+        "disabled": false,
+        "id": "claude-code:hook:PostToolUse:Edit|Write:8",
+        "kind": "hook",
+        "name": "PostToolUse:Edit|Write",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "localdb.scan",
+        "disabled": false,
+        "id": "claude-code:hook:PostToolUse:Write:9",
+        "kind": "hook",
+        "name": "PostToolUse:Write",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "echo done",
+        "disabled": false,
+        "id": "claude-code:hook:Stop:10",
+        "kind": "hook",
+        "name": "Stop",
+        "origin": null,
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "A demo plugin bundling an agent, a hook and an MCP server.",
+        "disabled": false,
+        "id": "claude-code:plugin:demo",
+        "kind": "plugin",
+        "name": "demo",
+        "origin": "demo",
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "Helps with demo tasks",
+        "disabled": false,
+        "id": "claude-code:agent:demo/helper",
+        "kind": "agent",
+        "name": "helper",
+        "origin": "demo",
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "stdio: run",
+        "disabled": false,
+        "id": "claude-code:mcp_server:demo/pserver",
+        "kind": "mcp_server",
+        "name": "pserver",
+        "origin": "demo",
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      },
+      {
+        "description": "${CLAUDE_PLUGIN_ROOT}/scripts/log.sh",
+        "disabled": false,
+        "id": "claude-code:hook:demo/PostToolUse:Read:14",
+        "kind": "hook",
+        "name": "PostToolUse:Read",
+        "origin": "demo",
+        "project": null,
+        "scope": "global",
+        "source": "claude-code"
+      }
+    ],
+    "labels": {},
+    "memory_bytes": null,
+    "overlaps": [],
+    "projects": {},
+    "relations": [
+      {
+        "kind": "triggers",
+        "source": "claude-code:hook:PostToolUse:Write:9",
+        "target": "claude-code:mcp_server:localdb"
+      },
+      {
+        "kind": "contains",
+        "source": "claude-code:plugin:demo",
+        "target": "claude-code:agent:demo/helper"
+      },
+      {
+        "kind": "contains",
+        "source": "claude-code:plugin:demo",
+        "target": "claude-code:mcp_server:demo/pserver"
+      },
+      {
+        "kind": "contains",
+        "source": "claude-code:plugin:demo",
+        "target": "claude-code:hook:demo/PostToolUse:Read:14"
+      }
+    ],
+    "scanned_at": null,
+    "setup": null,
+    "usage": {
+      "claude-code:agent:demo/helper": {
+        "count": 0,
+        "last_used": null
+      },
+      "claude-code:agent:reviewer": {
+        "count": 0,
+        "last_used": null
+      },
+      "claude-code:mcp_server:demo/pserver": {
+        "count": 0,
+        "last_used": null
+      },
+      "claude-code:mcp_server:docs": {
+        "count": 0,
+        "last_used": null
+      },
+      "claude-code:mcp_server:localdb": {
+        "count": 0,
+        "last_used": null
+      },
+      "claude-code:skill:alpha": {
+        "count": 0,
+        "last_used": null
+      },
+      "claude-code:skill:beta": {
+        "count": 0,
+        "last_used": null
+      }
+    },
+    "usage_by_project": {},
+    "usage_window": {
+      "files": 0,
+      "first": null,
+      "last": null,
+      "skipped": 0
+    },
+    "warnings": [
+      "skipped skill 'nodesc': no description (<fixtures>/claude_config/skills/nodesc/SKILL.md)",
+      "Offline: no labels or model-checked Overlaps; token costs shown only if already cached."
+    ]
+  },
+  "traffic": {
+    "counter": [],
+    "embedder": [
+      "PostToolUse:Edit|Write",
+      "PostToolUse:Read",
+      "PostToolUse:Write",
+      "PreToolUse:Bash",
+      "SessionStart",
+      "Stop",
+      "UserPromptSubmit",
+      "alpha: Does the alpha thing when asked.",
+      "beta: Handles beta: with a colon in the text.",
+      "demo: A demo plugin bundling an agent, a hook and an MCP server.",
+      "docs: remote http: https://mcp.example.com",
+      "helper: Helps with demo tasks",
+      "localdb: stdio: npx",
+      "pserver: stdio: run",
+      "reviewer: Reviews code for quality and best practices"
+    ],
+    "llm": [],
+    "verifier": []
+  }
+}

@@ -235,3 +235,15 @@ def test_a_secret_echoed_in_an_embedder_error_never_reaches_the_warnings(tmp_pat
 
     assert any("ConnectionError" in w for w in constellation.warnings)
     assert not any(TOKEN in w for w in constellation.warnings)
+
+
+def test_a_provider_error_message_has_known_secrets_redacted():
+    from constellation.redact import ProviderError, guarded
+
+    def failing(prompt: str) -> str:
+        raise RuntimeError("bad request for hunter2-plain")
+
+    with pytest.raises(ProviderError) as caught:
+        guarded(failing, ["hunter2-plain"])("hello")
+    assert "hunter2-plain" not in str(caught.value)
+    assert str(caught.value).startswith("RuntimeError:")

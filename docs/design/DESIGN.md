@@ -229,3 +229,14 @@ Every interactive component has hover, focus-visible (the 2px `--ring` outline u
 11. **Docs**:
     - In `docs/design/graph-app.md`, replace the "Type" section's Instrument Serif lines with a pointer to this file, and update its contrast line.
     - Update `docs/plan-tracker.md` for #24 (status; the deviation: primary hover `#5560cc` instead of `#828fff`, for AA).
+
+## Sky background (#60)
+
+The sky stays the `--night` / `--night-lift` radial gradient, with two static layers on `body` in `index.css` (`--vignette`, `--nebula`), both derived from tokens by `color-mix` (no new colour literals):
+
+- **Vignette:** `--surface-0` at 55% at the corners, fading to nothing by 55% of the radius. It only darkens, so name contrast on the `--night` stroke is unchanged.
+- **Nebula:** `--indigo` at 9% (lower left) and 5% (upper right), large ellipses. A tint shift, not a shape.
+- **Dust:** unchanged. The canvas already draws 260 faint dust specks with a 0.06 pan parallax (`paint.ts`), so no second dust layer was added.
+- **Cost and motion:** pure CSS under the transparent canvas, painted once, nothing per frame. No new motion, so `prefers-reduced-motion` has nothing to turn off (the existing dust parallax is a pan response, not an animation).
+
+Variants shot on demo-250 at 1440 and 390 in `docs/design/screenshots/bg/`: `o` (original), `a` (vignette only), `b` (vignette + nebula, chosen), `c` (vignette + a stronger two-lobe nebula, indigo 14% and indigo-bright 7%). `a` is nearly indistinguishable from `o`. `c` lifts the lower-left ground enough to flatten the halos. `b` reads as depth without being noticed. `layout:check` aaMin is 5.44, unchanged.

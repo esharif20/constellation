@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
-import { kindName, tipBadges, usageLine, type GNode, type Model } from "@/graph/model";
+import { kindName, originTail, tipBadges, usageLine, type GNode, type Model } from "@/graph/model";
 import { placeTip } from "@/graph/names";
 import type { Painter } from "@/graph/paint";
 
@@ -36,6 +36,7 @@ export function Hover({ tip, model, painter, wake }: { tip: Tip; model: Model; p
         <p className="mt-0.5 text-xs text-text-3">
           {kindName(n.kind)}
           {n.cluster && !other && <> · <span className="font-serif text-[13px] tracking-[0.01em] text-text-2 italic">{n.cluster.name}</span></>}
+          {n.origin && <> · {originTail(n.origin)}</>}
         </p>
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
           <dt className="text-text-3">Always on</dt>

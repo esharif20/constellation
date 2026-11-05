@@ -202,3 +202,22 @@ def test_report_heading_is_bold_when_colour_is_on_and_absent_without_hooks():
     assert "\033[1mSession-start weight (hooks, nothing run)\033[0m" in render_report(data, top=5, color=True, width=60, show_all=False)
     assert "\nSession-start weight (hooks, nothing run) -" in render_report(data, top=5, color=False, width=60, show_all=False)
     assert "Session-start" not in render_report({"items": []}, top=5, color=False, width=60, show_all=False)
+
+
+def test_counted_hooks_keep_the_bytes_of_hooks_whose_text_is_unknown(tmp_path):
+    cfg = config(tmp_path, hook("echo one"), hook("curl example.invalid", "UserPromptSubmit"))
+
+    result = scan(cfg, counter=FakeCounter(), count_bodies=True, cost_cache=tmp_path / "c.json")
+
+    assert sorted(result.hook_weights.values(), key=lambda w: w.bytes or 0) == [Weight(None, None), Weight(3, 1)]
+
+
+def test_cost_and_hook_count_warnings_both_show(tmp_path):
+    cfg = config(tmp_path, hook("echo one"))
+    skill = tmp_path / "skills" / "s"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nname: s\ndescription: d\n---\nbody\n")
+
+    result = scan(cfg, counter=FakeCounter(fail_with="down"), count_bodies=True, cost_cache=tmp_path / "c.json")
+
+    assert len([w for w in result.warnings if "could not count" in w]) == 2

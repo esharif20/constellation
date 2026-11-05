@@ -48,6 +48,10 @@
   --dust: rgb(200 210 255 / 0.5);
   --fade: 0.1;
 
+  /* sky layers (#60), static CSS under the transparent canvas: derived from tokens, zero per-frame cost */
+  --vignette: radial-gradient(ellipse 100% 100% at 50% 42%, transparent 55%, color-mix(in srgb, var(--surface-0) 55%, transparent) 100%);
+  --nebula: radial-gradient(ellipse 70% 60% at 18% 82%, color-mix(in srgb, var(--indigo) 9%, transparent), transparent 70%), radial-gradient(ellipse 55% 50% at 88% 12%, color-mix(in srgb, var(--indigo) 5%, transparent), transparent 70%);
+
   /* shadcn semantic tokens */
   --background: var(--night);
   --foreground: var(--text);
@@ -138,6 +142,8 @@
   --animate-card-in: card-in var(--t) var(--ease-out) 300ms backwards; /* waits for ~30% of the camera flight */
   --animate-card-out: card-out var(--t-fast) var(--ease-in) forwards;
   --animate-tip-in: tip-in var(--t-fast) var(--ease-out) backwards;
+  --animate-fade-in: fade-in var(--t-fast) var(--ease-out) backwards;
+  --animate-bar-grow: bar-grow 200ms var(--ease-out) backwards;
 }
 
 @keyframes panel-in { from { opacity: 0; transform: translateX(16px); } }
@@ -145,6 +151,8 @@
 @keyframes card-out { to { opacity: 0; transform: translateX(-8px); } }
 @keyframes tip-in { from { opacity: 0; transform: translateY(2px); } }
 @media (prefers-reduced-motion: reduce) { @keyframes tip-in { from { opacity: 0; } } } /* opacity only; the durations are already 0 */
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes bar-grow { from { transform: scaleX(0); } }
 @keyframes sheet-in { from { transform: translateY(100%); } }
 @keyframes pulse-star { 50% { transform: scale(0.6); opacity: 0.5; } }
 
@@ -154,7 +162,7 @@
   body {
     @apply text-foreground font-sans antialiased;
     font-feature-settings: "cv11", "ss01";
-    background: radial-gradient(120% 90% at 50% 38%, var(--night-lift) 0%, var(--night) 62%);
+    background: var(--vignette), var(--nebula), radial-gradient(120% 90% at 50% 38%, var(--night-lift) 0%, var(--night) 62%);
     background-color: var(--night);
   }
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }

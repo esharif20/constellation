@@ -44,9 +44,15 @@ constellation scan ~/.claude                   # writes constellation.json (mode
 constellation scan ~/.claude --offline         # no paid or network calls: no labels or verifier, cached token costs only
 constellation scan ~/.claude --no-verify       # skip the stronger model that labels candidate Overlaps
 constellation scan ~/.claude --no-origins      # do not work out where Items came from (no skills lockfile is opened)
+constellation preview ./pack --against constellation.json   # what a downloaded plugin or skill folder would add; nothing run or sent
+constellation delta before.json after.json     # Items, always-on tokens and new Overlaps between two saved scans
 uv run --extra local pytest -m eval -s         # slow clustering quality check with the real embedder
 uv run pytest -m eval -s tests/eval/test_overlap_quality.py   # scores the Overlap verifier on 20 invented pairs (real model, a few cents)
 ```
+
+`preview` reads a folder you downloaded yourself (run `git clone` first; Constellation never fetches anything), refuses symlinks that leave
+it and special files, and never runs a hook or MCP server. Overlap is by same name; add `--meaning` to also compare by meaning with the local
+embedder, which may download its model once from the network (it says so first). `preview` and `delta` call no provider and read no `.env`.
 
 Overlaps: identical instructions and thin wrappers are found locally, embeddings propose similar pairs, and Claude Sonnet 5.5 labels each pair
 from names, descriptions and a few local signals only. File bodies never leave your machine. A real run prints a pair-count and cost estimate
@@ -76,12 +82,42 @@ Everything is read locally. "Taken" is all that leaves the file; the rest is par
 | `<config>/.credentials.json`, `<config>/.env` | secret values only, so they can be scrubbed from everything else | No |
 | `<config>/projects/**/*.jsonl` transcripts (skipped with `--no-usage`) | Item names matched to tool calls, counts and the date | No |
 | `~/.agents/.skill-lock.json` (change with `--skill-lock`; skipped with `--no-origins`) | the `source` of each skill entry only, shortened to 60 safe characters. `sourceUrl`, hashes and dates are never read into anything | No: an origin is never sent to a model, never in a public export |
+| a folder you pass to `preview` | names and descriptions of its skills, agents, commands, MCP entries and hooks, read only, nothing run | No |
 | `.env` in the working directory | `ANTHROPIC_API_KEY` for the run | Only as the API credential |
 | `~/.cache/constellation/*.json` (0600) | Constellation's own caches of labels, Overlap verdicts and token counts | No |
+| `~/.cache/constellation/history.json` (0600, directory 0700) | **Written** by each real `scan` (not by `--dry-run` or `--no-history`): per scan day, the date, the Item and unknown-cost counts, the always-on token total, a hash of the config dir and the sorted 12-character hashes of Item ids. Never names, descriptions, labels, paths, origins, usage, warnings or file bodies (hashed ids keep names out of a long-lived file; they do not stop someone who guesses names). One entry per setup and day (a re-scan replaces it), entries more than 400 days older than the newest are dropped. `open --history FILE` reads another file; delete the file to start over | No |
 
 Origins: a plugin's contents show the plugin name, skills synced from claude.ai show `claude.ai`, and a user skill takes the lockfile `source`, else
 the folder name of the installer it is symlinked from (for example `agents`), else a `repository` line in its own frontmatter. The scan prints
 `read origin from <file> (source field only)` when it opens a lockfile.
+
+### Expansion
+
+```
+constellation expand claude-code:mcp_server:example --config-dir /path/to/config --file constellation.json
+constellation open constellation.json --config-dir /path/to/config
+```
+
+Use the exact MCP server Item id from the saved scan. Expansion starts that selected configured local server, initializes MCP and lists
+all pages of tools; it never invokes a tool or calls a model. The CLI prints JSON with tool Items and contains Relations. An unreachable
+server returns an `unreachable` result with exit 0; an unknown Item or invalid input exits 2. Hosted connectors remain single Items.
+The optional root on `open` enables the localhost-only `POST /api/expand` API (`{"id":"<known Item id>"}`); viewing without it remains
+read-only. App presentation is a separate frontend integration.
+
+Connection settings stay in memory, and Expansion never updates the saved scan or your setup. Tool names/descriptions are redacted;
+schemas, server instructions and diagnostics are discarded. Initialization and all tool-list pages share a ten-second deadline, followed
+by bounded SDK subprocess cleanup. Discovery is capped at 100 pages, 1,000 tools and 4,096 UTF-8 bytes per name/description;
+excessive results return unreachable without partial tools. Redaction runs off the API event loop under the same deadline.
+Only one Expansion per config root/server id runs at once; a concurrent duplicate returns unreachable without another launch.
+Known secrets are read locally from the selected config only for redaction, never added to launch settings.
+Explicit environment and argument values (including header and URL credential components) are also redacted from tool text; this may hide ordinary matching words.
+The launch environment uses a temporary private HOME,
+`PATH=/usr/bin:/bin`, `SHELL=/bin/sh`, `TERM=dumb` and `USER=LOGNAME=constellation`, then overlays only the registration's explicit env.
+Executable lookup uses that PATH; cwd is the registration's config/plugin root. For binaries installed elsewhere (such as Homebrew `npx` or
+user-installed `uvx`), configure an absolute command or an explicit PATH in that registration; a bare `npx`/`uvx` absent from the
+fixed PATH returns unreachable. Private HOME also means ambient user
+configuration and package caches are unavailable unless HOME is explicitly configured. Variable and plugin-placeholder substitution is unsupported
+and returns unreachable. A configured command may itself contact external services or download packages; it runs with your local permissions.
 
 ### Report
 

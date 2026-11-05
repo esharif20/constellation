@@ -4,12 +4,19 @@ import { Brief } from "@/components/Brief";
 import { Chat, type ChatAction } from "@/components/Chat";
 import { HighlightChip } from "@/components/HighlightChip";
 import { ClusterCard } from "@/components/ClusterCard";
+import { WhatIfChip } from "@/components/WhatIfChip";
 import { StarMap, type StarMapHandle } from "@/components/StarMap";
+import { History } from "@/components/History";
+import { Scrubber } from "@/components/Scrubber";
 import { TopBar } from "@/components/TopBar";
+import { ExplainCard } from "@/components/ExplainCard";
+import { absentAt, type Timeline } from "@/graph/history";
 import { useRemoteSearch } from "@/components/useRemoteSearch";
 import { searchItems } from "@/graph/search";
 import { matchClusters, mergeResults } from "@/graph/searchMerge";
-import { clusterSummary, kindName, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model } from "@/graph/model";
+import { budget, clusterSummary, withContents, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model, type Scope, scopeSet } from "@/graph/model";
+import { InspectorSkeleton } from "@/components/inspector/Skeleton";
+import { verdictOf } from "@/lib/verdict";
 
 // The inspector only appears once something is selected, so it loads on its own; it is fetched when the page is idle
 // so the first selection does not wait.
@@ -25,18 +32,26 @@ export default function Atlas({ model }: { model: Model }) {
   const framedPair = useRef<GNode | undefined>(undefined);
   const pill = useRef<HTMLButtonElement>(null);
   const [brief, setBrief] = useState<BriefData | null>(null);
+  const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [briefOpen, setBriefOpen] = useState(() => {
     const onPhone = matchMedia("(max-width: 640px)").matches; // a first visit on a phone starts collapsed so the map stays visible
     try { const saved = localStorage.getItem("constellation.brief"); return saved ? saved === "open" : !onPhone; } catch { return !onPhone; }
   });
   const [chatOpen, setChatOpen] = useState(false);
+  const [scrub, setScrub] = useState<string | null>(null); // time travel: the chosen scan date (null = off)
+  const absent = useMemo(() => (scrub && timeline ? absentAt(model.nodes, timeline.first_seen, scrub) : null), [model, timeline, scrub]);
   const [chatMatches, setChatMatches] = useState<Set<GNode> | null>(null);
+  const [whatIf, setWhatIf] = useState<Set<GNode> | null>(null); // what-if ticks, page memory only (null = off)
+  const removed = useMemo(() => whatIf && withContents(model, whatIf), [model, whatIf]);
   const [selected, setSelected] = useState<GNode | null>(null);
+  const [scope, setScope] = useState<Scope>("all");
+  const scoped = useMemo(() => scopeSet(model, scope), [model, scope]);
   // Cluster focus. The left slot has one occupant: the cluster card, the Brief or the chat. `card` outlives `cluster` while the card leaves.
   const [cluster, setCluster] = useState<Cluster | null>(() => hashCluster(model));
   const [card, setCard] = useState<Cluster | null>(cluster);
   const [byKeyboard, setByKeyboard] = useState(false);
   const [live, setLive] = useState("");
+  const [draft, setDraft] = useState<{ text: string; n: number }>();
   const pushed = useRef(false); // our own history entry is on top, so leaving can go back instead of adding one
   const [preview, setPreview] = useState<GNode | null>(null);
   const [query, setQuery] = useState("");
@@ -48,9 +63,12 @@ export default function Atlas({ model }: { model: Model }) {
   const found = useMemo(() => rows.map((r) => r.item), [rows]);
   const clusterHits = useMemo(() => matchClusters(model.clusters, query), [model, query]);
   // One owner for the highlighted set: search wins while a query is typed, otherwise the last chat answer. The chip names it and clears it.
-  const highlight = query.trim() ? { from: "search" as const, count: found.length } : chatMatches ? { from: "chat" as const, count: chatMatches.size } : null;
-  const matches = useMemo(() => (query.trim() ? new Set(found) : chatMatches), [found, query, chatMatches]);
-  const clearHighlight = useCallback(() => { setQuery(""); setChatMatches(null); }, []);
+  const [pack, setPack] = useState<string | null>(null); // a Packs legend choice: an origin whose members are lit
+  if (pack && query.trim()) setPack(null); // typing takes the highlight over
+  const packSet = useMemo(() => (pack ? new Set(model.packs.find((p) => p.origin === pack)?.members) : null), [model, pack]);
+  const highlight = query.trim() ? { from: "search" as const, count: found.length } : packSet ? { from: "pack" as const, count: packSet.size, detail: pack! } : chatMatches ? { from: "chat" as const, count: chatMatches.size } : null;
+  const matches = useMemo(() => (query.trim() ? new Set(found) : packSet ?? chatMatches), [found, query, packSet, chatMatches]);
+  const clearHighlight = useCallback(() => { setQuery(""); setChatMatches(null); setPack(null); }, []);
   const showBrief = !!brief && briefOpen && !chatOpen && !(narrow && selected) && !cluster;
   const showInspector = !(narrow && chatOpen);
   if (!chatOpen && chatMatches) setChatMatches(null); // chat highlights end with the chat
@@ -63,6 +81,23 @@ export default function Atlas({ model }: { model: Model }) {
       .then((response) => { if (!response.ok) throw new Error("Brief unavailable"); return response.json(); })
       .then((data: BriefData) => { if (Array.isArray(data.cost?.rows) && Array.isArray(data.pairs?.rows)) setBrief(data); })
       .catch(() => { /* Static Snapshots and older servers have no brief. */ });
+    return () => controller.abort();
+  }, []);
+
+  const toggleRemove = useCallback((n: GNode) => {
+    const next = new Set(whatIf);
+    if (!next.delete(n)) next.add(n);
+    const b = budget(model.nodes, withContents(model, next));
+    setWhatIf(next);
+    setLive(`${next.has(n) ? "Removed" : "Put back"} ${n.name}. Session start ${b.known.toLocaleString()} tokens, saves ${b.saved.toLocaleString()}.`);
+  }, [model, whatIf]);
+  const startWhatIf = (on: boolean) => { setWhatIf(on ? new Set() : null); setLive(on ? "What-if on. Nothing in your setup changes." : "What-if ended, nothing changed"); };
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("api/history", { signal: controller.signal })
+      .then((response) => { if (!response.ok) throw new Error("History unavailable"); return response.json(); })
+      .then((data: Timeline) => { if (Array.isArray(data.entries)) setTimeline(data); })
+      .catch(() => { /* Static Snapshots and older servers have no history. */ });
     return () => controller.abort();
   }, []);
 
@@ -158,6 +193,7 @@ export default function Atlas({ model }: { model: Model }) {
   };
 
   // Narrow screens show the Inspector instead of the chat, so picking an Item from the chat's list closes it.
+  const ask = (text: string) => { openChat(true); setDraft((d) => ({ text, n: (d?.n ?? 0) + 1 })); };
   const chatItem = (id: string) => { selectById(id); if (narrow) setChatOpen(false); };
 
   const selectPair = (row: BriefRow) => {
@@ -189,15 +225,17 @@ export default function Atlas({ model }: { model: Model }) {
       const typing = e.target instanceof Element && !!e.target.closest('input, textarea, select, [contenteditable="true"]');
       if (typing || e.defaultPrevented) return;
       if (e.key === "b" && !e.metaKey && !e.ctrlKey && !e.altKey && brief) { e.preventDefault(); if (cluster) leave(); openBrief(cluster || chatOpen ? true : !briefOpen); } // opening the Brief leaves focus
-      if (e.key === "Escape") { if (chatOpen) openChat(false); else if (cluster && !selected) leave(); else close(); } // search and Brief handle their own Escape first
+      if (e.key === "x" && !e.metaKey && !e.ctrlKey && !e.altKey && whatIf && selected) { e.preventDefault(); toggleRemove(selected); }
+      if (e.key === "Escape") { if (scrub) setScrub(null); else if (chatOpen) openChat(false); else if (cluster && !selected) leave(); else close(); } // search and Brief handle their own Escape first
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
-  }, [close, brief, briefOpen, openBrief, cluster, selected, leave, chatOpen, openChat]);
+  }, [close, brief, briefOpen, openBrief, cluster, selected, leave, chatOpen, openChat, whatIf, toggleRemove, scrub]);
 
   const applyChatActions = (actions: ChatAction[]) => {
     const ids = new Set(actions.flatMap((action) => action.item_ids));
     setQuery("");
+    setPack(null);
     setChatMatches(ids.size ? new Set(model.nodes.filter((n) => ids.has(n.id))) : null);
     const focus = actions.find((action) => action.kind === "focus" && action.item_ids.length);
     const node = focus && model.nodes.find((n) => n.id === focus.item_ids[0]);
@@ -223,22 +261,28 @@ export default function Atlas({ model }: { model: Model }) {
         onChoose={(n) => { setQuery(""); select(n); map.current?.focusCanvas(); }}
         cluster={cluster}
         onCluster={onCluster}
+        scope={scope}
+        onScope={setScope}
+        extra={<History timeline={timeline} onTimeTravel={() => setScrub(timeline?.entries.at(-1)?.date ?? null)} />}
+        explain={brief ? <ExplainCard model={model} onCluster={(c) => enter(c, true)} onItem={(n) => selectById(n.id)} /> : undefined}
       />
-      {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} />}
-      {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} />}
-      <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} />
+      {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} removed={removed} />}
+      {brief && <Brief data={brief} model={model} open={showBrief} footerInset={52} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}
+      <Chat model={model} selected={selected} open={chatOpen} briefOpen={showBrief} clusterOpen={!!cluster} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} draft={draft} />
       <HighlightChip highlight={highlight} onClear={clearHighlight} />
       </div>
-      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} />
-      <Legend model={model} hidden={!!selected || showBrief || chatOpen} />
+      <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} scope={scoped} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} removed={removed} absent={absent} />
+      {!scrub && <Legend model={model} hidden={!!selected || showBrief || chatOpen} pack={pack} onPack={(o) => { setPack((p) => (p === o ? null : o)); setChatMatches(null); }} />}
+      {scrub && timeline && <Scrubber entries={timeline.entries} nodes={model.nodes} firstSeen={timeline.first_seen} date={scrub} onDate={setScrub} onClose={() => setScrub(null)} />}
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
       {selected && showInspector && (
-        <Suspense fallback={null}>
-          <Inspector model={model} item={selected} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} />
+        <Suspense fallback={<InspectorSkeleton item={selected} />}>
+          <Inspector model={model} item={selected} brief={brief ?? undefined} onAsk={ask} onCluster={(c) => enter(c, true)} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} whatIf={whatIf} removed={removed} onToggle={toggleRemove} />
         </Suspense>
       )}
+      {removed && !showBrief && <WhatIfChip count={removed.size} saved={budget(model.nodes, removed).saved} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} onExit={() => startWhatIf(false)} />}
       <p className="sr-only" aria-live="polite">{live}</p>
-      <p className="sr-only" aria-live="polite">{selected ? `${selected.name}, ${kindName(selected.kind)}, ${selected.cost?.always_on == null ? "cost unknown" : `${selected.cost.always_on.toLocaleString()} tokens always on`}` : ""}</p>
+      <p className="sr-only" aria-live="polite">{selected ? `Selected ${selected.name}, ${verdictOf(selected, model.overlapsOf.get(selected) ?? [], model.links.filter((l) => l.source === selected && l.kind === "contains").map((l) => l.target), model.usageWindow).label}` : ""}</p>
     </>
   );
 }

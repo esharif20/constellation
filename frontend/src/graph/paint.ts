@@ -2,7 +2,7 @@
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
 import { FOCUS_FILL, haloOf } from "./layout";
 import { chooseSpot, cutName, labelStart, type Box } from "./names";
-import { rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
+import { clusterHealth, rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
 
 // Feel knobs, tuned by eye: change these, not the code below.
 export const FEEL = {
@@ -24,7 +24,7 @@ export const FEEL = {
 
 // cluster: the focused cluster; flying: the camera is on its way (labels wait); landAt: when it landed (Infinity until then);
 // nameHover: the cluster whose name is under the pointer; tip: the star whose tooltip is showing (its canvas name is hidden then)
-export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null; tip: GNode | null };
+export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; scope: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null; tip: GNode | null; removed: Set<GNode> | null; absent: Set<GNode> | null }; // removed: what-if ghosts; absent: not yet scanned at the time-travel date
 
 // Colours added after the first look. Each is read from a CSS variable when the stylesheet defines it, else the fallback.
 const PALETTE = { overlap: "#ff5fd2" }; // hot magenta: Overlap links are one family apart from the recessive Relation hairlines
@@ -38,7 +38,7 @@ function readInk() {
     overlap: t("--overlap") || PALETTE.overlap,
     fade: Number(t("--fade")) || 0.1,
     edge: t("--edge"), edgeAlt: t("--edge-alt"), halo: t("--halo"), haloName: t("--halo-name"), dust: t("--dust"),
-    ring: t("--ring"), text: t("--text"), text2: t("--text-2"), text3: t("--text-3"), mono: t("--font-mono-stack"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
+    ring: t("--ring"), text: t("--text"), text2: t("--text-2"), text3: t("--text-3"), warn: t("--warn"), mono: t("--font-mono-stack"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
   };
 }
 
@@ -52,7 +52,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const ink = readInk();
   const colorOf = new Map(model.nodes.map((n) => [n, ink.color(n.kind)]));
   const sprites = new Map<string, HTMLCanvasElement>();
-  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, keyFocus: false, cluster: null, flying: false, landAt: Infinity, nameHover: null, tip: null };
+  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, scope: null, keyFocus: false, cluster: null, flying: false, landAt: Infinity, nameHover: null, tip: null, removed: null, absent: null };
   // fitK: zoom at which the whole map fits (label levels are relative to it); top/bottom/right: px that the top bar,
   // legend and inspector cover, so canvas text keeps out from under them (measured by StarMap)
   // tip: the open tooltip's screen box (names keep out of it)
@@ -64,6 +64,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   // Every fade eases toward a target and snaps when close. `busy` says whether anything is still moving, so the
   // canvas can stop repainting once the map is at rest (StarMap wakes it again on any interaction).
   const halos = new Map<Cluster, { x: number; y: number; r: number }>();
+  let healthFor: Set<GNode> | null | undefined, health = clusterHealth(model); // recomputed only when what-if's removed set changes
   let moving = false, busy = true;
   const ease = (a: number, b: number, k: number) => {
     if (Math.abs(b - a) < 0.002) return b;
@@ -125,8 +126,8 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     } else lit = m;
     for (const n of model.nodes) {
       // in focus a lit neighbour outside the cluster only rises to 0.6, so the cluster stays the subject (search matches stay at 1)
-      const base = fc && n.cluster !== fc ? FEEL.focusDim : 1, up = fc && n.cluster !== fc && !m?.has(n) ? 0.6 : 1;
-      n.a = ease(n.a, now < n.born ? 0 : lit ? (lit.has(n) ? up : ink.fade) : base, lit || !slow ? k : kf);
+      const base = (fc && n.cluster !== fc) || (focus.scope && !focus.scope.has(n)) ? FEEL.focusDim : 1, up = fc && n.cluster !== fc && !m?.has(n) ? 0.6 : 1;
+      n.a = ease(n.a, (now < n.born || focus.absent?.has(n) ? 0 : lit ? (lit.has(n) ? up : ink.fade) : base) * (focus.removed?.has(n) ? 0.35 : 1), lit || !slow ? k : kf);
       n.s = ease(n.s, n === f ? FEEL.hoverScale : 1, k);
     }
     for (const l of model.links) {
@@ -134,14 +135,14 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       const on = f && !pure ? inc || (!!m && m.has(l.source) && m.has(l.target)) : !lit || (lit.has(l.source) && lit.has(l.target));
       l.hot = inc && on;
       const rest = !fc || lit ? 1 : l.source.cluster === fc && l.target.cluster === fc ? 1 : l.source.cluster === fc || l.target.cluster === fc ? 0.35 : 0.06;
-      l.a = ease(l.a, Math.min(l.source.a, l.target.a) > 0.05 ? (on ? rest : ink.fade * 0.5) : 0, lit || !slow ? k : kf);
+      l.a = ease(l.a, Math.min(l.source.a, l.target.a) > 0.05 && !focus.removed?.has(l.source) && !focus.removed?.has(l.target) ? (on ? rest : ink.fade * 0.5) : 0, lit || !slow ? k : kf);
     }
     for (const o of model.overlaps) {
       // at rest only the actionable verdicts show; any focus shows its own Overlaps and hides the rest; a search hides all
       const rest = o.verdict === "overlap" ? 0 : o.a.cluster === o.b.cluster ? 0.55 : 0.28;
       const inside = fc ? (o.a.cluster === fc ? 1 : 0) + (o.b.cluster === fc ? 1 : 0) : 0; // in focus every verdict of the cluster shows, "overlap" included
       const target = f ? (o.a === f || o.b === f ? 1 : 0) : m ? 0 : fc ? [0, 0.15, 0.7][inside] : rest;
-      o.alpha = ease(o.alpha, target, f || m || !slow ? k : kf);
+      o.alpha = ease(o.alpha, focus.removed?.has(o.a) || focus.removed?.has(o.b) ? 0 : target, f || m || !slow ? k : kf);
     }
     const hk = lk = reducedMotion ? 1 : 1 - Math.exp(-dt / FEEL.labelMs);
     for (const c of model.clusters) {
@@ -184,7 +185,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     // glows are additive so dense regions bloom
     ctx.globalCompositeOperation = "lighter";
     for (const n of model.nodes) {
-      if (n.a < 0.01 || (focus.flying && n.a < 0.15)) continue;
+      if (n.a < 0.01 || (focus.flying && n.a < 0.15) || focus.removed?.has(n)) continue; // a ghost has no glow
       const R = radius(n, k) * FEEL.glow;
       ctx.globalAlpha = n.a * (n === f ? 1 : 0.85) * (n.unknown ? 0.4 : 1);
       ctx.drawImage(sprite(colorOf.get(n)!), n.x! - R, n.y! - R, 2 * R, 2 * R);
@@ -249,7 +250,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     ctx.fillStyle = ctx.strokeStyle = c;
     // Unknown cost is a dashed outline with no fill and no white core (zero is a filled star at the floor size), so the
     // difference survives colour-blindness and greyscale. A plugin ring just turns dashed and keeps its centre dot.
-    const unk = n.unknown, line = unk ? 1.3 * px : 0;
+    const unk = n.unknown || !!focus.removed?.has(n), line = unk ? 1.3 * px : 0;
     if (unk) ctx.setLineDash([2 * px, 2 * px]);
     ctx.beginPath();
     if (n.shape === "ring") {
@@ -303,6 +304,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   }
 
   function pointer(n: GNode, color: string, ctx: CanvasRenderingContext2D, k: number) {
+    if (focus.absent?.has(n)) return; // an unborn star cannot be hovered, dragged or clicked
     const slack = (matchMedia("(pointer: coarse)").matches ? 14 : 6) / k;
     ctx.fillStyle = color;
     ctx.beginPath(); ctx.arc(n.x!, n.y!, radius(n, k) * 1.2 + slack, 0, 2 * Math.PI); ctx.fill();
@@ -347,6 +349,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     const sel = focus.selected, cost = (n: GNode) => n.cost?.always_on ?? -1;
     for (const n of model.nodes) {
       const isSel = n === sel;
+      if (focus.removed?.has(n) && !isSel) { n.la = 0; continue; } // a ghost has no canvas name
       if ((lit && !lit.has(n) && !isSel) || (fc && n.cluster !== fc && !lit && !isSel) || (n === f && focus.tip === f)) { n.la = 0; continue; } // dimmed names are noise; a hovered star's name is its tooltip
       const start = labelStart(n.degree, n.r, n.unknown, model.heavyR); // hubs at the fitted view, leaves from 1.3x (names.ts)
       const litOn = !!lit?.has(n) && n.a > 0.5;
@@ -475,6 +478,28 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     const zoomAlpha = (zoomA = ease(zoomA, zoomOn ? 1 : 0, lk)), coarse = matchMedia("(pointer: coarse)").matches;
     [...model.clusters].sort((a, b) => b.members.length - a.members.length).forEach((c) => clusterLabel(c, zoomAlpha));
     named.filter((x) => x[0] === 4).forEach(itemLabel);
+    if (!phone && !fc) { // health badge (#71): one line under each drawn cluster name, after every name so it can only be skipped, never move one
+      if (healthFor !== focus.removed) { healthFor = focus.removed; health = clusterHealth(model, focus.removed); }
+      ctx.font = `450 11px ${ink.sans}`;
+      ctx.textAlign = "left";
+      ctx.lineWidth = 4;
+      for (const c of model.clusters) {
+        const m = widths.get(c), h = health.get(c);
+        if (!c.hit || !m || !h) continue;
+        const [sx, sy] = sc.apply(c.lx, c.ly), y = sy + (m.size * m.scale) / 2 + 12;
+        const cost = h.known == null ? "cost unknown" : `${h.known.toLocaleString()} tok`;
+        const rest = [h.useShare == null ? "" : ` · ${h.useShare > 0 && h.useShare < 0.01 ? "<1" : Math.round(h.useShare * 100)}% of uses`, ` · ${h.overlaps === 0 ? "no overlaps" : h.overlaps === 1 ? "1 overlap" : `${h.overlaps} overlaps`}`].join("");
+        const w = ctx.measureText(cost + rest).width, x = sx - w / 2;
+        if (!fits(x - 2, y - 8, x + w + 2, y + 8)) continue;
+        ctx.globalAlpha = (zoomAlpha * c.la * c.a) * 0.9;
+        ctx.strokeText(cost + rest, x, y);
+        ctx.fillStyle = h.rank != null && h.rank <= 3 ? ink.warn : ink.text3;
+        ctx.fillText(cost, x, y);
+        ctx.fillStyle = ink.text3;
+        ctx.fillText(rest, x + ctx.measureText(cost).width, y);
+      }
+      ctx.textAlign = "center";
+    }
     ctx.restore();
     busy = moving || focus.flying || now < introEnd;
     if (import.meta.env.DEV) performance.measure("cx-frame", "cx-pre");

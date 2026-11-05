@@ -2,7 +2,7 @@ import { costRadius, kindName, relName, type Model } from "@/graph/model";
 import { cn } from "@/lib/utils";
 
 // Colour never carries identity alone: every kind is named here, with its count and the glyph the map uses.
-export function Legend({ model, hidden }: { model: Model; hidden: boolean }) {
+export function Legend({ model, hidden, pack, onPack }: { model: Model; hidden: boolean; pack: string | null; onPack: (origin: string) => void }) {
   const counts = new Map<string, number>();
   for (const n of model.nodes) counts.set(n.kind, (counts.get(n.kind) ?? 0) + 1);
   const kinds = [...counts].sort((a, b) => b[1] - a[1]);
@@ -31,6 +31,17 @@ export function Legend({ model, hidden }: { model: Model; hidden: boolean }) {
           {relName(kind, true).toLowerCase()}
         </li>
       ))}
+      {model.packs.length > 0 && (
+        <li className={cn("flex basis-full flex-wrap items-center gap-x-2 gap-y-1", hidden ? "pointer-events-none sm:pointer-events-auto" : "pointer-events-auto")}>
+          <span>Packs</span>
+          {model.packs.slice(0, 6).map((p, i) => (
+            <button key={p.origin} type="button" aria-pressed={pack === p.origin} onClick={() => onPack(p.origin)} title={`Light up the ${p.members.length} Items from ${p.origin}`} className={cn("inline-flex h-6 cursor-pointer items-center gap-1.5 rounded-full border px-2 text-xs hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring", pack === p.origin ? "border-line-2 bg-card text-foreground" : "border-transparent text-text-2", i > 2 && "hidden sm:inline-flex")}>
+              {p.origin}
+              <b className="font-mono text-xs font-normal text-foreground tabular-nums">{p.members.length}</b>
+            </button>
+          ))}
+        </li>
+      )}
       <li aria-hidden className="hidden basis-full sm:block" />
       <li className="hidden items-center gap-2 sm:inline-flex">
         Size = always-on tokens

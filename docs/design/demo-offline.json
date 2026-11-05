@@ -5,112 +5,128 @@
       "kind": "plugin",
       "name": "lumen",
       "description": "A bundle of skills for polishing interface details.",
-      "source": "~/.claude/plugins/lumen/plugin.json"
+      "source": "~/.claude/plugins/lumen/plugin.json",
+      "origin": "lumen"
     },
     {
       "id": "skill:lumen:tune-spacing",
       "kind": "skill",
       "name": "tune-spacing",
       "description": "Use when the task involves tune spacing. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/lumen/skills/tune-spacing/SKILL.md"
+      "source": "~/.claude/plugins/lumen/skills/tune-spacing/SKILL.md",
+      "origin": "lumen"
     },
     {
       "id": "skill:lumen:pick-palette",
       "kind": "skill",
       "name": "pick-palette",
       "description": "Use when the task involves pick palette. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/lumen/skills/pick-palette/SKILL.md"
+      "source": "~/.claude/plugins/lumen/skills/pick-palette/SKILL.md",
+      "origin": "lumen"
     },
     {
       "id": "skill:lumen:audit-contrast",
       "kind": "skill",
       "name": "audit-contrast",
       "description": "Use when the task involves audit contrast. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/lumen/skills/audit-contrast/SKILL.md"
+      "source": "~/.claude/plugins/lumen/skills/audit-contrast/SKILL.md",
+      "origin": "lumen"
     },
     {
       "id": "skill:lumen:motion-pass",
       "kind": "skill",
       "name": "motion-pass",
       "description": "Use when the task involves motion pass. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/lumen/skills/motion-pass/SKILL.md"
+      "source": "~/.claude/plugins/lumen/skills/motion-pass/SKILL.md",
+      "origin": "lumen"
     },
     {
       "id": "skill:lumen:icon-sweep",
       "kind": "skill",
       "name": "icon-sweep",
       "description": "Use when the task involves icon sweep. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/lumen/skills/icon-sweep/SKILL.md"
+      "source": "~/.claude/plugins/lumen/skills/icon-sweep/SKILL.md",
+      "origin": "lumen"
     },
     {
       "id": "skill:lumen:type-scale",
       "kind": "skill",
       "name": "type-scale",
       "description": "Use when the task involves type scale. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/lumen/skills/type-scale/SKILL.md"
+      "source": "~/.claude/plugins/lumen/skills/type-scale/SKILL.md",
+      "origin": "lumen"
     },
     {
       "id": "skill:lumen:focus-rings",
       "kind": "skill",
       "name": "focus-rings",
       "description": "Use when the task involves focus rings. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/lumen/skills/focus-rings/SKILL.md"
+      "source": "~/.claude/plugins/lumen/skills/focus-rings/SKILL.md",
+      "origin": "lumen"
     },
     {
       "id": "skill:lumen:empty-states",
       "kind": "skill",
       "name": "empty-states",
       "description": "Use when the task involves empty states. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/lumen/skills/empty-states/SKILL.md"
+      "source": "~/.claude/plugins/lumen/skills/empty-states/SKILL.md",
+      "origin": "lumen"
     },
     {
       "id": "plugin:quill",
       "kind": "plugin",
       "name": "quill",
       "description": "A bundle of skills for writing and editing prose.",
-      "source": "~/.claude/plugins/quill/plugin.json"
+      "source": "~/.claude/plugins/quill/plugin.json",
+      "origin": "quill"
     },
     {
       "id": "skill:quill:tighten-prose",
       "kind": "skill",
       "name": "tighten-prose",
       "description": "Use when the task involves tighten prose. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/quill/skills/tighten-prose/SKILL.md"
+      "source": "~/.claude/plugins/quill/skills/tighten-prose/SKILL.md",
+      "origin": "quill"
     },
     {
       "id": "skill:quill:outline-essay",
       "kind": "skill",
       "name": "outline-essay",
       "description": "Use when the task involves outline essay. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/quill/skills/outline-essay/SKILL.md"
+      "source": "~/.claude/plugins/quill/skills/outline-essay/SKILL.md",
+      "origin": "quill"
     },
     {
       "id": "skill:quill:cite-sources",
       "kind": "skill",
       "name": "cite-sources",
       "description": "Use when the task involves cite sources. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/quill/skills/cite-sources/SKILL.md"
+      "source": "~/.claude/plugins/quill/skills/cite-sources/SKILL.md",
+      "origin": "quill"
     },
     {
       "id": "skill:quill:plain-english",
       "kind": "skill",
       "name": "plain-english",
       "description": "Use when the task involves plain english. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/quill/skills/plain-english/SKILL.md"
+      "source": "~/.claude/plugins/quill/skills/plain-english/SKILL.md",
+      "origin": "quill"
     },
     {
       "id": "skill:quill:release-notes",
       "kind": "skill",
       "name": "release-notes",
       "description": "Use when the task involves release notes. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/quill/skills/release-notes/SKILL.md"
+      "source": "~/.claude/plugins/quill/skills/release-notes/SKILL.md",
+      "origin": "quill"
     },
     {
       "id": "skill:quill:changelog-draft",
       "kind": "skill",
       "name": "changelog-draft",
       "description": "Use when the task involves changelog draft. Keeps the work small and checks the result.",
-      "source": "~/.claude/plugins/quill/skills/changelog-draft/SKILL.md"
+      "source": "~/.claude/plugins/quill/skills/changelog-draft/SKILL.md",
+      "origin": "quill"
     },
     {
       "id": "plugin:sentinel",
@@ -537,84 +553,96 @@
       "kind": "skill",
       "name": "quick-commit",
       "description": "Small helper: quick commit.",
-      "source": "~/.claude/skills/quick-commit/SKILL.md"
+      "source": "~/.claude/skills/quick-commit/SKILL.md",
+      "origin": "example-org/skill-pack"
     },
     {
       "id": "skill:explain-error",
       "kind": "skill",
       "name": "explain-error",
       "description": "Small helper: explain error.",
-      "source": "~/.claude/skills/explain-error/SKILL.md"
+      "source": "~/.claude/skills/explain-error/SKILL.md",
+      "origin": "example-org/skill-pack"
     },
     {
       "id": "skill:rename-symbol",
       "kind": "skill",
       "name": "rename-symbol",
       "description": "Small helper: rename symbol.",
-      "source": "~/.claude/skills/rename-symbol/SKILL.md"
+      "source": "~/.claude/skills/rename-symbol/SKILL.md",
+      "origin": "example-org/skill-pack"
     },
     {
       "id": "skill:todo-sweep",
       "kind": "skill",
       "name": "todo-sweep",
       "description": "Small helper: todo sweep.",
-      "source": "~/.claude/skills/todo-sweep/SKILL.md"
+      "source": "~/.claude/skills/todo-sweep/SKILL.md",
+      "origin": "example-org/skill-pack"
     },
     {
       "id": "skill:regex-helper",
       "kind": "skill",
       "name": "regex-helper",
       "description": "Small helper: regex helper.",
-      "source": "~/.claude/skills/regex-helper/SKILL.md"
+      "source": "~/.claude/skills/regex-helper/SKILL.md",
+      "origin": "example-org/skill-pack"
     },
     {
       "id": "skill:unit-convert",
       "kind": "skill",
       "name": "unit-convert",
       "description": "Small helper: unit convert.",
-      "source": "~/.claude/skills/unit-convert/SKILL.md"
+      "source": "~/.claude/skills/unit-convert/SKILL.md",
+      "origin": "example-org/skill-pack"
     },
     {
       "id": "skill:timezone-math",
       "kind": "skill",
       "name": "timezone-math",
       "description": "Small helper: timezone math.",
-      "source": "~/.claude/skills/timezone-math/SKILL.md"
+      "source": "~/.claude/skills/timezone-math/SKILL.md",
+      "origin": "example-org/skill-pack"
     },
     {
       "id": "skill:json-shape",
       "kind": "skill",
       "name": "json-shape",
       "description": "Small helper: json shape.",
-      "source": "~/.claude/skills/json-shape/SKILL.md"
+      "source": "~/.claude/skills/json-shape/SKILL.md",
+      "origin": "example-org/skill-pack"
     },
     {
       "id": "skill:yaml-lint",
       "kind": "skill",
       "name": "yaml-lint",
       "description": "Small helper: yaml lint.",
-      "source": "~/.claude/skills/yaml-lint/SKILL.md"
+      "source": "~/.claude/skills/yaml-lint/SKILL.md",
+      "origin": "demo/field-tools"
     },
     {
       "id": "skill:port-finder",
       "kind": "skill",
       "name": "port-finder",
       "description": "Small helper: port finder.",
-      "source": "~/.claude/skills/port-finder/SKILL.md"
+      "source": "~/.claude/skills/port-finder/SKILL.md",
+      "origin": "demo/field-tools"
     },
     {
       "id": "skill:branch-tidy",
       "kind": "skill",
       "name": "branch-tidy",
       "description": "Small helper: branch tidy.",
-      "source": "~/.claude/skills/branch-tidy/SKILL.md"
+      "source": "~/.claude/skills/branch-tidy/SKILL.md",
+      "origin": "demo/field-tools"
     },
     {
       "id": "skill:screenshot-diff",
       "kind": "skill",
       "name": "screenshot-diff",
       "description": "Small helper: screenshot diff.",
-      "source": "~/.claude/skills/screenshot-diff/SKILL.md"
+      "source": "~/.claude/skills/screenshot-diff/SKILL.md",
+      "origin": "demo/field-tools"
     },
     {
       "id": "mcp_server:orrery",
@@ -659,6 +687,32 @@
       "description": "Use when inspecting a hive. Switched off with its plugin.",
       "disabled": true,
       "source": "~/.claude/skills/idle-hive-inspector"
+    },
+    {
+      "id": "skill:proj:cart-checkout-audit",
+      "kind": "skill",
+      "name": "cart-checkout-audit",
+      "description": "Use when reviewing the alpha-shop checkout flow.",
+      "source": ".claude/skills/cart-checkout-audit",
+      "scope": "project",
+      "project": "p1"
+    },
+    {
+      "id": "agent:proj:thesis-citation-checker",
+      "kind": "agent",
+      "name": "thesis-citation-checker",
+      "description": "Checks citations in the thesis draft.",
+      "source": ".claude/agents/thesis-citation-checker",
+      "scope": "project",
+      "project": "p2"
+    },
+    {
+      "id": "mcp_server:proj:shop-catalog-db",
+      "kind": "mcp_server",
+      "name": "shop-catalog-db",
+      "description": "Local catalog database for the shop.",
+      "source": ".mcp.json#shop-catalog-db",
+      "scope": "project"
     }
   ],
   "relations": [
@@ -1043,7 +1097,8 @@
         "hook:guard-env-files",
         "agent:cartographer",
         "skill:timezone-math",
-        "mcp_server:orrery"
+        "mcp_server:orrery",
+        "skill:proj:cart-checkout-audit"
       ]
     },
     {
@@ -1057,7 +1112,9 @@
         "hook:run-tests-on-stop",
         "agent:scribe",
         "skill:branch-tidy",
-        "connector:inkwell"
+        "connector:inkwell",
+        "agent:proj:thesis-citation-checker",
+        "mcp_server:proj:shop-catalog-db"
       ]
     },
     {
@@ -1486,9 +1543,27 @@
     "skill:extra:idle-hive-inspector": {
       "always_on": 60,
       "on_use": 700
+    },
+    "skill:proj:cart-checkout-audit": {
+      "always_on": 70,
+      "on_use": 800
+    },
+    "agent:proj:thesis-citation-checker": {
+      "always_on": 70,
+      "on_use": 800
+    },
+    "mcp_server:proj:shop-catalog-db": {
+      "always_on": 70,
+      "on_use": 800
     }
   },
   "warnings": [
     "Offline: no labels or model-checked Overlaps; token costs shown only if already cached."
-  ]
+  ],
+  "projects": {
+    "p1": "alpha-shop",
+    "p2": "thesis"
+  },
+  "current_project": "p1",
+  "usage_by_project": {}
 }

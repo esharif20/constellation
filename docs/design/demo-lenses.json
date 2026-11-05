@@ -1,0 +1,207 @@
+{
+  "items": [
+    {
+      "id": "claude-code:hook:SessionStart",
+      "kind": "hook",
+      "name": "SessionStart",
+      "description": "Prints the repo status banner.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:hook:UserPromptSubmit",
+      "kind": "hook",
+      "name": "UserPromptSubmit",
+      "description": "Adds the current branch to each prompt.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:hook:UserPromptSubmit#2",
+      "kind": "hook",
+      "name": "UserPromptSubmit",
+      "description": "Adds today's date to each prompt.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:hook:PreToolUse:Bash",
+      "kind": "hook",
+      "name": "PreToolUse:Bash",
+      "description": "Checks shell commands against an allow list.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:hook:Stop",
+      "kind": "hook",
+      "name": "Stop",
+      "description": "Writes a short session note.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:hook:PreToolUse:Edit",
+      "kind": "hook",
+      "name": "PreToolUse:Edit",
+      "description": "Calls the git-helper tool before edits.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:mcp_server:user/git-helper",
+      "kind": "mcp_server",
+      "name": "git-helper",
+      "description": "Branch and diff helpers.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:mcp_server:local/1/git-helper",
+      "kind": "mcp_server",
+      "name": "git-helper",
+      "description": "Branch helpers for one project.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:skill:release-notes",
+      "kind": "skill",
+      "name": "release-notes",
+      "description": "Use when asked to \"draft the release notes\" for a version.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:skill:changelog-draft",
+      "kind": "skill",
+      "name": "changelog-draft",
+      "description": "Use when you need to \"draft the release notes\" from commits.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:skill:tune-spacing",
+      "kind": "skill",
+      "name": "tune-spacing",
+      "description": "Adjusts spacing in layout files when a design looks cramped.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:skill:repo-map",
+      "kind": "skill",
+      "name": "repo-map",
+      "description": "Lists the folders of a repository and what each is for.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:skill:pdf-tools",
+      "kind": "skill",
+      "name": "pdf-tools",
+      "description": "PDFs",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:skill:tidy-prose",
+      "kind": "skill",
+      "name": "tidy-prose",
+      "description": "Rewrites rough paragraphs into plain, short sentences.",
+      "source": "~/.claude/demo"
+    },
+    {
+      "id": "claude-code:plugin:demo-bundle",
+      "kind": "plugin",
+      "name": "demo-bundle",
+      "description": "A disabled bundle with one skill.",
+      "source": "~/.claude/demo",
+      "disabled": true
+    },
+    {
+      "id": "claude-code:skill:bundle-helper",
+      "kind": "skill",
+      "name": "bundle-helper",
+      "description": "Helps with the bundled demo tasks when asked.",
+      "source": "~/.claude/demo",
+      "disabled": true
+    }
+  ],
+  "relations": [
+    {
+      "source": "claude-code:plugin:demo-bundle",
+      "target": "claude-code:skill:bundle-helper",
+      "kind": "contains"
+    },
+    {
+      "source": "claude-code:hook:PreToolUse:Edit",
+      "target": "claude-code:mcp_server:user/git-helper",
+      "kind": "triggers"
+    }
+  ],
+  "labels": {},
+  "clusters": [],
+  "costs": {
+    "claude-code:skill:release-notes": {
+      "always_on": 120,
+      "on_use": 900
+    },
+    "claude-code:skill:changelog-draft": {
+      "always_on": 95,
+      "on_use": null
+    },
+    "claude-code:skill:tune-spacing": {
+      "always_on": 210,
+      "on_use": 1500
+    },
+    "claude-code:skill:repo-map": {
+      "always_on": 60,
+      "on_use": 400
+    },
+    "claude-code:skill:pdf-tools": {
+      "always_on": null,
+      "on_use": null
+    },
+    "claude-code:skill:tidy-prose": {
+      "always_on": 150,
+      "on_use": null
+    },
+    "claude-code:skill:bundle-helper": {
+      "always_on": 300,
+      "on_use": null
+    }
+  },
+  "overlaps": [],
+  "hook_weights": {
+    "claude-code:hook:SessionStart": {
+      "bytes": 1200,
+      "tokens": 340
+    },
+    "claude-code:hook:UserPromptSubmit": {
+      "bytes": 420,
+      "tokens": null
+    },
+    "claude-code:hook:UserPromptSubmit#2": {
+      "bytes": null,
+      "tokens": null
+    },
+    "claude-code:hook:PreToolUse:Bash": {
+      "bytes": 9000,
+      "tokens": null
+    }
+  },
+  "usage": {
+    "claude-code:skill:release-notes": {
+      "count": 60,
+      "last_used": "2026-11-02"
+    },
+    "claude-code:skill:changelog-draft": {
+      "count": 3,
+      "last_used": "2026-10-20"
+    },
+    "claude-code:skill:tune-spacing": {
+      "count": 3,
+      "last_used": "2026-10-28"
+    },
+    "claude-code:skill:repo-map": {
+      "count": 0,
+      "last_used": null
+    }
+  },
+  "usage_window": {
+    "files": 40,
+    "first": "2026-10-05",
+    "last": "2026-11-04",
+    "skipped": 0
+  },
+  "memory_bytes": 2048,
+  "warnings": []
+}

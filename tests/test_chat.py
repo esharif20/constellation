@@ -80,63 +80,61 @@ def test_email_search_is_free_grounded_and_cached(chat, monkeypatch):
     monkeypatch.setattr(env, "load_env", forbidden)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "invented-configured-key")
     response = ask(chat, "What can help me send email?")
-    assert response == {
-        "answer": "Matching Items:\n- mail-helper (skill): Send email and draft messages\n- draft (agent): Write email drafts",
-        "actions": [{"kind": "highlight", "item_ids": ["mail", "draft"]}],
-        "mode": "local",
-        "cached": False,
-    }
+    assert response["answer"] == (
+        "mail-helper is the closest match.\n- mail-helper: 400 tokens every session\n- draft: 20 tokens every session\n"
+        "Next: Click a name to see it on the map."
+    )
+    assert response["actions"] == [{"kind": "highlight", "item_ids": ["mail", "draft"]}]
+    assert (response["mode"], response["cached"]) == ("local", False)
+    assert [r["what"] for r in response["blocks"]["rows"]] == ["Send email and draft messages", "Write email drafts"]
     assert ask(chat, "What can help me send email?") == {**response, "cached": True}
     assert "PRIVATE" not in str(response)
 
 
 def test_top_costs_and_unknown_costs_are_grounded(chat):
     result = ask(chat, "What are my top costs?")
-    assert (
-        result["answer"] == "Highest always-on Context costs:\n- mail-helper: 400 tokens\n- draft: 20 tokens\n"
-        "1 Items have unknown cost; unknown is never counted as 0."
+    assert result["answer"] == (
+        "mail-helper costs the most: 400 tokens every session.\n- mail-helper: 400 tokens every session\n- draft: 20 tokens every session\n"
+        "Plus 1 Item with unknown cost, not counted as 0.\nNext: Check whether you still use mail-helper."
     )
     assert result["actions"] == [{"kind": "highlight", "item_ids": ["mail", "draft"]}]
     chat[2]["costs"] = {}
     chat[1].write_text(json.dumps(chat[2]))
     result = ask(chat, "What are my top costs?")
     assert result["cached"] is False
-    assert result["answer"] == "Token costs were not measured in this scan.\n3 Items have unknown cost; unknown is never counted as 0."
+    assert result["answer"] == "Token costs were not measured in this scan.\nPlus 3 Items with unknown cost, not counted as 0."
     assert result["actions"] == []
 
 
 def test_known_duplicate_and_wrapper_pairs(chat):
-    assert (
-        ask(chat, "Show duplicates")["answer"]
-        == "Known duplicate/wrapper Overlaps:\n- Remove one of these two: draft (agent) and mail-helper (skill). Both draft email"
+    assert ask(chat, "Show duplicates")["answer"] == (
+        "Found 1 duplicate or wrapper pair, starting with mail-helper.\n- mail-helper: Does the same job as draft\n"
+        "Next: Open a pair on the map and choose which one to keep."
     )
     chat[2]["overlaps"][0]["verdict"] = "wrapper"
     chat[1].write_text(json.dumps(chat[2]))
     result = ask(chat, "What wrappers are installed?")
     assert result["cached"] is False
-    assert (
-        result["answer"] == "Known duplicate/wrapper Overlaps:\n- mail-helper (skill) only calls draft (agent); "
-        "consider using draft (agent) directly. Both draft email"
-    )
+    assert "- mail-helper: Wraps draft" in result["answer"]
     assert result["actions"] == [{"kind": "highlight", "item_ids": ["mail", "draft"]}]
 
 
 def test_usage_and_never_seen_stay_local_with_window(chat):
     result = ask(chat, "Which Items were never used?")
-    assert (
-        result["answer"] == "Never seen in the scanned transcripts:\n- draft\n"
-        "Covers 3 transcript files from 2026-10-01 to 2026-11-01 (32 days); 0 files skipped. "
-        "Claude Code deletes old transcripts, so 'never seen' covers only these files and is not proof an Item is unused."
+    note = "Based on 3 saved transcripts. Old ones are deleted, so this is not proof an Item is unused."
+    assert result["answer"] == (
+        "1 Item not seen in 32 days of past sessions, starting with draft.\n- draft: 20 tokens every session\n"
+        f"{note}\nNext: Ask whether to keep draft."
     )
     assert result["actions"] == [{"kind": "highlight", "item_ids": ["draft"]}]
-    assert (
-        ask(chat, "Show usage")["answer"] == "Recorded usage:\n- draft: 0 uses\n- mail-helper: 2 uses\n- unknown: usage unknown\n"
-        "Covers 3 transcript files from 2026-10-01 to 2026-11-01 (32 days); 0 files skipped. "
-        "Claude Code deletes old transcripts, so 'never seen' covers only these files and is not proof an Item is unused."
+    assert ask(chat, "Show usage")["answer"] == (
+        f"Usage across 32 days of past sessions.\n- draft: 0 uses\n- mail-helper: 2 uses\n- unknown: Usage unknown\n{note}"
     )
     chat[2]["usage"]["draft"]["count"] = 4
     chat[1].write_text(json.dumps(chat[2]))
-    assert ask(chat, "Which Items were never used?")["answer"].startswith("No Items were never seen in this scan.\nCovers")
+    assert ask(chat, "Which Items were never used?")["answer"].startswith(
+        "Nothing here has been unused in 32 days of past sessions.\nBased on"
+    )
     chat[2].pop("usage_window")
     chat[1].write_text(json.dumps(chat[2]))
     assert ask(chat, "Show usage")["answer"] == "Usage was not read in this scan."
@@ -146,17 +144,20 @@ def test_chat_preserves_current_scan_usage_coverage_and_skipped_files(chat):
     chat[2]["usage_window"]["skipped"] = 2
     chat[1].write_text(json.dumps(chat[2]))
     result = ask(chat, "Show usage")
-    assert "from 2026-10-01 to 2026-11-01 (32 days); 2 files skipped" in result["answer"]
+    assert "Based on 3 saved transcripts (2 files skipped)." in result["answer"]
     assert "not proof an Item is unused" in result["answer"]
 
 
 def test_selected_followup_and_named_explanation(chat):
-    expected = "Item details:\n- mail-helper (skill): Send email and draft messages\n  Always-on: 400 tokens; on-use: 800 tokens."
+    expected = (
+        "mail-helper (skill): Send email and draft messages\nEvery session: 400 tokens. When used: 800 tokens. Used 2 times in 32 days.\n"
+        "Duplicate with draft.\nKeep one: Does the same job as draft.\nNext: Click a name to see it on the map."
+    )
     assert ask(chat, "Explain this", selected_ids=["mail"])["answer"] == expected
     assert ask(chat, "Explain mail-helper")["answer"].startswith(
-        "mail-helper\n- Kind: skill\n- Does: Send email and draft messages\n- Always-on: 400 tokens"
+        "mail-helper (skill): Send email and draft messages\nEvery session: 400 tokens"
     )
-    assert "- On-use: unknown" in ask(chat, "Explain unknown")["answer"]
+    assert "When used: unknown." in ask(chat, "Explain unknown")["answer"]
     assert ask(chat, "Focus mail-helper")["actions"] == [{"kind": "focus", "item_ids": ["mail"]}]
     assert ask(chat, "Filter email")["actions"] == [{"kind": "highlight", "item_ids": ["draft", "mail"]}]
 
@@ -210,11 +211,15 @@ def test_hostile_fts_syntax_is_only_literal_words(chat, question):
 
 def test_unknown_semantic_matches_and_empty_scan_are_honest(chat):
     result = ask(chat, "Communicate electronically")
-    assert result["answer"] == "No matching Items found. Try an Item name or a word from its description."
+    assert (
+        result["answer"]
+        == 'I could not find "communicate electronically" in this scan.\nNext: Check the spelling, or describe what it does.'
+    )
+    assert result["blocks"]["follow_ups"] == ["What costs the most every session?", "What have I never used?"]
     assert result["actions"] == []
     chat[1].write_text('{"items":[]}')
     assert ask(chat, "email")["actions"] == []
-    assert ask(chat, "duplicates")["answer"] == "No known duplicate/wrapper Overlaps in this scan."
+    assert ask(chat, "duplicates")["answer"] == "No known duplicates or wrappers in this scan."
     assert ask(chat, "usage")["answer"] == "Usage was not read in this scan."
 
 
@@ -241,7 +246,7 @@ def test_cache_follows_selection_scan_costs_and_usage_but_ignores_unrelated_prov
     assert ask(chat, "Explain this", selected_ids=["mail"])["cached"] is True
     chat[2]["usage"]["mail"]["count"] = 99
     chat[1].write_text(json.dumps(chat[2]))
-    assert ask(chat, "Explain this", selected_ids=["mail"])["cached"] is True
+    assert "Used 99 times" in ask(chat, "Explain this", selected_ids=["mail"])["answer"]  # cards show usage, so usage is part of the key
     assert "99 uses" in ask(chat, "usage")["answer"]
     chat[2]["items"][0]["description"] = "Changed email description"
     chat[2]["costs"]["mail"]["always_on"] = 500
@@ -298,11 +303,12 @@ def test_five_results_cost_order_zero_and_omitted_search_matches(chat):
     chat[1].write_text(json.dumps(chat[2]))
     costs = ask(chat, "top costs")
     assert costs["actions"] == [{"kind": "highlight", "item_ids": ["mail", "draft", "extra-5", "extra-4", "extra-3"]}]
-    assert costs["answer"].endswith("1 Items have unknown cost; unknown is never counted as 0.")
+    assert "Plus 1 Item with unknown cost, not counted as 0." in costs["answer"]
+    assert (len(costs["blocks"]["rows"]), costs["blocks"]["more"]) == (5, 3)
     search = ask(chat, "email")
     assert len(search["actions"][0]["item_ids"]) == 5
-    assert search["answer"].endswith("More matches omitted; narrow your question.")
-    assert "Always-on: 0 tokens; on-use: unknown." in ask(chat, "Explain this", selected_ids=["extra-0"])["answer"]
+    assert "3 more. Ask a narrower question." in search["answer"] and search["blocks"]["more"] == 3
+    assert "Every session: 0 tokens. When used: unknown." in ask(chat, "Explain this", selected_ids=["extra-0"])["answer"]
 
 
 def test_dangling_overlaps_and_costs_cannot_create_unknown_graph_ids(chat):
@@ -322,8 +328,9 @@ def test_usage_window_and_redacted_overlap_reasons(chat):
     chat[2]["overlaps"][0]["reason"] = "api_key=planted-value"
     chat[1].write_text(json.dumps(chat[2]))
     assert ask(chat, "usage")["answer"] == "No transcripts found."
-    assert "api_key=[REDACTED]" in ask(chat, "overlaps")["answer"]
-    assert "planted-value" not in str(ask(chat, "overlaps"))
+    explained = ask(chat, "Explain this", selected_ids=["mail"])
+    assert explained["blocks"]["cards"][0]["overlap"]["reason"] == "api_key=[REDACTED]"
+    assert "planted-value" not in str(explained) + str(ask(chat, "overlaps"))
     chat[1].unlink()
     response = chat[0].post("/api/chat", json={"question": "email"})
     assert response.status_code == 404
@@ -349,9 +356,11 @@ def test_explicit_explanations_and_usage_win_over_words_inside_names(chat):
         {"id": "named-unused", "name": "unused-helper", "kind": "skill", "description": "Maintain inventory"},
     ]
     chat[1].write_text(json.dumps(chat[2]))
-    assert ask(chat, "Explain cost-helper")["answer"].startswith("cost-helper\n- Kind: skill\n- Does: Estimate budgets")
-    assert ask(chat, "Describe unused-helper")["answer"].startswith("unused-helper\n- Kind: skill\n- Does: Maintain inventory")
-    assert ask(chat, "Which unused Items cost most?")["answer"].startswith("Never seen in the scanned transcripts:\n- draft\n")
+    assert ask(chat, "Explain cost-helper")["answer"].startswith("cost-helper (skill): Estimate budgets")
+    assert ask(chat, "Describe unused-helper")["answer"].startswith("unused-helper (skill): Maintain inventory")
+    assert ask(chat, "Which unused Items cost most?")["answer"].startswith(
+        "1 Item not seen in 32 days of past sessions, starting with draft."
+    )
 
 
 def test_metadata_display_is_shortened_only_after_redaction(chat):
@@ -360,19 +369,11 @@ def test_metadata_display_is_shortened_only_after_redaction(chat):
     chat[2]["overlaps"][0]["reason"] = "r" * 234 + secret
     chat[1].write_text(json.dumps(chat[2]))
     result = ask(chat, "Explain this", selected_ids=["mail"])
-    assert (
-        result["answer"]
-        == "Item details:\n- "
-        + "n" * 90
-        + "[REDAC… ("
-        + "k" * 34
-        + "[REDAC…): "
-        + "d" * 154
-        + "[REDAC…\n  Always-on: 400 tokens; on-use: 800 tokens."
-    )
-    pairs = ask(chat, "duplicates")["answer"]
-    assert "r" * 234 + "[REDAC…" in pairs
-    assert secret not in result["answer"] + pairs
+    card = result["blocks"]["cards"][0]
+    assert card["name"] == "n" * 90 + "[REDAC…" and card["kind_label"] == "k" * 34 + "[REDAC…"
+    assert card["what"] == "d" * 119 + "…"  # one long word is cut at 119 and never mid-secret
+    assert card["overlap"]["reason"] == "r" * 119 + "…"
+    assert secret not in str(result)
 
 
 def test_local_graph_disables_configured_external_tracing(chat, offline_tracing):
@@ -383,36 +384,34 @@ def test_local_graph_disables_configured_external_tracing(chat, offline_tracing)
     assert offline_tracing.calls == []
 
 
-def test_cost_questions_honor_named_or_selected_scope_and_decline_unsupported_totals(chat):
+def test_cost_questions_honor_named_or_selected_scope_and_decline_on_use_totals(chat):
     named = ask(chat, "What is the on-use cost of mail-helper?")
-    assert (
-        named["answer"]
-        == "Item details:\n- mail-helper (skill): Send email and draft messages\n  Always-on: 400 tokens; on-use: 800 tokens."
-    )
+    assert named["blocks"]["cards"][0]["on_use"] == "800 tokens"
     assert named["actions"] == [{"kind": "highlight", "item_ids": ["mail"]}]
     selected = ask(chat, "What does this cost?", selected_ids=["unknown"])
-    assert selected["answer"] == "Item details:\n- unknown (mcp_server): Calendar events\n  Always-on: unknown; on-use: unknown."
-    for question in ("What is the total always-on cost?", "Which Items have the highest on-use cost?"):
+    assert selected["blocks"]["cards"][0]["always_on"] == selected["blocks"]["cards"][0]["on_use"] == "unknown"
+    for question in ("Which Items have the highest on-use cost?",):
         result = ask(chat, question)
-        assert (
-            result["answer"]
-            == "Local chat ranks always-on Context costs. Ask for top costs, or name/select an Item to see its always-on and on-use costs."
+        assert result["answer"] == (
+            "I rank what each Item costs every session.\nNext: Ask for the top costs, or name an Item to see what it costs."
         )
         assert result["actions"] == []
 
 
 def test_counts_and_global_costs_ignore_stale_selection(chat):
     result = ask(chat, "How many Items do I have?")
-    assert result == {"answer": "The current scan contains 3 Items.", "actions": [], "mode": "local", "cached": False}
+    assert result["answer"] == "The current scan contains 3 Items." and result["actions"] == []
     result = ask(chat, "What are my top costs?", selected_ids=["unknown"])
     assert result["actions"] == [{"kind": "highlight", "item_ids": ["mail", "draft"]}]
 
 
 def test_named_usage_and_overlap_questions_do_not_return_unrelated_rows(chat):
-    assert ask(chat, "Usage of draft")["answer"].startswith("Recorded usage:\n- draft: 0 uses\nCovers")
-    assert ask(chat, "Usage of this", selected_ids=["mail"])["answer"].startswith("Recorded usage:\n- mail-helper: 2 uses\nCovers")
+    assert ask(chat, "Usage of draft")["answer"].startswith("Usage across 32 days of past sessions.\n- draft: 0 uses\nBased on")
+    assert ask(chat, "Usage of this", selected_ids=["mail"])["answer"].startswith(
+        "Usage across 32 days of past sessions.\n- mail-helper: 2 uses\nBased on"
+    )
     assert ask(chat, "Duplicates of unknown")["actions"] == []
-    assert ask(chat, "Duplicates of draft")["actions"] == [{"kind": "highlight", "item_ids": ["draft", "mail"]}]
+    assert ask(chat, "Duplicates of draft")["actions"] == [{"kind": "highlight", "item_ids": ["mail", "draft"]}]
 
 
 def test_stop_words_and_redaction_markers_do_not_create_search_matches(chat):
@@ -427,7 +426,7 @@ def test_stop_words_and_redaction_markers_do_not_create_search_matches(chat):
 
 
 def test_followup_this_without_explain_keyword_shows_item_details(chat):
-    assert ask(chat, "What is this?", selected_ids=["mail"])["answer"].startswith("Item details:\n- mail-helper")
+    assert ask(chat, "What is this?", selected_ids=["mail"])["answer"].startswith("mail-helper (skill): Send email")
 
 
 @pytest.mark.parametrize("size", [5, 6])
@@ -438,8 +437,8 @@ def test_search_and_usage_five_result_boundary(chat, size):
     chat[2]["overlaps"] = []
     chat[1].write_text(json.dumps(chat[2]))
     search = ask(chat, "testing")
-    assert search["answer"].startswith("Matching Items:\n- entry 0 (skill): testing")
-    assert ("More matches omitted" in search["answer"]) is (size == 6)
+    assert search["answer"].startswith("entry 0 is the closest match.\n- entry 0: Cost unknown")
+    assert ("1 more. Ask a narrower question." in search["answer"]) is (size == 6)
     for question in ("testing", "usage", "never used"):
         assert ask(chat, question)["actions"][0]["item_ids"] == ["0", "1", "2", "3", "4"]
 
@@ -450,10 +449,9 @@ def test_metadata_display_boundary_and_long_item_ids_remain_known(chat):
     chat[2]["overlaps"][0].update(a_id=long_id, reason="r" * 240)
     chat[1].write_text(json.dumps(chat[2]))
     result = ask(chat, "Explain this", selected_ids=[long_id])
-    assert "…" not in result["answer"]
-    assert "n" * 96 + " (" + "k" * 40 + "): " + "d" * 160 in result["answer"]
+    card = result["blocks"]["cards"][0]
+    assert card["name"] == "n" * 96 and card["kind"] == "k" * 40 and card["id"] == long_id
     overlaps = ask(chat, "duplicates")
-    assert "r" * 240 in overlaps["answer"] and "…" not in overlaps["answer"]
     assert long_id in overlaps["actions"][0]["item_ids"]
 
 
@@ -462,7 +460,7 @@ def test_multiple_overlap_rows_and_canonical_cache_metadata(chat):
     chat[1].write_text(json.dumps(chat[2]))
     result = ask(chat, "overlaps")
     assert result["answer"].count("\n- ") == 2
-    assert "Known wrapper\n- Remove one" in result["answer"]
+    assert "- mail-helper: Wraps unknown" in result["answer"]
     chat[1].write_text(json.dumps(chat[2], sort_keys=True))
     assert ask(chat, "overlaps")["cached"] is True
 
@@ -483,7 +481,7 @@ def test_full_redacted_metadata_is_searchable_even_when_display_is_short(chat):
     chat[1].write_text(json.dumps(chat[2]))
     result = ask(chat, "raretopic")
     assert result["actions"] == [{"kind": "highlight", "item_ids": ["mail"]}]
-    assert len(result["answer"]) < 240
+    assert len(result["answer"]) < 240 and result["blocks"]["rows"][0]["what"].endswith("…")
 
 
 def test_new_explicit_search_ignores_stale_selection_but_contextual_explanation_keeps_it(chat):
@@ -504,13 +502,13 @@ def test_overlap_scope_is_applied_before_top_five_ranking(chat):
 
 def test_scoped_empty_answers_do_not_deny_facts_elsewhere_in_scan(chat):
     pairs = ask(chat, "Duplicates of unknown")
-    assert pairs["answer"] == "No known duplicate/wrapper Overlaps for the requested Items."
+    assert pairs["answer"].startswith("No known duplicates or wrappers for those Items.")
     assert pairs["actions"] == []
     unused = ask(chat, "Never used mail-helper")
-    assert unused["answer"].startswith("None of the requested Items are recorded as never seen.\nCovers 3 transcript files")
+    assert unused["answer"].startswith("None of those Items is recorded as never seen.\nBased on 3 saved transcripts")
     assert unused["actions"] == []
     assert "draft" in ask(chat, "Never used")["answer"]
-    assert "Both draft email" in ask(chat, "duplicates")["answer"]
+    assert "Does the same job as draft" in ask(chat, "duplicates")["answer"]
 
 
 @pytest.mark.parametrize("size,status", [(16384, 200), (16385, 413)])
@@ -527,7 +525,7 @@ def test_chat_rejects_oversized_body_before_json_parsing(chat, size, status):
 def test_focus_selected_item_routes_to_focus_operation(chat):
     result = ask(chat, "Focus this", selected_ids=["unknown"])
     assert result["actions"] == [{"kind": "focus", "item_ids": ["unknown"]}]
-    assert "Calendar events" in result["answer"]
+    assert result["blocks"]["rows"][0]["what"] == "Calendar events"
 
 
 @pytest.mark.parametrize("body", [b'{"question":"email"}', b"invalid" + b" " * 16384])
@@ -566,5 +564,14 @@ def test_chat_without_length_or_encoding_never_reads_past_the_limit(chat):
 
 def test_explain_with_a_cost_word_and_a_name_stays_on_that_item(chat):
     reply = ask(chat, "Explain the email cost of mail-helper")
-    assert reply["answer"].startswith("Item details:\n- mail-helper (skill)")
+    assert reply["answer"].startswith("mail-helper (skill)")
     assert reply["actions"] == [{"kind": "highlight", "item_ids": ["mail"]}]
+
+
+def test_an_exact_name_beats_a_denser_lexical_match(chat):
+    chat[2]["items"] += [
+        {"id": "dense", "name": "z-dense", "kind": "skill", "description": "email email email email email email"},
+        {"id": "exact", "name": "email", "kind": "skill", "description": "unrelated context " * 8},
+    ]
+    chat[1].write_text(json.dumps(chat[2]))
+    assert ask(chat, "Email")["actions"][0]["item_ids"][0] == "exact"
