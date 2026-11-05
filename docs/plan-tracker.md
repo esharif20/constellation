@@ -457,3 +457,13 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - #72: a hook with no (or non-string) `command` is skipped with the fixed warning `skipped a hook in <scope>settings.json: it has no command`; an unreadable or invalid hooks file is a fixed warning, not a crash.
 - Plugin `SKILL.md` step 2 now passes `--project=PROJECT_DIRECTORY` (the session working dir) as one more quoted literal; still `--offline --no-usage`.
 - **Integration for the merge (not done here, belongs to ticket A's `__init__` wiring):** `Item.project` stays None on project Items because the key `p1..pN` comes from `read_usage`; after A merges, `scan()` should stamp `project=current_project` on `scope == "project"` Items from `--project` (not on `local/<n>/` servers). `claude_code.py` is not a mutmut target.
+## #61 Session-start receipt (2026-11-04, branch `claude/receipt-61`, plan `docs/plans/lenses.md`)
+
+- Done per the plan. `receipt.py` (`receipt(data)`), `GET /api/lenses` (`local_only`, body `{"receipt": ...}`; the other tickets add their key), `Constellation.memory_bytes` (user `CLAUDE.md` size by `stat` only; never opened, absent from `snapshot()`), `lenses.ts`, `useLenses.ts`, `Receipt.tsx` inside the Brief below the cost and pairs groups, `docs/design/demo-lenses.json` (16 Items), `GLOSSARY.md` (Lens, Session-start receipt). `receipt.py` is in `only_mutate`.
+- The `scan()` change is one stat and the extra constructor argument (the call is now spread over lines), so a rebase onto the LangGraph refactor should only need the stat and the `memory_bytes=` argument carried over.
+- Decision: the route reuses `read_brief()` as its validator (the plan names `read_items()`, which does not exist); the 404 text is the existing "{file} could not be read". It runs `brief()` needlessly; cheap at a few hundred Items.
+- Decision: a hook row that has tokens carries no bytes, so `uncounted_bytes` counts only what has no token figure.
+- Ask #55: `answer.py` does not exist on this branch; the Ask owner should call `receipt(data)["total_tokens"]`. `test_receipt_total_matches_ask_total` is not added.
+- Known: the existing Brief cost list still ranks a disabled plugin's skill (seen on demo-lenses); not part of this ticket. The legend under the bar repeats the segments as text because colour alone must not carry the group.
+- Screenshots: `docs/design/screenshots/lens-61-*.jpg` (demo data only). demo-offline.json has measured costs, so the null-total copy was not seen in a browser.
+- Needs the short Opus privacy check named in the plan before merge.

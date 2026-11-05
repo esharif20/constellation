@@ -1,6 +1,8 @@
 import { CheckIcon, PlusIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
+import { Receipt } from "@/components/Receipt";
+import { useLenses } from "@/components/useLenses";
 import { Separator } from "@/components/ui/separator";
 import { budget, kindName, type Budget, type BriefData, type BriefGroup, type BriefRow, type Checklist, type Model } from "@/graph/model";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,7 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
   const [announcement, setAnnouncement] = useState("");
   const [bottom, setBottom] = useState(96);
   const busy = useRef(false);
+  const lenses = useLenses();
   const byId = new Map(model.nodes.map((n) => [n.id, n]));
   const added = new Set(checklist?.ids ?? []);
   const meter = useMemo(() => budget(model.nodes), [model.nodes]);
@@ -110,6 +113,7 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
           <h3 className="text-sm font-medium">Duplicates and wrappers</h3>
           {data.pairs.rows.length ? <><Counter group={data.pairs} />{rows(data.pairs)}</> : <p className="mt-2 text-[13px] leading-[1.4] text-text-2">No duplicates or wrappers found.</p>}
         </div>
+        {lenses && <><Separator /><Receipt data={lenses.receipt} onItem={onItem} /></>}
         {checklist && checklist.ids.length > 0 && <footer className="flex flex-col gap-2 text-xs leading-[1.4] text-text-2">
           <Separator />
           <p>{checklist.ids.length} on your checklist · {checklist.frees == null ? "saving not measured" : `frees ~${checklist.frees.toLocaleString()} tokens (estimate)`}</p>
