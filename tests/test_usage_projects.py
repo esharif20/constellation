@@ -1,5 +1,6 @@
 import json
 from dataclasses import asdict
+from pathlib import Path
 
 import pytest
 from fakes import write_skill
@@ -68,7 +69,9 @@ def test_current_project_label_keeps_hyphens_and_gets_a_key_without_usage(tmp_pa
     write_skill(config, "tdd", "invented")
     put(config, _encode(repo), [tool(value="absent")])
     put(config, folder(home, "dev-other"), [tool(id_="o")])
+    put(config, folder(home, "dev-quiet"), [tool(value="absent", id_="q")])  # uncredited and not current: no key
     result = scan(config, project=repo)
+    assert len(result.projects) == 2
     assert result.projects == {"p1": "plan-43-44", "p2": "dev-other"} or result.projects == {"p1": "dev-other", "p2": "plan-43-44"}
     assert result.projects[result.current_project] == "plan-43-44"
     assert result.usage_by_project["claude-code:skill:tdd"].keys() == {"p1", "p2"} - {result.current_project}
@@ -82,16 +85,65 @@ def test_current_project_without_a_transcript_folder_has_no_key(tmp_path, home):
 
 
 def test_label_rules(home):
-    assert _label(folder(home, "dev-constellation"), 1, None) == "dev-constellation"
-    assert _label("-elsewhere-x", 1, None) == "elsewhere-x"  # no home prefix: the folder name itself
-    assert _label(_encode(home) + "-", 4, None) == "project 4"
-    assert _label("---", 2, None) == "project 2"
-    assert len(_label("x" * 100, 1, None)) == 60
-    assert _label(folder(home, "k-" + "sk-" + "a" * 30), 1, None).count("sk-") == 0  # redacted
-    assert _label("anything", 1, home / "repo-name") == "anything"  # not the current folder
+    assert _label(folder(home, "dev-constellation"), 1, None, home) == "dev-constellation"
+    assert _label("-elsewhere-x", 1, None, home) == "elsewhere-x"  # no home prefix: the folder name itself
+    assert _label(_encode(home) + "-", 4, None, home) == "project 4"
+    assert _label("---", 2, None, home) == "project 2"
+    assert len(_label("x" * 100, 1, None, home)) == 60
+    assert _label(folder(home, "k-" + "sk-" + "a" * 30), 1, None, home).count("sk-") == 0  # redacted
+    assert _label("anything", 1, home / "repo-name", home) == "anything"  # not the current folder
+    assert _label("-no-home-given", 1, None, None) == "no-home-given"
+    assert _label("-Mixed-CaseX-", 1, None, None) == "Mixed-CaseX"  # strips only dashes; keeps upper case
+    assert _label(folder(home, "Dev-Z9"), 1, None, home) == "Dev-Z9"
+    assert _label("-a.b_c", 1, None, None) == "a.b_c"
+    assert _encode(Path("/A/b_c.d z")) == "-A-b-c-d-z"
 
 
-def test_planted_folder_name_stays_local(tmp_path, home, monkeypatch):
+def test_a_bare_home_never_shows_the_username(home):
+    user = home.name
+    assert _label(_encode(home), 3, None, home) == "project 3"  # Claude Code run in ~ itself
+    assert _label(_encode(home), 3, home, home) == "project 3"  # --project ~
+    assert user not in _label(_encode(home), 3, home, home)
+
+
+def test_labels_drop_control_bidi_and_zero_width_characters(home):
+    odd = "al\u202epha\u200b\x00\x1b-b\u00e9ta"
+    assert _label(folder(home, odd), 1, None, home) == "alpha-bta"
+    assert _label("x", 1, Path("/tmp/pr\u202eoj\u200b\x07"), None) == "x"  # not the current folder
+    repo = home / "dev" / "pr\u202eoj\u200bect\x07"
+    assert _label(_encode(repo), 1, repo, home) == "project"
+
+
+def test_ambiguous_item_names_are_credited_to_the_project_of_each_item(tmp_path, home):
+    from test_usage import plugin
+
+    config = tmp_path / "cfg"
+    for name in ("p", "q"):
+        write_skill(plugin(config, name), "dup", name)
+    put(config, folder(home, "a"), [tool(value="dup", id_="a1")])
+    result = scan(config)
+    ids = [i for i in result.usage if i.endswith("/dup")]
+    assert len(ids) == 2
+    assert all(result.usage_by_project[i] == {"p1": result.usage[i]} for i in ids)
+    assert result.warnings == ["usage: 1 invocation names matched more than one Item; each was credited"]
+
+
+def test_through_the_cli_json(tmp_path, home):
+    from constellation.cli import main
+
+    config, out = tmp_path / "cfg", tmp_path / "out.json"
+    write_skill(config, "tdd", "invented")
+    put(config, folder(home, "dev-alpha"), [tool(id_="a1")])
+    assert main(["scan", str(config), "--out", str(out), "--offline"]) == 0
+    data = json.loads(out.read_text())
+    assert data["projects"] == {"p1": "dev-alpha"}
+    assert data["usage_by_project"]["claude-code:skill:tdd"] == {"p1": {"count": 1, "last_used": "2026-11-02"}}
+    assert data["current_project"] is None
+
+
+def test_planted_folder_name_stays_local(tmp_path, home):
+    from fakes import FakeCounter, FakeEmbedder, FakeLLM, FakeVerifier
+
     from constellation.report import render_cleanup, render_report
     from constellation.suggestions import suggest
 
@@ -99,28 +151,42 @@ def test_planted_folder_name_stays_local(tmp_path, home, monkeypatch):
     write_skill(config, "tdd", "invented")
     write_skill(config, "unused", "invented")
     put(config, "-tmp-home-zzsecretclient", [tool(id_="z1"), tool(value="absent", id_="z2")])
-    seen = []
-
-    def llm(prompt):
-        seen.append(prompt)
-        return "label"
-
-    result = scan(config, llm=llm)
+    llm, embedder, counter, verifier = FakeLLM({}), FakeEmbedder({}), FakeCounter(), FakeVerifier()
+    caches = {n: tmp_path / f"{n}.json" for n in ("cost", "verdict", "label")}
+    result = scan(
+        config,
+        llm=llm,
+        embedder=embedder,
+        counter=counter,
+        count_bodies=True,
+        verifier=verifier,
+        cost_cache=caches["cost"],
+        verdict_cache=caches["verdict"],
+        label_cache=caches["label"],
+    )
     data = asdict(result)
     assert "zzsecretclient" in json.dumps(data["projects"])  # local only
     outputs = [
         "\n".join(result.warnings),
         render_report(data, top=10, color=False, width=120, show_all=True),
+        render_cleanup(data, top=10),
         json.dumps([asdict(s) for s in suggest(data)]),
         json.dumps(snapshot(data)),
-        "\n".join(seen),
+        "\n".join(llm.prompts + embedder.texts + counter.texts + verifier.prompts),
+        *(p.read_text() for p in caches.values() if p.exists()),
     ]
-    try:
-        outputs.append(render_cleanup(data))
-    except TypeError:
-        pass
     for text in outputs:
         assert "zzsecretclient" not in text
     for key in ("scope", "project", "projects", "usage_by_project", "current_project"):
         assert key not in snapshot(data)
         assert all(key not in item for item in snapshot(data).get("items", []))
+
+
+def test_subagent_transcripts_count_for_their_project_and_bare_home_numbers_follow_order(tmp_path, home):
+    config = tmp_path / "cfg"
+    write_skill(config, "tdd", "invented")
+    put(config, _encode(home), [tool(id_="h1")])  # Claude run in ~: sorts first, label "project 1"
+    put(config, folder(home, "dev-a") + "/sess/subagents", [tool(id_="s1")], name="agent.jsonl")
+    result = scan(config)
+    assert result.projects == {"p1": "project 1", "p2": "dev-a"}
+    assert result.usage_by_project["claude-code:skill:tdd"].keys() == {"p1", "p2"}
