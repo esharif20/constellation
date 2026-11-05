@@ -59,6 +59,7 @@
     "hook_weights": {},
     "items": [
       {
+        "changed_on": null,
         "description": "Walks through baking a loaf.",
         "disabled": false,
         "id": "claude-code:skill:bake-bread",
@@ -70,6 +71,7 @@
         "source": "claude-code"
       },
       {
+        "changed_on": null,
         "description": "Reads a PDF in depth.",
         "disabled": false,
         "id": "claude-code:skill:deep-read",
@@ -81,6 +83,7 @@
         "source": "claude-code"
       },
       {
+        "changed_on": null,
         "description": "Reads PDF files and summarises them.",
         "disabled": false,
         "id": "claude-code:skill:pdf-reader",
@@ -92,6 +95,7 @@
         "source": "claude-code"
       },
       {
+        "changed_on": null,
         "description": "Views PDF files and lists key points.",
         "disabled": false,
         "id": "claude-code:skill:pdf-viewer",
@@ -103,6 +107,7 @@
         "source": "claude-code"
       },
       {
+        "changed_on": null,
         "description": "Removes AI writing patterns from prose.",
         "disabled": false,
         "id": "claude-code:skill:stop-slop",
@@ -114,6 +119,7 @@
         "source": "claude-code"
       },
       {
+        "changed_on": null,
         "description": "Cleans up wordy writing.",
         "disabled": false,
         "id": "claude-code:skill:tidy-prose",
@@ -195,6 +201,7 @@
       "files": 0,
       "first": null,
       "last": null,
+      "sessions": 0,
       "skipped": 0
     },
     "warnings": []

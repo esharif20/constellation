@@ -1,0 +1,204 @@
+{
+  "today": "2026-11-05",
+  "evidence": {
+    "sessions": 52,
+    "active_days": 34,
+    "span_days": 52,
+    "sessions_per_day": 1.6,
+    "projects": {
+      "9f3e1c": [
+        "2026-11-04",
+        20
+      ],
+      "07aa42": [
+        "2026-11-02",
+        12
+      ],
+      "b1c2d3": [
+        "2026-10-28",
+        8
+      ],
+      "e4f5a6": [
+        "2026-10-20",
+        7
+      ],
+      "0c0c0c": [
+        "2026-10-09",
+        5
+      ]
+    },
+    "skipped_share": 0.0,
+    "items": {
+      "git-helper": {
+        "count": 41,
+        "sessions_used": 38,
+        "days_used": 30,
+        "percentile": 90,
+        "trend": "steady",
+        "purpose_class": "everyday"
+      },
+      "release-notes": {
+        "count": 3,
+        "sessions_used": 3,
+        "days_used": 3,
+        "idle_active_days": 20,
+        "purpose_class": "rare"
+      },
+      "changelog-draft": {
+        "count": 0,
+        "purpose_class": "rare"
+      },
+      "tune-spacing": {
+        "count": 0,
+        "purpose_class": "everyday"
+      },
+      "repo-map": {
+        "count": 9,
+        "sessions_used": 9,
+        "days_used": 7,
+        "purpose_class": "everyday"
+      },
+      "lint-fix": {
+        "count": 6,
+        "sessions_used": 6,
+        "days_used": 6,
+        "idle_active_days": 74,
+        "mean_gap": 8.0,
+        "trend": "fading",
+        "purpose_class": "occasional"
+      },
+      "scratch-notes": {
+        "count": 0,
+        "vague": true
+      },
+      "db-migrate": {
+        "count": 0,
+        "first_seen": "2026-10-30"
+      },
+      "quarterly-report": {
+        "count": 0,
+        "purpose_class": "rare"
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "claude-code:agent:git-helper",
+      "kind": "agent",
+      "name": "git-helper",
+      "description": "Use when working with git history, branches or rebases; explains and fixes them.",
+      "origin": null,
+      "always_on": 300
+    },
+    {
+      "id": "claude-code:skill:release-notes",
+      "kind": "skill",
+      "name": "release-notes",
+      "description": "Use when preparing a release: drafts release notes from merged work.",
+      "origin": null,
+      "always_on": 420
+    },
+    {
+      "id": "claude-code:skill:changelog-draft",
+      "kind": "skill",
+      "name": "changelog-draft",
+      "description": "Use when preparing a release: drafts a changelog from merged work.",
+      "origin": "example-org/skill-pack",
+      "always_on": 380
+    },
+    {
+      "id": "claude-code:skill:tune-spacing",
+      "kind": "skill",
+      "name": "tune-spacing",
+      "description": "Use when the user asks to tune spacing or layout rhythm in a stylesheet, e.g. 'tighten the padding'.",
+      "origin": "example-org/skill-pack",
+      "always_on": 610
+    },
+    {
+      "id": "claude-code:plugin:pdf-tools",
+      "kind": "plugin",
+      "name": "pdf-tools",
+      "description": "PDF utilities bundle: split, merge and extract.",
+      "origin": "pdf-tools",
+      "always_on": 1900
+    },
+    {
+      "id": "claude-code:skill:repo-map",
+      "kind": "skill",
+      "name": "repo-map",
+      "description": "Use when you need a map of the repository layout before editing.",
+      "origin": null,
+      "always_on": 520
+    },
+    {
+      "id": "claude-code:skill:lint-fix",
+      "kind": "skill",
+      "name": "lint-fix",
+      "description": "Use when lint errors need fixing across files, e.g. after upgrading a rule set.",
+      "origin": null,
+      "always_on": 200
+    },
+    {
+      "id": "claude-code:skill:scratch-notes",
+      "kind": "skill",
+      "name": "scratch-notes",
+      "description": "notes helper",
+      "origin": null,
+      "always_on": 90
+    },
+    {
+      "id": "claude-code:mcp_server:search",
+      "kind": "mcp_server",
+      "name": "search",
+      "description": "stdio server, shape: search",
+      "origin": null,
+      "always_on": null
+    },
+    {
+      "id": "claude-code:skill:db-migrate",
+      "kind": "skill",
+      "name": "db-migrate",
+      "description": "Use when writing a database migration: creates and checks migration files.",
+      "origin": null,
+      "always_on": 450
+    },
+    {
+      "id": "claude-code:skill:quarterly-report",
+      "kind": "skill",
+      "name": "quarterly-report",
+      "description": "Use when building the quarterly report from finance exports.",
+      "origin": null,
+      "always_on": 700
+    },
+    {
+      "id": "claude-code:hook:UserPromptSubmit:*",
+      "kind": "hook",
+      "name": "UserPromptSubmit:*",
+      "description": "Hook on UserPromptSubmit",
+      "origin": null,
+      "always_on": null
+    }
+  ],
+  "overlaps": [
+    {
+      "a": "changelog-draft",
+      "b": "release-notes",
+      "verdict": "duplicate"
+    }
+  ],
+  "conflicts": [
+    {
+      "kind": "mcp_name",
+      "ids": [
+        "search"
+      ],
+      "detail": "user copy shadowed by local scope"
+    }
+  ],
+  "plugin_children": {
+    "pdf-tools": 3
+  },
+  "hook_bytes": {
+    "UserPromptSubmit:*": 1200
+  }
+}

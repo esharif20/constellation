@@ -60,7 +60,7 @@ def test_expansion_lists_sorted_tools_through_cli_and_http(tmp_path, monkeypatch
     }
     for item, got, name in zip(expected["items"], result["items"], ("alpha", "zeta"), strict=True):
         item["disabled"] = False
-        item.update(origin=None, scope="global", project=None)  # Item fields added since this test was written
+        item.update(origin=None, scope="global", project=None, changed_on=None)  # Item fields added since this test was written
         # Ids are keyed per process: stable here, never the plain digest of the raw tool name.
         assert got["id"].startswith(id_ + ":tool:") and len(got["id"]) == len(id_) + 6 + 64
         assert got["id"] != id_ + ":tool:" + sha256(name.encode()).hexdigest()
