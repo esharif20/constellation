@@ -753,3 +753,8 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Labels: zoomed out shows cluster names only (existing chooseSpot collision avoidance). The #71 health badge now shows only for the hovered name, the focused Item's cluster, or from zoom 1.3x on and then only where it fits (`badgeWanted` in graph/badge.ts; `badgeY` kept).
 - Hover: `hoverTarget` (graph/hover.ts) adds hysteresis (padded hit radius with a 9 px floor for tiny stars, rival must be 30% closer); 130 ms dwell from empty space, 50 ms switch when a tooltip is open; no hover while a button is down or dragging; pan/zoom still hides. Touch path unchanged (tap shows, tap elsewhere hides).
 - New check: `npm run labels:check`.
+
+## Hubs Slice 3: plugins join their contents' cluster (branch `claude/hubs-plugins`)
+- Status: done, no deviations. Stack unchanged. `join_contents` (cluster.py) runs after `cluster()` in `cluster_items`; `Context.relations` carries the relations in.
+- Rule as in `docs/design/mcp-and-hubs.md`: a plugin moves to the cluster with most of its `contains` targets if that holds at least 2; ties go to the larger cluster, then lower name; emptied clusters are dropped; names and labels unchanged.
+- No new provider calls, offline unchanged, privacy invariant unchanged. Golden test not regenerated.

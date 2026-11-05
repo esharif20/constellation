@@ -4,7 +4,9 @@ import pytest
 from fakes import FakeEmbedder, FakeLLM
 
 from constellation import scan
+from constellation.cluster import join_contents
 from constellation.embeddings import fastembed_embedder
+from constellation.models import Cluster, Item, Relation
 
 
 def _skill(root, name, description):
@@ -275,3 +277,64 @@ def test_common_name_orders_tied_tokens_by_first_appearance():
     from constellation.cluster import _common_name
 
     assert _common_name(["2026-zeta", "2026-zeta"]) == "2026 zeta"
+
+
+# Plugins join the cluster of their contents (docs/design/mcp-and-hubs.md, Slice 3). Invented data, no scan needed.
+def _items(*names):
+    return [Item(f"s:{k}:{n}", k, n, "", "s") for n, k in (x.split("/") for x in names)]
+
+
+def _contains(plugin, *targets):
+    return [Relation(f"s:plugin:{plugin}", f"s:skill:{t}", "contains") for t in targets]
+
+
+def _ids(clusters):
+    return {c.name: set(c.item_ids) for c in clusters}
+
+
+def test_a_plugin_joins_the_cluster_holding_most_of_its_skills():
+    items = _items("p/plugin", "a/skill", "b/skill", "c/skill", "x/skill")
+    clusters = [
+        Cluster("alone", ("s:plugin:p",)),
+        Cluster("main", ("s:skill:a", "s:skill:b", "s:skill:c")),
+        Cluster("other", ("s:skill:x",)),
+    ]
+    got = join_contents(items, clusters, _contains("p", "a", "b", "x"))
+    assert _ids(got) == {
+        "main": {"s:plugin:p", "s:skill:a", "s:skill:b", "s:skill:c"},
+        "other": {"s:skill:x"},
+    }  # emptied cluster is dropped
+
+
+def test_a_plugin_with_one_item_per_cluster_stays_put():
+    items = _items("p/plugin", "a/skill", "x/skill")
+    clusters = [Cluster("alone", ("s:plugin:p",)), Cluster("one", ("s:skill:a",)), Cluster("two", ("s:skill:x",))]
+    assert join_contents(items, clusters, _contains("p", "a", "x")) == clusters
+
+
+def test_ties_go_to_the_larger_cluster_then_the_lower_name():
+    items = _items("p/plugin", "a/skill", "b/skill", "x/skill", "y/skill", "z/skill")
+    big = Cluster("big", ("s:skill:x", "s:skill:y", "s:skill:z"))
+    small = Cluster("small", ("s:skill:a", "s:skill:b"))
+    got = join_contents(items, [Cluster("alone", ("s:plugin:p",)), small, big], _contains("p", "a", "b", "x", "y"))
+    assert "s:plugin:p" in _ids(got)["big"]
+    even = [Cluster("zed", ("s:skill:a", "s:skill:b")), Cluster("abc", ("s:skill:x", "s:skill:y")), Cluster("alone", ("s:plugin:p",))]
+    assert "s:plugin:p" in _ids(join_contents(items, even, _contains("p", "a", "b", "x", "y")))["abc"]
+
+
+def test_only_contains_relations_of_plugins_count_and_joining_is_repeatable():
+    items = _items("p/plugin", "a/skill", "b/skill", "h/hook")
+    clusters = [Cluster("alone", ("s:plugin:p",)), Cluster("main", ("s:skill:a", "s:skill:b"))]
+    triggers = [Relation("s:plugin:p", "s:skill:a", "triggers"), Relation("s:plugin:p", "s:skill:b", "triggers")]
+    assert join_contents(items, clusters, triggers) == clusters
+    once = join_contents(items, clusters, _contains("p", "a", "b"))
+    assert once == join_contents(items, once, _contains("p", "a", "b"))
+    notplugin = [Relation("s:skill:a", "s:skill:b", "contains")] * 2
+    assert join_contents(items, clusters, notplugin) == clusters
+
+
+def test_a_plugin_with_no_contents_does_not_stop_the_next_plugin_joining():
+    items = _items("a/plugin", "b/plugin", "x/skill", "y/skill")
+    clusters = [Cluster("alone", ("s:plugin:a", "s:plugin:b")), Cluster("main", ("s:skill:x", "s:skill:y"))]
+    got = join_contents(items, clusters, _contains("b", "x", "y"))
+    assert _ids(got) == {"alone": {"s:plugin:a"}, "main": {"s:skill:x", "s:skill:y", "s:plugin:b"}}
