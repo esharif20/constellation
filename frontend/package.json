@@ -19,6 +19,7 @@
     "hooks:check": "node scripts/hooks-check.mjs",
     "chat:check": "node scripts/chat-accessibility.mjs",
     "triggers:check": "node scripts/triggers-check.mjs",
+    "conflicts:check": "node scripts/conflicts-check.mjs",
     "chat:cluster:check": "node scripts/chat-cluster-check.mjs"
   },
   "dependencies": {
