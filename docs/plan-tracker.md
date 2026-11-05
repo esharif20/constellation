@@ -731,3 +731,6 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 
 - Added `HookSafety.tsx` under the Receipt in the Brief, rendering `lenses.hooks` (guarded by `lenses?.hooks`). Each row: hook name, plain-English line (when it runs, can it stop work, MCP or shell), weight, click selects the Item. Top 6 with a "Show all" toggle; kind empty state. Never shows command text.
 - `Lenses.hooks` is optional in `graph/lenses.ts` so sibling panels merge cleanly. New check: `npm run hooks:check`. No deviations. Gates: build, layout:check, chat:check, hooks:check, inspector:check pass. Screenshots not taken.
+## #65 Trigger audit panel (2026-11-05, branch `claude/panel-triggers`)
+
+- Frontend panel `Triggers.tsx` renders `lenses.triggers` under the Receipt in the Cleanup brief: per skill, plain-English reasons (never used in the last N session files, very short description, used far more than others), click selects the Item on the map, kind empty/no-history states, top 8 plus "+ N more". Shows only the API's fields. Gate: `npm run triggers:check` (reasons wording and states). Build, layout:check, chat:check pass. No screenshots taken; no deviations.

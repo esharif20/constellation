@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Preview } from "@/components/Preview";
 import { HookSafety } from "@/components/HookSafety";
 import { Receipt } from "@/components/Receipt";
+import { Triggers } from "@/components/Triggers";
 import { useLenses } from "@/components/useLenses";
 import { Separator } from "@/components/ui/separator";
 import { budget, kindName, type Budget, type BriefData, type BriefGroup, type BriefRow, type Checklist, type GNode, type Model } from "@/graph/model";
@@ -153,6 +154,7 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
         </div>
         {lenses && <><Separator /><Receipt data={lenses.receipt} onItem={onItem} /></>}
         {lenses?.hooks && <><Separator /><HookSafety rows={lenses.hooks} onItem={onItem} /></>}
+        {lenses?.triggers && <><Separator /><Triggers data={lenses.triggers} onItem={onItem} /></>}
         {checklist && checklist.ids.length > 0 && <footer className="flex flex-col gap-2 text-xs leading-[1.4] text-text-2">
           <Separator />
           <p>{checklist.ids.length} on your checklist · {checklist.frees == null ? "saving not measured" : `frees ~${checklist.frees.toLocaleString()} tokens (estimate)`}</p>

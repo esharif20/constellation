@@ -3,4 +3,6 @@ export type ReceiptGroup = { kind: string; count: number; tokens: number | null;
 export type ReceiptRow = { id: string | null; kind: string; name: string; tokens: number | null; bytes: number | null };
 export type Receipt = { total_tokens: number | null; uncounted_bytes: number; unknown: number; groups: ReceiptGroup[]; rows: ReceiptRow[] };
 export type HookRow = { id: string; name: string; event: string; matcher: string | null; phase: string; can_block: boolean; runs: string; bytes: number | null; tokens: number | null };
-export type Lenses = { receipt: Receipt; hooks?: HookRow[] };
+export type Lenses = { receipt: Receipt; hooks?: HookRow[]; triggers?: Triggers };
+export type TriggerRow = { id: string; name: string; count: number; last_used: string | null; flags: ("never" | "vague" | "greedy")[] };
+export type Triggers = { files: number; rows: TriggerRow[] };
