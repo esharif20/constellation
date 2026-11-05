@@ -4,8 +4,10 @@ Privacy: `State` is what the checkpointer saves to disk, so it holds ids, cache 
 and every string a node puts into it goes through `Context.safe` (redact) first. Everything with file text in it (Items, bodies,
 descriptions, vectors, project labels, secrets) lives in `Context`, which LangGraph never saves."""
 
+import functools
 import hashlib
 import operator
+import re
 import sqlite3
 from collections import defaultdict
 from collections.abc import Callable
@@ -17,7 +19,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Send
 
-from .checkpoint import open_checkpointer
+from .checkpoint import close_checkpointer, open_checkpointer
 from .classify import MAX_CONCURRENCY, _prompt, label_flush, label_one, label_plan
 from .cluster import cluster
 from .costs import cache_key, count_texts, measure
@@ -28,6 +30,9 @@ from .redact import redact
 
 DEFAULT_CHECKPOINT = Path.home() / ".cache" / "constellation" / "scan.sqlite"
 STATE_TYPES = tuple(("constellation.models", name) for name in ("Cluster", "Cost", "Overlap", "Weight"))  # what State may hold
+MEMORY_FILE = "CLAUDE.md"  # pragma: no mutate  (file names are case-insensitive on macOS, so a changed case cannot be told apart)
+CACHE_KEY = re.compile(r"[0-9a-f]{64}")
+QUOTED_PATH = re.compile(r"""(['"])(?:/|[A-Za-z]:\\)[^'"]*\1""")
 CHECKPOINT_WARNING = "Ignored an unreadable or foreign scan checkpoint; this scan ran from the start."
 
 
@@ -56,19 +61,81 @@ class Context:
     label_model: str = ""
     verifier_model: str = ""
     on_verify: Callable[[int, int], None] | None = None
+    _alias: dict[str, str] = field(init=False, repr=False, default_factory=dict)  # Item id -> the id State holds
+    _back: dict[str, str] = field(init=False, repr=False, default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """State holds ids with any secret redacted out of the name part. Ids with none are unchanged; ids that would collide
+        after redaction get a numeric suffix; `rid` maps back, so the scan's result keeps the real ids."""
+        taken = {i.id for i in self.items}
+        for n, item in enumerate(sorted(self.items, key=lambda i: i.id)):
+            shown = self.safe(item.id)
+            if shown != item.id and shown in taken:
+                shown = f"{shown}#{n}"
+            taken.add(shown)
+            self._alias[item.id], self._back[shown] = shown, item.id
+
+    def sid(self, id_: str) -> str:
+        return self._alias.get(id_) or self.safe(id_)
+
+    def rid(self, shown: str) -> str:
+        return self._back.get(shown, shown)
 
     def item(self, id_: str) -> Item:
-        return next(i for i in self.items if i.id == id_)
+        real = self.rid(id_)
+        return next(i for i in self.items if i.id == real)
 
     def safe(self, text: str) -> str:
         """The only way a string reaches State: redacted first, because State is written to disk."""
         return redact(text, self.secrets)
 
+    def scrub(self, text: str) -> str:
+        """`safe`, plus no absolute paths: quoted paths become <path> and the home directory becomes ~."""
+        home = str(Path.home())
+        text = QUOTED_PATH.sub(lambda m: f"{m[1]}<path>{m[1]}", text)  # before redact: a long path looks like a random token
+        return self.safe(text.replace(home, "~") if len(home) > 1 else text)
+
     def safe_overlap(self, overlap: Overlap) -> Overlap:
-        return replace(overlap, reason=self.safe(overlap.reason))
+        return replace(overlap, a_id=self.sid(overlap.a_id), b_id=self.sid(overlap.b_id), reason=self.safe(overlap.reason))
 
     def safe_warnings(self, stage: str, warnings: list[str]) -> dict[str, list[str]]:
-        return {stage: [self.safe(w) for w in warnings]}
+        return {stage: [self.scrub(w) for w in warnings]}
+
+    def restore(self, state: "State") -> "State":
+        """The final State with the real Item ids back (what scan() builds the Constellation from)."""
+        back = state.copy()
+        if "labels" in back:
+            back["labels"] = {self.rid(k): v for k, v in back["labels"].items()}
+        if "clusters" in back:
+            back["clusters"] = [replace(c, item_ids=tuple(self.rid(i) for i in c.item_ids)) for c in back["clusters"]]
+        for key in ("costs", "hook_weights"):
+            if key in back:
+                back[key] = {self.rid(k): v for k, v in back[key].items()}  # type: ignore[typeddict-item]
+        if "final_overlaps" in back:
+            back["final_overlaps"] = [replace(o, a_id=self.rid(o.a_id), b_id=self.rid(o.b_id)) for o in back["final_overlaps"]]
+        return back
+
+
+class NodeError(Exception):
+    """Stands in for an exception inside a node whose class cannot be rebuilt from a message alone."""
+
+
+def _guarded[F: Callable[..., Any]](node: F) -> F:  # keeps the node's own signature for LangGraph and mypy
+    @functools.wraps(node)
+    def guarded(state: Any, runtime: Runtime[Context]) -> Any:
+        try:
+            return node(state, runtime)
+        except Exception as error:
+            # LangGraph saves repr(exception) in the checkpoint, so the original (its message may hold a secret or a home path)
+            # must not be the one that propagates: raise the same class with a scrubbed message, and no chained cause.
+            message = runtime.context.scrub(str(error))
+            try:
+                clean: Exception = type(error)(message)
+            except Exception:
+                clean = NodeError(f"{type(error).__name__}: {message}")
+            raise clean from None
+
+    return guarded  # type: ignore[return-value]
 
 
 def _merge_stage(left: dict[str, list[str]], right: dict[str, list[str]]) -> dict[str, list[str]]:
@@ -104,13 +171,14 @@ class _PairJob(TypedDict):
     b_id: str
 
 
+@_guarded
 def plan_labels(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     """Free and local: labels already cached are merged in; only the rest becomes a paid job."""
     ctx = runtime.context
     if not ctx.llm:
         return {}
     labels, todo = label_plan(ctx.items, ctx.secrets, ctx.label_cache, ctx.label_model)
-    return {"labels": {id_: ctx.safe(text) for id_, text in labels.items()}, "label_jobs": [i.id for i in todo]}
+    return {"labels": {ctx.sid(id_): ctx.safe(text) for id_, text in labels.items()}, "label_jobs": [ctx.sid(i.id) for i in todo]}
 
 
 def route_labels(state: State) -> list[Send] | str:
@@ -119,6 +187,7 @@ def route_labels(state: State) -> list[Send] | str:
     return [Send("label", {"item_id": id_}) for id_ in state["label_jobs"]] or "labels_done"
 
 
+@_guarded
 def label(state: _LabelJob, runtime: Runtime[Context]) -> dict[str, Any]:
     ctx = runtime.context
     assert ctx.llm  # only reached through a Send from plan_labels
@@ -128,15 +197,17 @@ def label(state: _LabelJob, runtime: Runtime[Context]) -> dict[str, Any]:
         return {"warnings": ctx.safe_warnings("labels", result["warnings"])}
     key = cache_key(_prompt(item), ctx.secrets, ctx.label_model)
     text = ctx.safe(result["labels"][item.id])  # a model reply may echo a secret; the redacted text is what is saved and cached
-    return {"labels": {item.id: text}, "label_replies": {key: text}}
+    return {"labels": {ctx.sid(item.id): text}, "label_replies": {key: text}}
 
 
+@_guarded
 def labels_done(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     """Join (reduce): runs after every label branch, or at once when there were none."""
     ctx = runtime.context
     return {"warnings": ctx.safe_warnings("labels", label_flush(ctx.label_cache, state["label_replies"]))}
 
 
+@_guarded
 def cluster_items(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     """Waits for `labels_done` (a plain edge), because cluster names come from the labels."""
     ctx = runtime.context
@@ -144,10 +215,12 @@ def cluster_items(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
         return {}
     if ctx.embed_error:
         return {"warnings": ctx.safe_warnings("cluster", [f"could not cluster items: {ctx.embed_error}"])}
-    found = cluster(ctx.items, state["labels"], ctx.vectors, ctx.centred, ctx.cluster_threshold)
-    return {"clusters": [replace(c, name=ctx.safe(c.name)) for c in found]}
+    labels = {ctx.rid(k): v for k, v in state["labels"].items()}
+    found = cluster(ctx.items, labels, ctx.vectors, ctx.centred, ctx.cluster_threshold)
+    return {"clusters": [replace(c, name=ctx.safe(c.name), item_ids=tuple(ctx.sid(i) for i in c.item_ids)) for c in found]}
 
 
+@_guarded
 def costs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     """Independent of the other branches: it starts at the same time as the labels."""
     ctx = runtime.context
@@ -162,27 +235,33 @@ def costs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
         tokens, hook_warnings = count_texts(known_texts, ctx.counter, ctx.secrets, ctx.cost_cache)
         weights |= {id_: Weight(weights[id_].bytes, n) for id_, n in tokens.items()}
         warnings += hook_warnings
-    return {"costs": costs, "hook_weights": weights, "warnings": ctx.safe_warnings("costs", warnings)}
+    return {
+        "costs": {ctx.sid(k): v for k, v in costs.items()},
+        "hook_weights": {ctx.sid(k): v for k, v in weights.items()},
+        "warnings": ctx.safe_warnings("costs", warnings),
+    }
 
 
+@_guarded
 def local_overlaps(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     ctx = runtime.context
     found = [*exact_duplicates(ctx.items, ctx.bodies), *wrappers(ctx.items, ctx.bodies)]
     return {"local_overlaps": [ctx.safe_overlap(o) for o in found]}
 
 
+@_guarded
 def plan_pairs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     ctx = runtime.context
     if not ctx.verifier:
         return {}
-    decided = {frozenset((o.a_id, o.b_id)) for o in state["local_overlaps"]}
+    decided = {frozenset((ctx.rid(o.a_id), ctx.rid(o.b_id))) for o in state["local_overlaps"]}
     pairs, cap_warnings = candidates(ctx.items, ctx.vectors, decided)
     cached, jobs = verify_plan(pairs, ctx.items, ctx.bodies, ctx.secrets, ctx.verdict_cache, ctx.verifier_model)
     if jobs and ctx.on_verify:  # before the first paid call
         ctx.on_verify(*announce_cost(jobs))
     return {
         "verdicts": [ctx.safe_overlap(o) for o in cached],
-        "pair_jobs": [(j["a"].id, j["b"].id) for j in jobs],
+        "pair_jobs": [(ctx.sid(j["a"].id), ctx.sid(j["b"].id)) for j in jobs],
         "warnings": ctx.safe_warnings("overlaps", cap_warnings),
     }
 
@@ -192,6 +271,7 @@ def route_pairs(state: State) -> list[Send] | str:
     return [Send("verify", {"a_id": a, "b_id": b}) for a, b in state["pair_jobs"]] or "verdicts_done"
 
 
+@_guarded
 def verify(state: _PairJob, runtime: Runtime[Context]) -> dict[str, Any]:
     ctx = runtime.context
     assert ctx.verifier  # only reached through a Send from plan_pairs
@@ -204,11 +284,13 @@ def verify(state: _PairJob, runtime: Runtime[Context]) -> dict[str, Any]:
     return {"verdicts": [ctx.safe_overlap(o) for o in result["overlaps"]], "verdict_replies": replies}
 
 
+@_guarded
 def verdicts_done(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     ctx = runtime.context
     return {"warnings": ctx.safe_warnings("overlaps", verify_flush(ctx.verdict_cache, state["verdict_replies"]))}
 
 
+@_guarded
 def assemble(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     """Multi-source join: `add_edge([...], "assemble")` waits until all three branches have finished.
     Puts the Overlaps and warnings into today's fixed order, so parallel finishing order never shows."""
@@ -222,7 +304,7 @@ def assemble(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     ]
     if ctx.offline:
         warnings.append("Offline: no labels or model-checked Overlaps; token costs shown only if already cached.")
-    overlaps = sorted([*state["local_overlaps"], *state["verdicts"]], key=lambda o: (o.a_id, o.b_id))
+    overlaps = sorted([*state["local_overlaps"], *state["verdicts"]], key=lambda o: (ctx.rid(o.a_id), ctx.rid(o.b_id)))
     return {"final_overlaps": overlaps, "final_warnings": warnings}
 
 
@@ -251,13 +333,19 @@ def build_graph(checkpointer: Any = None) -> Any:  # shortcut: Any for the compi
 
 
 def thread_id(context: Context) -> str:
-    """Names this scan for the checkpointer. Hashes only: for each Item a hash of its redacted name and description and one of its
-    redacted body (the verifier reads bodies), then the model ids and which stages are on. The same
-    setup after a crash gets the same thread and resumes; any change gets a new thread and starts fresh."""
+    """Names this scan for the checkpointer. Hashes only (of redacted text): for each Item its id, scope, name and description and
+    its body (the verifier reads bodies); the text hooks inject; the size of CLAUDE.md; then the model ids and which stages are on.
+    The same setup after a crash gets the same thread and resumes; any change gets a new thread and starts fresh."""
+    hooks = static_hook_texts(context.config_dir, context.items)
+    memory = Path(context.config_dir) / MEMORY_FILE
     parts = [
         *sorted(
-            f"{cache_key(_prompt(i), context.secrets)}:{cache_key(context.bodies.get(i.id, ''), context.secrets)}" for i in context.items
+            f"{cache_key(i.id, context.secrets)}:{i.scope}:{cache_key(_prompt(i), context.secrets)}:"
+            f"{cache_key(context.bodies.get(i.id, ''), context.secrets)}"
+            for i in context.items
         ),
+        *sorted(f"{context.sid(id_)}={cache_key(repr(text), context.secrets)}" for id_, text in hooks.items()),
+        str(memory.stat().st_size if memory.is_file() else None),
         context.label_model,
         context.verifier_model,
         *(str(flag) for flag in (bool(context.llm), bool(context.verifier), bool(context.counter), bool(context.embedder))),
@@ -298,7 +386,7 @@ def _stream(
             final = chunk
         elif tracker:
             tracker(chunk)
-    return final
+    return context.restore(final)
 
 
 def _unchecked(context: Context, config: Any, progress: Callable[[str], None] | None) -> State:
@@ -309,6 +397,36 @@ def _unchecked(context: Context, config: Any, progress: Callable[[str], None] | 
     return state
 
 
+def _salvage(saver: Any, tid: str, context: Context) -> None:
+    """Cost rule: before a saved scan is thrown away, its paid replies (including those of branches that finished in a step that
+    never completed: LangGraph keeps them as pending writes) go into the label and verdict caches, so an edit to one file
+    repeats only that file's call. Only 64-hex keys with string values are accepted, and the text is redacted again."""
+    try:
+        saved = saver.get_tuple({"configurable": {"thread_id": tid}})
+        if saved is None:
+            return
+        found: dict[str, dict[str, Any]] = {"label_replies": {}, "verdict_replies": {}}
+        sources = [saved.checkpoint["channel_values"], *({channel: value} for _, channel, value in saved.pending_writes or [])]
+        for source in sources:
+            for channel, kept in found.items():
+                value = source.get(channel)
+                if isinstance(value, dict):
+                    kept |= {
+                        k: context.safe(v) for k, v in value.items() if isinstance(k, str) and CACHE_KEY.fullmatch(k) and isinstance(v, str)
+                    }
+        label_flush(context.label_cache, found["label_replies"])
+        verify_flush(context.verdict_cache, found["verdict_replies"])
+    except Exception:  # a damaged old checkpoint must not stop the scan
+        return
+
+
+def _drop_threads(saver: Any, context: Context, keep: str | None = None) -> None:
+    """Delete every saved scan except `keep`, salvaging their paid replies first."""
+    for old in {c.config["configurable"]["thread_id"] for c in saver.list(None)} - {keep}:
+        _salvage(saver, old, context)
+        saver.delete_thread(old)
+
+
 def run(context: Context, checkpoint: Path | None = None, progress: Callable[[str], None] | None = None) -> State:
     """Compiled per call (cheap) so the wiring in build_graph is exercised, and mutation-tested, by every scan.
 
@@ -317,13 +435,14 @@ def run(context: Context, checkpoint: Path | None = None, progress: Callable[[st
     saved step and keeps the results of branches that had finished, so paid label and verify calls are not repeated. (Passing a
     new input instead would start a new run on that thread.) Only State is saved; the Context is handed in again on every run.
     No `checkpoint` path: nothing is written. The thread is deleted when the scan succeeds, so the file holds at most one
-    unfinished scan."""
+    unfinished scan. The cache is never worth a failed scan: a locked file (another scan is using it), a SQLite error or an
+    unreadable file means the scan runs without a checkpoint, with a fixed warning."""
     start: State = {"label_jobs": [], "pair_jobs": []}  # the reducer keys (labels, verdicts, warnings...) start empty by themselves
     config: Any = {"max_concurrency": MAX_CONCURRENCY}
     if checkpoint is None:
         return _stream(build_graph(), start, context, config, progress, {})
     try:
-        saver = open_checkpointer(checkpoint, STATE_TYPES)
+        saver = open_checkpointer(checkpoint, STATE_TYPES, lock=True)
     except (OSError, sqlite3.Error):
         return _unchecked(context, config, progress)
     try:
@@ -335,20 +454,28 @@ def run(context: Context, checkpoint: Path | None = None, progress: Callable[[st
             # a resumed run replays the finished branches' results as updates: the count restarts at 0, the totals come from the plan
             total = {"label": len(snapshot.values.get("label_jobs", [])), "verify": len(snapshot.values.get("pair_jobs", []))}
             if not resuming:  # a different or finished scan's leftovers go, so the file holds at most one unfinished scan
-                for old in {c.config["configurable"]["thread_id"] for c in saver.list(None)}:
-                    saver.delete_thread(old)
+                _drop_threads(saver, context)
         except Exception:
             return _unchecked(context, config, progress)
         if resuming and progress:
             progress("resuming an interrupted scan")
         try:
             state = _stream(graph, None if resuming else start, context, config, progress, total)
+        except sqlite3.Error:
+            return _unchecked(context, config, progress)
         except Exception:
+            try:
+                _salvage(saver, tid, context)
+                saver.delete_thread(tid)  # a failed scan leaves nothing behind (the error text is redacted, but it is not needed)
+            except sqlite3.Error:
+                pass
             if not resuming:
                 raise
-            saver.delete_thread(tid)  # the saved step no longer fits this graph: drop it and start over
-            return _unchecked(context, config, progress)
-        saver.delete_thread(tid)
+            return _unchecked(context, config, progress)  # the saved step no longer fits this graph: start over
+        try:
+            saver.delete_thread(tid)
+        except sqlite3.Error:  # the next scan clears it
+            pass
         return state
     finally:
-        saver.conn.close()
+        close_checkpointer(saver)

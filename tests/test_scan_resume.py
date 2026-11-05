@@ -1,5 +1,7 @@
 """Checkpointed scans (#22 T3): resume without re-paying, privacy of the checkpoint file, corrupt files, progress lines."""
 
+import json
+import re
 import shutil
 import sqlite3
 import stat
@@ -10,13 +12,13 @@ import pytest
 from fakes import FakeCounter, FakeEmbedder, FakeLLM, FakeVerifier, verdict
 
 from constellation import cli, scan, scan_graph
-from constellation.checkpoint import open_checkpointer
+from constellation.checkpoint import close_checkpointer, open_checkpointer
 from constellation.claude_code import read_items
 from constellation.models import Item
 from constellation.redact import REDACTED
 
 OVERLAP = Path(__file__).parent / "fixtures" / "overlap_config"
-SECRET = "sk-test-planted-4f9c2d71aa"
+SECRET = "quietorangewalrus"  # letters only: matches no built-in pattern, so only the known-secret list can catch it
 BODY_MARKER = "zebra-body-marker-text"
 DESC_MARKER = "violet-description-marker"
 PDF, PROSE = frozenset({"pdf-reader", "pdf-viewer"}), frozenset({"stop-slop", "tidy-prose"})
@@ -119,7 +121,7 @@ def test_an_unchanged_scan_makes_no_paid_call_at_all(config, tmp_path):
 
 
 def test_the_checkpoint_never_holds_a_secret_a_body_a_description_or_an_item(config, tmp_path):
-    (config / ".env").write_text(f"PLANTED_KEY={SECRET}\n")
+    (config / ".env").write_text(f"FOO={SECRET}\n")
     skill = config / "skills" / "pdf-reader" / "SKILL.md"
     skill.write_text(
         f"---\nname: pdf-reader\ndescription: Reads PDF files {DESC_MARKER} {SECRET}.\n---\n{BODY_MARKER} {SECRET} Steps. Open the file.\n"
@@ -168,7 +170,7 @@ def _holds_item(node):
 
 
 def test_a_model_reply_that_echoes_a_secret_is_redacted_in_the_result_and_in_both_caches(config, tmp_path):
-    (config / ".env").write_text(f"PLANTED_KEY={SECRET}\n")
+    (config / ".env").write_text(f"FOO={SECRET}\n")
     result = _run(
         config,
         tmp_path,
@@ -183,7 +185,7 @@ def test_a_model_reply_that_echoes_a_secret_is_redacted_in_the_result_and_in_bot
 
 
 def test_a_verifier_reply_that_cannot_be_read_after_redaction_is_not_cached_but_the_verdict_stays(config, tmp_path):
-    (config / ".env").write_text(f"PLANTED_KEY={SECRET}\n")
+    (config / ".env").write_text(f"FOO={SECRET}\n")
     reply = verdict("overlap", "same", x=SECRET, api_key=SECRET)
     result = _run(config, tmp_path, verifier=lambda p: reply, embedder=FakeEmbedder(VECTORS), checkpoint=tmp_path / "scan.sqlite")
     assert any(o.verdict == "overlap" for o in result.overlaps)
@@ -244,31 +246,53 @@ def test_a_saved_step_that_no_longer_fits_the_graph_is_dropped_and_the_scan_star
     db = tmp_path / "cp" / "scan.sqlite"
     with pytest.raises(Crash):
         _run(config, tmp_path, llm=Crashing(FakeLLM({}, default="topic"), at=3), checkpoint=db)
-    real, seen = scan_graph.labels_done, []
+    real, seen = scan_graph.label_flush, []
 
-    def broken_once(state, runtime):
+    def broken_once(path, fresh):
         seen.append(1)
         if len(seen) == 1:
             raise RuntimeError("stale")
-        return real(state, runtime)
+        return real(path, fresh)
 
-    broken_once.__name__ = "labels_done"
-    monkeypatch.setattr(scan_graph, "labels_done", broken_once)
+    monkeypatch.setattr(scan_graph, "label_flush", broken_once)
     lines: list[str] = []
-    result = _run(config, tmp_path, llm=FakeLLM({}, default="topic"), checkpoint=db, on_progress=lines.append)
+    llm = FakeLLM({}, default="topic")
+    result = _run(config, tmp_path, llm=llm, checkpoint=db, on_progress=lines.append)
 
     assert result.warnings.count(scan_graph.CHECKPOINT_WARNING) == 1
     assert len(result.labels) == 6 and _threads(db) == set()
-    assert lines.count("labelled 6/6") == 2  # the failed resume, then the restart, both reported
+    assert lines[-1] == "labelled 6/6"  # the failed resume labelled the killed Item; the restart then found all six in the cache
+    assert len(llm.prompts) == 1  # the five finished labels were salvaged into the cache before the thread was dropped
 
 
-def test_a_failure_in_a_fresh_checkpointed_scan_is_raised_not_hidden(config, tmp_path, monkeypatch):
-    def labels_done(state, runtime):
+def test_a_restart_after_a_failed_resume_still_reports_progress(config, tmp_path, monkeypatch):
+    db = tmp_path / "cp" / "scan.sqlite"
+    with pytest.raises(Crash):
+        _run(config, tmp_path, llm=Crashing(FakeLLM({}, default="topic"), at=3), checkpoint=db)
+    real, seen = scan_graph.label_flush, []
+
+    def broken_once(path, fresh):
+        seen.append(1)
+        if len(seen) == 1:
+            raise RuntimeError("stale")
+        return real(path, fresh)
+
+    monkeypatch.setattr(scan_graph, "label_flush", broken_once)
+    monkeypatch.setattr(scan_graph, "_salvage", lambda saver, tid, context: None)  # so the restart has all six labels to pay for
+    lines: list[str] = []
+    _run(config, tmp_path, llm=FakeLLM({}, default="topic"), checkpoint=db, on_progress=lines.append)
+    assert lines.count("labelled 1/6") == 2
+
+
+def test_a_failure_in_a_fresh_checkpointed_scan_is_raised_and_its_thread_deleted(config, tmp_path, monkeypatch):
+    def label_flush(path, fresh):
         raise RuntimeError("bug")
 
-    monkeypatch.setattr(scan_graph, "labels_done", labels_done)
+    monkeypatch.setattr(scan_graph, "label_flush", label_flush)
+    db = tmp_path / "scan.sqlite"
     with pytest.raises(RuntimeError, match="bug"):
-        _run(config, tmp_path, llm=FakeLLM({}, default="topic"), checkpoint=tmp_path / "scan.sqlite")
+        _run(config, tmp_path, llm=FakeLLM({}, default="topic"), checkpoint=db)
+    assert _threads(db) == set()
 
 
 def test_a_different_scan_replaces_the_unfinished_one_so_the_file_holds_only_one(config, tmp_path):
@@ -430,14 +454,321 @@ def test_cluster_names_are_redacted_again_before_they_enter_state(config):
     assert update["clusters"] and all(secret not in c.name and REDACTED in c.name for c in update["clusters"])
 
 
-def test_stream_asks_for_synchronous_saves_only_when_there_is_a_checkpointer():
+def test_stream_asks_for_synchronous_saves_only_when_there_is_a_checkpointer(config):
     class Graph:
         def stream(self, start, config, **kwargs):
             self.kwargs = kwargs
             yield "values", {"final_warnings": []}
 
-    for config, expected in (({"configurable": {"thread_id": "t"}}, "sync"), ({}, None)):
+    for cfg, expected in (({"configurable": {"thread_id": "t"}}, "sync"), ({}, None)):
         graph = Graph()
-        assert scan_graph._stream(graph, {}, None, config, None, {}) == {"final_warnings": []}
+        assert scan_graph._stream(graph, {}, _context(config), cfg, None, {}) == {"final_warnings": []}
         assert graph.kwargs.get("durability") == expected
         assert graph.kwargs["stream_mode"] == ["updates", "values"]
+
+
+# --- privacy review fixes ---
+
+HOME_LEAK = "private/projects/acme"
+
+
+def _home():
+    return str(Path.home())
+
+
+def test_a_precondition_the_test_secret_matches_no_builtin_pattern():
+    from constellation.redact import redact
+
+    assert redact(f"x {SECRET} y") == f"x {SECRET} y"
+
+
+def _bytes(folder):
+    return b"".join(p.read_bytes() for p in sorted(folder.iterdir()))
+
+
+def test_an_exception_message_never_reaches_the_checkpoint_files(config, tmp_path, monkeypatch):
+    (config / ".env").write_text(f"FOO={SECRET}\n")
+    db = tmp_path / "cp" / "scan.sqlite"
+
+    def label_flush(path, fresh):
+        raise RuntimeError(f"disk said {SECRET} at {Path.home()}/{HOME_LEAK}/x")
+
+    monkeypatch.setattr(scan_graph, "label_flush", label_flush)
+    with pytest.raises(RuntimeError) as caught:
+        _run(config, tmp_path, llm=FakeLLM({}, default="topic"), checkpoint=db)
+    assert SECRET not in str(caught.value) and _home() not in str(caught.value)
+    saved = _bytes(db.parent)
+    assert SECRET.encode() not in saved and _home().encode() not in saved
+
+
+def test_a_node_error_is_redacted_and_stripped_of_paths_before_langgraph_can_save_it(config):
+    from types import SimpleNamespace
+
+    context = replace(_context(config), secrets={SECRET})
+
+    def boom(state, runtime):
+        raise OSError(13, f"nope {SECRET}", f"{Path.home()}/{HOME_LEAK}/f.json")
+
+    with pytest.raises(OSError) as caught:
+        scan_graph._guarded(boom)(None, SimpleNamespace(context=context))
+    text = repr(caught.value)
+    assert SECRET not in text and _home() not in text and caught.value.__cause__ is None and caught.value.__suppress_context__
+
+
+def test_an_exception_class_that_cannot_be_rebuilt_from_a_message_becomes_a_node_error(config):
+    from types import SimpleNamespace
+
+    class Odd(Exception):
+        def __init__(self, a, b):
+            super().__init__(a, b)
+
+    def boom(state, runtime):
+        raise Odd("x", "y")
+
+    with pytest.raises(scan_graph.NodeError, match="^Odd: "):
+        scan_graph._guarded(boom)(None, SimpleNamespace(context=_context(config)))
+
+
+def test_a_hard_killed_scan_leaves_no_secret_and_private_files(config, tmp_path):
+    import os
+    import subprocess
+    import sys
+    import textwrap
+
+    (config / ".env").write_text(f"FOO={SECRET}\n")
+    (config / "skills" / f"tool-{SECRET}").mkdir()
+    (config / "skills" / f"tool-{SECRET}" / "SKILL.md").write_text(
+        f"---\nname: tool-{SECRET}\ndescription: Reads PDF files {DESC_MARKER} {SECRET}.\n---\n{BODY_MARKER} {SECRET}\n"
+    )
+    (config / "agents").mkdir()
+    (config / "agents" / f"agent-{SECRET}.md").write_text(f"---\nname: agent-{SECRET}\ndescription: An agent {SECRET}.\n---\nBody\n")
+    db = tmp_path / "cp" / "scan.sqlite"
+    script = textwrap.dedent(
+        f"""
+        import os, sys
+        from pathlib import Path
+        from fakes import FakeLLM
+        from constellation import scan, scan_graph
+        scan_graph.MAX_CONCURRENCY = 1
+        calls = []
+        def llm(prompt):
+            calls.append(1)
+            if len(calls) == 4:
+                os._exit(7)  # a hard kill: no cleanup, no checkpoint close
+            return "label {SECRET}"
+        scan(Path({str(config)!r}), llm=llm, checkpoint=Path({str(db)!r}), usage=False, origins=False,
+             label_cache=Path({str(tmp_path / "labels.json")!r}), cost_cache=Path({str(tmp_path / "costs.json")!r}))
+        """
+    )
+    env = {**os.environ, "HOME": str(tmp_path / "home"), "PYTHONPATH": str(Path(__file__).parent)}
+    done = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, timeout=120)
+    assert done.returncode == 7, done.stderr.decode()[-2000:]
+
+    names = sorted(p.name for p in db.parent.iterdir())
+    assert "scan.sqlite-wal" in names  # the sidecar a hard kill leaves behind: the check below is not vacuous
+    saved = _bytes(db.parent)
+    assert b"skill:" in saved or b"agent" in saved
+    for planted in (SECRET, BODY_MARKER, DESC_MARKER):
+        assert planted.encode() not in saved
+    for path in db.parent.iterdir():
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600, path.name
+    assert stat.S_IMODE(db.parent.stat().st_mode) == 0o700
+
+
+def test_item_ids_are_redacted_in_the_checkpoint_but_the_result_keeps_them(config, tmp_path):
+    (config / ".env").write_text(f"FOO={SECRET}\n")
+    (config / "skills" / f"tool-{SECRET}").mkdir()
+    (config / "skills" / f"tool-{SECRET}" / "SKILL.md").write_text(f"---\nname: tool-{SECRET}\ndescription: A tool.\n---\nBody\n")
+    db = tmp_path / "cp" / "scan.sqlite"
+    with pytest.raises(Crash):
+        _run(config, tmp_path, llm=Crashing(FakeLLM({}, default="topic"), at=4), checkpoint=db)
+    assert SECRET.encode() not in _bytes(db.parent)
+
+    result = _run(config, tmp_path, llm=FakeLLM({}, default="topic"), checkpoint=db)
+    assert f"claude-code:skill:tool-{SECRET}" in {i.id for i in result.items}
+    assert f"claude-code:skill:tool-{SECRET}" in result.labels  # keyed by the real id again
+
+
+def test_ids_that_redact_to_the_same_text_stay_distinct_and_map_back(config):
+    secrets = {"firstsecretvalue", "secondsecretvalue"}
+    base = _context(config, secrets=secrets)
+    items = [replace(base.items[0], id="x:skill:firstsecretvalue"), replace(base.items[1], id="x:skill:secondsecretvalue"), *base.items[2:]]
+    context = replace(base, items=items)
+    first, second = context.sid(items[0].id), context.sid(items[1].id)
+    assert first == "x:skill:[REDACTED]" and second.startswith("x:skill:[REDACTED]#") and "secretvalue" not in first + second
+    assert context.sid("zzz:firstsecretvalue") == "zzz:[REDACTED]"  # an id that is not an Item's is redacted on the spot
+    assert context.rid("not:an:alias") == "not:an:alias"
+    assert (context.rid(first), context.rid(second)) == (items[0].id, items[1].id)
+    assert context.item(first) is items[0]
+    assert context.sid(base.items[2].id) == base.items[2].id  # ids with no secret are unchanged
+
+
+def test_warnings_lose_home_directories_and_quoted_paths(config):
+    context = _context(config)
+    text = f"could not save: [Errno 13] Permission denied: '{Path.home()}/.cache/x/labels.json' and {Path.home()}/y"
+    [(_, [shown])] = context.safe_warnings("s", [text]).items()
+    assert shown == "could not save: [Errno 13] Permission denied: '<path>' and ~/y"
+
+
+def test_the_checkpoint_directory_lock_keeps_a_second_scan_off_the_file_and_off_the_other_threads(config, tmp_path):
+    db = tmp_path / "cp" / "scan.sqlite"
+    with pytest.raises(Crash):
+        _run(config, tmp_path, llm=Crashing(FakeLLM({}, default="topic"), at=3), checkpoint=db)
+    before = _threads(db)
+    holder = open_checkpointer(db, scan_graph.STATE_TYPES, lock=True)  # another running scan
+    try:
+        llm = FakeLLM({}, default="topic")
+        result = _run(config, tmp_path, llm=llm, checkpoint=db)
+    finally:
+        close_checkpointer(holder)
+    assert result.warnings.count(scan_graph.CHECKPOINT_WARNING) == 1 and len(result.labels) == 6
+    assert _threads(db) == before  # the other scan's thread was not deleted
+    assert stat.S_IMODE((db.parent / "scan.sqlite.lock").stat().st_mode) == 0o600
+    close_checkpointer(open_checkpointer(db, lock=True))  # and the lock is free again afterwards
+
+
+def test_a_sqlite_error_while_saving_never_crashes_the_scan(config, tmp_path, monkeypatch):
+    from langgraph.checkpoint.sqlite import SqliteSaver
+
+    def full(self, *args, **kwargs):
+        raise sqlite3.OperationalError("database or disk is full")
+
+    monkeypatch.setattr(SqliteSaver, "put_writes", full)
+    monkeypatch.setattr(SqliteSaver, "put", full)
+    llm = FakeLLM({}, default="topic")
+    lines: list[str] = []
+    result = _run(config, tmp_path, llm=llm, checkpoint=tmp_path / "cp" / "scan.sqlite", on_progress=lines.append)
+    assert result.warnings.count(scan_graph.CHECKPOINT_WARNING) == 1 and len(result.labels) == 6
+    assert lines[-1] == "labelled 6/6"
+
+
+def test_a_checkpoint_path_that_is_a_symlink_is_refused(config, tmp_path):
+    target = tmp_path / "elsewhere.sqlite"
+    target.write_bytes(b"precious")
+    db = tmp_path / "cp" / "scan.sqlite"
+    db.parent.mkdir()
+    db.symlink_to(target)
+    result = _run(config, tmp_path, llm=FakeLLM({}, default="topic"), checkpoint=db)
+    assert result.warnings.count(scan_graph.CHECKPOINT_WARNING) == 1 and target.read_bytes() == b"precious"
+
+
+def test_editing_one_file_after_a_kill_does_not_throw_away_the_paid_labels(config, tmp_path):
+    db = tmp_path / "cp" / "scan.sqlite"
+    first_inner = FakeLLM({}, default="topic")
+    with pytest.raises(Crash):
+        _run(config, tmp_path, llm=Crashing(first_inner, at=5), checkpoint=db)  # 5 of 6 labelled, one call killed
+    labelled = {re.search(r"Name: (.*)", p)[1] for p in first_inner.prompts}
+    edited = sorted(labelled)[0]
+    (config / "skills" / edited / "SKILL.md").write_text(f"---\nname: {edited}\ndescription: Now different.\n---\nBody\n")
+
+    second = FakeLLM({}, default="topic")
+    result = _run(config, tmp_path, llm=second, checkpoint=db)
+
+    assert len(second.prompts) == 2  # the edited Item and the killed one; the other four came from the salvaged replies
+    assert len(result.labels) == 6 and _threads(db) == set()
+
+
+def test_a_salvaged_reply_must_look_like_a_cache_entry(config, tmp_path):
+    from types import SimpleNamespace
+
+    saver = SimpleNamespace(
+        get_tuple=lambda cfg: SimpleNamespace(
+            checkpoint={"channel_values": {"label_replies": {"x" * 64: "not hex", "a" * 64: "good", "b" * 64: 5}}},
+            pending_writes=[("t", "verdict_replies", {"c" * 64: '{"verdict":"overlap","reason":"r"}'})],
+        )
+    )
+    context = replace(_context(config), label_cache=tmp_path / "l.json", verdict_cache=tmp_path / "v.json")
+    scan_graph._salvage(saver, "t", context)
+    import json
+
+    assert json.loads((tmp_path / "l.json").read_text()) == {"a" * 64: "good"}
+    assert list(json.loads((tmp_path / "v.json").read_text())) == ["c" * 64]
+
+
+def test_the_thread_id_also_follows_ids_scope_hook_scripts_and_claude_md_size(config):
+    base = _context(config)
+    other_id = replace(base, items=[replace(base.items[0], id=base.items[0].id + "x"), *base.items[1:]])
+    other_scope = replace(base, items=[replace(base.items[0], scope="project"), *base.items[1:]])
+    assert len({scan_graph.thread_id(c) for c in (base, other_id, other_scope)}) == 3
+    before = scan_graph.thread_id(base)
+    (config / "CLAUDE.md").write_text("twelve bytes")
+    assert scan_graph.thread_id(base) != before
+
+
+def test_the_thread_id_follows_a_prompt_time_hook_script(tmp_path):
+    root = tmp_path / "cfg"
+    (root / "hooks").mkdir(parents=True)
+    script = root / "hooks" / "inject.sh"
+    script.write_text("echo one\n")
+    hook = {"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": f"cat {script}"}]}]}}
+    (root / "settings.json").write_text(json.dumps(hook))
+    items, _, _, bodies = read_items(root, None, None)
+    context = scan_graph.Context(root, items, bodies, set())
+    before = scan_graph.thread_id(context)
+    script.write_text("echo two, longer\n")
+    assert scan_graph.thread_id(context) != before
+
+
+def test_a_failed_open_releases_the_lock_and_keeps_the_original_error(tmp_path):
+    target = tmp_path / "elsewhere.sqlite"
+    target.write_bytes(b"x")
+    db = tmp_path / "cp" / "scan.sqlite"
+    db.parent.mkdir()
+    db.symlink_to(target)
+    with pytest.raises(OSError):  # refused symlink, without a lock to release
+        open_checkpointer(db)
+    with pytest.raises(OSError):  # refused symlink, with the lock taken first
+        open_checkpointer(db, lock=True)
+    assert sorted(p.name for p in db.parent.iterdir()) == ["scan.sqlite", "scan.sqlite.lock"]
+    db.unlink()
+    close_checkpointer(open_checkpointer(db, lock=True))  # the lock was released by the failure
+
+
+def test_a_second_lock_on_the_same_file_is_refused(tmp_path):
+    db = tmp_path / "cp" / "scan.sqlite"
+    first = open_checkpointer(db, lock=True)
+    with pytest.raises(BlockingIOError):
+        open_checkpointer(db, lock=True)
+    open_checkpointer(db).conn.close()  # an unlocked handle (the review's) is not blocked
+    close_checkpointer(first)
+
+
+def test_scrub_never_rewrites_a_one_character_home(config, monkeypatch):
+    context = _context(config)
+    monkeypatch.setenv("HOME", "/")
+    assert context.scrub("a/b/c") == "a/b/c"
+    monkeypatch.setenv("HOME", "/h")
+    assert context.scrub("see /h/file and '/etc/x'") == "see ~/file and '<path>'"
+
+
+def test_safe_overlap_maps_both_ids_and_redacts_the_reason(config):
+    base = _context(config, secrets={"firstsecretvalue", "secondsecretvalue"})
+    items = [replace(base.items[0], id="x:skill:firstsecretvalue"), replace(base.items[1], id="x:skill:secondsecretvalue"), *base.items[2:]]
+    context = replace(base, items=items)
+    from constellation.models import Overlap
+
+    safe = context.safe_overlap(Overlap(items[0].id, items[1].id, "overlap", "firstsecretvalue is shared"))
+    assert (safe.a_id, safe.reason) == ("x:skill:[REDACTED]", f"{REDACTED} is shared") and safe.b_id.startswith("x:skill:[REDACTED]#")
+
+
+def test_restore_puts_the_real_ids_back_into_every_keyed_part_of_the_final_state(config):
+    from constellation.models import Cluster, Cost, Overlap, Weight
+
+    base = _context(config, secrets={"firstsecretvalue"})
+    items = [replace(base.items[0], id="x:skill:firstsecretvalue"), *base.items[1:]]
+    context = replace(base, items=items)
+    shown, other = context.sid(items[0].id), items[1].id
+    state = {
+        "labels": {shown: "l"},
+        "clusters": [Cluster("c", (shown, other))],
+        "costs": {shown: Cost(1, 2)},
+        "hook_weights": {shown: Weight(1, None)},
+        "final_overlaps": [Overlap(shown, other, "overlap", "r")],
+        "final_warnings": ["w"],
+    }
+    back = context.restore(state)
+    real = items[0].id
+    assert back["labels"] == {real: "l"} and back["costs"] == {real: Cost(1, 2)} and back["hook_weights"] == {real: Weight(1, None)}
+    assert back["clusters"] == [Cluster("c", (real, other))]
+    assert back["final_overlaps"] == [Overlap(real, other, "overlap", "r")] and back["final_warnings"] == ["w"]
+    assert context.restore({}) == {}
