@@ -429,3 +429,10 @@ Not filed yet: reachability (which MCP servers a session can really reach), secu
 
 - **Owner APPROVED** the project-label rule: `--project` folder name, else the folder name with the encoded home prefix stripped; the username is never shown. The earlier deviation is closed. Low tier and the paid scope verdict stay not built.
 - Contract only, no logic: `Item.scope`/`Item.project`, `ProjectUsage`, `Constellation.projects`/`usage_by_project`/`current_project`, `scan(project=)`, `read_items(project=)`, `read_usage(project=)` returning a 4th `ProjectUsage` (empty), `Suggestion.project`/`confidence`. Defaults keep behaviour unchanged; brief rows now carry `project`/`confidence` as None. Test proves defaults and that `snapshot()` drops the new keys.
+
+## #68a explain summary backend (2026-11-04, branch `claude/explain-68a`)
+
+- Done, pending Opus privacy review: `src/constellation/explain.py` (`explain(data, public)`, `render_explain`) and `GET /api/explain?public=` (local only, loads through `read_brief()`). No new Snapshot field, no new dependency, no provider call, no frontend change.
+- Public mode runs `snapshot()` first and reads nothing else, so `unused` and `window` are null and no usage, dates, ids or paths are in the JSON or text; `suggest()` on a Snapshot cannot yield `remove_unused`. Unknown cost is shown as "cost unknown" and never summed as 0.
+- Known limit, not a deviation: Snapshot scrubs paths, URLs, emails and hosts but not free-form dates inside an Item name or description; public text repeats those names as the Snapshot leaves them.
+- `explain.py` added to `only_mutate`. Tests: `tests/test_explain.py` (8, through the HTTP API, invented data).
