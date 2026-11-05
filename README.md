@@ -83,6 +83,34 @@ Origins: a plugin's contents show the plugin name, skills synced from claude.ai 
 the folder name of the installer it is symlinked from (for example `agents`), else a `repository` line in its own frontmatter. The scan prints
 `read origin from <file> (source field only)` when it opens a lockfile.
 
+### Expansion
+
+```
+constellation expand claude-code:mcp_server:example --config-dir /path/to/config --file constellation.json
+constellation open constellation.json --config-dir /path/to/config
+```
+
+Use the exact MCP server Item id from the saved scan. Expansion starts that selected configured local server, initializes MCP and lists
+all pages of tools; it never invokes a tool or calls a model. The CLI prints JSON with tool Items and contains Relations. An unreachable
+server returns an `unreachable` result with exit 0; an unknown Item or invalid input exits 2. Hosted connectors remain single Items.
+The optional root on `open` enables the localhost-only `POST /api/expand` API (`{"id":"<known Item id>"}`); viewing without it remains
+read-only. App presentation is a separate frontend integration.
+
+Connection settings stay in memory, and Expansion never updates the saved scan or your setup. Tool names/descriptions are redacted;
+schemas, server instructions and diagnostics are discarded. Initialization and all tool-list pages share a ten-second deadline, followed
+by bounded SDK subprocess cleanup. Discovery is capped at 100 pages, 1,000 tools and 4,096 UTF-8 bytes per name/description;
+excessive results return unreachable without partial tools. Redaction runs off the API event loop under the same deadline.
+Only one Expansion per config root/server id runs at once; a concurrent duplicate returns unreachable without another launch.
+Known secrets are read locally from the selected config only for redaction, never added to launch settings.
+Explicit environment and argument values (including header and URL credential components) are also redacted from tool text; this may hide ordinary matching words.
+The launch environment uses a temporary private HOME,
+`PATH=/usr/bin:/bin`, `SHELL=/bin/sh`, `TERM=dumb` and `USER=LOGNAME=constellation`, then overlays only the registration's explicit env.
+Executable lookup uses that PATH; cwd is the registration's config/plugin root. For binaries installed elsewhere (such as Homebrew `npx` or
+user-installed `uvx`), configure an absolute command or an explicit PATH in that registration; a bare `npx`/`uvx` absent from the
+fixed PATH returns unreachable. Private HOME also means ambient user
+configuration and package caches are unavailable unless HOME is explicitly configured. Variable and plugin-placeholder substitution is unsupported
+and returns unreachable. A configured command may itself contact external services or download packages; it runs with your local permissions.
+
 ### Report
 
 ```

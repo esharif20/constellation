@@ -1,12 +1,16 @@
 import importlib
+from pathlib import Path
 
 import pytest
+
+_REAL_CLAUDE = (Path.home() / ".claude").resolve()
 
 
 @pytest.fixture(autouse=True)
 def private_default_caches(tmp_path_factory, monkeypatch):
     """No test may read or write the real ~/.cache; each test gets fresh default cache files."""
     root = tmp_path_factory.mktemp("default-caches")
+    monkeypatch.setenv("HOME", str(root))
     for module, name in (("classify", "labels"), ("costs", "token-counts"), ("overlaps", "verdicts"), ("retrieve", "embeddings")):
         # import_module: `constellation.classify` as an attribute is the re-exported function, not the module
         monkeypatch.setattr(importlib.import_module(f"constellation.{module}"), "DEFAULT_CACHE", root / f"{name}.json")
@@ -21,7 +25,7 @@ def no_real_transcripts(monkeypatch):
     import constellation
     import constellation.usage as usage
 
-    forbidden = (Path.home() / ".claude").resolve()
+    forbidden = _REAL_CLAUDE
     original = usage.read_usage
 
     def guarded(config_dir, items, relations, project=None, home=None):
