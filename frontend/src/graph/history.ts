@@ -31,3 +31,6 @@ export function hoverLine(e: HistoryEntry): string {
 }
 
 export const spanDays = (entries: HistoryEntry[]) => (entries.length ? Math.round((at(entries[entries.length - 1].date) - at(entries[0].date)) / DAY) : 0);
+
+// Items first seen after `date` are absent at that date; an id with no first_seen is treated as present. Dates are ISO, so string order is date order.
+export const absentAt = <T extends { id: string }>(nodes: T[], firstSeen: Record<string, string>, date: string): Set<T> => new Set(nodes.filter((n) => (firstSeen[n.id] ?? "") > date));
