@@ -537,3 +537,15 @@ def test_declared_mcp_file_of_any_type_is_size_checked(tmp_path):
         preview(tmp_path, None)
     (tmp_path / "m.txt").write_text(json.dumps({"mcpServers": {"s": {"command": "x"}}}))
     assert preview(tmp_path, None)["counts"] == {"plugin": 1, "mcp_server": 1}
+
+
+def test_preview_survives_a_wrong_dimension_vector_cache(tmp_path):
+    from constellation import retrieve
+
+    scan = scan_with(("s1", "skill", "pdf-tools", "Work with pdf files."), ("s2", "skill", "zoo", "Count zebra herds."))
+    stale = tmp_path / "v.json"
+    stale.write_text(json.dumps({retrieve._key("pdf-tools: Work with pdf files."): [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]}))
+    result = preview(PACK, scan, embedder=concepts, vector_cache=stale)
+    assert {(o["new_id"].rsplit("/", 1)[1], o["existing_id"]) for o in result["overlaps"]} == {("pdf-reader", "s1")}
+    assert result["note"] == "Some saved search vectors did not match the local embedder and were rebuilt."
+    assert stale.stat().st_mode & 0o777 == 0o600

@@ -92,6 +92,13 @@ def _write_private(path: Path, text: str) -> None:
     path.chmod(0o600)
 
 
+DROPPED = "Some saved search vectors did not match the local embedder and were rebuilt."
+
+
+def _is_vector(v: Any) -> bool:
+    return isinstance(v, list) and bool(v) and all(isinstance(x, int | float) and not isinstance(x, bool) for x in v)
+
+
 def _key(text: str) -> str:
     return hashlib.sha256(f"{MODEL}\n{text}".encode()).hexdigest()
 
@@ -135,16 +142,34 @@ class Index:
                     stored = loaded if isinstance(loaded, dict) else {}
                 except (OSError, ValueError):
                     pass
-            missing = sorted({t for t in texts.values() if _key(t) not in stored})
-            if missing:
-                stored = {k: v for k, v in stored.items() if k in {_key(t) for t in texts.values()}}
-                stored.update({_key(t): _unit(v) for t, v in zip(missing, embed(missing), strict=True)})
+            keys = {t: _key(t) for t in texts.values()}
+            usable = {k: v for k, v in stored.items() if _is_vector(v)}
+            missing = sorted(t for t, k in keys.items() if k not in usable)
+            probe = embed(missing or sorted(keys)[:1])  # with nothing missing, one cached text still tells the embedder's dimension
+            dim = len(probe[0])
+            bad = {t for t, k in keys.items() if k in usable and len(usable[k]) != dim}
+            todo = missing + sorted(bad)
+            vectors = probe if missing else []
+            if bad:
+                vectors = [*vectors, *embed(sorted(bad))]
+            fresh = {t: _unit(v) for t, v in zip(todo, vectors, strict=True)}
+            if {len(v) for v in fresh.values()} - {dim}:
+                raise ValueError  # pragma: no mutate (the message is swallowed below)
+            # entries of another size or model are dropped, never mixed in; the file is rewritten whole so it stays one dimension
+            dropped = bool(bad) or any(k in stored and k not in usable for k in keys.values())
+            if dropped:
+                self.note = DROPPED
+            if missing or dropped:
+                stored = {keys[t]: usable[keys[t]] for t in keys if keys[t] in usable and t not in bad}
+                stored.update({keys[t]: v for t, v in fresh.items()})
                 if cache is not None:
                     try:
                         cache.parent.mkdir(parents=True, exist_ok=True)
                         _write_private(cache, json.dumps(stored))
                     except OSError:
                         self.note = "The search vector cache could not be written; meaning-based search still works."
+            else:
+                stored = usable
             self._embed = embed
             self.vectors = {id_: stored[_key(t)] for id_, t in texts.items()}
         except Exception:  # noqa: BLE001 - a missing or blocked embedder must only switch meaning-based search off
