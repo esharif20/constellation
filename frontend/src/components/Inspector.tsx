@@ -2,7 +2,11 @@ import { ArrowLeftIcon, XIcon } from "lucide-react";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { day, kindName, noun, projectUses, relName, type GNode, type GOverlap, type Model, type UsageWindow } from "@/graph/model";
+import { relName, type GNode, type GOverlap, type Model } from "@/graph/model";
+import { verdictOf } from "@/lib/verdict";
+import { Facts } from "./inspector/Facts";
+import { Header } from "./inspector/Header";
+import { VerdictBanner } from "./inspector/Verdict";
 
 type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
 
@@ -21,6 +25,7 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
     groups.set(key, [...(groups.get(key) ?? []), out ? l.target : l.source]);
   }
 
+  const verdict = verdictOf(item, model.overlapsOf.get(item) ?? [], model.links.filter((l) => l.source === item && l.kind === "contains").map((l) => l.target), model.usageWindow);
   return (
     <aside
       ref={ref}
@@ -33,24 +38,9 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
       </Button>
       <div ref={scroll} className="overflow-y-auto overscroll-contain px-4 pt-3 pb-6 sm:px-6 sm:pt-6">
         {backTo && <Button variant="ghost" className="-mx-2 mb-1 h-10 max-w-[calc(100%-3rem)] justify-start gap-2 px-2 text-[13px] text-text-2" onClick={onClose}><ArrowLeftIcon aria-hidden /><span className="truncate">Back to {backTo}</span></Button>}
-        <p className="flex min-h-7 items-center gap-2 pr-10 text-xs font-medium tracking-[0.02em] text-text-3">
-          <span className="glyph" data-kind={item.kind} />
-          {kindName(item.kind)}
-        </p>
-        <h2 id="i-name" tabIndex={-1} className="mt-2 mb-1 font-serif text-[26px] leading-[1.1] tracking-[-0.01em] [overflow-wrap:anywhere] outline-none sm:text-[30px]">
-          {item.name}
-        </h2>
-        {item.label && <p className="text-[15px] leading-[1.45] tracking-[-0.005em] text-text-2">{item.label}</p>}
-
-        <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-t pt-4 text-[13px]">
-          <dt className="text-text-3">Scope</dt>
-          <dd>{item.scope === "project" ? (item.project && model.projects[item.project]) ? `Project: ${model.projects[item.project]}` : "Project" : "Global"}</dd>
-          <dt className="text-text-3">Cluster</dt>
-          <dd className="font-serif text-[17px] leading-tight tracking-[0.01em] italic">{item.cluster?.name ?? "Not clustered"}</dd>
-        </dl>
-
-        <Cost item={item} />
-        <Usage item={item} window={model.usageWindow} model={model} />
+        <Header item={item} model={model} />
+        <VerdictBanner verdict={verdict} />
+        <Facts model={model} item={item} onSelect={onSelect} onPreview={onPreview} />
 
         <p className="mt-6 max-w-[65ch] text-sm leading-[1.55] text-text-2 whitespace-pre-wrap [overflow-wrap:anywhere]">{item.description || "No description."}</p>
         <p className="mt-3 font-mono text-xs leading-[1.45] text-text-3 [overflow-wrap:anywhere]">{item.source}</p>
@@ -76,60 +66,6 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
     </aside>
   );
 });
-
-const plain = (v: number | null) => (v == null ? <i className="text-text-3">unknown</i> : <>{v.toLocaleString()} tokens</>);
-
-// Unknown (null or no entry) is said out loud, never shown as 0. Hooks have no static output; on-use needs --count-bodies.
-function Cost({ item }: { item: GNode }) {
-  const c = item.cost, hook = item.kind === "hook";
-  return (
-    <section className="mt-6" aria-label="Context cost">
-      <h3 className="mb-2 text-xs font-medium tracking-[0.02em] text-text-3">Context cost</h3>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border bg-surface-2 px-4 py-3 text-[13px]">
-        <dt className="text-text-3">Always-on</dt>
-        <dd className="text-right font-mono tabular-nums">{plain(c?.always_on ?? null)}</dd>
-        <dt className="text-text-3">On use</dt>
-        <dd className="text-right font-mono tabular-nums">{plain(c?.on_use ?? null)}</dd>
-      </dl>
-      {hook ? (
-        <p className="mt-2 text-xs text-text-3">Hook output is only known when it runs.</p>
-      ) : (
-        c?.on_use == null && <p className="mt-2 text-xs text-text-3">Run <code className="font-mono">constellation scan --count-bodies</code> to measure.</p>
-      )}
-    </section>
-  );
-}
-
-// No usage entry means the kind is not tracked (hooks, plugins): said as such, never as 0. Count 0 is "never seen" in the window scanned.
-// A prompt-time hook also shows what it injects at session start: bytes are static, tokens only after --count-bodies, unknown never 0.
-function Usage({ item, window, model }: { item: GNode; window: UsageWindow | null; model: Model }) {
-  const u = item.usage, w = item.weight, where = projectUses(item, model);
-  if (!u && !w && !(item.kind === "hook" || item.kind === "plugin")) return null;
-  const seen = !u ? null : u.count > 0
-    ? <>{noun(u.count, "use")}{u.last_used && <span className="text-text-3"> · last {day(u.last_used)}</span>}</>
-    : window?.files ? <span className="text-text-2">Never seen in the {noun(window.files, "transcript")} scanned</span> : <i className="text-text-3">no transcripts scanned</i>;
-  return (
-    <section className="mt-6" aria-label="Usage">
-      <h3 className="mb-2 text-xs font-medium tracking-[0.02em] text-text-3">Usage</h3>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border bg-surface-2 px-4 py-3 text-[13px]">
-        <dt className="text-text-3">Seen in transcripts</dt>
-        <dd className="text-right">{seen ?? <i className="text-text-3">not tracked</i>}</dd>
-        {where && <>
-          <dt className="text-text-3">By project</dt>
-          <dd className="text-right">{where.map((r) => <span key={r.label} className="block [overflow-wrap:anywhere]">{noun(r.count, "use")} in {r.label}{r.current && <span className="text-text-3"> (this repo)</span>}</span>)}</dd>
-        </>}
-        {w && <>
-          <dt className="text-text-3">Session-start weight</dt>
-          <dd className="text-right font-mono tabular-nums">
-            {w.bytes == null ? <i className="font-sans text-text-3">unknown</i> : `${w.bytes.toLocaleString()} bytes`}
-            {w.tokens != null ? <span className="block">{w.tokens.toLocaleString()} tokens</span> : w.bytes != null && <i className="block font-sans text-text-3">tokens not counted</i>}
-          </dd>
-        </>}
-      </dl>
-      {window?.first && window.last && u && <p className="mt-2 text-xs text-text-3">Transcripts from {day(window.first)} to {day(window.last)}.</p>}
-    </section>
-  );
-}
 
 type Rows = { title: string; rows: { other: GNode; reason: string }[] };
 const GROUPS = ["Duplicate of", "Wraps", "Wrapped by", "Overlaps with"];

@@ -2,8 +2,8 @@
 import { layout } from "./layout.ts";
 import { searchItems } from "./search.ts";
 
-export type Item = { id: string; kind: string; name: string; description: string; source: string; disabled?: boolean; scope?: string; project?: string | null }; // scope: "global" (default) or "project"; project: opaque key p1..pN
-
+export type Item = { id: string; kind: string; name: string; description: string; source: string; disabled?: boolean;
+  origin?: string | null; scope?: string; project?: string | null }; // local display data; scope is "global" or "project"
 export type Relation = { source: string; target: string; kind: string };
 export type Cost = { always_on: number | null; on_use: number | null };
 export type Usage = { count: number; last_used: string | null };
@@ -269,4 +269,19 @@ export function scopeSet(m: Pick<Model, "nodes" | "currentProject">, scope: Scop
 export function projectUses(n: Pick<GNode, "byProject">, m: Pick<Model, "projects" | "currentProject">): { label: string; count: number; current: boolean }[] | null {
   const rows = Object.entries(n.byProject ?? {}).filter(([, u]) => u.count > 0).map(([k, u]) => ({ label: m.projects[k] ?? "another project", count: u.count, current: k === m.currentProject }));
   return rows.length ? rows.sort((a, b) => +b.current - +a.current || b.count - a.count || a.label.localeCompare(b.label)) : null;
+}
+
+// Session-start budget. Unknown cost is counted, never summed as 0. An Item's always-on cost wins; a hook without one falls back to its prompt-time weight.
+export type Budget = { measured: boolean; known: number; items: number; hooks: number; unknown: number; saved: number; removed: number; removedUnknown: number };
+export function budget(nodes: GNode[], removed: ReadonlySet<GNode> = new Set()): Budget {
+  const b: Budget = { measured: false, known: 0, items: 0, hooks: 0, unknown: 0, saved: 0, removed: 0, removedUnknown: 0 };
+  for (const n of nodes) {
+    const gone = removed.has(n), cost = n.cost?.always_on ?? null, tokens = n.kind === "hook" ? n.weight?.tokens ?? null : null;
+    if (gone) b.removed++;
+    if (cost == null && tokens == null) { if (gone) b.removedUnknown++; else b.unknown++; continue; }
+    b.measured = true;
+    if (gone) b.saved += cost ?? tokens!;
+    else if (cost != null) { b.items += cost; b.known += cost; } else { b.hooks += tokens!; b.known += tokens!; }
+  }
+  return b;
 }

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 VERDICTS = ("duplicate", "wrapper", "overlap")  # display order; "distinct" is hidden unless show_all
 _STYLE = {"bold": "1", "dim": "2", "duplicate": "31", "wrapper": "33", "overlap": "36", "distinct": "32"}
 _BAR = 10
+CAVEAT = "Based only on the transcripts Claude Code still keeps (it deletes older ones), so a project's use may be undercounted."
 NOTE = "Descriptions and reasons are redacted by pattern rules only; the scan file does not record your secrets."
 
 
@@ -92,7 +93,10 @@ def _never_used(data: dict[str, Any]) -> list[dict[str, Any]]:
 def _span(window: dict[str, Any], template: str) -> str:
     if not window["first"]:  # the reader sets first and last together
         return ""
-    days = (date.fromisoformat(window["last"]) - date.fromisoformat(window["first"])).days + 1
+    try:
+        days = (date.fromisoformat(window["last"]) - date.fromisoformat(window["first"])).days + 1
+    except (ValueError, TypeError):  # a hand-edited scan with a bad date: leave the span out rather than crash
+        return ""
     return template.format(window["first"], window["last"], days)
 
 
@@ -152,6 +156,14 @@ def render_report(data: dict[str, Any], *, top: int, color: bool, width: int, sh
 
     out += _session_start(data, names, width, color)
 
+    from .suggestions import suggest  # late: suggestions imports this module
+
+    moves = [s for s in suggest(data) if s.kind == "move_to_project"]
+    if moves:
+        out.append(_heading("Used mostly in one project", width, color))
+        out += [_wrap(f"{s.reason} ({s.confidence} confidence)", width, "      ", "  - ") for s in moves]
+        out.append(_paint(_wrap(CAVEAT, width, "  "), "dim", color))
+
     out.append(_heading("Overlaps", width, color))
     shown = VERDICTS + (("distinct",) if show_all else ())
     overlaps = data.get("overlaps") or []
@@ -207,6 +219,12 @@ def render_cleanup(data: dict[str, Any], *, top: int, approved: list[Suggestion]
     lines += [f"- [ ] {names[i['id']]}: {known[i['id']]:,} tokens every session. Is it worth it?" for i in _ranked(data, known)[:top]] or [
         "Token costs were not measured."
     ]
+    from .suggestions import suggest  # late: suggestions imports this module
+
+    listed = {a.id for a in approved or []}
+    moves = [f"- [ ] {s.reason}" for s in suggest(data) if s.kind == "move_to_project" and s.id not in listed]
+    if moves:
+        lines += ["", "## Used mostly in one project", ""] + moves
     lines += ["", "## Never used", "", redact(_usage_note(data))]
     lines += [f"- [ ] {redact(row)}" for row in _unused_rows(data, top)]
     return "\n".join(lines) + "\n"

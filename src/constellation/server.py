@@ -16,7 +16,9 @@ from . import retrieve
 from .brief import append_line, brief, checklist_ids, frees
 from .chat import LocalChat
 from .embeddings import fastembed_embedder
+from .explain import explain, render_explain
 from .models import Embedder
+from .receipt import receipt
 from .report import _known_costs
 from .suggestions import Suggestion
 
@@ -107,8 +109,19 @@ def create_app(scan_file: Path, checklist: Path | None = None, embedder: Embedde
             if not isinstance(data, dict) or not isinstance(data.get("items"), list):
                 raise ValueError
         except (OSError, ValueError):
-            raise HTTPException(404, f"{scan_file} could not be read") from None
+            raise HTTPException(404, "scan could not be read") from None
         return data, brief(data)
+
+    @app.get("/api/lenses", dependencies=[Depends(local_only)])
+    def get_lenses() -> dict[str, Any]:
+        data, _ = read_brief()
+        return {"receipt": receipt(data)}
+
+    @app.get("/api/explain", dependencies=[Depends(local_only)])
+    def get_explain(public: bool = False) -> dict[str, Any]:
+        data, _ = read_brief()
+        summary = explain(data, public)
+        return {**summary, "text": render_explain(summary)}
 
     def checklist_state(data: dict[str, Any]) -> dict[str, Any]:
         path = _checklist_path(checklist, scan_file)

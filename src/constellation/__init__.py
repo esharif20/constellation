@@ -39,14 +39,14 @@ def scan(
         llm = counter = verifier = None
     items, warnings, relations, bodies = read_items(config_dir, (lockfile or origin_sources.DEFAULT_LOCKFILE) if origins else None, project)
     usages, window, usage_warnings, by_project = (
-        read_usage(config_dir, items, relations, project) if usage else ({}, None, [], ProjectUsage())
+        read_usage(config_dir, items, relations, project, Path.home()) if usage else ({}, None, [], ProjectUsage())
     )
     warnings += usage_warnings
     labels: dict[str, str] = {}
     vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
     clusters: list[Cluster] = []
     # The only place providers are called from: both are wrapped here, so everything they receive is redacted first.
-    secrets = read_secrets(config_dir) if llm or embedder or counter or verifier or offline else set()
+    secrets = read_secrets(config_dir, project) if llm or embedder or counter or verifier or offline else set()
     if llm:
         labels, label_warnings = classify(items, guarded(llm, secrets), secrets, label_cache, label_model)
         warnings += sorted(label_warnings)  # branches finish in any order; sorted keeps the output repeatable
@@ -80,6 +80,12 @@ def scan(
     if offline:
         warnings.append("Offline: no labels or model-checked Overlaps; token costs shown only if already cached.")
     overlaps.sort(key=lambda o: (o.a_id, o.b_id))
+    # shortcut: user CLAUDE.md only, no @imports or project CLAUDE.md; upgrade when the scan reads projects (#43)
+    memory = Path(config_dir) / "CLAUDE.md"
+    try:
+        memory_bytes = memory.stat().st_size if memory.is_file() else None  # stat only: the text is never opened
+    except OSError:
+        memory_bytes = None
     return Constellation(
         items,
         warnings,
@@ -94,6 +100,7 @@ def scan(
         projects=by_project.projects,
         usage_by_project=by_project.by_project,
         current_project=by_project.current,
+        memory_bytes=memory_bytes,
     )
 
 

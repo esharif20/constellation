@@ -11,13 +11,14 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
-from .brief import brief
-from .compare import compare_card, explain_card, parse_compare, parse_what
+from .answer import blocks, card, comparison, cost_value, past, plural, row, to_text, what_line
+from .compare import parse_compare, parse_keep, parse_what
 from .redact import redact
-from .report import _never_used, _usage_note
+from .report import _known_costs, _never_used, _ranked
 from .retrieve import Index
 
 _STOP = set("what can help me to do a an the with for please find search show highlight focus filter on items item".split())
+ASK_NEXT = ["What costs the most every session?", "What have I never used?"]
 _NOT_WHAT = (
     r"(?<![\w-])(this|these|selected|costs?|tokens?|usage|used|unused|never|duplicates?|wrappers?|overlaps?)(?![\w-])"  # not inside a name
 )
@@ -34,9 +35,13 @@ class ChatState(TypedDict):
     index: Any
 
 
+def _strip(question: str) -> str:
+    return re.sub(r"^(?:show(?: me)? everything that touches|what do i have for)\s+", "", question.lower().strip())
+
+
 def _retrieve(state: ChatState) -> dict[str, Any]:
-    question, items = state["question"].lower().strip(), state["data"]["items"]
-    question = re.sub(r"^(?:show(?: me)? )?everything that touches\s+", "", question)
+    question, items = state["question"], state["data"]["items"]
+    question = _strip(question)  # lower-cased and trimmed
     tokens = [t for t in re.findall(r"[^\W_]+", question) if t not in _STOP and t != "redacted"]
     index = Index(items)
     try:
@@ -63,6 +68,10 @@ def _intent(question: str) -> str:
         intent = "count"
     elif parse_what(q) and not re.search(_NOT_WHAT, q):
         intent = "whatis"
+    elif parse_keep(q) is not None:
+        intent = "whatis"
+    elif re.search(r"\b(remove|delete|get rid)\b", q):
+        intent = "unused"
     elif re.search(r"\b(explain|describe)\b", q):
         intent = "explain"
     elif re.search(r"\b(usage|used|unused|never)\b", q):
@@ -86,97 +95,147 @@ def _route(state: ChatState) -> dict[str, Any]:
 
 
 def _display(state: ChatState) -> dict[str, Any]:
-    data = state["data"]
-    data = {
-        **data,
-        "items": [
-            {
-                "id": i["id"],
-                **{key: _short(i[key], {"name": 96, "kind": 40, "description": 160}[key]) for key in ("name", "kind", "description")},
-            }
-            for i in data["items"]
-        ],
-    }
-    return {"data": data}
+    items = [{**i, **{key: _short(i[key], {"name": 96, "kind": 40}[key]) for key in ("name", "kind")}} for i in state["data"]["items"]]
+    return {"data": {**state["data"], "items": items}}  # descriptions stay whole: answer.first_sentence cuts them at a sentence
 
 
-def _response(answer: str, ids: list[str] | None = None, kind: str = "highlight") -> dict[str, Any]:
-    return {"response": {"answer": redact(answer), "actions": [{"kind": kind, "item_ids": ids}] if ids else [], "mode": "local"}}
+def _response(headline: str, ids: list[str] | None = None, kind: str = "highlight", **parts: Any) -> dict[str, Any]:
+    made = blocks(headline, **parts)  # every input was redacted on the way in (LocalChat.answer)
+    actions = [{"kind": kind, "item_ids": ids}] if ids else []
+    return {"response": {"answer": to_text(made), "blocks": made, "actions": actions, "mode": "local"}}
+
+
+def _by_id(state: ChatState) -> dict[str, dict[str, Any]]:
+    return {i["id"]: i for i in state["data"]["items"]}
 
 
 def _count(state: ChatState) -> dict[str, Any]:
-    return _response(f"The current scan contains {len(state['data']['items'])} Items.")
+    return _response(f"The current scan contains {plural(len(state['data']['items']), 'Item')}.", follow_ups=ASK_NEXT)
 
 
 def _cost(state: ChatState) -> dict[str, Any]:
     data = state["data"]
-    items = {i["id"]: i for i in data["items"]}
     if re.search(r"\b(total|on[ -]use)\b", state["question"].lower()):
-        return _response(
-            "Local chat ranks always-on Context costs. Ask for top costs, or name/select an Item to see its always-on and on-use costs."
-        )
-    summary = brief(data)["cost"]
-    rows = summary["rows"]
-    ids = [r["item_ids"][0] for r in rows]
-    lines = [f"- {items[r['item_ids'][0]]['name']}: {r['tokens_saved']:,} tokens" for r in rows]
-    answer = "Highest always-on Context costs:\n" + "\n".join(lines) if lines else "Token costs were not measured in this scan."
-    answer += f"\n{summary['unknown']} Items have unknown cost; unknown is never counted as 0."
-    return _response(answer, ids)
+        return _response("I rank what each Item costs every session.", next_="Ask for the top costs, or name an Item to see what it costs.")
+    known = _known_costs(data)
+    ranked = _ranked(data, known)
+    unknown = len(data["items"]) - len(known)
+    note = f"Plus {plural(unknown, 'Item')} with unknown cost, not counted as 0." if unknown else None
+    if not ranked:
+        return _response("Token costs were not measured in this scan.", note=note, follow_ups=ASK_NEXT)
+    top = ranked[0]
+    return _response(
+        f"{top['name']} costs the most: {known[top['id']]:,} tokens every session.",
+        [i["id"] for i in ranked[:5]],
+        rows=[row(i, cost_value(data, i["id"])) for i in ranked[:5]],
+        more=max(0, len(ranked) - 5),
+        note=note,
+        next_=f"Check whether you still use {top['name']}.",
+        follow_ups=[f"Should I keep {top['name']}?", *ASK_NEXT],
+    )
 
 
 def _pairs(state: ChatState) -> dict[str, Any]:
-    data = state["data"]
-    pair_data = {
-        **data,
-        "overlaps": [o for o in data["overlaps"] if not state["scope"] or {o["a_id"], o["b_id"]} & set(state["scope"])],
-    }
-    rows = brief(pair_data)["pairs"]["rows"]
-    ids = list(dict.fromkeys(id_ for r in rows for id_ in r["item_ids"]))
-    answer = (
-        "Known duplicate/wrapper Overlaps:\n" + "\n".join(f"- {r['reason']}" for r in rows)
-        if rows
-        else "No known duplicate/wrapper Overlaps for the requested Items."
-        if state["scope"]
-        else "No known duplicate/wrapper Overlaps in this scan."
+    data, scope = state["data"], set(state["scope"])
+    found = [o for o in data["overlaps"] if o["verdict"] in ("duplicate", "wrapper") and (not scope or {o["a_id"], o["b_id"]} & scope)]
+    if not found:
+        return _response(
+            "No known duplicates or wrappers for those Items." if scope else "No known duplicates or wrappers in this scan.",
+            follow_ups=ASK_NEXT,
+        )
+    items = _by_id(state)
+    shown = found[:5]
+    ids = list(dict.fromkeys(id_ for o in shown for id_ in (o["a_id"], o["b_id"])))
+    rows = [
+        row(
+            items[o["a_id"]],
+            f"Wraps {items[o['b_id']]['name']}" if o["verdict"] == "wrapper" else f"Does the same job as {items[o['b_id']]['name']}",
+        )
+        for o in shown
+    ]
+    first = items[shown[0]["a_id"]]["name"]
+    return _response(
+        f"Found {plural(len(found), 'duplicate or wrapper pair')}, starting with {first}.",
+        ids,
+        rows=rows,
+        more=len(found) - len(shown),
+        next_="Open a pair on the map and choose which one to keep.",
+        follow_ups=[f"Should I keep {first}?", *ASK_NEXT],
     )
-    return _response(answer, ids)
 
 
 def _usage(state: ChatState) -> dict[str, Any]:
     data, intent = state["data"], state["intent"]
-    items = {i["id"]: i for i in data["items"]}
     window = data.get("usage_window")
-    ids = []  # pragma: no mutate (equivalent: None and [] both suppress graph actions)
-    answer = _usage_note(data)
-    if window and window["files"]:
-        found = _never_used(data) if intent == "unused" else sorted(items.values(), key=lambda i: (i["name"], i["id"]))
-        found = [i for i in found if not state["scope"] or i["id"] in state["scope"]]
-        ids = [i["id"] for i in found[:5]]
-        lines = [f"- {items[id_]['name']}" for id_ in ids]
-        if intent == "usage":
-            usage = data.get("usage") or {}
-            lines = [f"- {items[id_]['name']}: {str(usage[id_]['count']) + ' uses' if id_ in usage else 'usage unknown'}" for id_ in ids]
-        heading = "Never seen in the scanned transcripts:" if intent == "unused" else "Recorded usage:"
-        empty = "None of the requested Items are recorded as never seen." if state["scope"] else "No Items were never seen in this scan."
-        answer = (heading + "\n" + "\n".join(lines) if lines else empty) + "\n" + answer
-    return _response(answer, ids)
+    if not window:
+        return _response("Usage was not read in this scan.")
+    if not window["files"]:
+        return _response("No transcripts found.")
+    items = _by_id(state)
+    found = _never_used(data) if intent == "unused" else sorted(items.values(), key=lambda i: (i["name"], i["id"]))
+    found = [i for i in found if not state["scope"] or i["id"] in state["scope"]]
+    skipped = f" ({plural(window['skipped'], 'file')} skipped)" if window["skipped"] else ""
+    note = f"Based on {plural(window['files'], 'saved transcript')}{skipped}. Old ones are deleted, so this is not proof an Item is unused."
+    if not found:
+        return _response(
+            "None of those Items is recorded as never seen." if state["scope"] else f"Nothing here has been unused in {past(window)}.",
+            note=note,
+            follow_ups=ASK_NEXT,
+        )
+    usage = data.get("usage") or {}
+    if intent == "unused":
+        headline = f"{plural(len(found), 'Item')} not seen in {past(window)}, starting with {found[0]['name']}."
+    else:
+        headline = f"Usage across {past(window)}."
+    unused = intent == "unused"
+    return _response(
+        headline,
+        [i["id"] for i in found[:5]],
+        rows=[row(i, cost_value(data, i["id"]) if unused else _usage_value(usage, i["id"])) for i in found[:5]],
+        more=max(0, len(found) - 5),
+        note=note,
+        next_=f"Ask whether to keep {found[0]['name']}." if intent == "unused" else None,
+        follow_ups=[f"Should I keep {found[0]['name']}?", *ASK_NEXT] if intent == "unused" else ASK_NEXT,
+    )
+
+
+def _usage_value(usage: dict[str, Any], id_: str) -> str:
+    return plural(usage[id_]["count"], "use") if id_ in usage else "Usage unknown"
+
+
+def _terms(question: str) -> str:
+    return " ".join(t for t in re.findall(r"[^\W_]+", _strip(question)) if t not in _STOP)[:40] or question.strip()[:40]
+
+
+def _not_found(name: str, follow_ups: list[str]) -> dict[str, Any]:
+    return _response(
+        f'I could not find "{name}" in this scan.',
+        next_="Check the spelling, or describe what it does.",
+        follow_ups=follow_ups,
+    )
 
 
 def _items_answer(state: ChatState, *, explain: bool = False, kind: str = "highlight") -> dict[str, Any]:
-    data = state["data"]
-    items = {i["id"]: i for i in data["items"]}
+    data, items = state["data"], _by_id(state)
     ids = state["matches"][:5]
-    lines = [f"- {items[id_]['name']} ({items[id_]['kind']}): {items[id_]['description']}" for id_ in ids]
-    if explain:
-        for n, id_ in enumerate(ids):
-            cost = (data.get("costs") or {}).get(id_) or {}
-            values = [f"{cost[k]:,} tokens" if cost.get(k) is not None else "unknown" for k in ("always_on", "on_use")]
-            lines[n] += f"\n  Always-on: {values[0]}; on-use: {values[1]}."
-    heading = "Item details:" if explain else "Matching Items:"
-    answer = heading + "\n" + "\n".join(lines) if lines else "No matching Items found. Try an Item name or a word from its description."
-    if len(state["matches"]) > 5:
-        answer += "\nMore matches omitted; narrow your question."
-    return _response(answer, ids, kind)
+    if not ids:
+        return _not_found(_terms(state["question"]), ASK_NEXT)
+    cards = [card(data, items[i]) for i in ids[:2]] if explain else []
+    rows = [row(items[i], cost_value(data, i)) for i in ids[0 if not explain else 2 :]]
+    first = items[ids[0]]["name"]
+    headline = (
+        what_line(cards[0]) if explain else f"{first} is the closest match." if len(state["matches"]) > 1 else f"One Item matches: {first}."
+    )
+    return _response(
+        headline,
+        ids,
+        kind,
+        cards=cards,
+        rows=rows,
+        more=max(0, len(state["matches"]) - 5),
+        next_="Click a name to see it on the map.",
+        follow_ups=[f"Should I keep {first}?", *ASK_NEXT],
+    )
 
 
 def _search(state: ChatState) -> dict[str, Any]:
@@ -187,37 +246,104 @@ def _explain(state: ChatState) -> dict[str, Any]:
     return _items_answer(state, explain=True)
 
 
-def _pick(state: ChatState, name: str) -> tuple[dict[str, Any], str] | None:
-    """The best Item for a name through the shared Index, plus a "did you mean" note when the match is weak; None when nothing matches."""
+def _resolve(state: ChatState, name: str) -> dict[str, Any] | list[dict[str, Any]] | None:
+    """The Item for a name: None when nothing matches, a list of candidates when several are equally close, else the Item (with `took`)."""
     hits = state["index"].query(name)
     if not hits:
         return None
-    item = next(i for i in state["data"]["items"] if i["id"] == hits[0]["id"])
-    strong = re.match(r"name|close to", hits[0]["why"])
-    return item, "" if strong else f'Did you mean {item["name"]}? "{name}" is not an exact match.'
+    items = _by_id(state)
+    weak = re.compile(r"name|close to").match
+    if weak(hits[0]["why"]):
+        return items[hits[0]["id"]]
+    tier = hits[0]["why"].partition(" ")[0]
+    close = [items[h["id"]] for h in hits if h["why"].partition(" ")[0] == tier]
+    return close[:3] if len(close) > 1 else {**items[hits[0]["id"]], "took": True}
+
+
+def _ambiguous(candidates: list[dict[str, Any]], ask: Callable[[dict[str, Any]], str]) -> dict[str, Any]:
+    return _response("Which one did you mean?", did_you_mean=[{"id": c["id"], "name": c["name"], "ask": ask(c)} for c in candidates])
 
 
 def _compare(state: ChatState) -> dict[str, Any]:
     first, second = parse_compare(state["question"]) or ("", "")  # pragma: no mutate (unreachable fallback: routing saw a match)
-    a, b = _pick(state, first), _pick(state, second)
+    a, b = _resolve(state, first), _resolve(state, second)
     if not first and state["selected"]:  # "how does it compare to X" means the selected Item
-        a = next((i, "") for i in state["data"]["items"] if i["id"] == state["selected"][0])
-    if a is None or (b is not None and a[0]["id"] == b[0]["id"]):
-        return _response("Name two Items to compare, for example: compare ponytail to chisel.\nI could not tell which two you mean.")
+        a = _by_id(state)[state["selected"][0]]
+    typed = [first, second]
+    shown = [f["name"] if isinstance(f, dict) else typed[n] for n, f in enumerate((a, b))]
+    for n, found in enumerate((a, b)):
+        if isinstance(found, list):  # the other name is the resolved Item, or what was typed
+
+            def ask(c: dict[str, Any], n: int = n) -> str:
+                return f"Compare {c['name']} and {shown[1]}" if n == 0 else f"Compare {shown[0]} and {c['name']}"
+
+            return _ambiguous(found, ask)
+    if not isinstance(a, dict) or (isinstance(b, dict) and a["id"] == b["id"]):
+        return _response(
+            "I could not tell which two Items you mean.",
+            next_="Name both Items, for example: compare ponytail to chisel.",
+            follow_ups=ASK_NEXT,
+        )
+    data = state["data"]
     if b is None:
-        card = explain_card(state["data"], a[0])
-        return _response(f'I could not find an Item matching "{second}" to compare with. Here is {a[0]["name"]}:\n\n{card}', [a[0]["id"]])
-    notes = "".join(f"{n}\n" for n in (a[1], b[1]) if n)
-    return _response(notes + compare_card(state["data"], a[0], b[0]), [a[0]["id"], b[0]["id"]])
+        return _response(
+            f'I could not find "{second}" to compare with. Here is {a["name"]}.',
+            [a["id"]],
+            cards=[card(data, a)],
+            next_="Check the spelling of the second name.",
+            follow_ups=[f"Should I keep {a['name']}?"],
+        )
+    assert isinstance(b, dict)  # a list returned above
+    took = [f'"{n}" to mean {i["name"]}' for n, i in ((first, a), (second, b)) if i.get("took")]
+    overlap = _overlap_between(data, a["id"], b["id"])
+    names = {a["id"]: a["name"], b["id"]: b["name"]}
+    return _response(
+        _compare_headline(overlap, a, b, names),
+        [a["id"], b["id"]],
+        cards=[card(data, a), card(data, b)],
+        compare=comparison(data, a, b),
+        note=f"I took {' and '.join(took)}." if took else None,
+        follow_ups=[f"Should I keep {a['name']}?", f"Should I keep {b['name']}?"],
+    )
+
+
+def _overlap_between(data: dict[str, Any], a: str, b: str) -> dict[str, Any] | None:
+    return next((o for o in data["overlaps"] if {o["a_id"], o["b_id"]} == {a, b}), None)
+
+
+def _compare_headline(overlap: dict[str, Any] | None, a: dict[str, Any], b: dict[str, Any], names: dict[str, str]) -> str:
+    if overlap and overlap["verdict"] == "duplicate":
+        return f"{a['name']} and {b['name']} do the same job; you could keep one."
+    if overlap and overlap["verdict"] == "wrapper":
+        return f"{names[overlap['a_id']]} only calls {names[overlap['b_id']]}; you could keep the wrapped one."
+    if overlap and overlap["verdict"] == "overlap":
+        return f"{a['name']} and {b['name']} partly overlap; keep both only if you need the difference."
+    return f"{a['name']} and {b['name']} do different jobs."
 
 
 def _whatis(state: ChatState) -> dict[str, Any]:
-    name = parse_what(state["question"]) or ""  # pragma: no mutate (unreachable fallback: routing saw a match)
-    found = _pick(state, name)
+    keep = parse_keep(state["question"])
+    parsed = keep if keep is not None else parse_what(state["question"])
+    name = parsed or ""  # pragma: no mutate (unreachable fallback: routing saw a match)
+    found: dict[str, Any] | list[dict[str, Any]] | None
+    if name in ("this", "it", "that"):  # the selected Item, or nothing
+        found = _by_id(state)[state["selected"][0]] if state["selected"] else None
+    else:
+        found = _resolve(state, name)
     if found is None:
-        return _response(f'I could not find an Item matching "{name}". Try an Item name or a word from its description.')
-    note = f"{found[1]}\n" if found[1] else ""
-    return _response(note + explain_card(state["data"], found[0]), [found[0]["id"]])
+        return _not_found(name, [f"What do I have for {name}?", *ASK_NEXT])
+    if isinstance(found, list):
+        return _ambiguous(found, lambda c: f"{'Should I keep' if keep is not None else 'What is'} {c['name']}?")
+    c = card(state["data"], found)
+    lead = f'I took "{name}" to mean {found["name"]}. ' if found.get("took") else ""
+    headline = f"{c['name']}: {c['verdict']['label']}. {c['verdict']['why']}." if keep is not None else what_line(c)
+    return _response(
+        lead + headline,
+        [found["id"]],
+        cards=[c],
+        next_=f"Open {c['name']} on the map to see what it connects to.",
+        follow_ups=[f"Should I keep {c['name']}?" if keep is None else f"What is {c['name']}?", *ASK_NEXT],
+    )
 
 
 def _focus(state: ChatState) -> dict[str, Any]:
@@ -286,19 +412,16 @@ class LocalChat:
         ids = {i["id"] for i in clean["items"]}
         clean["costs"] = {k: v for k, v in (data.get("costs") or {}).items() if k in ids}
         clean["overlaps"] = [
-            {key: _short(redact(o[key]), 240) if key == "reason" else o[key] for key in ("a_id", "b_id", "verdict", "reason")}
+            {key: redact(o[key]) if key == "reason" else o[key] for key in ("a_id", "b_id", "verdict", "reason")}
             for o in data.get("overlaps") or []
             if o["a_id"] in ids and o["b_id"] in ids
         ]
         question = redact(question)
-        if _intent(question) in ("usage", "unused"):
-            clean["usage"] = data.get("usage")
-            clean["usage_window"] = data.get("usage_window")
+        clean["usage"], clean["usage_window"] = data.get("usage"), data.get("usage_window")
+        clean["clusters"] = [{"item_ids": c["item_ids"]} for c in data.get("clusters") or []]
         index: Index | None = None  # pragma: no mutate (equivalent: unused unless set below)
         if _intent(question) in ("compare", "whatis"):
             index = index_for(data["items"])
-            clean["usage"], clean["usage_window"] = data.get("usage"), data.get("usage_window")
-            clean["clusters"] = [{"name": redact(c["name"]), "item_ids": c["item_ids"]} for c in data.get("clusters") or []]
             # meaning-based matches appear once the vectors are ready, so that moment must not reuse an older answer
             clean["vectors_ready"] = index.vectors is not None  # pragma: no mutate (equivalent: only needs to differ before and after)
         key = hashlib.sha256(json.dumps([question, selected, clean], sort_keys=True).encode()).hexdigest()
