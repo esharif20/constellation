@@ -267,7 +267,7 @@ def test_verdict_from_usage_and_cost(tmp_path, monkeypatch):
 
 def test_what_could_i_remove_lists_unused_items(client):
     reply = ask(client, "What could I remove?")
-    assert reply["blocks"]["rows"][0]["name"] == "chisel" and reply["actions"][0]["item_ids"] == ["ch"]
+    assert "chisel" in [r["name"] for r in reply["blocks"]["rows"]] and "ch" in reply["actions"][0]["item_ids"]
 
 
 def test_what_is_weak_or_missing(client):
@@ -301,7 +301,7 @@ def test_answers_are_redacted_and_cached(client):
 
 
 def test_other_chat_questions_keep_their_routes(client):
-    assert ask(client, "what is the total always-on cost?")["answer"].startswith("I rank what each Item costs")
+    assert ask(client, "what is the total always-on cost?")["answer"].startswith("Before you type anything")
     assert ask(client, "what is this?", selected_ids=["pt"])["answer"].startswith("ponytail (skill)")
     assert ask(client, "how many items are there")["answer"] == "The current scan contains 7 Items."
 

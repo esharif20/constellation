@@ -25,8 +25,8 @@ try {
       assert.match(html, /aria-expanded="false"/);
     }
   }
-  const card = { id: "a", name: "alpha", kind: "skill", kind_label: "skill", what: "Does a thing.", always_on: "1,468 tokens", on_use: "unknown", usage: "Usage unknown", overlap: null, verdict: { label: "Not enough data", tone: "unknown", why: "Usage was not read in this scan" } };
-  const blocks = { headline: "alpha is a skill.", cards: [card], compare: null, rows: [{ id: "a", name: "alpha", kind: "skill", what: "Does a thing.", value: "Cost unknown" }], more: 2, note: "A note.", next: "Do this.", follow_ups: ["What is alpha?"], did_you_mean: [] };
+  const card = { handoff: { instruction: "Review the skill \"alpha\".", checklist_id: null }, id: "a", name: "alpha", kind: "skill", kind_label: "skill", what: "Does a thing.", always_on: "1,468 tokens", on_use: "unknown", usage: "Usage unknown", overlap: null, verdict: { label: "Not enough data", tone: "unknown", why: "Usage was not read in this scan" } };
+  const blocks = { headline: "alpha is a skill.", cards: [card], compare: null, rows: [{ id: "a", name: "alpha", kind: "skill", what: "Does a thing.", value: "Cost unknown" }], more: 2, note: "A note.", next: "Do this.", follow_ups: ["What is alpha?"], did_you_mean: [], handoff: null };
   assert.deepEqual(readBlocks(blocks, new Set(["a"])), blocks);
   assert.equal(readBlocks(blocks, new Set(["b"])), null, "an unknown id drops the blocks");
   assert.equal(readBlocks({ ...blocks, cards: [{ ...card, verdict: { ...card.verdict, tone: "bad" } }] }, new Set(["a"])), null);

@@ -384,13 +384,13 @@ def test_local_graph_disables_configured_external_tracing(chat, offline_tracing)
     assert offline_tracing.calls == []
 
 
-def test_cost_questions_honor_named_or_selected_scope_and_decline_unsupported_totals(chat):
+def test_cost_questions_honor_named_or_selected_scope_and_decline_on_use_totals(chat):
     named = ask(chat, "What is the on-use cost of mail-helper?")
     assert named["blocks"]["cards"][0]["on_use"] == "800 tokens"
     assert named["actions"] == [{"kind": "highlight", "item_ids": ["mail"]}]
     selected = ask(chat, "What does this cost?", selected_ids=["unknown"])
     assert selected["blocks"]["cards"][0]["always_on"] == selected["blocks"]["cards"][0]["on_use"] == "unknown"
-    for question in ("What is the total always-on cost?", "Which Items have the highest on-use cost?"):
+    for question in ("Which Items have the highest on-use cost?",):
         result = ask(chat, question)
         assert result["answer"] == (
             "I rank what each Item costs every session.\nNext: Ask for the top costs, or name an Item to see what it costs."

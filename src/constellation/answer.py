@@ -6,6 +6,9 @@ from typing import Any
 
 HEADLINE, WHAT, WHY, NEXT, NOTE, CHIP, TEXT = 140, 120, 90, 100, 160, 40, 1200
 KINDS = {"mcp_server": "MCP server"}
+DORMANT_DAYS = (
+    30  # "Could go" needs this many idle days; equal to DORMANT_DAYS in frontend/src/lib/verdict.ts (tests/test_chat_ask.py checks)
+)
 _SKIP = re.compile(r"^(use when|use this|use for|trigger|invoke)", re.I)
 _EXAMPLE = re.compile(r'"[^"]{2,}"|“[^”]{2,}”|(?:^|\s)/[a-z][\w:-]*(?=\s|$)')
 _ABBREVIATION = re.compile(r"(?:^|\s)(?:(?i:e\.g|i\.e|etc|vs)|[A-Z])$")  # a word abbreviation in any case, or one capital letter
@@ -74,6 +77,19 @@ def _usage(data: dict[str, Any], id_: str) -> tuple[str, int | None]:
     return f"Used {plural(usage['count'], 'time')}{within}{last}", usage["count"]
 
 
+def idle_days(data: dict[str, Any], id_: str) -> tuple[int, bool] | None:
+    """(days idle, exact) to the newest saved session. Never seen = the whole window, a lower bound (exact False). None = unknown."""
+    window, usage = data.get("usage_window"), (data.get("usage") or {}).get(id_)
+    if not window or usage is None:  # the callers have already checked that transcripts exist
+        return None
+    if not usage["count"]:
+        span = _span(window)
+        return (span, False) if span else None
+    if not usage.get("last_used") or not window.get("last"):
+        return None
+    return max(0, (date.fromisoformat(window["last"]) - date.fromisoformat(usage["last_used"][:10])).days), True
+
+
 def _overlap(data: dict[str, Any], id_: str) -> dict[str, Any] | None:
     found = [o for o in data.get("overlaps") or [] if id_ in (o["a_id"], o["b_id"]) and o["verdict"] != "distinct"]
     order = ("duplicate", "wrapper", "overlap")
@@ -97,9 +113,22 @@ def verdict(data: dict[str, Any], id_: str) -> dict[str, str]:
         window = data.get("usage_window")
         where = "in this scan" if not window or not window["files"] else "for this Item"
         return {"label": "Not enough data", "tone": "unknown", "why": f"Usage was not read {where}"}
+    idle = idle_days(data, id_)
     if count:
+        if cost and idle and idle[0] >= DORMANT_DAYS:
+            return {
+                "label": "Review",
+                "tone": "review",
+                "why": cut(f"Idle {plural(idle[0], 'day')}; costs {cost:,} tokens every session", WHY),
+            }
         return {"label": "Keep", "tone": "keep", "why": cut(line.split(", last")[0], WHY)}
     if cost:
+        if idle and idle[0] < DORMANT_DAYS:  # a short history cannot show 30 idle days
+            return {
+                "label": "Review",
+                "tone": "review",
+                "why": cut(f"Not seen in {plural(idle[0], 'day')} (history is short); costs {cost:,} tokens", WHY),
+            }
         return {
             "label": "Could go",
             "tone": "remove",
@@ -112,11 +141,51 @@ def kind_label(kind: str) -> str:
     return KINDS.get(kind, kind.replace("_", " "))
 
 
+_DO = {  # what Claude Code is asked to do for an Item worth acting on, per kind; {n} is the quoted name
+    "skill": "Remove the skill {n}: find its folder (under ~/.claude/skills) and delete only that folder.",
+    "agent": "Remove the agent {n}: find its file (under ~/.claude/agents) and delete only that file.",
+    "command": "Remove the command {n}: find its file (under ~/.claude/commands) and delete only that file.",
+    "mcp_server": "Remove the MCP server {n} from my Claude Code config, in the scope where it is defined.",
+    "plugin": "Disable the plugin {n} in my user settings.json enabledPlugins; do not delete files.",
+    "hook": "Remove the hook {n} from the hooks section of my settings.json.",
+    "connector": "Disconnect the connector {n}. It is managed in claude.ai, so tell me where to click.",
+}
+_CONFIRM = " Show me exactly what will change and wait for my OK."
+INSTRUCTION = 400
+
+
+def handoff(data: dict[str, Any], item: dict[str, Any], tone: str, overlap: dict[str, Any] | None) -> dict[str, Any]:
+    """A copyable instruction for Claude Code and the checklist row that can be added for this Item (None when there is none)."""
+    id_, name, label = item["id"], quote(item["name"]), kind_label(item["kind"])
+    other = None  # pragma: no mutate (equivalent: only read when there is an overlap)
+    if overlap:
+        names = {i["id"]: i["name"] for i in data["items"]}
+        other = quote(names[overlap["b_id"] if overlap["a_id"] == id_ else overlap["a_id"]])
+    if tone == "keep" or (
+        tone == "unknown" and item["kind"] != "plugin"
+    ):  # usage is not tracked for plugins: unknown is their normal state
+        text = f"Review the {label} {name}: tell me what it does and whether I still need it. Change nothing."
+    elif overlap and overlap["verdict"] == "duplicate":
+        text = f"The {label} {name} and {other} do the same job. Compare them and recommend which to remove; remove nothing until I choose."
+    elif overlap and overlap["a_id"] == id_:
+        text = f"The {label} {name} only calls {other}. Show me how to use {other} directly, then remove {name}."
+    elif overlap:
+        text = f"Keep the {label} {name}; {other} calls it. Change nothing."
+    else:
+        text = _DO.get(item["kind"], "Review the " + label + " {n} and tell me how to remove it.").format(n=name)
+        origin = item.get("origin")
+        if origin and item["kind"] in ("skill", "agent", "command", "hook", "mcp_server"):
+            text += f" It came from {quote(origin)}: if that is a plugin or pack, change it there, not inside its folder."
+    if not text.endswith("Change nothing."):
+        text += _CONFIRM
+    return {"instruction": cut(text, INSTRUCTION), "checklist_id": (data.get("checklist") or {}).get(id_)}
+
+
 def card(data: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
     id_ = item["id"]
     cost = (data.get("costs") or {}).get(id_) or {}
     overlap = _overlap(data, id_)
-    shown = None
+    decided, shown = verdict(data, id_), None
     if overlap:
         names = {i["id"]: i["name"] for i in data["items"]}
         with_id = overlap["b_id"] if overlap["a_id"] == id_ else overlap["a_id"]
@@ -131,7 +200,8 @@ def card(data: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
         "on_use": tokens(cost.get("on_use")),
         "usage": _usage(data, id_)[0],
         "overlap": shown,
-        "verdict": verdict(data, id_),
+        "verdict": decided,
+        "handoff": handoff(data, item, decided["tone"], overlap),
     }
 
 
@@ -179,6 +249,7 @@ def blocks(
     next_: str | None = None,
     follow_ups: list[str] | None = None,
     did_you_mean: list[dict[str, str]] | None = None,
+    handoff: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     chips = list(dict.fromkeys(c for c in follow_ups or [] if len(c) <= CHIP))  # callers keep to 2 cards, 5 rows, 3 chips, 3 candidates
     return {
@@ -191,7 +262,37 @@ def blocks(
         "next": cut(next_, NEXT) if next_ else None,
         "follow_ups": chips,
         "did_you_mean": did_you_mean or [],
+        "handoff": handoff,
     }
+
+
+REFUSALS = {
+    "edit": "Constellation never changes your files. Claude Code can, and it asks you first.",
+    "body": "Constellation does not read or show file contents. Claude Code can open the file for you.",
+    "debug": "Constellation sees how your setup is shaped, not how it ran. Claude Code can look at the failure.",
+    "general": "That is outside what this scan holds, so I would only guess. Claude Code is the better place to ask.",
+}
+_ASK = {  # what Claude Code is asked to do, per refusal; {q} is the user's own words, {of} the Item or nothing
+    "edit": "{q}{of}. Show me every change before you make it and wait for my OK.",
+    "body": "Open the file{of} and tell me what it says, in full. Do not change anything.",
+    "debug": "Help me debug this: {q}{of}. Read the logs and my config, and change nothing until I agree.",
+    "general": "{q}",
+}
+
+
+def refusal(category: str, question: str, item: dict[str, Any] | None) -> tuple[str, dict[str, Any]]:
+    """The honest one-line refusal and a copyable instruction for Claude Code. Text only: nothing is run or written."""
+    q = cut(" ".join(question.split()).rstrip("?.!"), 200)
+    of = (
+        f" (the {kind_label(item['kind'])} {quote(item['name'])})"
+        if item and (category == "body" or item["name"].lower() not in q.lower())
+        else ""
+    )
+    return REFUSALS[category], {"instruction": _ASK[category].format(q=q, of=of), "checklist_id": None}
+
+
+def quote(name: str) -> str:
+    return '"' + name.replace('"', "'") + '"'
 
 
 def what_line(c: dict[str, Any]) -> str:
@@ -220,4 +321,6 @@ def to_text(b: dict[str, Any]) -> str:
         lines.append(b["note"])
     if b["next"]:
         lines.append(f"Next: {b['next']}")
+    if b["handoff"]:
+        lines.append(f"Ask Claude Code: {b['handoff']['instruction']}")
     return cut("\n".join(lines), TEXT)
