@@ -1,4 +1,4 @@
-import { ArrowRightIcon, CheckIcon, CopyIcon, MessageCircleIcon, RotateCcwIcon, SendIcon, TriangleAlertIcon, XIcon } from "lucide-react";
+import { ArrowRightIcon, CheckIcon, CopyIcon, ListPlusIcon, MessageCircleIcon, RotateCcwIcon, SendIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,12 @@ import { cn } from "@/lib/utils";
 export type ChatAction = { kind: "highlight" | "focus"; item_ids: string[] };
 type Overlap = { with_id: string; with_name: string; verdict: string; reason: string };
 type Verdict = { label: string; tone: "keep" | "review" | "remove" | "unknown"; why: string };
-type Card = { id: string; name: string; kind: string; kind_label: string; what: string; always_on: string; on_use: string; usage: string; overlap: Overlap | null; verdict: Verdict };
+export type Handoff = { instruction: string; checklist_id: string | null };
+type Card = { handoff: Handoff; id: string; name: string; kind: string; kind_label: string; what: string; always_on: string; on_use: string; usage: string; overlap: Overlap | null; verdict: Verdict };
 type Row = { id: string; name: string; kind: string; what: string; value: string };
 type Blocks = {
   headline: string; cards: Card[]; compare: { rows: { label: string; a: string; b: string }[]; same_cluster: boolean } | null; rows: Row[]; more: number;
-  note: string | null; next: string | null; follow_ups: string[]; did_you_mean: { id: string; name: string; ask: string }[];
+  note: string | null; next: string | null; follow_ups: string[]; did_you_mean: { id: string; name: string; ask: string }[]; handoff: Handoff | null;
 };
 type Reply = { answer: string; blocks: Blocks | null; actions: ChatAction[]; mode: "local"; cached: boolean };
 type Props = {
@@ -40,7 +41,7 @@ const strs = (v: unknown) => Array.isArray(v) && v.every(str);
 
 // Starter questions come from the loaded scan, so each one can be answered; a starter whose inputs are missing is left out.
 export function starters(model: Model, selected: GNode | null): string[] {
-  const out: string[] = [selected ? `Should I keep ${selected.name}?` : "What could I remove?", "What costs the most every session?", "What have I never used?"];
+  const out: string[] = [selected ? `Should I keep ${selected.name}?` : "What could I remove?", "What do I pay before I type anything?", "What costs the most every session?", "What have I not used in 30 days?"];
   const costed = model.nodes.filter((n) => n.cost?.always_on != null).sort((x, y) => y.cost!.always_on! - x.cost!.always_on!);
   const subject = selected ?? costed[0];
   if (subject) out.push(`What is ${subject.name}?`);
@@ -51,6 +52,7 @@ export function starters(model: Model, selected: GNode | null): string[] {
   return out;
 }
 
+const handoffOk = (h: unknown) => !!h && typeof h === "object" && str((h as Handoff).instruction) && ((h as Handoff).checklist_id === null || str((h as Handoff).checklist_id));
 const idOk = (known: Set<string>, v: unknown) => str(v) && known.has(v as string);
 
 // Check every field and every id before rendering; a reply that fails shows its plain `answer` instead.
@@ -58,11 +60,11 @@ export function readBlocks(value: unknown, known: Set<string>): Blocks | null {
   const b = value as Blocks | null | undefined;
   if (!b || typeof b !== "object" || !str(b.headline) || !b.headline.trim()) return null;
   const card = (c: Card) => !!c && idOk(known, c.id) && [c.name, c.kind, c.kind_label, c.what, c.always_on, c.on_use, c.usage].every(str)
-    && !!c.verdict && ["label", "why"].every((k) => str((c.verdict as Record<string, unknown>)[k])) && c.verdict.tone in TONE
+    && handoffOk(c.handoff) && !!c.verdict && ["label", "why"].every((k) => str((c.verdict as Record<string, unknown>)[k])) && c.verdict.tone in TONE
     && (c.overlap === null || (!!c.overlap && idOk(known, c.overlap.with_id) && str(c.overlap.with_name) && str(c.overlap.verdict) && str(c.overlap.reason)));
   const row = (r: Row) => !!r && idOk(known, r.id) && [r.name, r.kind, r.what, r.value].every(str);
   const ok = Array.isArray(b.cards) && b.cards.every(card) && Array.isArray(b.rows) && b.rows.every(row) && Number.isInteger(b.more)
-    && (b.note === null || str(b.note)) && (b.next === null || str(b.next)) && strs(b.follow_ups)
+    && (b.note === null || str(b.note)) && (b.next === null || str(b.next)) && strs(b.follow_ups) && (b.handoff === null || handoffOk(b.handoff))
     && Array.isArray(b.did_you_mean) && b.did_you_mean.every((d) => !!d && idOk(known, d.id) && str(d.name) && str(d.ask))
     && (b.compare === null || (!!b.compare && typeof b.compare.same_cluster === "boolean" && Array.isArray(b.compare.rows) && b.compare.rows.every((r) => [r.label, r.a, r.b].every(str)) && b.cards.length === 2));
   return ok ? b : null;
@@ -96,6 +98,29 @@ function Name({ id, name, onItem, className }: { id: string; name: string; onIte
   return <Button variant="ghost" className={cn("h-auto min-h-11 justify-start px-2 py-1 text-left text-sm font-medium whitespace-normal text-foreground sm:min-h-10 [overflow-wrap:anywhere]", className)} onClick={() => onItem(id)}>{name}</Button>;
 }
 
+// Copy text for Claude Code, or add the row to the checklist (the server only accepts rows in today's brief). Ask never edits anything itself.
+function HandoffBar({ h }: { h: Handoff }) {
+  const [state, setState] = useState<"idle" | "copied" | "added" | "had" | "failed">("idle");
+  async function copy() {
+    try { await navigator.clipboard.writeText(h.instruction); setState("copied"); } catch { setState("failed"); }
+  }
+  async function add() {
+    try {
+      const r = await fetch("api/checklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: h.checklist_id }) });
+      if (!r.ok) throw new Error();
+      setState(((await r.json()) as { added?: boolean }).added ? "added" : "had");
+    } catch { setState("failed"); }
+  }
+  return <div className="mt-2 flex flex-wrap items-center gap-2">
+    {h.checklist_id && <Button variant="outline" className="h-11 gap-2 px-3 text-[13px] font-normal sm:h-9" disabled={state === "added" || state === "had"} onClick={() => void add()}>
+      {state === "added" || state === "had" ? <CheckIcon aria-hidden /> : <ListPlusIcon aria-hidden />}{state === "added" ? "Added to checklist" : state === "had" ? "Already on checklist" : "Add to checklist"}</Button>}
+    <Button variant="outline" className="h-11 gap-2 px-3 text-[13px] font-normal sm:h-9" onClick={() => void copy()}>
+      {state === "copied" ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}{state === "copied" ? "Copied" : "Copy instruction for Claude Code"}</Button>
+    <span role="status" className="sr-only">{state === "copied" ? "Instruction copied" : state === "added" ? "Added to checklist" : ""}</span>
+    {state === "failed" && <span role="alert" className="text-xs text-warn">Could not do that. Try again.</span>}
+  </div>;
+}
+
 function ItemCard({ c, onItem }: { c: Card; onItem: (id: string) => void }) {
   const t = `card-${c.id}`;
   return <article aria-labelledby={t} className="rounded-lg border border-line-1 bg-surface-2 px-3 py-3 sm:px-4">
@@ -109,6 +134,7 @@ function ItemCard({ c, onItem }: { c: Card; onItem: (id: string) => void }) {
     </dl>
     {c.overlap && <p className="mt-2 text-[13px] text-text-2">{c.overlap.verdict === "wrapper" ? "Wraps or is wrapped by " : "Does the same job as "}<Name id={c.overlap.with_id} name={c.overlap.with_name} onItem={onItem} className="inline h-auto min-h-0 px-1 py-0 underline" /></p>}
     <p className="mt-2 flex flex-wrap items-center gap-2"><span className={cn("inline-flex h-5 items-center rounded-full border border-line-2 px-2 text-xs font-medium", TONE[c.verdict.tone])}>{c.verdict.label}</span><span className="text-xs text-text-3">{c.verdict.why}</span></p>
+    <HandoffBar h={c.handoff} />
   </article>;
 }
 
@@ -147,6 +173,7 @@ export function Answer({ reply, copied, onCopy, onItem, onAsk }: { reply: Reply;
       {b.more > 0 && <p className="text-xs text-text-3">{b.more.toLocaleString()} more. Ask a narrower question.</p>}
     </div>}
     {b.note && <p className="mt-3 text-xs text-text-3">{b.note}</p>}
+    {b.handoff && <HandoffBar h={b.handoff} />}
     {b.next && <p className="mt-4 flex items-start gap-2 text-[13px] text-text-2"><ArrowRightIcon aria-hidden className="mt-0.5 size-4 shrink-0" />{b.next}</p>}
     {b.did_you_mean.length > 0 && <div className="mt-4"><Chips items={b.did_you_mean.map((d) => ({ text: d.name, ask: d.ask }))} onAsk={onAsk} /></div>}
     {b.follow_ups.length > 0 && <div className="mt-4"><Chips items={b.follow_ups.map((q) => ({ text: q, ask: q }))} onAsk={onAsk} /></div>}

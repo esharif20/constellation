@@ -11,8 +11,26 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
-from .answer import DORMANT_DAYS, blocks, card, comparison, cost_value, idle_days, past, plural, refusal, row, to_text, tokens, what_line
-from .brief import frees, removes
+from .answer import (
+    DORMANT_DAYS,
+    INSTRUCTION,
+    blocks,
+    card,
+    comparison,
+    cost_value,
+    cut,
+    idle_days,
+    kind_label,
+    past,
+    plural,
+    quote,
+    refusal,
+    row,
+    to_text,
+    tokens,
+    what_line,
+)
+from .brief import brief, frees, removes
 from .compare import parse_compare, parse_keep, parse_what
 from .receipt import receipt
 from .redact import redact
@@ -323,6 +341,15 @@ def _remove(state: ChatState) -> dict[str, Any]:
         note=f"Plus {plural(unknown, 'Item')} with an unknown saving, not counted as 0. {caveat}" if unknown else caveat,
         next_="Open one on the map before you decide.",
         follow_ups=[f"Should I keep {items[chosen[0][1] or chosen[0][0].item_ids[0]]['name']}?", *ASK_NEXT],
+        handoff={
+            "instruction": cut(
+                "Review these in my Claude Code setup as removal candidates: "
+                + ", ".join(f"{kind_label(items[i]['kind'])} {quote(items[i]['name'])}" for i in [x or s.item_ids[0] for s, x in shown])
+                + ". Show me each one and wait for my OK before you remove anything.",
+                INSTRUCTION,
+            ),
+            "checklist_id": None,
+        },
     )
 
 
@@ -669,6 +696,11 @@ class LocalChat:
         clean["memory_bytes"] = data.get("memory_bytes")
         clean["usage"], clean["usage_window"] = data.get("usage"), data.get("usage_window")
         clean["clusters"] = [{"item_ids": c["item_ids"]} for c in data.get("clusters") or []]
+        rows = brief(clean)  # only rows in today's brief can be added to the checklist (POST /api/checklist 404s on the rest)
+        clean["checklist"] = {
+            **{r["item_ids"][0]: r["id"] for r in rows["cost"]["rows"]},
+            **{i: r["id"] for r in rows["pairs"]["rows"] for i in r["item_ids"]},
+        }
         index: Index | None = None  # pragma: no mutate (equivalent: unused unless set below)
         if _intent(question) in ("compare", "whatis"):
             index = index_for(data["items"])

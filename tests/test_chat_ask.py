@@ -21,13 +21,21 @@ def cost(n):
     return {"always_on": n, "on_use": None}
 
 
+AXES: dict[str, int] = {}
+
+
+def apart(texts):
+    """Every text gets its own axis, so nothing is similar in meaning to anything else."""
+    return [[1.0 if AXES.setdefault(t, len(AXES)) == n else 0.0 for n in range(400)] for t in texts]
+
+
 def make(tmp_path, monkeypatch, items, **extra):
     static = tmp_path / "static"
     static.mkdir(exist_ok=True)
     monkeypatch.setattr(server, "STATIC", static)
     path = tmp_path / "scan.json"
     path.write_text(json.dumps({"items": items, **extra}))
-    app = server.create_app(path, checklist=tmp_path / "c.md", embedder=lambda texts: [[1.0] + [0.0] * 399 for _ in texts])
+    app = server.create_app(path, checklist=tmp_path / "c.md", embedder=apart)
     return TestClient(app, base_url="http://127.0.0.1:8765")
 
 
@@ -365,3 +373,109 @@ def test_item_names_that_look_like_commands_are_not_refused(tmp_path, monkeypatc
     assert ask(client, "why is pdf-tools so big")["blocks"]["cards"][0]["name"] == "pdf-tools"
     for question in ("What do I pay before I type anything?", "How many items are there", "What could I remove?", "how do I use ponytail"):
         assert ask(client, question)["blocks"]["handoff"] is None, question
+
+
+# --- #53: hand-off on every verdict ---------------------------------------------------------------------------------------------
+
+
+def handoff_scan():
+    items = [item(f"s{n}", f"skill-{n}") for n in range(6)] + [
+        item("pk", "pdf-tools", "plugin"),
+        item("mc", "mailbox", "mcp_server"),
+        item("ag", "scribe", "agent", origin="acme/tools"),
+        item("t1", "twin-one"),
+        item("t2", "twin-two"),
+        item("w", "shim"),
+        item("c", "core"),
+        item("geo", "geo-helper"),
+        item("hk", "pre-hook", "hook"),
+    ]
+    costs = {f"s{n}": cost(100 * (n + 1)) for n in range(6)}  # s5 is the dearest; s0 falls outside the top five
+    costs.update({"mc": cost(40), "ag": cost(30), "t1": cost(20), "t2": cost(10), "w": cost(5), "c": cost(5)})
+    return items, {
+        "costs": costs,
+        "usage": {
+            **{f"s{n}": NEVER for n in range(6)},
+            "mc": NEVER,
+            "ag": {"count": 3, "last_used": "2026-10-29"},
+            "geo": {"count": 6, "last_used": "2026-10-29"},
+        },
+        "usage_window": WINDOW,
+        "usage_by_project": {"geo": {"projectkey1": {"count": 6, "last_used": "2026-10-29"}}},
+        "projects": {"projectkey1": "my-private-project"},
+        "overlaps": [
+            {"a_id": "t1", "b_id": "t2", "verdict": "duplicate", "reason": "Same."},
+            {"a_id": "w", "b_id": "c", "verdict": "wrapper", "reason": "Calls."},
+        ],
+    }
+
+
+def card_handoff(client, name):
+    card = ask(client, f"What is {name}?")["blocks"]["cards"][0]
+    return card["handoff"]
+
+
+def test_every_card_ends_in_a_per_kind_instruction(tmp_path, monkeypatch):
+    items, extra = handoff_scan()
+    client = make(tmp_path, monkeypatch, items, **extra)
+    said = {
+        name: card_handoff(client, name)["instruction"]
+        for name in ("skill-5", "pdf-tools", "mailbox", "scribe", "twin-one", "shim", "core", "geo-helper")
+    }
+    confirm = " Show me exactly what will change and wait for my OK."
+    assert said["skill-5"] == 'Remove the skill "skill-5": find its folder (under ~/.claude/skills) and delete only that folder.' + confirm
+    assert said["pdf-tools"] == 'Disable the plugin "pdf-tools" in my user settings.json enabledPlugins; do not delete files.' + confirm
+    assert said["mailbox"] == 'Remove the MCP server "mailbox" from my Claude Code config, in the scope where it is defined.' + confirm
+    assert (
+        said["twin-one"]
+        == 'The skill "twin-one" and "twin-two" do the same job. Compare them and recommend which to remove; remove nothing until I choose.'
+        + confirm
+    )
+    assert said["shim"] == 'The skill "shim" only calls "core". Show me how to use "core" directly, then remove "shim".' + confirm
+    assert said["core"] == 'Keep the skill "core"; "shim" calls it. Change nothing.'
+    assert said["geo-helper"] == 'Review the skill "geo-helper": tell me what it does and whether I still need it. Change nothing.'
+    assert said["scribe"] == 'Review the agent "scribe": tell me what it does and whether I still need it. Change nothing.'
+    assert "my-private-project" not in str(ask(client, "What is geo-helper?"))
+
+
+def test_origin_is_named_so_a_plugins_files_are_not_edited_in_place(tmp_path, monkeypatch):
+    items, extra = handoff_scan()
+    extra["usage"]["ag"] = NEVER
+    text = card_handoff(make(tmp_path, monkeypatch, items, **extra), "scribe")["instruction"]
+    assert (
+        text.startswith('Remove the agent "scribe"') and 'It came from "acme/tools": if that is a plugin or pack, change it there' in text
+    )
+
+
+def test_checklist_ids_are_exactly_the_rows_the_checklist_accepts(tmp_path, monkeypatch):
+    items, extra = handoff_scan()
+    client = make(tmp_path, monkeypatch, items, **extra)
+    summary = client.get("/api/brief").json()
+    addable = {r["item_ids"][0]: r["id"] for r in summary["cost"]["rows"]}
+    ids = {
+        name: card_handoff(client, name)["checklist_id"]
+        for name in ("skill-5", "skill-4", "skill-0", "twin-one", "geo-helper", "pdf-tools")
+    }
+    assert ids["skill-5"] == addable["s5"] and ids["skill-4"] == addable["s4"]
+    assert ids["skill-0"] is None  # a sixth costed Item is not in the brief, so the checklist would answer 404
+    assert ids["geo-helper"] is None and ids["pdf-tools"] is None
+    scope_row = summary["scope"]["rows"][0]
+    assert client.post("/api/checklist", json={"id": scope_row["id"]}).status_code == 404  # remember-scope rows are not addable
+    assert scope_row["id"] not in ids.values()
+    pair = next(r for r in summary["pairs"]["rows"] if r["item_ids"] == ["t1", "t2"])
+    assert ids["twin-one"] == pair["id"]
+    for name in ("skill-5", "twin-one"):
+        row_id = ids[name]
+        first = client.post("/api/checklist", json={"id": row_id})
+        assert first.status_code == 200 and first.json()["added"] is True and row_id in first.json()["ids"]
+        assert client.post("/api/checklist", json={"id": row_id}).json()["added"] is False
+    assert client.post("/api/checklist", json={"id": "feedfeedfeed"}).status_code == 404
+
+
+def test_the_remove_list_ends_in_one_instruction_for_its_rows(tmp_path, monkeypatch):
+    items, extra = handoff_scan()
+    blocks = ask(make(tmp_path, monkeypatch, items, **extra), "what could I remove")["blocks"]
+    hand = blocks["handoff"]
+    assert hand["checklist_id"] is None
+    assert hand["instruction"].startswith('Review these in my Claude Code setup as removal candidates: skill "skill-5", ')
+    assert hand["instruction"].endswith("Show me each one and wait for my OK before you remove anything.")

@@ -141,11 +141,51 @@ def kind_label(kind: str) -> str:
     return KINDS.get(kind, kind.replace("_", " "))
 
 
+_DO = {  # what Claude Code is asked to do for an Item worth acting on, per kind; {n} is the quoted name
+    "skill": "Remove the skill {n}: find its folder (under ~/.claude/skills) and delete only that folder.",
+    "agent": "Remove the agent {n}: find its file (under ~/.claude/agents) and delete only that file.",
+    "command": "Remove the command {n}: find its file (under ~/.claude/commands) and delete only that file.",
+    "mcp_server": "Remove the MCP server {n} from my Claude Code config, in the scope where it is defined.",
+    "plugin": "Disable the plugin {n} in my user settings.json enabledPlugins; do not delete files.",
+    "hook": "Remove the hook {n} from the hooks section of my settings.json.",
+    "connector": "Disconnect the connector {n}. It is managed in claude.ai, so tell me where to click.",
+}
+_CONFIRM = " Show me exactly what will change and wait for my OK."
+INSTRUCTION = 400
+
+
+def handoff(data: dict[str, Any], item: dict[str, Any], tone: str, overlap: dict[str, Any] | None) -> dict[str, Any]:
+    """A copyable instruction for Claude Code and the checklist row that can be added for this Item (None when there is none)."""
+    id_, name, label = item["id"], quote(item["name"]), kind_label(item["kind"])
+    other = None
+    if overlap:
+        names = {i["id"]: i["name"] for i in data["items"]}
+        other = quote(names[overlap["b_id"] if overlap["a_id"] == id_ else overlap["a_id"]])
+    if tone == "keep" or (
+        tone == "unknown" and item["kind"] != "plugin"
+    ):  # usage is not tracked for plugins: unknown is their normal state
+        text = f"Review the {label} {name}: tell me what it does and whether I still need it. Change nothing."
+    elif overlap and overlap["verdict"] == "duplicate":
+        text = f"The {label} {name} and {other} do the same job. Compare them and recommend which to remove; remove nothing until I choose."
+    elif overlap and overlap["a_id"] == id_:
+        text = f"The {label} {name} only calls {other}. Show me how to use {other} directly, then remove {name}."
+    elif overlap:
+        text = f"Keep the {label} {name}; {other} calls it. Change nothing."
+    else:
+        text = _DO.get(item["kind"], "Review the " + label + " {n} and tell me how to remove it.").format(n=name)
+        origin = item.get("origin")
+        if origin and item["kind"] in ("skill", "agent", "command", "hook", "mcp_server"):
+            text += f" It came from {quote(origin)}: if that is a plugin or pack, change it there, not inside its folder."
+    if not text.endswith("Change nothing."):
+        text += _CONFIRM
+    return {"instruction": cut(text, INSTRUCTION), "checklist_id": (data.get("checklist") or {}).get(id_)}
+
+
 def card(data: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
     id_ = item["id"]
     cost = (data.get("costs") or {}).get(id_) or {}
     overlap = _overlap(data, id_)
-    shown = None
+    decided, shown = verdict(data, id_), None
     if overlap:
         names = {i["id"]: i["name"] for i in data["items"]}
         with_id = overlap["b_id"] if overlap["a_id"] == id_ else overlap["a_id"]
@@ -160,7 +200,8 @@ def card(data: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
         "on_use": tokens(cost.get("on_use")),
         "usage": _usage(data, id_)[0],
         "overlap": shown,
-        "verdict": verdict(data, id_),
+        "verdict": decided,
+        "handoff": handoff(data, item, decided["tone"], overlap),
     }
 
 
