@@ -16,6 +16,7 @@ from . import origins as origin_sources
 from . import scan
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
+from .diff import diff_scans, render_diff
 from .env import load_env
 from .models import LLM, Constellation, Embedder, TokenCounter
 from .overlaps import estimate_cost
@@ -80,7 +81,13 @@ def main(
     review_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     review_command.add_argument("--out", type=Path, default=Path("cleanup.md"), help="the checklist to write")
     review_command.add_argument("--force", action="store_true", help="overwrite an existing checklist")
+    diff_command = commands.add_parser("diff", help="list Items added, removed or changed between two saved scans (reads the files only)")
+    diff_command.add_argument("old", type=Path)
+    diff_command.add_argument("new", type=Path)
+    diff_command.add_argument("--json", action="store_true", help="print the diff as JSON")
     args = parser.parse_args(argv)
+    if args.command == "diff":
+        return _diff(args)  # reads the files only, so it skips load_env
     if args.command == "export":
         return _export(args)
     if args.command == "review":
@@ -245,6 +252,19 @@ def _review(args: argparse.Namespace, decide: Callable[[Suggestion], str] | None
     write_private(args.out, render_cleanup(data, top=5, approved=approved))
     skipped = sum(decisions.get(s.id) == "skip" for s in suggestions)
     print(f"\n{len(approved)} approved, {skipped} skipped, {len(suggestions) - len(approved) - skipped} left. Checklist: {args.out}")
+    return 0
+
+
+def _diff(args: argparse.Namespace) -> int:
+    old, new = _load_scan(args.old), _load_scan(args.new)
+    if old is None or new is None:
+        return 2
+    d = diff_scans(old, new)
+    if args.json:
+        print(json.dumps(d, indent=2))
+    else:
+        color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
+        print(render_diff(d, color=color, width=max(40, min(shutil.get_terminal_size().columns, 100))), end="")
     return 0
 
 

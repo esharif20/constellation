@@ -442,3 +442,9 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Not built, by design: cluster button, Compare, Add to checklist, Actions and sticky phone footer (C, need Atlas wiring), shimmer loading state (the lazy chunk is Atlas's Suspense).
 - Open for Atlas wiring (Atlas.tsx not editable here): the selection live region should say `Selected {name}, {verdict word}`; export `verdictOf` is ready. The banner has a visually hidden `Verdict:` prefix meanwhile.
 - Screenshots (demo-250 and demo-offline only): `docs/design/screenshots/inspector/`.
+
+## #66 setup diff (2026-11-04, branch `claude/diff-66`)
+
+- `constellation diff OLD NEW [--json]` (new `src/constellation/diff.py`, `_diff` in `cli.py`, `diff.py` added to `only_mutate`). Reads two saved scans only: no `load_env`, no network, no provider call, exit 2 on a bad file.
+- Matching by id, then by `(kind, name)` when unique among the unmatched on both sides (other machine, shifted `local/<n>/` scope). Changed fields in fixed order `always_on`, `on_use`, `description`, `disabled`; descriptions are compared and never output. Totals sum known always-on only; unknown counted separately.
+- Added a `on-use` shift fragment in the Changed rows (`on-use 5 -> unknown`) alongside `always-on`, mirroring the plan's row shape. No plan deviation. `scan()` and `__init__.py` untouched; `scanned_at` dates show only once #62 writes them (else `unknown date`).
