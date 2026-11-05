@@ -1,7 +1,7 @@
 // Canvas painting for the star atlas. force-graph calls pre -> links -> nodes -> post every frame;
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
 import { FOCUS_FILL, haloOf } from "./layout";
-import { badgeY } from "./badge";
+import { badgeWanted, badgeY } from "./badge";
 import { chooseSpot, cutName, labelStart, type Box } from "./names";
 import { clusterHealth, rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
 
@@ -12,7 +12,8 @@ export const FEEL = {
   glow: 4.2, // glow sprite radius as a multiple of node radius
   hoverScale: 1.3,
   labelMs: 140, // cluster names ease to a new spot, and every canvas name eases in or out on its zoom threshold, over about this long
-  tipDelay: 120, // ms a pointer dwells on a star before its tooltip shows (docs/design/labels.md 9)
+  tipDelay: 130, // ms a pointer dwells on a star before its tooltip shows (docs/design/labels.md 9)
+  tipSwitch: 50, // ms before a tooltip that is already open moves to the next star
   tipWarm: 300, // while a tooltip was visible this recently, the next star's shows at once
   // cluster focus (docs/design/cluster-focus.md); the flight itself is FLIGHT in layout.ts
   focusDim: 0.12, // stars outside the focused cluster (above --fade, so the map stays legible as context)
@@ -486,15 +487,16 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.lineWidth = 4;
       for (const c of model.clusters) {
         const m = widths.get(c), h = health.get(c);
-        if (!c.hit || !m || !h) continue;
+        const over = focus.nameHover === c;
+        if (!c.hit || !m || !h || !badgeWanted({ hovered: over, focused: f?.cluster === c, z })) continue;
         const [sx, sy] = sc.apply(c.lx, c.ly);
         const cost = h.known == null ? "cost unknown" : `${h.known.toLocaleString()} tok`;
         const rest = [h.useShare == null ? "" : ` · ${h.useShare > 0 && h.useShare < 0.01 ? "<1" : Math.round(h.useShare * 100)}% of uses`, ` · ${h.overlaps === 0 ? "no overlaps" : h.overlaps === 1 ? "1 overlap" : `${h.overlaps} overlaps`}`].join("");
         const w = ctx.measureText(cost + rest).width, x = sx - w / 2;
         const discs = c.members.filter((n) => n.a > 0.05).map((n) => ({ x: n.x! * sc.k + sc.tx, y: n.y! * sc.k + sc.ty, r: radius(n, sc.k) * sc.k }));
         const y = badgeY({ x: sx, y: sy, h: m.size * m.scale }, w, 16, discs);
-        if (!fits(x - 2, y - 8, x + w + 2, y + 8)) continue;
-        ctx.globalAlpha = (zoomAlpha * c.la * c.a) * 0.9;
+        if (!over && !fits(x - 2, y - 8, x + w + 2, y + 8)) continue; // the hovered one is asked for, the rest only if there is room
+        ctx.globalAlpha = over ? 1 : (zoomAlpha * c.la * c.a) * 0.9;
         ctx.save(); ctx.globalAlpha *= 0.55; ctx.fillStyle = ink.night; // subtle backing so the text reads over glow and edges
         ctx.beginPath(); ctx.roundRect(x - 6, y - 8, w + 12, 16, 8); ctx.fill(); ctx.restore();
         ctx.strokeText(cost + rest, x, y);

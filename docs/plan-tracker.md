@@ -740,3 +740,9 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 
 - Bug: a big star near the top of a cluster sat under the badge's left end. New pure `badgeY` in `frontend/src/graph/badge.ts`: under the name, else above it, else above the topmost member star's top edge (from screen positions and drawn radii). The name anchor and hit box (#38/#50) are untouched; only the badge moves. Badge text now has a low-alpha `ink.night` pill (existing token). No deviation from the plan.
 - `badge:check` asserts the placement incl. a large top-left node. build, layout, chat, badge, inspector checks pass. Not verified: by eye in the app (no screenshot taken) and `chat:cluster:check` (needs a demo-250 server URL).
+
+## Declutter the zoomed-out Atlas (branch `claude/declutter`)
+- Status: done, no deviations. Stack unchanged (react-force-graph-2d canvas, painter in paint.ts).
+- Labels: zoomed out shows cluster names only (existing chooseSpot collision avoidance). The #71 health badge now shows only for the hovered name, the focused Item's cluster, or from zoom 1.3x on and then only where it fits (`badgeWanted` in graph/badge.ts; `badgeY` kept).
+- Hover: `hoverTarget` (graph/hover.ts) adds hysteresis (padded hit radius with a 9 px floor for tiny stars, rival must be 30% closer); 130 ms dwell from empty space, 50 ms switch when a tooltip is open; no hover while a button is down or dragging; pan/zoom still hides. Touch path unchanged (tap shows, tap elsewhere hides).
+- New check: `npm run labels:check`.

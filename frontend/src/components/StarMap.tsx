@@ -5,6 +5,7 @@ import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import { flightMs, flightPath } from "@/graph/flight";
 import { applyForces, fitView, focusView, haloOf, type LLink, type LNode, type View } from "@/graph/layout";
 import { step, type Cluster, type GLink, type GNode, type Model } from "@/graph/model";
+import { hoverTarget } from "@/graph/hover";
 import { FEEL, hoverRadius, makePainter, type Painter } from "@/graph/paint";
 import { Hover, type Tip } from "@/components/Hover";
 import { cn } from "@/lib/utils";
@@ -117,10 +118,11 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   // n: the star whose tooltip is up; timer: dwell; warmUntil: a tooltip was up until now + 300 ms, so the next star's shows at once;
   // rest: re-show timer after the camera stops; touch: the last pointer was a finger; at: the last pointer position
   const [tip, setTip] = useState<Tip | null>(null);
-  const tipRef = useRef({ n: null as GNode | null, timer: 0, warmUntil: 0, rest: 0, touch: false, x: 0, y: 0, cam: { k: 0, x: 0, y: 0 } });
+  const tipRef = useRef({ want: null as GNode | null, raw: null as GNode | null, n: null as GNode | null, timer: 0, warmUntil: 0, rest: 0, touch: false, x: 0, y: 0, cam: { k: 0, x: 0, y: 0 } });
   const hideTip = useCallback(() => {
     const t = tipRef.current;
     clearTimeout(t.timer);
+    t.want = null;
     if (!t.n) return;
     t.n = null;
     t.warmUntil = performance.now() + FEEL.tipWarm;
@@ -141,8 +143,18 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     clearTimeout(t.timer);
     if (!n) return hideTip();
     if (t.n === n) return;
-    t.timer = window.setTimeout(() => showTip(n, false), performance.now() < t.warmUntil ? 0 : FEEL.tipDelay);
+    t.timer = window.setTimeout(() => showTip(n, false), performance.now() < t.warmUntil ? FEEL.tipSwitch : FEEL.tipDelay);
   }, [hideTip, showTip]);
+  // hover intent: the canvas reports the star under the pointer; hoverTarget decides whether the tooltip follows (hysteresis)
+  const settle = useCallback((cand: GNode | null) => {
+    const t = tipRef.current, g = fg.current;
+    t.raw = cand;
+    if (dragging.current || t.touch || !g) return;
+    const target = hoverTarget(t.want, cand, t, (n) => { const c = g.graph2ScreenCoords(n.x!, n.y!); return { x: c.x, y: c.y, r: hoverRadius(n, g.zoom()) }; });
+    focus.hover = target;
+    if (target !== t.want) { t.want = target; hoverTip(target); }
+    wake();
+  }, [focus, hoverTip, wake]);
   useEffect(() => () => { clearTimeout(tipRef.current.timer); clearTimeout(tipRef.current.rest); }, []);
 
   useEffect(() => { focus.removed = removed; wake(); }, [focus, removed, wake]);
@@ -377,6 +389,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     tipRef.current.touch = e.pointerType === "touch";
     tipRef.current.x = e.clientX;
     tipRef.current.y = e.clientY;
+    if (e.buttons === 0 && (tipRef.current.want || tipRef.current.raw)) settle(tipRef.current.raw);
     if (hoverRaf.current || e.pointerType === "touch") return;
     const x = e.clientX, y = e.clientY;
     hoverRaf.current = requestAnimationFrame(() => {
@@ -397,6 +410,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
       onPointerLeave={() => { // the chrome sits above the canvas, so force-graph never hears the pointer go (hoverObj stays on the star)
         if (dragging.current) return;
         focus.hover = null;
+        tipRef.current.raw = null;
         focus.nameHover = null;
         if (wrap.current) wrap.current.style.cursor = "";
         hideTip();
@@ -435,9 +449,8 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
         onRenderFramePre={painter.pre}
         onRenderFramePost={painter.post}
         onNodeHover={(n) => {
-          focus.hover = n ?? null;
-          wake();
-          if (!tipRef.current.touch) hoverTip(n ?? null); // a finger's tooltip comes from its taps (onNodeClick)
+          if (tipRef.current.touch) { focus.hover = n ?? null; tipRef.current.raw = n ?? null; wake(); return; } // a finger's tooltip comes from its taps (onNodeClick)
+          settle(n ?? null);
         }}
         onNodeDrag={(n) => { dragging.current = true; focus.hover = n; hideTip(); setCool(Infinity); }}
         onNodeDragEnd={() => { dragging.current = false; focus.hover = null; setCool(150); wake(); }}

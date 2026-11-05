@@ -12,3 +12,7 @@ export function badgeY(name: { x: number; y: number; h: number }, w: number, h: 
   if (clear(name.x, above, hw, hh, discs)) return above;
   return Math.min(above, ...discs.map((d) => d.y - d.r - GAP - hh));
 }
+
+// Progressive disclosure: zoomed out only names; the health line shows for the hovered or focused cluster, or once there is room.
+export const BADGE_ROOM_Z = 1.3; // zoom (relative to the fitted view) from which every drawn name may carry its badge
+export const badgeWanted = (o: { hovered: boolean; focused: boolean; z: number }) => o.hovered || o.focused || o.z >= BADGE_ROOM_Z;
