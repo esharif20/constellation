@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import sys
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from difflib import get_close_matches
@@ -69,6 +70,10 @@ class Scan:
     def names(self) -> dict[str, str]:
         return {i["id"]: i["name"] for i in self.data["items"]}
 
+    def label(self, id_: str) -> str:
+        """The Item's name, or the id itself when the scan has no such Item (a dangling relation)."""
+        return self.names.get(id_, id_)
+
 
 def load(path: Path, habits: Path | None = None) -> Scan:
     """The saved scan and its verdicts (the same compute() the app serves). Raises ReportError."""
@@ -95,8 +100,11 @@ class Style:
     def paint(self, text: str, style: str) -> str:
         return f"\033[{_ANSI[style]}m{text}\033[0m" if self.color else text
 
+    def title(self, text: str) -> str:
+        return self.paint(text, "bold")
+
     def head(self, title: str) -> str:
-        return "\n" + self.paint(title, "bold")
+        return "\n" + self.title(title)
 
     def mark(self, marker: str) -> str:
         return self.paint(marker, marker)
@@ -145,7 +153,7 @@ def _doctor(s: Scan, _: str | None) -> dict[str, Any]:
 
 def _cost(s: Scan, _: str | None) -> dict[str, Any]:
     r = receipt(s.data)
-    owner = {rel["target"]: s.names.get(rel["source"], rel["source"]) for rel in s.data.get("relations") or [] if rel["kind"] == "contains"}
+    owner = {rel["target"]: s.label(rel["source"]) for rel in s.data.get("relations") or [] if rel["kind"] == "contains"}
     by_plugin: dict[str, dict[str, Any]] = {}
     for row in r["rows"]:
         if row["tokens"] is not None:
@@ -169,12 +177,18 @@ def _unused(s: Scan, _: str | None) -> dict[str, Any]:
 
 
 def _twins(s: Scan, _: str | None) -> dict[str, Any]:
-    use = {k: v.count for k, v in s.found.evidence.items.items()}
+    use: defaultdict[str, int] = defaultdict(int, {k: v.count for k, v in s.found.evidence.items.items()})
     rows = []
     for o in s.data.get("overlaps") or []:
         if o["verdict"] != "distinct":
-            a, b = use.get(o["a_id"], 0), use.get(o["b_id"], 0)
-            you = "neither yet" if a == b == 0 else "both about equally" if a == b else s.names[o["a_id"] if a > b else o["b_id"]]
+            a, b = use[o["a_id"]], use[o["b_id"]]
+            you = (
+                "neither yet"
+                if a == b == 0
+                else "both about equally"
+                if a == b
+                else s.names[max(o["a_id"], o["b_id"], key=use.__getitem__)]
+            )
             rows.append({"a": s.names[o["a_id"]], "b": s.names[o["b_id"]], "verdict": o["verdict"], "reason": o["reason"], "you_use": you})
     return {"pairs": rows}
 
@@ -195,9 +209,9 @@ def _why(s: Scan, query: str | None) -> dict[str, Any]:
     item = find_item(s, query or "")
     a = s.found.assessments[item["id"]]
     rels = s.data.get("relations") or []
-    refs = {s.names.get(r["source"], r["source"]) for r in rels if r["target"] == item["id"] and r["kind"] != "contains"}
-    refs |= {s.names.get(i, i) for i in s.found.evidence.items[item["id"]].referenced_by}
-    parts = sorted(s.names.get(r["target"], r["target"]) for r in rels if r["source"] == item["id"] and r["kind"] == "contains")
+    refs = {s.label(r["source"]) for r in rels if r["target"] == item["id"] and r["kind"] != "contains"}
+    refs |= {s.label(i) for i in s.found.evidence.items[item["id"]].referenced_by}
+    parts = sorted(s.label(r["target"]) for r in rels if r["source"] == item["id"] and r["kind"] == "contains")
     return {
         "name": item["name"],
         "kind": item["kind"],
@@ -207,7 +221,7 @@ def _why(s: Scan, query: str | None) -> dict[str, Any]:
         "frees": a.saves,
         "referenced_by": sorted(refs),
         "contains": parts,
-        "twin": s.names.get(a.twin_id) if a.twin_id else None,
+        "twin": s.label(a.twin_id) if a.twin_id else None,
         "history_days": s.found.evidence.active_days,
     }
 
@@ -217,7 +231,7 @@ def _hooks(s: Scan, _: str | None) -> dict[str, Any]:
 
 
 def _clashes(s: Scan, _: str | None) -> dict[str, Any]:
-    return {"clashes": [{**c, "names": [s.names.get(i, i) for i in c["item_ids"]]} for c in conflicts(s.data)]}
+    return {"clashes": [{**c, "names": [s.label(i) for i in c["item_ids"]]} for c in conflicts(s.data)]}
 
 
 def _triggers(s: Scan, _: str | None) -> dict[str, Any]:
@@ -258,7 +272,7 @@ def _r_doctor(d: dict[str, Any], st: Style) -> str:
         else f"{rec['low']:,} to {rec['high']:,} tokens per session"
         + (f" ({_plural(rec['unknown'], 'Item')} of unknown size not counted)" if rec["unknown"] else "")
     )
-    lines = [st.paint("Constellation doctor", "bold"), "", f"  {st.mark(mark)} Session start: {start}"]
+    lines = [st.title("Constellation doctor"), "", f"  {st.mark(mark)} Session start: {start}"]
     lines.append(f"  {st.mark(OK if rec['high'] == 0 else WARN)} Could be reclaimed: {free}")
     if d["findings"]:
         lines.append(st.head("Top findings"))
@@ -280,7 +294,7 @@ def _r_doctor(d: dict[str, Any], st: Style) -> str:
 
 def _r_cost(d: dict[str, Any], st: Style) -> str:
     total = f"  Total: {_n(d['total'])} tokens" + (f" ({d['unknown']} Items unmeasured)" if d["unknown"] else "")
-    lines = [st.paint("Session-start bill", "bold"), "", total, st.head("Biggest first")]
+    lines = [st.title("Session-start bill"), "", total, st.head("Biggest first")]
     lines += st.table(
         [[r["name"], r["kind"], f"{r['tokens']:,}"] for r in d["top"] if r["tokens"] is not None] or [["none measured", "", ""]]
     )
@@ -293,7 +307,7 @@ def _r_unused(d: dict[str, Any], st: Style) -> str:
     if not d["sessions"]:
         return "No session history yet, so nothing can be called unused. Run `constellation scan` after some sessions.\n"
     history = f"  History: {_plural(d['sessions'], 'session')} over {_plural(d['span_days'], 'day')} ({d['active_days']} active)"
-    lines = [st.paint("Not used lately", "bold"), "", history, ""]
+    lines = [st.title("Not used lately"), "", history, ""]
     lines += st.table(
         [[r["name"], r["label"], f"{r['confidence']} confidence", f"saves {_n(r['saves'])}"] for r in d["rows"]] or [["none", "", "", ""]]
     )
@@ -305,7 +319,7 @@ def _r_unused(d: dict[str, Any], st: Style) -> str:
 def _r_twins(d: dict[str, Any], st: Style) -> str:
     if not d["pairs"]:
         return f"  {st.mark(OK)} No overlapping pairs found.\n"
-    lines = [st.paint("Twins", "bold")]
+    lines = [st.title("Twins")]
     for p in d["pairs"]:
         lines += ["", f"  {st.mark(WARN)} {p['a']} and {p['b']} ({p['verdict']})", f"      {p['reason']}", f"      You use: {p['you_use']}"]
     return "\n".join(lines) + "\n"
@@ -313,7 +327,7 @@ def _r_twins(d: dict[str, Any], st: Style) -> str:
 
 def _r_why(d: dict[str, Any], st: Style) -> str:
     verdict = f"  Verdict: {d['verdict']}" + (f", {d['confidence']} confidence" if d["confidence"] else "")
-    lines = [st.paint(f"{d['name']} ({d['kind']})", "bold"), "", verdict, *(f"  - {r}" for r in d["reasons"])]
+    lines = [st.title(f"{d['name']} ({d['kind']})"), "", verdict, *(f"  - {r}" for r in d["reasons"])]
     if d["twin"]:
         lines.append(f"  Compared with: {d['twin']}")
     lines.append(f"  Removing it frees: {_n(d['frees'])}" + ("" if d["frees"] is None else " tokens per session"))
@@ -331,13 +345,13 @@ def _r_hooks(d: dict[str, Any], st: Style) -> str:
         [h["name"], h["phase"], "can block" if h["can_block"] else "", h["runs"], "unknown" if h["bytes"] is None else f"{h['bytes']:,} B"]
         for h in d["hooks"]
     ]
-    return "\n".join([st.paint("Hooks, by phase and weight", "bold"), "", *st.table(rows)]) + "\n"
+    return "\n".join([st.title("Hooks, by phase and weight"), "", *st.table(rows)]) + "\n"
 
 
 def _r_clashes(d: dict[str, Any], st: Style) -> str:
     if not d["clashes"]:
         return f"  {st.mark(OK)} No clashes found.\n"
-    lines = [st.paint("Clashes", "bold")]
+    lines = [st.title("Clashes")]
     for c in d["clashes"]:
         lines += ["", f"  {st.mark(BAD)} {c['kind']}: {c['key']}", f"      {c['reason']}", "      Items: " + ", ".join(c["names"])]
     return "\n".join(lines) + "\n"
@@ -349,7 +363,7 @@ def _r_triggers(d: dict[str, Any], st: Style) -> str:
     if not d["rows"]:
         return f"  {st.mark(OK)} Every skill fires at a reasonable rate.\n"
     rows = [[r["name"], " ".join(r["flags"]), f"{r['count']:,} uses"] for r in d["rows"]]
-    return "\n".join([st.paint("Triggers", "bold"), "", *st.table(rows)]) + "\n"
+    return "\n".join([st.title("Triggers"), "", *st.table(rows)]) + "\n"
 
 
 def _r_text(d: dict[str, Any], st: Style) -> str:
