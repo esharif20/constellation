@@ -3,6 +3,8 @@ import shutil
 from dataclasses import asdict
 from pathlib import Path
 
+from fakes import own
+
 from constellation import scan
 
 FIXTURE = Path(__file__).parent / "fixtures" / "mcp_config"
@@ -33,7 +35,7 @@ def test_servers_come_from_claude_json_and_plugins_as_shape_only():
 def test_no_planted_secret_survives_anywhere_in_the_scan():
     result = scan(FIXTURE)
 
-    everything = json.dumps(asdict(result)) + repr(result.warnings)
+    everything = json.dumps(asdict(result)) + repr(own(result.warnings))
     assert "PLANTED" not in everything
     assert "work/app" not in everything  # the project path stays out of ids too
 
@@ -41,8 +43,8 @@ def test_no_planted_secret_survives_anywhere_in_the_scan():
 def test_a_malformed_server_file_is_a_warning_with_no_file_text():
     result = scan(FIXTURE)
 
-    assert any("broken/.mcp.json" in w and "not valid JSON" in w for w in result.warnings)
-    assert "plugin nowrap" in " ".join(w for w in result.warnings if "skipped an MCP entry" in w)  # the ../escape.json entry
+    assert any("broken/.mcp.json" in w and "not valid JSON" in w for w in own(result.warnings))
+    assert "plugin nowrap" in " ".join(w for w in own(result.warnings) if "skipped an MCP entry" in w)  # the ../escape.json entry
 
 
 def test_unparseable_claude_json_is_a_warning_not_a_crash(tmp_path):
@@ -53,7 +55,7 @@ def test_unparseable_claude_json_is_a_warning_not_a_crash(tmp_path):
     result = scan(config)
 
     assert result.items == []
-    assert result.warnings == ["could not read .claude.json: unreadable or not valid JSON"]
+    assert own(result.warnings) == ["could not read .claude.json: unreadable or not valid JSON"]
 
 
 def test_claude_json_beside_a_dot_claude_dir_is_read_and_a_missing_one_warns(tmp_path):
@@ -66,7 +68,7 @@ def test_claude_json_beside_a_dot_claude_dir_is_read_and_a_missing_one_warns(tmp
     (tmp_path / ".claude.json").unlink()
     result = scan(tmp_path / ".claude")
     assert "uservm" not in named(result, "mcp_server")
-    assert any(".claude.json" in w and "not listed" in w for w in result.warnings)
+    assert any(".claude.json" in w and "not listed" in w for w in own(result.warnings))
 
 
 def test_a_dir_not_named_dot_claude_never_looks_in_its_parent(tmp_path):
@@ -86,7 +88,7 @@ def test_slash_commands_are_items_from_user_and_plugin_dirs():
         "pc": "Plugin command line.",
     }
     assert commands["pc"].id == "claude-code:command:nowrap/pc"
-    assert any("skipped command 'empty'" in w for w in result.warnings)
+    assert any("skipped command 'empty'" in w for w in own(result.warnings))
 
 
 def test_a_disabled_plugin_and_its_contents_stay_flagged():
@@ -207,9 +209,9 @@ def test_an_invalid_utf8_command_and_a_malformed_installed_plugins_entry_warn_an
     result = scan(tmp_path)
 
     assert list(named(result, "command")) == ["ok"]
-    assert "skipped a command file: unreadable or not valid UTF-8" in result.warnings
-    assert "skipped malformed entries in installed_plugins.json" in result.warnings
-    assert "bad.md" not in repr(result.warnings) and "PLANTED" not in repr(result.warnings)
+    assert "skipped a command file: unreadable or not valid UTF-8" in own(result.warnings)
+    assert "skipped malformed entries in installed_plugins.json" in own(result.warnings)
+    assert "bad.md" not in repr(own(result.warnings)) and "PLANTED" not in repr(own(result.warnings))
 
 
 def test_a_symlink_inside_a_plugin_pointing_outside_is_refused(tmp_path):
@@ -225,7 +227,7 @@ def test_a_symlink_inside_a_plugin_pointing_outside_is_refused(tmp_path):
 
     assert "evil" not in named(result, "command")
     assert "PLANTED_OUTSIDE" not in json.dumps(asdict(result))
-    assert "skipped a file in a plugin: it is a symlink pointing outside the plugin" in result.warnings
+    assert "skipped a file in a plugin: it is a symlink pointing outside the plugin" in own(result.warnings)
 
 
 def test_a_plugin_named_user_is_not_the_user_scope_for_tool_calls(tmp_path):
@@ -337,7 +339,7 @@ def test_a_malformed_or_nameless_plugin_manifest_is_a_warning_not_a_crash(tmp_pa
     result = scan(tmp_path)
 
     assert result.items == []
-    assert result.warnings == ["skipped a plugin: its plugin.json is unreadable, not valid JSON or has no name"] * 4
+    assert own(result.warnings) == ["skipped a plugin: its plugin.json is unreadable, not valid JSON or has no name"] * 4
 
 
 def test_project_mcp_json_of_every_listed_project_gets_a_local_index_and_project_scope(tmp_path):
@@ -356,7 +358,7 @@ def test_project_mcp_json_of_every_listed_project_gets_a_local_index_and_project
     assert sorted(found) == ["local/1/alpha", "local/2/zeta"]  # sorted path order, not insertion order
     assert {i.scope for i in found.values()} == {"project"}
     assert found["local/1/alpha"].description == "remote http: https://h.example.com"
-    assert "PLANTED" not in json.dumps(asdict(result)) + repr(result.warnings)
+    assert "PLANTED" not in json.dumps(asdict(result)) + repr(own(result.warnings))
 
 
 def test_an_unapproved_project_server_is_off_and_approval_comes_from_either_place(tmp_path):
@@ -408,7 +410,7 @@ def test_a_project_without_an_existing_folder_or_with_a_relative_key_adds_nothin
 
     result = scan(config)
 
-    assert result.items == [] and result.warnings == []
+    assert result.items == [] and own(result.warnings) == []
 
 
 def test_a_symlinked_or_malformed_project_mcp_json_warns_without_the_path(tmp_path):
@@ -421,11 +423,11 @@ def test_a_symlinked_or_malformed_project_mcp_json_warns_without_the_path(tmp_pa
     result = scan(config)
 
     assert result.items == []
-    assert sorted(result.warnings) == [
+    assert sorted(own(result.warnings)) == [
         "could not read local/1/.mcp.json: unreadable or not valid JSON",
         "skipped .mcp.json in project: it is a symlink pointing outside it",
     ]
-    assert "PLANTED" not in repr(result.warnings)
+    assert "PLANTED" not in repr(own(result.warnings))
 
 
 def test_the_project_passed_with_dash_dash_project_is_read_once_and_labelled_by_approval(tmp_path):
@@ -450,13 +452,13 @@ def test_a_project_with_only_a_mcp_json_still_takes_a_local_index(tmp_path):
 
 def test_a_copied_config_dir_warns_that_user_scope_was_skipped_only_when_a_claude_json_sits_beside_it(tmp_path):
     (tmp_path / "copy").mkdir()
-    assert scan(tmp_path / "copy").warnings == []
+    assert own(scan(tmp_path / "copy").warnings) == []
 
     (tmp_path / ".claude.json").write_text('{"mcpServers": {"x": {"command": "y"}}}')
     result = scan(tmp_path / "copy")
 
     assert result.items == []
-    assert result.warnings == [
+    assert own(result.warnings) == [
         "user-scope MCP servers were not read: the config dir is not named .claude and has no .claude.json inside it"
     ]
 
@@ -477,7 +479,7 @@ def test_planted_secrets_in_project_mcp_json_survive_nowhere(tmp_path):
     )
 
     result = scan(config)
-    everything = json.dumps(asdict(result)) + repr(result.warnings)
+    everything = json.dumps(asdict(result)) + repr(own(result.warnings))
 
     assert "PLANTED" not in everything
     assert "host.example.com" in everything  # the host is shape, kept

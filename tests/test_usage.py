@@ -2,7 +2,7 @@ import json
 from dataclasses import asdict
 
 import pytest
-from fakes import write_skill
+from fakes import own, write_skill
 
 from constellation import scan
 
@@ -107,13 +107,13 @@ def test_matching_scopes_slashes_agents_and_mcp(tmp_path):
         "q/s": 0,
         "claude.ai/x": 1,  # an unmatched claude.ai prefix is a connector seen only in transcripts
     }
-    assert result.warnings == ["usage: 1 invocation names matched more than one Item; each was credited"]
+    assert own(result.warnings) == ["usage: 1 invocation names matched more than one Item; each was credited"]
 
 
 def test_scope_window_symlinks_and_missing(tmp_path):
     write_skill(tmp_path, "tdd", "invented")
     assert scan(tmp_path).usage_window.files == 0
-    assert scan(tmp_path).warnings == []
+    assert own(scan(tmp_path).warnings) == []
     main = write_transcript(tmp_path, [tool(day="2026-11-04")])
     write_transcript(tmp_path, [tool(id_="sub", day="2026-10-01")], "session/subagents/sub.jsonl")
     for folder in ("tool-results", "memory"):
@@ -128,7 +128,7 @@ def test_scope_window_symlinks_and_missing(tmp_path):
     config = tmp_path / "other"
     config.mkdir()
     (config / "projects").symlink_to(outside / "projects", target_is_directory=True)
-    assert scan(config).warnings == ["usage: projects folder is a symlink; not read"]
+    assert own(scan(config).warnings) == ["usage: projects folder is a symlink; not read"]
 
 
 def test_caps_drain_and_malformed(tmp_path, monkeypatch):
@@ -142,7 +142,7 @@ def test_caps_drain_and_malformed(tmp_path, monkeypatch):
     path.write_bytes(b"x" * (cap * 3) + b"\n" + valid + b"\n" + b'{"tool_use":' + b"\n")
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 1}
-    assert got.warnings == [
+    assert own(got.warnings) == [
         "usage: skipped 1 malformed lines, 1 oversize line, 0 files (0 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
     monkeypatch.setattr(reader, "FILE_CAP", path.stat().st_size)
@@ -179,7 +179,7 @@ def test_wrong_shapes_and_bad_dates(tmp_path):
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 2}
     assert got.usage["claude-code:skill:tdd"].last_used is None
-    assert got.warnings == [
+    assert own(got.warnings) == [
         "usage: skipped 10 malformed lines, 0 oversize line, 0 files (0 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
 
@@ -342,7 +342,7 @@ def test_unreadable_file_and_read_failure_do_not_abort(tmp_path, monkeypatch):
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 1}
     assert got.usage_window.skipped == 1
-    assert got.warnings == [
+    assert own(got.warnings) == [
         "usage: skipped 0 malformed lines, 0 oversize line, 1 files (0 too big, 0 symlinks skipped on purpose, 1 unreadable)"
     ]
 
@@ -396,14 +396,14 @@ def test_line_boundaries_without_newline_and_multiple_oversizes(tmp_path, monkey
     path = write_transcript(tmp_path, [])
     path.write_bytes(valid)
     assert counts(scan(tmp_path)) == {"tdd": 1}
-    assert scan(tmp_path).warnings == []
+    assert own(scan(tmp_path).warnings) == []
     path.write_bytes(b"x" * (len(valid) + 1))
-    assert scan(tmp_path).warnings == [
+    assert own(scan(tmp_path).warnings) == [
         "usage: skipped 0 malformed lines, 1 oversize line, 0 files (0 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
     path.write_bytes(b"x" * (len(valid) * 3) + b"\n" + b"y" * (len(valid) * 2) + b"\n" + valid)
     assert counts(scan(tmp_path)) == {"tdd": 1}
-    assert scan(tmp_path).warnings == [
+    assert own(scan(tmp_path).warnings) == [
         "usage: skipped 0 malformed lines, 2 oversize line, 0 files (0 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
 
@@ -418,11 +418,11 @@ def test_multiple_oversize_files_and_open_errors(tmp_path, monkeypatch):
     got = scan(tmp_path)
     assert asdict(got.usage_window) == {"files": 0, "first": None, "last": None, "skipped": 2, "sessions": 0}
     assert counts(got) == {"tdd": 0}
-    assert got.warnings == [
+    assert own(got.warnings) == [
         "usage: skipped 0 malformed lines, 0 oversize line, 2 files (2 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
     (tmp_path / "projects" / "invented" / "link.jsonl").symlink_to(tmp_path / "nowhere")
-    assert scan(tmp_path).warnings == [
+    assert own(scan(tmp_path).warnings) == [
         "usage: skipped 0 malformed lines, 0 oversize line, 3 files (2 too big, 1 symlinks skipped on purpose, 0 unreadable)"
     ]
     (tmp_path / "projects" / "invented" / "link.jsonl").unlink()
@@ -455,7 +455,7 @@ def test_unmatched_slash_and_invalid_user_shapes(tmp_path):
     write_transcript(tmp_path, records)
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 0}
-    assert got.warnings == [
+    assert own(got.warnings) == [
         "usage: skipped 2 malformed lines, 0 oversize line, 0 files (0 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
 
@@ -547,7 +547,7 @@ def test_two_distinct_ambiguous_names_are_counted(tmp_path):
         for name in ("a", "b"):
             write_skill(root, name, name)
     write_transcript(tmp_path, [tool(value="a", id_="a"), tool(value="b", id_="b")])
-    assert scan(tmp_path).warnings == ["usage: 2 invocation names matched more than one Item; each was credited"]
+    assert own(scan(tmp_path).warnings) == ["usage: 2 invocation names matched more than one Item; each was credited"]
 
 
 def test_excluded_folders_and_recursive_json(tmp_path):
@@ -567,7 +567,7 @@ def test_excluded_folders_and_recursive_json(tmp_path):
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 1}
     assert got.usage_window.files == 1
-    assert got.warnings == [
+    assert own(got.warnings) == [
         "usage: skipped 1 malformed lines, 0 oversize line, 0 files (0 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
 
@@ -598,7 +598,7 @@ def test_full_cap_line_with_newline_is_still_parsed(tmp_path, monkeypatch):
     path = write_transcript(tmp_path, [])
     path.write_bytes(valid + b"\n")
     assert counts(scan(tmp_path)) == {"tdd": 1}
-    assert scan(tmp_path).warnings == []
+    assert own(scan(tmp_path).warnings) == []
 
 
 def test_scandir_failure_adds_to_prior_skips(tmp_path, monkeypatch):
@@ -627,7 +627,7 @@ def test_record_and_block_types_must_be_strings(tmp_path):
     b["message"]["content"][0]["type"] = None
     b["tool_use"] = True
     write_transcript(tmp_path, [a, b])
-    assert scan(tmp_path).warnings == [
+    assert own(scan(tmp_path).warnings) == [
         "usage: skipped 2 malformed lines, 0 oversize line, 0 files (0 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
 
@@ -757,7 +757,7 @@ def test_only_main_and_subagent_depths_are_read(tmp_path):
     result = scan(tmp_path)
     assert counts(result) == {"tdd": 2}
     assert result.usage_window.files == 2 and result.usage_window.skipped == 0
-    assert result.warnings == []
+    assert own(result.warnings) == []
 
 
 def test_root_close_failure_preserves_prior_skip_count(tmp_path, monkeypatch):
@@ -786,7 +786,7 @@ def test_root_close_failure_preserves_prior_skip_count(tmp_path, monkeypatch):
     monkeypatch.setattr(reader.os, "close", close)
     result = scan(tmp_path)
     assert result.usage_window.skipped == 2
-    assert result.warnings == [
+    assert own(result.warnings) == [
         "usage: skipped 0 malformed lines, 0 oversize line, 2 files (0 too big, 1 symlinks skipped on purpose, 1 unreadable)"
     ]
 
@@ -832,7 +832,7 @@ def test_unreadable_entry_metadata_does_not_hide_later_transcripts(tmp_path, mon
     assert failures == [metadata_check]
     assert counts(result) == {"tdd": 1}
     assert asdict(result.usage_window) == {"files": 1, "first": "2026-11-02", "last": "2026-11-02", "skipped": 1, "sessions": 1}
-    assert result.warnings == [
+    assert own(result.warnings) == [
         "usage: skipped 0 malformed lines, 0 oversize line, 1 files (0 too big, 0 symlinks skipped on purpose, 1 unreadable)"
     ]
 
@@ -853,7 +853,7 @@ def test_non_message_records_are_not_malformed(tmp_path):
         ],
     )
     got = scan(tmp_path)
-    assert got.warnings == []
+    assert own(got.warnings) == []
     assert counts(got) == {"tdd": 1}
 
 
@@ -863,7 +863,7 @@ def test_two_slash_commands_in_one_message_are_not_ambiguous(tmp_path):
     write_transcript(tmp_path, [user("<command-name>/a</command-name><command-name>/b</command-name>")])
     got = scan(tmp_path)
     assert counts(got) == {"a": 1, "b": 1}
-    assert got.warnings == []
+    assert own(got.warnings) == []
 
 
 def test_ambiguity_is_per_lookup_even_beside_a_clear_command(tmp_path):
@@ -871,7 +871,7 @@ def test_ambiguity_is_per_lookup_even_beside_a_clear_command(tmp_path):
     for p in ("p", "q"):
         write_skill(plugin(tmp_path, p), "a", "a")
     write_transcript(tmp_path, [user("<command-name>/a</command-name><command-name>/b</command-name>")])
-    assert scan(tmp_path).warnings == ["usage: 1 invocation names matched more than one Item; each was credited"]
+    assert own(scan(tmp_path).warnings) == ["usage: 1 invocation names matched more than one Item; each was credited"]
 
 
 def test_symlinked_config_dir_is_read(tmp_path):
@@ -882,7 +882,7 @@ def test_symlinked_config_dir_is_read(tmp_path):
     link.symlink_to(real, target_is_directory=True)
     got = scan(link)
     assert counts(got) == {"tdd": 1}
-    assert got.warnings == []
+    assert own(got.warnings) == []
     assert got.usage_window.files == 1
 
 
@@ -921,7 +921,7 @@ def test_attachment_with_nested_tool_use_is_silent(tmp_path):
     write_transcript(tmp_path, [{"type": "attachment", "attachment": {"items": [nested]}}])
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 0}
-    assert got.warnings == []
+    assert own(got.warnings) == []
 
 
 def agent_and_skill(first):
@@ -935,7 +935,7 @@ def test_agent_without_subagent_type_is_valid_and_credits_nothing(tmp_path):
         write_transcript(tmp_path, [agent_and_skill({"type": "tool_use", "name": name, "id": "a", "input": {}})])
         got = scan(tmp_path)
         assert counts(got) == {"tdd": 1}
-        assert got.warnings == []
+        assert own(got.warnings) == []
 
 
 def test_one_bad_block_keeps_its_valid_neighbours(tmp_path):
@@ -948,12 +948,12 @@ def test_one_bad_block_keeps_its_valid_neighbours(tmp_path):
     write_transcript(tmp_path, [agent_and_skill(b) for b in bad] + [agent_and_skill(bad[0])])
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 1}
-    assert got.warnings == [
+    assert own(got.warnings) == [
         "usage: skipped 4 malformed lines, 0 oversize line, 0 files (0 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
     two_bad = {"type": "assistant", "message": {"content": ["x", "y", agent_and_skill("z")["message"]["content"][1]]}}
     write_transcript(tmp_path, [two_bad])
-    assert scan(tmp_path).warnings == [
+    assert own(scan(tmp_path).warnings) == [
         "usage: skipped 1 malformed lines, 0 oversize line, 0 files (0 too big, 0 symlinks skipped on purpose, 0 unreadable)"
     ]
     assert counts(scan(tmp_path)) == {"tdd": 1}
@@ -977,7 +977,7 @@ def test_skip_causes_are_counted_separately(tmp_path, monkeypatch):
     monkeypatch.setattr(reader, "FILE_CAP", big.stat().st_size - 1)
     got = scan(tmp_path)
     assert got.usage_window.skipped == 3
-    assert got.warnings == [
+    assert own(got.warnings) == [
         "usage: skipped 0 malformed lines, 0 oversize line, 3 files (1 too big, 1 symlinks skipped on purpose, 1 unreadable)"
     ]
 
@@ -995,4 +995,4 @@ def test_blocks_only_count_for_their_own_role(tmp_path):
     )
     got = scan(tmp_path)
     assert counts(got) == {"tdd": 0}
-    assert got.warnings == []
+    assert own(got.warnings) == []

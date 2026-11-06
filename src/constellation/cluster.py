@@ -1,19 +1,11 @@
-"""Group Items by meaning: embed each Item's label and text, then join vectors that point the same way."""
+"""Embed each Item's name and description as unit vectors for grouping.py (clusters) and the Overlap candidates."""
 
 import math
-import re
-from collections import Counter
-from dataclasses import dataclass, field
-from operator import add
 
-from .models import Cluster, Embedder, Item, Relation
+from .models import Embedder, Item
 
-# Raw embedding cosines are squeezed together (eval F1 0.33 at best), so with enough Items the mean vector is subtracted first
-# (eval F1 0.67). Centred cosines spread from -1 to 1, so they need a different threshold. See docs/ideas/clustering-quality.md.
-# shortcut: both defaults come from the 30-item synthetic eval and one real scan (255 Items); retune on more setups.
+# Raw embedding cosines are squeezed together, so with enough Items the mean vector is subtracted first (docs/ideas/clustering-quality.md).
 MIN_ITEMS_TO_CENTRE = 10  # the mean of two or three vectors is mostly noise
-RAW_THRESHOLD = 0.75
-CENTRED_THRESHOLD = 0.2
 
 
 def _unit(vector: list[float]) -> list[float]:
@@ -30,85 +22,15 @@ def dot(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b, strict=True))  # strict: embeddings of mixed dimensions are an error, not a silent truncation
 
 
-_STOP_TOKENS = {"skill", "skills", "setup", "claude", "code", "the", "a", "me", "my", "use", "using"}
-
-
-def _common_name(names: list[str]) -> str | None:
-    """Up to two name tokens that at least a third of the members (and at least two) share, most common first, else None.
-    Free and local, so an offline scan still names a pack of related Items by what they have in common."""
-    seen: dict[str, int] = {}  # token -> members containing it; insertion order is first appearance
-    for name in names:
-        tokens = {t for t in re.split(r"[-_ .:/]", name.lower()) if t not in _STOP_TOKENS and (len(t) >= 3 or t in ("ai", "ui"))}
-        for token in sorted(tokens, key=name.lower().find):  # first appearance within the name, so ties are not set-ordered
-            seen[token] = seen.get(token, 0) + 1
-    needed = max(2, math.ceil(len(names) / 3))
-    shared = sorted((t for t, n in seen.items() if n >= needed), key=lambda t: -seen[t])  # stable: ties keep first appearance
-    return " ".join(shared[:2]) or None
-
-
-@dataclass
-class _Group:
-    total: list[float]  # sum of the members' unit vectors; its direction is the cluster centre
-    members: list[int] = field(default_factory=list)
-
-
 def item_vectors(items: list[Item], embed: Embedder) -> tuple[dict[str, list[float]], bool]:
     """Unit vectors by Item id, mean-centred when there are enough Items, and whether they were centred. Embeds name and
     description only; scan() embeds once and shares the result with the clusters and the Overlap candidates."""
     items = sorted(items, key=lambda i: i.id)  # greedy clustering depends on order, so fix the order
     # a hook's description is a shell command, which clusters by shape rather than meaning, so hooks are embedded by name (event:matcher)
     vectors = [_unit(v) for v in embed([i.name if i.kind == "hook" else f"{i.name}: {i.description}" for i in items])]
+    if len({len(v) for v in vectors}) > 1:
+        raise ValueError("embeddings have different dimensions")  # an error, not a silent truncation
     centred = len(vectors) >= MIN_ITEMS_TO_CENTRE
     if centred:
         vectors = _centre(vectors)
     return {i.id: v for i, v in zip(items, vectors, strict=True)}, centred
-
-
-def cluster(
-    items: list[Item], labels: dict[str, str], by_id: dict[str, list[float]], centred: bool, threshold: float | None = None
-) -> list[Cluster]:
-    """Greedy leader clustering on name and description only (labels just name the clusters): each Item joins the closest
-    cluster centre at or above `threshold`, else starts a new cluster. The default threshold depends on whether the vectors were centred."""
-    items = sorted(items, key=lambda i: i.id)
-    vectors = [by_id[i.id] for i in items]
-    if threshold is None:
-        threshold = CENTRED_THRESHOLD if centred else RAW_THRESHOLD
-    groups: list[_Group] = []
-    for index, vector in enumerate(vectors):
-        best = max(groups, key=lambda g: dot(_unit(g.total), vector), default=None)
-        if best is not None and dot(_unit(best.total), vector) >= threshold:
-            best.total = list(map(add, best.total, vector))
-            best.members.append(index)
-        else:
-            groups.append(_Group(vector, [index]))
-    clusters = []
-    for group in groups:
-        centre = _unit(group.total)
-        by_closeness = sorted(group.members, key=lambda i: -dot(centre, vectors[i]))  # sorted is stable, so ties keep item order
-        labelled = next((i for i in by_closeness if items[i].id in labels), None)
-        if labelled is not None:
-            name = labels[items[labelled].id]
-        else:
-            name = _common_name([items[i].name for i in group.members]) or items[by_closeness[0]].name
-        clusters.append(Cluster(name, tuple(items[i].id for i in group.members)))
-    return clusters
-
-
-def join_contents(items: list[Item], clusters: list[Cluster], relations: list[Relation]) -> list[Cluster]:
-    """Move each plugin into the cluster holding most of the Items it contains, if that cluster has at least two of them.
-    Ties go to the larger cluster, then the lower name. Labels and cluster names do not change."""
-    kinds = {i.id: i.kind for i in items}
-    home = {item_id: n for n, c in enumerate(clusters) for item_id in c.item_ids}
-    sizes = [len(c.item_ids) for c in clusters]  # snapshot, so the result does not depend on plugin order
-    moves: dict[str, int] = {}
-    for plugin in sorted(i for i, kind in kinds.items() if kind == "plugin" and i in home):
-        counts = Counter(home[r.target] for r in relations if r.source == plugin and r.kind == "contains" and r.target in home)
-        best = min(counts, key=lambda n: (-counts[n], -sizes[n], clusters[n].name), default=None)
-        if best is not None and counts[best] >= 2:
-            moves[plugin] = best
-    if not moves:
-        return clusters
-    joined = [[i for i in c.item_ids if i not in moves] for c in clusters]
-    for plugin, n in moves.items():
-        joined[n].append(plugin)
-    return [Cluster(clusters[n].name, tuple(ids)) for n, ids in enumerate(joined) if ids]

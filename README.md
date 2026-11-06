@@ -13,6 +13,8 @@ Python 3.13 is needed; `uv` fetches it for you.
 ```sh
 # Once published on PyPI:
 uv tool install constellation-cli        # or: pipx install constellation-cli
+# optional, better groups (adds the local model, about 100 MB): uv tool install constellation-cli --with fastembed
+#   or pipx inject constellation-cli fastembed; from install.sh: sh install.sh --better-clustering
 
 # Until then, straight from GitHub:
 uv tool install git+https://github.com/esharif20/constellation

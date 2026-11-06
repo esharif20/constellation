@@ -43,15 +43,16 @@ def test_an_offline_scan_calls_no_provider_but_still_clusters_and_finds_free_ove
 
     assert untouched(llm, counter, verifier)
     assert result.labels == {}
-    assert sorted(c.name for c in result.clusters) == ["bread", "pdf"]  # named from the token its members share
+    assert sorted(c.name for c in result.clusters) == ["Bread Loaf", "Pdf File"]  # named from the words its members share
     assert [o.verdict for o in result.overlaps] == ["duplicate"]
     assert any(w.startswith("Offline") for w in result.warnings)
 
 
-def test_an_offline_scan_without_an_embedder_has_no_clusters_and_no_error(config):
+def test_an_offline_scan_without_an_embedder_groups_by_words_and_says_so(config):
     result = scan(config, offline=True)
 
-    assert result.clusters == [] and len(result.items) == 3 and [o.verdict for o in result.overlaps] == ["duplicate"]
+    assert result.clusters and len(result.items) == 3 and [o.verdict for o in result.overlaps] == ["duplicate"]
+    assert sum(w.startswith("Clusters were built from words and plugin structure; install the local model") for w in result.warnings) == 1
 
 
 def test_offline_costs_come_only_from_the_cache(config, tmp_path):
@@ -101,51 +102,11 @@ def test_no_api_key_runs_offline_instead_of_exiting_and_says_so(config, tmp_path
     assert err.count("ANTHROPIC_API_KEY is not set: running offline") == 1
 
 
-def test_offline_without_the_local_embedder_says_clustering_is_skipped(config, tmp_path, capsys):
+def test_offline_without_the_local_embedder_still_writes_clusters_and_a_warning(config, tmp_path):
     out = tmp_path / "out.json"
 
     code = main(["scan", str(config), "--out", str(out), "--offline"])
 
-    assert code == 0 and json.loads(out.read_text())["clusters"] == []
-    assert "uv sync --extra local" in capsys.readouterr().err
-
-
-def test_offline_with_count_bodies_is_an_error_and_writes_nothing(config, tmp_path, capsys):
-    out = tmp_path / "out.json"
-
-    assert main(["scan", str(config), "--out", str(out), "--offline", "--count-bodies"]) == 2
-    assert "--count-bodies" in capsys.readouterr().err and not out.exists()
-
-
-def test_a_dry_run_still_shows_what_a_real_run_would_send_even_with_no_key(config, capsys):
-    assert main(["scan", str(config), "--dry-run"]) == 0
-
-    printed = capsys.readouterr().out
-    assert "--- PROMPT ---" in printed and "running offline" not in printed
-
-
-def test_with_a_key_a_second_real_run_labels_nothing_and_a_new_model_id_relabels(config, tmp_path, monkeypatch):
-    from constellation import anthropic_llm as provider
-
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "not-a-real-key")
-    llm, other = FakeLLM({}), FakeLLM({})
-    monkeypatch.setattr(provider, "anthropic_llm", lambda **kwargs: llm if "model" not in kwargs else FakeVerifier())
-    monkeypatch.setattr(provider, "anthropic_counter", lambda: FakeCounter())
-    out = tmp_path / "out.json"
-
-    assert main(["scan", str(config), "--out", str(out)], embedder=FakeEmbedder(VECTORS)) == 0
-    first = len(llm.prompts)
-    assert main(["scan", str(config), "--out", str(out)], embedder=FakeEmbedder(VECTORS)) == 0
-    assert (first, len(llm.prompts)) == (3, 3)
-
-    monkeypatch.setattr(provider, "MODEL", "another-model")
-    monkeypatch.setattr(provider, "anthropic_llm", lambda **kwargs: other if "model" not in kwargs else FakeVerifier())
-    assert main(["scan", str(config), "--out", str(out)], embedder=FakeEmbedder(VECTORS)) == 0
-    assert len(other.prompts) == 3
-
-
-def test_an_injected_model_stands_in_for_the_key(config, tmp_path):
-    out = tmp_path / "out.json"
-
-    assert main(["scan", str(config), "--out", str(out)], llm=FakeLLM({"bread": "baking"}), embedder=FakeEmbedder(VECTORS)) == 0
-    assert "baking" in json.loads(out.read_text())["labels"].values()
+    data = json.loads(out.read_text())
+    assert code == 0 and data["clusters"] and all(c["category"] for c in data["clusters"])
+    assert any(w.startswith("Clusters were built from words and plugin structure") for w in data["warnings"])

@@ -1,7 +1,8 @@
 #!/bin/sh
 # Installs Constellation (constellation-cli) with uv or pipx. No sudo, no network beyond the package manager,
 # never edits your shell files (it prints the line to add instead). Read me before piping me into sh.
-#   sh install.sh [--dry-run] [--method uv|pipx] [--git]
+#   sh install.sh [--dry-run] [--method uv|pipx] [--git] [--better-clustering]
+#   --better-clustering also installs the local embedder (fastembed, about 100 MB) for better groups; off by default.
 #   --git installs from GitHub, for use until the package is on PyPI.
 set -eu
 
@@ -18,13 +19,14 @@ run() {
 }
 
 main() {
-  DRY=0 METHOD="" SRC="$PKG"
+  DRY=0 METHOD="" SRC="$PKG" MODEL=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --dry-run) DRY=1 ;;
       --git) SRC="$GIT" ;;
+      --better-clustering) MODEL=1 ;;
       --method) [ $# -ge 2 ] || die "--method needs uv or pipx"; METHOD="$2"; shift ;;
-      -h|--help) say "usage: sh install.sh [--dry-run] [--method uv|pipx] [--git]"; return 0 ;;
+      -h|--help) say "usage: sh install.sh [--dry-run] [--method uv|pipx] [--git] [--better-clustering]"; return 0 ;;
       *) die "unknown option: $1" ;;
     esac
     shift
@@ -40,11 +42,12 @@ main() {
     uv)
       have uv || die "uv not found. Install uv (https://docs.astral.sh/uv/ or 'brew install uv'), then rerun."
       say "uv found; it fetches Python 3.13 itself if needed."
-      run uv tool install --force "$SRC" ;;
+      if [ "$MODEL" = 1 ]; then run uv tool install --force "$SRC" --with fastembed; else run uv tool install --force "$SRC"; fi ;;
     pipx)
       have pipx || die "pipx not found. Install pipx (https://pipx.pypa.io/ or 'brew install pipx'), then rerun."
       have python3.13 || die "pipx needs python3.13 on PATH (Constellation requires Python 3.13). Use uv instead, or install it."
-      run pipx install --force "$SRC" ;;
+      run pipx install --force "$SRC"
+      if [ "$MODEL" = 1 ]; then run pipx inject "$PKG" fastembed; fi ;;
     "") die "neither uv nor pipx found. Install uv (https://docs.astral.sh/uv/ or 'brew install uv'), then rerun." ;;
     *) die "unknown method '$METHOD' (use uv or pipx)" ;;
   esac
@@ -52,6 +55,7 @@ main() {
   if [ "$DRY" = 1 ]; then say "dry run: nothing was changed."; return 0; fi
 
   say "Installed $SRC with $METHOD."
+  [ "$MODEL" = 1 ] || say "Groups use words and plugin structure. For better groups rerun with --better-clustering (adds the local model, about 100 MB)."
   if have constellation; then
     say "Try: constellation open demo"
   else

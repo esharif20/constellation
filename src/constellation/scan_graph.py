@@ -21,10 +21,11 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
 from langgraph.types import Command, Send, interrupt
 
+from . import selfcheck
 from .checkpoint import Checkpointer, close_checkpointer, open_checkpointer
 from .classify import MAX_CONCURRENCY, _prompt, label_flush, label_one, label_plan
-from .cluster import cluster, join_contents
 from .costs import cache_key, count_texts, measure
+from .grouping import WORDS_ONLY_WARNING, group_items
 from .hooks import static_hook_texts
 from .models import LLM, Cluster, Cost, Embedder, Item, Overlap, Relation, TokenCounter, Weight
 from .overlaps import (
@@ -247,13 +248,24 @@ def labels_done(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
 def cluster_items(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     """Waits for `labels_done` (a plain edge), because cluster names come from the labels."""
     ctx = runtime.context
-    if not ctx.embedder:
-        return {}
-    if ctx.embed_error:
-        return {"warnings": ctx.safe_warnings("cluster", [f"could not cluster items: {ctx.embed_error}"])}
     labels = {ctx.rid(k): v for k, v in state["labels"].items()}
-    found = join_contents(ctx.items, cluster(ctx.items, labels, ctx.vectors, ctx.centred, ctx.cluster_threshold), ctx.relations)
-    return {"clusters": [replace(c, name=ctx.safe(c.name), item_ids=tuple(ctx.sid(i) for i in c.item_ids)) for c in found]}
+    warnings: list[str] = []
+    modelled = bool(ctx.embedder) and not ctx.embed_error
+    if not modelled:  # no local model (or it failed): word and structure signals only, never no groups at all
+        if ctx.embed_error:
+            warnings.append(f"could not cluster items: {ctx.embed_error}")
+        warnings.append(WORDS_ONLY_WARNING + selfcheck.model_hint())
+    found = group_items(
+        ctx.items,
+        ctx.relations,
+        labels,
+        ctx.vectors if modelled and ctx.centred else None,  # raw cosines of a few Items are all near 1: no signal
+        ctx.cluster_threshold,
+    )
+    return {
+        "clusters": [replace(c, name=ctx.safe(c.name), item_ids=tuple(ctx.sid(i) for i in c.item_ids)) for c in found],
+        "warnings": ctx.safe_warnings("cluster", warnings),
+    }
 
 
 @_guarded

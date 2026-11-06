@@ -9,7 +9,8 @@ from itertools import combinations
 
 import pytest
 
-from constellation.cluster import cluster, item_vectors
+from constellation.cluster import item_vectors
+from constellation.grouping import group_items
 from constellation.models import Item
 
 GROUPS = {
@@ -64,7 +65,8 @@ def _pairs(groups):
 
 def _scores(embed, threshold):
     items = [Item(f"{g}/{n}", "skill", n, d, "claude-code") for g, rows in GROUPS.items() for n, d in rows]
-    found = _pairs(c.item_ids for c in cluster(items, {}, *item_vectors(items, embed), threshold))
+    vectors, centred = item_vectors(items, embed)
+    found = _pairs(c.item_ids for c in group_items(items, [], {}, vectors if centred else None, threshold))
     truth = _pairs([f"{g}/{n}" for n, _ in rows] for g, rows in GROUPS.items())
     precision = len(found & truth) / len(found) if found else 1.0
     recall = len(found & truth) / len(truth)
@@ -77,7 +79,7 @@ def test_real_embeddings_group_a_setup_well_at_the_default_threshold():
 
     embed = fastembed_embedder()
     print("\nthreshold  precision  recall   f1")
-    for threshold in (0.0, 0.1, 0.2, 0.25, 0.3, 0.4, 0.5):
+    for threshold in (0.0, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5):
         p, r, f = _scores(embed, threshold)
         print(f"  {threshold:.2f}      {p:.2f}      {r:.2f}   {f:.2f}")
     _, _, f1 = _scores(embed, None)

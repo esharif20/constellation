@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from constellation import cli, selfcheck
-from constellation.selfcheck import CONFIRM, Check, detect_method, env_checks, env_report, uninstall, update_text
+from constellation.selfcheck import CONFIRM, Check, detect_method, env_checks, env_report, model_hint, uninstall, update_text
 
 
 @pytest.mark.parametrize(
@@ -144,14 +144,26 @@ def _checks(tmp_path, cache, version=(3, 13), env=None, prefix="/x/uv/tools/c"):
 
 
 def test_env_checks_all_pass_and_exact(tmp_path):
-    got = env_checks("/x/uv/tools/c", (3, 14), {"ANTHROPIC_API_KEY": "sk-secret"}, _private(tmp_path))
+    got = env_checks("/x/uv/tools/c", (3, 14), {"ANTHROPIC_API_KEY": "sk-secret"}, _private(tmp_path), model=False)
     assert got == [
         Check("Python", "ok", "3.14"),
         Check("Install method", "ok", "uv tool"),
         Check("Cache dir", "ok", f"{tmp_path / 'constellation'} private and writable"),
         Check("ANTHROPIC_API_KEY", "ok", "set"),
+        Check(
+            "Clustering",
+            "ok",
+            "words only; for the local model run: uv tool install --force --editable <path to constellation> --with fastembed",
+        ),
     ]
     assert "sk-secret" not in repr(got)
+
+
+def test_clustering_row_names_the_model_or_the_install_command_for_each_method():
+    assert env_checks("/x/c", (3, 13), {}, Path("/nope"), model=True)[-1] == Check("Clustering", "ok", "local model")
+    pipx = env_checks("/home/pipx/venvs/c", (3, 13), {}, Path("/nope"), model=False)[-1]
+    assert pipx.detail == "words only; for the local model run: pipx inject constellation-cli fastembed"
+    assert model_hint("/x/.venv") == "uv sync --extra local" and model_hint("/usr/lib/py") == "python -m pip install fastembed"
 
 
 def test_python_boundary(tmp_path):
@@ -205,7 +217,7 @@ def test_env_report_text_hides_key(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-topsecret")
     lines: list[str] = []
     assert env_report(lines.append) == 0
-    assert len(lines) == 4
+    assert len(lines) == 5
     assert lines[0].startswith("  [ok  ] Python: ") and "  [ok  ] ANTHROPIC_API_KEY: set" in lines
     assert f"  [ok  ] Cache dir: {tmp_path}/.cache/constellation not created yet" in lines
     assert "sk-topsecret" not in "".join(lines)

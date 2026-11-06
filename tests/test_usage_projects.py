@@ -3,7 +3,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 import pytest
-from fakes import write_skill
+from fakes import own, write_skill
 from test_usage import tool
 
 from constellation import scan
@@ -133,7 +133,7 @@ def test_ambiguous_item_names_are_credited_to_the_project_of_each_item(tmp_path,
     ids = [i for i in result.usage if i.endswith("/dup")]
     assert len(ids) == 2
     assert all(result.usage_by_project[i] == {"p1": result.usage[i]} for i in ids)
-    assert result.warnings == ["usage: 1 invocation names matched more than one Item; each was credited"]
+    assert own(result.warnings) == ["usage: 1 invocation names matched more than one Item; each was credited"]
 
 
 def test_through_the_cli_json(tmp_path, home):
@@ -175,7 +175,7 @@ def test_planted_folder_name_stays_local(tmp_path, home):
     data = asdict(result)
     assert "zzsecretclient" in json.dumps(data["projects"])  # local only
     outputs = [
-        "\n".join(result.warnings),
+        "\n".join(own(result.warnings)),
         render_report(data, top=10, color=False, width=120, show_all=True),
         render_cleanup(data, top=10),
         json.dumps([asdict(s) for s in suggest(data)]),
