@@ -81,7 +81,7 @@ def _load(path: Path, warnings: list[str], label: str) -> Any:
     """Parsed JSON, or None with a warning. The warning never carries the parser's message or any file text."""
     try:
         return json.loads(path.read_text())
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         warnings.append(f"could not read {label}: unreadable or not valid JSON")
         return None
 
@@ -163,6 +163,8 @@ def _read_claude_json(
     logged or put in a warning. A project path never enters an id or a warning."""
     path = _claude_json(config_dir, warnings)
     data = _load(path, warnings, ".claude.json") if path else None
+    if data is not None and not isinstance(data, dict):
+        warnings.append("could not read .claude.json: its top level is not an object")
     if not isinstance(data, dict):
         return {}
     first = len(items)
@@ -310,16 +312,40 @@ def _read_root(
         if not hooks_file.exists() or not _contained(hooks_file, root, scope, warnings):
             continue
         data = _load(hooks_file, warnings, f"{scope or 'config/'}{hooks_file.name}")
-        for event, groups in (data.get("hooks", {}) if isinstance(data, dict) else {}).items():
+        shown = f"{scope or 'config/'}{hooks_file.name}"
+        if data is not None and not isinstance(data, dict):
+            warnings.append(f"skipped {shown}: its top level is not an object")
+        hooks = data.get("hooks", {}) if isinstance(data, dict) else {}
+        if not isinstance(hooks, dict):
+            warnings.append(f"skipped hooks in {shown}: not an object")
+            hooks = {}
+        for event, groups in hooks.items():
+            if not isinstance(groups, list):
+                warnings.append(f"skipped hooks for an event in {shown}: not a list")
+                continue
             for group in groups:
-                name = ":".join(filter(None, [event, group.get("matcher")]))
+                if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+                    warnings.append(f"skipped a hook group in {shown}: it has no hooks list")
+                    continue
+                matcher = group.get("matcher")
+                name = ":".join(filter(None, [event, matcher if isinstance(matcher, str) else None]))
                 for handler in group["hooks"]:
-                    if handler.get("type") != "mcp_tool" and not isinstance(handler.get("command"), str):
-                        warnings.append(f"skipped a hook in {scope or 'config/'}{hooks_file.name}: it has no command")
+                    is_mcp = isinstance(handler, dict) and handler.get("type") == "mcp_tool"
+                    ok = (
+                        isinstance(handler, dict)
+                        and isinstance(handler.get("type"), str)
+                        and (
+                            all(isinstance(handler.get(k), str) for k in ("server", "tool"))
+                            if is_mcp
+                            else isinstance(handler.get("command"), str)
+                        )
+                    )
+                    if not ok:
+                        warnings.append(f"skipped a hook in {shown}: it has no command")
                         continue
                     # Index keeps ids unique when several handlers share an event and matcher.
                     id_ = f"{SOURCE}:hook:{scope}{name}:{len(items)}"
-                    if handler["type"] == "mcp_tool":
+                    if is_mcp:
                         description = f"{handler['server']}.{handler['tool']}"
                         # A user's hook may call a ~/.claude.json (user-scope) server as well as a config-dir one.
                         for prefix in (scope, "user/") if not scope else (scope,):
@@ -376,9 +402,11 @@ def _manifest(root: Path, warnings: list[str]) -> dict[str, Any] | None:
     path = root / ".claude-plugin" / "plugin.json"
     if not path.exists():
         return {"name": root.parent.name}
+    if not _contained(path, root, "plugin/", warnings):
+        return None
     try:
         meta = json.loads(path.read_text())
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         meta = None
     if not isinstance(meta, dict) or not isinstance(meta.get("name"), str) or not meta["name"]:
         warnings.append("skipped a plugin: its plugin.json is unreadable, not valid JSON or has no name")
@@ -426,7 +454,11 @@ def read_items(
     if lockfile is not None:
         lock, lock_warnings = read_lock(lockfile, secrets)
         warnings += lock_warnings
-    settings = _json_or_empty(config_dir / "settings.json")
+    settings = _quiet_json(config_dir / "settings.json")
+    if (config_dir / ".credentials.json").exists():
+        # only for the warning; read_secrets takes the values (every depth, so a secret is never skipped)
+        if _depth(_load(config_dir / ".credentials.json", warnings, ".credentials.json")) > MAX_NESTING:
+            warnings.append(f"{CREDENTIALS} is nested unusually deeply; it was read in full but may be malformed")
     # first, so a hook can link to a user-scope server
     entries = _read_claude_json(config_dir, items, warnings, secrets, settings, Path(project) if project is not None else None)
     _read_root(config_dir, "", items, warnings, relations, bodies, secrets, lock, config_dir)
@@ -457,29 +489,55 @@ def read_items(
 
 
 def _strings(node: object) -> Iterator[str]:
-    if isinstance(node, str):
-        yield node
-    elif isinstance(node, dict):
-        for value in node.values():
-            yield from _strings(value)
-    elif isinstance(node, list):
-        for value in node:
-            yield from _strings(value)
+    """Every string under a JSON value; iterative so hostile nesting cannot exhaust the stack."""
+    stack = [node]
+    while stack:
+        top = stack.pop()
+        if isinstance(top, str):
+            yield top
+        elif isinstance(top, dict):
+            stack.extend(top.values())
+        elif isinstance(top, list):
+            stack.extend(top)
+
+
+MAX_NESTING = 64
+CREDENTIALS = ".credentials.json"
+
+
+def _depth(node: object) -> int:
+    """How deeply a JSON value nests, counted without recursion."""
+    deepest, stack = 0, [(node, 0)]
+    while stack:
+        top, depth = stack.pop()
+        deepest = max(deepest, depth)
+        if isinstance(top, (dict, list)):
+            stack.extend((child, depth + 1) for child in (top.values() if isinstance(top, dict) else top))
+    return deepest
 
 
 def _json_or_empty(path: Path) -> Any:
     return json.loads(path.read_text()) if path.exists() else {}
 
 
+def _quiet_json(path: Path, *, only_object: bool = True) -> Any:
+    """The parsed file, or {} when it is missing, unreadable, invalid or (by default) not an object. read_items gives the warning."""
+    try:
+        data = _json_or_empty(path)
+    except (OSError, ValueError, RecursionError):
+        return {}
+    return data if isinstance(data, dict) or not only_object else {}
+
+
 def _mcp_env(mcp: Path) -> list[str]:
     try:  # a malformed .mcp.json is read_items' warning to give; here it only means no env values to collect
-        return [v for s in _json_or_empty(mcp).get("mcpServers", {}).values() for v in _strings(s.get("env", {}))]
-    except (OSError, ValueError, AttributeError):
+        return [v for s in _quiet_json(mcp).get("mcpServers", {}).values() for v in _strings(s.get("env", {}))]
+    except (OSError, ValueError, AttributeError, RecursionError):
         return []
 
 
 def _env_values(settings: Path, mcp: Path) -> list[str]:
-    return [*_strings(_json_or_empty(settings).get("env", {})), *_mcp_env(mcp)]
+    return [*_strings(_quiet_json(settings).get("env", {})), *_mcp_env(mcp)]
 
 
 def _listed_projects(config_dir: Path) -> list[Path]:
@@ -495,7 +553,7 @@ def read_secrets(config_dir: Path, project: Path | None = None) -> set[str]:
     Never reads the process environment or anything else."""
     config_dir = Path(config_dir)
     plugin_roots = _plugin_roots(config_dir)
-    values = list(_strings(_json_or_empty(config_dir / ".credentials.json")))  # an auth file: every value is secret
+    values = list(_strings(_quiet_json(config_dir / ".credentials.json", only_object=False)))  # an auth file: every value is secret
     for root in [config_dir, *plugin_roots]:
         values += _env_values(root / "settings.json", root / ".mcp.json")
     for folder in _listed_projects(config_dir):
@@ -503,11 +561,11 @@ def read_secrets(config_dir: Path, project: Path | None = None) -> set[str]:
     if project is not None:
         try:  # a repo's malformed settings.json is read_items' warning to give
             values += _env_values(Path(project) / ".claude" / "settings.json", Path(project) / ".mcp.json")
-        except (OSError, ValueError, AttributeError):
+        except (OSError, ValueError, AttributeError, RecursionError):
             pass
     dotenv = config_dir / ".env"
     if dotenv.exists():
-        for line in dotenv.read_text().splitlines():
+        for line in dotenv.read_text(errors="replace").splitlines():
             if "=" in line and not line.lstrip().startswith("#"):
                 values.append(line.split("=", 1)[1].strip().strip("\"'"))
     # shortcut: values under 8 chars are skipped so "1" or "true" doesn't get redacted everywhere; a short real secret would leak.

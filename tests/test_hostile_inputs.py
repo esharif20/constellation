@@ -31,20 +31,8 @@ def clean_result(result):
 @pytest.mark.parametrize(
     "filename",
     [
-        pytest.param(
-            "settings.json",
-            marks=pytest.mark.xfail(
-                strict=True,
-                raises=json.JSONDecodeError,
-                reason="claude_code.py:482 parses malformed settings during secret collection without recovery",
-            ),
-        ),
-        pytest.param(
-            ".credentials.json",
-            marks=pytest.mark.xfail(
-                strict=True, raises=json.JSONDecodeError, reason="claude_code.py:498 parses malformed credentials without recovery"
-            ),
-        ),
+        "settings.json",
+        ".credentials.json",
         ".claude.json",
         ".mcp.json",
         "plugins/installed_plugins.json",
@@ -64,20 +52,8 @@ def test_malformed_json_is_warned_without_aborting_the_scan(filename, suffix):
 @pytest.mark.parametrize(
     "filename",
     [
-        pytest.param(
-            "settings.json",
-            marks=pytest.mark.xfail(
-                strict=True,
-                raises=UnicodeDecodeError,
-                reason="claude_code.py:482 reads non-UTF-8 settings during secret collection without recovery",
-            ),
-        ),
-        pytest.param(
-            ".credentials.json",
-            marks=pytest.mark.xfail(
-                strict=True, raises=UnicodeDecodeError, reason="claude_code.py:498 reads non-UTF-8 credentials without recovery"
-            ),
-        ),
+        "settings.json",
+        ".credentials.json",
         ".claude.json",
         ".mcp.json",
         "plugins/installed_plugins.json",
@@ -97,16 +73,8 @@ def test_invalid_utf8_is_warned_without_aborting_the_scan(filename, raw):
 @pytest.mark.parametrize(
     "filename",
     [
-        pytest.param(
-            "settings.json",
-            marks=pytest.mark.xfail(strict=True, raises=AttributeError, reason="claude_code.py:482 assumes the settings root is an object"),
-        ),
-        pytest.param(
-            ".claude.json",
-            marks=pytest.mark.xfail(
-                strict=True, raises=AssertionError, reason="claude_code.py:166 silently ignores a non-object .claude.json without a warning"
-            ),
-        ),
+        "settings.json",
+        ".claude.json",
         ".mcp.json",
         "plugins/installed_plugins.json",
         PLUGIN_MANIFEST,
@@ -125,18 +93,9 @@ def test_deep_json_is_warned_without_aborting_the_scan(filename, depth):
 @pytest.mark.parametrize(
     "shape",
     [
-        pytest.param(
-            "hooks-list",
-            marks=pytest.mark.xfail(strict=True, raises=AttributeError, reason="claude_code.py:313 assumes hooks is an object"),
-        ),
-        pytest.param(
-            "groups-null",
-            marks=pytest.mark.xfail(strict=True, raises=TypeError, reason="claude_code.py:314 assumes hook groups are iterable"),
-        ),
-        pytest.param(
-            "handler-without-type",
-            marks=pytest.mark.xfail(strict=True, raises=KeyError, reason="claude_code.py:322 indexes a missing hook handler type"),
-        ),
+        "hooks-list",
+        "groups-null",
+        "handler-without-type",
     ],
 )
 @BOUNDED
@@ -240,12 +199,7 @@ def test_large_malformed_mcp_json_is_warned_without_echoing_its_content(extra):
     [
         "skill",
         "mcp-file",
-        pytest.param(
-            "manifest",
-            marks=pytest.mark.xfail(
-                strict=True, raises=AssertionError, reason="claude_code.py:380 follows plugin manifest symlinks outside the plugin root"
-            ),
-        ),
+        "manifest",
     ],
 )
 def test_plugin_symlinks_cannot_read_a_sibling_outside_the_plugin(tmp_path, location):
@@ -295,7 +249,6 @@ def test_json_surrogates_in_transcript_ids_are_warned_instead_of_crashing(field,
         clean_result(scan(root, offline=True, origins=False))
 
 
-@pytest.mark.xfail(strict=True, raises=RecursionError, reason="claude_code.py:467 recursively walks credentials without a depth bound")
 def test_deep_credentials_are_warned_without_crashing(tmp_path):
     # A fixed reproducer avoids Hypothesis's changing recursion limit and traceback locations during replay.
     write_skill(tmp_path, "survivor", "Invented valid sibling")
