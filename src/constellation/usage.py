@@ -265,13 +265,13 @@ def _fresh(
         per = projects.setdefault(day, {})
         for folder, _ in keys:
             key = mac(salt, folder, 6)
-            per[key] = per.get(key, 0) + 1  # pragma: no mutate  (the sum only matters when two folders share a 24-bit hash)
+            per[key] = per.get(key, 0) + 1
     items: dict[str, dict[str, tuple[int, int, dict[str, int]]]] = {}
     for (id_, day), (n, keys, folders) in cells.items():
         per_project: dict[str, int] = {}
         for folder, count in folders.items():
             key = mac(salt, folder, 6)
-            per_project[key] = per_project.get(key, 0) + count  # pragma: no mutate  (as above)
+            per_project[key] = per_project.get(key, 0) + count
         items.setdefault(id_, {})[day] = (n[0], len(keys), per_project)
     co = sorted((max(days.values()), tuple(sorted(days))) for days in bundles.values() if len(days) > 1)
     return Fresh({d: len(k) for d, k in active.items()}, projects, items, co)

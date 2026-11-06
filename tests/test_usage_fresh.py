@@ -84,3 +84,12 @@ def test_co_use_is_per_session_and_keeps_each_items_latest_day(tmp_path):
     items, _, relations, _ = read_items(tmp_path)
     fresh, _ = read_fresh(tmp_path, items, relations, SALT)
     assert fresh.co == [("2026-11-03", (OTHER, TDD)), ("2026-11-04", (OTHER, TDD))]
+
+
+def test_two_folders_with_the_same_hash_add_up(tmp_path, monkeypatch):
+    items, relations = build(tmp_path)
+    monkeypatch.setattr("constellation.usage.mac", lambda salt, text, length: "c" * length)
+    fresh, _ = read_fresh(tmp_path, items, relations, SALT)
+    assert fresh.projects["2026-11-02"] == {"cccccc": 2}
+    assert fresh.items[TDD]["2026-11-02"] == (2, 2, {"cccccc": 2})
+    assert fresh.items[TDD]["2026-11-03"] == (2, 1, {"cccccc": 2})

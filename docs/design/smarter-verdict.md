@@ -115,11 +115,12 @@ does). One record per setup key (`history.key(config_dir)`):
 ```
 
 - `n` = invocations, `s` = sessions that used it, `p` = invocations per project hash.
-- Project hash = `hmac(salt, folder name)[:6]`. Salted, so it is not guessable from a path, and stable across scans (unlike the
+- Project hash = `hmac(salt, folder name)[:6]`. Salted, which only stops matching the hashes across machines (the salt is stored in the same file, so anyone who can read the file can still test guesses; that reader can read `~/.claude` anyway), and stable across scans (unlike the
   `p1..pN` ordinals, which `usage.py` says must never be joined across scans). The display label is still made per scan and
   never stored.
 - `co` = sessions in which both Items were used, bucketed by month; only pairs with at least 2 sessions are kept, at most 200
   pairs (largest first). Pair keys sort the two hashes.
+- The setup key is `history.key(config_dir)`, unsalted, as in `history.json`.
 - Never stored: names, descriptions, labels, paths, prompt text, tool inputs, timestamps finer than a day, costs.
 
 ### 3.2 How it is merged (re-scans must not double count)

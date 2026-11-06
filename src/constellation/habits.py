@@ -6,12 +6,17 @@ prompt text, tool inputs, timestamps finer than a day or costs. It is private (0
 reaches snapshot(), the public export, a report or a provider. A corrupt or unwritable file is a warning, never a crash.
 """
 
+import fcntl
 import json
 import math
 import os
+import re
 import secrets
+import stat
 import statistics
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, timedelta
 from itertools import combinations, pairwise
@@ -37,6 +42,11 @@ OVERDUE_MULT = 3
 MIN_NEIGHBOURS = 2  # neighbours with history needed to lend a prior
 MIN_SUPPORT = 3  # sessions both Items share before a pair is reported
 NEEDS_SHARE = 0.9
+MAX_COUNT = 2**53  # beyond this a float loses integers, and a later float() could overflow
+MAX_FILE = 16 * 1024 * 1024
+ITEM_KEY = re.compile(r"[0-9a-f]{12}")
+PROJECT_KEY = re.compile(r"[0-9a-f]{6}")
+PAIR_KEY = re.compile(r"[0-9a-f]{12}\|[0-9a-f]{12}")
 Ledger = dict[str, Any]
 
 
@@ -51,14 +61,22 @@ def _is_day(value: object) -> bool:
         return False
 
 
-def _counts(value: object) -> bool:
-    return isinstance(value, dict) and all(isinstance(k, str) and type(n) is int and n >= 0 for k, n in value.items())
+def _count(n: object) -> bool:
+    return type(n) is int and 0 <= n < MAX_COUNT
+
+
+def _counts(value: object, key: re.Pattern[str]) -> bool:
+    return isinstance(value, dict) and all(isinstance(k, str) and key.fullmatch(k) and _count(n) for k, n in value.items())
 
 
 def _cell(value: object, count_keys: tuple[str, ...], map_key: str) -> bool:
     if not isinstance(value, dict) or value.keys() != {*count_keys, map_key}:
         return False
-    return all(type(value[k]) is int and value[k] >= 0 for k in count_keys) and _counts(value[map_key])
+    return all(_count(value[k]) for k in count_keys) and _counts(value[map_key], PROJECT_KEY)
+
+
+def _months(value: object) -> bool:
+    return isinstance(value, dict) and all(_is_day(m + "-01") and _count(n) for m, n in value.items())
 
 
 def _valid(r: object) -> bool:
@@ -72,19 +90,37 @@ def _valid(r: object) -> bool:
     if not isinstance(items, dict):
         return False
     for h, rec in items.items():
-        if not isinstance(h, str) or not isinstance(rec, dict) or rec.keys() != {"first_seen", "days"} or not _is_day(rec["first_seen"]):
+        if (
+            not isinstance(h, str)
+            or not ITEM_KEY.fullmatch(h)
+            or not isinstance(rec, dict)
+            or rec.keys() != {"first_seen", "days"}
+            or not _is_day(rec["first_seen"])
+        ):
             return False
         if not isinstance(rec["days"], dict) or not all(_is_day(d) and _cell(c, ("n", "s"), "p") for d, c in rec["days"].items()):
             return False
     if not isinstance(co, dict):
         return False
-    return all(isinstance(k, str) and _counts(v) and all(_is_day(m + "-01") for m in v) for k, v in co.items())
+    return all(isinstance(k, str) and PAIR_KEY.fullmatch(k) and _months(v) for k, v in co.items())
+
+
+def _read(path: Path) -> bytes:
+    """The file's bytes: never through a symlink, only a regular file, at most MAX_FILE."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, "rb") as f:
+        if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+            raise OSError("not a regular file")
+        data = f.read(MAX_FILE + 1)
+    if len(data) > MAX_FILE:
+        raise ValueError("too large")
+    return data
 
 
 def load(path: Path) -> tuple[dict[str, Ledger], str | None]:
     """Every valid per-setup record, and a warning when anything unreadable was left out."""
     try:
-        raw = json.loads(path.read_text())
+        raw = json.loads(_read(path))
     except FileNotFoundError:
         return {}, None
     except (OSError, ValueError, RecursionError):
@@ -95,14 +131,30 @@ def load(path: Path) -> tuple[dict[str, Ledger], str | None]:
     return good, None if len(good) == len(raw["setups"]) else "part of the habit ledger could not be read; starting that part over"
 
 
-def save(path: Path, records: dict[str, Ledger]) -> None:
-    """Atomic rewrite, 0600 file in a 0700 directory (as history.record)."""
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)  # pragma: no mutate  (equivalent: the chmod below fixes the mode)
+def _private_dir(directory: Path) -> None:
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)  # pragma: no mutate  (equivalent: the chmod below fixes the mode)
     try:
-        if path.parent.stat().st_uid == os.getuid():
-            path.parent.chmod(0o700)  # an existing directory keeps its mode otherwise
+        if directory.stat().st_uid == os.getuid():
+            directory.chmod(0o700)  # an existing directory keeps its mode otherwise
     except OSError:
         pass
+
+
+@contextmanager
+def _locked(path: Path) -> Iterator[None]:
+    """One scan at a time reads, merges and writes the ledger, so a second scan cannot overwrite the first one's days."""
+    _private_dir(path.parent)
+    fd = os.open(path.with_name(path.name + ".lock"), os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def save(path: Path, records: dict[str, Ledger]) -> None:
+    """Atomic rewrite, 0600 file in a 0700 directory (as history.record)."""
+    _private_dir(path.parent)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".habits-")  # mkstemp creates the file 0600
     try:
         with os.fdopen(fd, "w") as f:
@@ -127,10 +179,13 @@ def merge(ledger: Ledger, fresh: Fresh, window: UsageWindow, ids: list[str], tod
     transcripts Claude Code has since deleted and are kept. The first day may have been cut by deletion: field-wise maximum there."""
     salt = ledger["salt"]
     first, last = window.first or "", window.last or ""  # pragma: no mutate  (no window: any default below every date replaces nothing)
-    cutoff = (date.fromisoformat(today) - timedelta(days=history.KEEP_DAYS)).isoformat()
+    newest = min(today, window.last or today)  # a wrong clock must not decide what is old: the newest evidence does (as history.record)
+    cutoff = (date.fromisoformat(newest) - timedelta(days=history.KEEP_DAYS)).isoformat()
 
-    def stale(day: str) -> bool:  # replaced by the fresh read, which is why the first day is not (it keeps its old counts to max with)
-        return first < day <= last
+    def stale(day: str) -> bool:
+        """Replaced by the fresh read: only when every transcript was read and the day will be written back (not the first day,
+        which keeps its old counts to take the maximum with)."""
+        return window.skipped == 0 and first < day <= min(last, today)
 
     def put(days: dict[str, Any], day: str, cell: Any) -> None:
         if day <= today:  # a future date (clock skew) is never evidence
@@ -161,7 +216,9 @@ def merge(ledger: Ledger, fresh: Fresh, window: UsageWindow, ids: list[str], tod
 def _co(
     old: dict[str, Any], fresh: Fresh, window: UsageWindow, hashes: dict[str, str], kept: dict[str, Any], today: str, cutoff: str
 ) -> Any:
-    lo, hi = (window.first or "")[:7], (window.last or "")[:7]  # pragma: no mutate  (a month slice's length and default are equivalent)
+    lo, hi = (window.first or "")[:7], min(window.last or "", today)[:7]  # pragma: no mutate  (a month slice's length is equivalent)
+    if window.skipped:
+        lo = hi = ""  # an unreadable transcript may hide sessions: nothing is replaced, counts only grow
     pairs: dict[str, dict[str, int]] = {
         k: {m: n for m, n in per.items() if not lo < m <= hi} for k, per in old.items()
     }  # months strictly after the window's first are recomputed; that first month is partial, so it takes the maximum
@@ -292,7 +349,7 @@ def profile(ledger: Ledger, today: str, kinds: dict[str, str], groups: dict[str,
         if not (a and b):
             continue
         for x, y in ((a, b), (b, a)):  # x needs y when nearly every session of x also used y
-            if both >= MIN_SUPPORT and both >= NEEDS_SHARE * own[x]:
+            if own[x] and both >= MIN_SUPPORT and both >= NEEDS_SHARE * own[x]:
                 needs.setdefault(x, []).append((y, round(both / own[x], 2)))
         if own[a] >= MIN_SUPPORT and own[b] >= MIN_SUPPORT and both * sessions >= 2 * own[a] * own[b]:
             lift = round(both * sessions / (own[a] * own[b]), 2)
@@ -310,14 +367,16 @@ def profile(ledger: Ledger, today: str, kinds: dict[str, str], groups: dict[str,
 def update(path: Path, config_dir: Path, items: list[Item], relations: list[Relation], today: str | None = None) -> list[str]:
     """Read the transcripts once more (locally, free), merge them into this setup's record and save. Returns warnings."""
     today = today or history._today()
-    setup = history.key(str(config_dir.resolve()))
-    records, warning = load(path)
-    ledger = records.get(setup) or new()
-    fresh, window = usage.read_fresh(config_dir, items, relations, ledger["salt"])
-    records[setup] = merge(ledger, fresh, window, [i.id for i in items if i.kind in TRACKED], today)
-    warnings = [warning] if warning else []
+    setup = history.key(str(config_dir.resolve()))  # unsalted, like the scan history's key
+    warnings: list[str] = []
     try:
-        save(path, records)
+        with _locked(path):
+            records, warning = load(path)
+            warnings += [warning] if warning else []
+            ledger = records.get(setup) or new()
+            fresh, window = usage.read_fresh(config_dir, items, relations, ledger["salt"])
+            records[setup] = merge(ledger, fresh, window, [i.id for i in items if i.kind in TRACKED], today)
+            save(path, records)
     except OSError as error:
         warnings.append(f"could not save habit ledger: {error.strerror}")
     return warnings
