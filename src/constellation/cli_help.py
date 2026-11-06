@@ -37,6 +37,11 @@ _VERBS: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "Show what installing a downloaded plugin or skill folder would add. Nothing is run or sent.",
         ("constellation preview ./downloaded-plugin", "constellation preview ./downloaded-plugin --out preview.json --dry-run"),
     ),
+    "profile": (
+        "Look",
+        "Which global Items one project really uses and which are noise there, from the local habit ledger only.",
+        ("constellation profile ~/code/my-app", "constellation profile my-app --json"),
+    ),
     "expand": ("Look", "List the tools of one configured local MCP server.", ("constellation expand my-server --config-dir ~/.claude",)),
     "clean": (
         "Act",

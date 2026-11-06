@@ -18,10 +18,11 @@ from langgraph.types import Command
 
 from . import cli_help, cli_reports, completion, habits, history, menu, scan, scan_graph, selfcheck, weekly
 from . import origins as origin_sources
+from . import profile as project_profile
 from .assessment import compute
 from .assessment import public as assessment_json
 from .classify import FAILED_PREFIX
-from .claude_code import read_secrets
+from .claude_code import read_items, read_secrets
 from .diff import diff_scans, render_diff
 from .env import load_env
 from .expansion import Query, expand
@@ -34,6 +35,7 @@ from .report import render_cleanup, render_report, write_private
 from .review import build_review_graph, open_checkpointer, thread_id
 from .skill_search import find_skills
 from .suggestions import Suggestion, suggest
+from .usage import TRACKED
 
 Serve = Callable[[Any, int, bool], None]  # app, port, open the browser
 
@@ -180,6 +182,13 @@ def main(
     find_command = commands.add_parser("find", help="find an installed skill from local names, descriptions and content")
     find_command.add_argument("query")
     find_command.add_argument("--config-dir", type=Path, default=Path.home() / ".claude")
+    profile_command = commands.add_parser("profile", help="which global Items one project really uses and which are noise there")
+    profile_command.add_argument("project", help="the project folder (or its name) you open Claude Code in")
+    profile_command.add_argument("--config-dir", type=Path, default=Path.home() / ".claude")
+    profile_command.add_argument(
+        "--habits", type=Path, default=habits.DEFAULT_CACHE, help="habit ledger (default ~/.cache/constellation/habits.json)"
+    )
+    profile_command.add_argument("--json", action="store_true")
     completion_command = commands.add_parser("completion")
     completion_command.add_argument("shell", choices=completion.SHELLS)
     cli_help.decorate(parser, commands.choices)
@@ -194,6 +203,8 @@ def main(
         for hit in hits:
             print(f"{hit['name']}: {hit['description']}\n  {hit['invoke']} — {hit['why']}")
         return 0
+    if args.command == "profile":
+        return _profile(args)
     if args.command == "update":
         print(selfcheck.update_text(selfcheck.detect_method(sys.prefix)))
         return 0
@@ -344,6 +355,24 @@ def main(
     return 0
 
 
+def _profile(args: argparse.Namespace) -> int:
+    """Read-only and local: the ledger, the Item list and the transcript folder names; nothing is written, sent or printed but names."""
+    config = args.config_dir.resolve()
+    projects = config / "projects"
+    folders = [p.name for p in projects.iterdir() if p.is_dir() and not p.is_symlink()] if projects.is_dir() else []
+    pathlike = "/" in args.project or args.project.startswith(("~", "."))
+    folder, error = project_profile.resolve(args.project, str(Path(args.project).expanduser().resolve()) if pathlike else None, folders)
+    ledger = habits.load(args.habits)[0].get(history.key(str(config)))
+    if folder is None or ledger is None:
+        print(error or "No habit ledger yet. Run `constellation scan` first.", file=sys.stderr)
+        return 2
+    items = read_items(config)[0]
+    tracked = {i.id: (i.kind, i.name) for i in items if i.kind in TRACKED and i.scope == "global" and not i.disabled}
+    result = project_profile.build(ledger, history._today(), tracked, folder, args.project)
+    print(json.dumps(result, indent=2) if args.json else project_profile.render(result))
+    return 0
+
+
 _SCAN_COMMANDS = {
     "scan": "read a Claude Code config directory and write a scan file",
     "open": "serve a scan as a graph in the browser",
@@ -352,6 +381,7 @@ _SCAN_COMMANDS = {
     "assess": "print every Item's verdict as JSON",
     "weekly": "what changed since the last scan, what went quiet",
     "find": "find an installed skill by what it does",
+    "profile": "which global Items one project uses and which are noise there",
     "export": "write a read-only public Snapshot",
     "review": "go through Suggestions one at a time into a checklist",
     "diff": "Items added, removed or changed between two scans",
