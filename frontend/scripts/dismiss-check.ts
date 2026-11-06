@@ -55,11 +55,12 @@ g.Node = Fake;
 const { register, escape, background } = await import("../src/lib/dismiss.ts");
 const content = new Fake(), trigger = new Fake(), canvas = new Fake();
 const closed: string[] = [];
+const log = (s: string): void => { (closed as string[]).push(s); }; // assert.deepEqual narrows `closed` to never[], so push through a helper
 const ev = (type: string, x: number, y: number, target: Fake, pointerId = 1) => handlers.get(type)?.({ clientX: x, clientY: y, target, pointerId });
 const tap = (target: Fake, x = 5, y = 5) => { ev("pointerdown", x, y, target); ev("pointerup", x, y, target); };
 
 assert.equal(handlers.size, 0); // no listeners while nothing is open
-const off = register({ id: "sky", rank: RANK.popover, close: (w) => void closed.push(`sky:${w}`), inside: () => [content, trigger] });
+const off = register({ id: "sky", rank: RANK.popover, close: (w) => log(`sky:${w}`), inside: () => [content, trigger] as unknown as Element[] });
 assert.equal(handlers.size, 3);
 tap(content); tap(trigger);
 assert.deepEqual(closed, []); // inside, and the trigger toggles on its own: no flicker loop
@@ -71,7 +72,7 @@ ev("pointerdown", 100, 100, content); ev("pointerup", 300, 300, canvas);
 assert.deepEqual(closed, []); // pressed inside, released outside (text selection)
 tap(canvas, 100, 100);
 assert.deepEqual(closed, ["sky:press"]);
-register({ id: "history", rank: RANK.popover, close: (w) => void closed.push(`history:${w}`) });
+register({ id: "history", rank: RANK.popover, close: (w) => log(`history:${w}`) });
 assert.deepEqual(closed.slice(1), ["sky:replace"]); // opening another closes the first
 off();
 assert.ok(escape());
