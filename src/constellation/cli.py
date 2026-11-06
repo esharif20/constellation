@@ -16,7 +16,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import cli_help, cli_reports, completion, habits, history, menu, scan, scan_graph, selfcheck, weekly
+from . import cleanup, cli_help, cli_reports, completion, habits, history, scan, scan_graph, selfcheck, session, weekly
 from . import origins as origin_sources
 from .assessment import compute
 from .assessment import public as assessment_json
@@ -55,7 +55,7 @@ def main(
 ) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if not argv and sys.stdin.isatty() and sys.stdout.isatty():
-        return menu.open_menu(main)
+        return session.open_menu(main)
     names = [c.name for c in cli_reports.COMMANDS] + list(_SCAN_COMMANDS)
     if argv and not argv[0].startswith("-") and argv[0] not in names:
         close = get_close_matches(argv[0], names, 1, 0.5)
@@ -83,6 +83,7 @@ def main(
         if c.name == "clean":
             sub.add_argument("--out", type=Path, default=Path("cleanup.md"), help="the checklist to write")
             sub.add_argument("--force", action="store_true", help="overwrite an existing checklist")
+            sub.add_argument("--why", action="store_true", help="with --dry-run, also list each proposed Item with all its reasons")
         if c.name == "share":
             sub.add_argument("--out", type=Path, default=Path("constellation-share"), help="new output directory")
     scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
@@ -369,8 +370,13 @@ _SCAN_COMMANDS = {
 def _report_command(args: argparse.Namespace) -> int:
     try:
         scan = cli_reports.load(args.file, args.habits)
+        if args.command == "clean" and args.why and not args.dry_run:
+            print("--why needs --dry-run.", file=sys.stderr)
+            return 2
         if args.command == "clean" and args.dry_run:
             out = render_cleanup(scan.data, top=5)
+            if args.why:
+                out += "\n" + cleanup.why_text(*cleanup.proposals(scan), cleanup.reclaimable(scan), cli_reports.style_for_stdout())
         elif args.command == "clean":
             out = cli_reports.clean(scan, args.out, args.force)
         elif args.command == "share":
