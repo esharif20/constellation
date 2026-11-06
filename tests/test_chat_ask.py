@@ -56,7 +56,7 @@ def test_the_frontend_reader_defines_no_day_threshold():
     if not path.exists():  # mutmut runs tests from a copy without the frontend
         pytest.skip("frontend sources are not in this checkout")
     source = path.read_text()
-    assert not re.search(r"DORMANT_DAYS|_DAYS\s*=\s*\d", source)  # verdict.py decides; verdict.ts only maps tiers to words
+    assert not re.search(r"const\s+\w*DAYS\w*\s*=\s*\d", source)  # verdict.py decides; verdict.ts only maps tiers to words
 
 
 # --- #54: what could I remove ---------------------------------------------------------------------------------------------------
