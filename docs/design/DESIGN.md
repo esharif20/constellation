@@ -185,9 +185,9 @@ Every interactive component has hover, focus-visible (the 2px `--ring` outline u
 ## Motion
 
 - One easing family, unchanged: `--ease-out cubic-bezier(0.16,1,0.3,1)`, `--ease-in cubic-bezier(0.7,0,0.84,0)`.
-- Durations: `--t-fast 140ms` for colour, border and hover changes; `--t 240ms` for the legend fade and popover open (fade plus `zoom-in-[0.98]`, which replaces shadcn's 95); `--t-slow 420ms` for the inspector slide-in and the phone sheet. Popovers close at `--t-fast` with `--ease-in`. Canvas motion (750 ms glide, fades) is unchanged.
+- Panels, modals and popovers have their own enter/exit pairs (`--m-panel-in/out` 220/160, `--m-modal-in/out` 200/140, `--m-pop-in/out` 160/120; ease-out in, ease-in out) and every one plays its exit. See `docs/design/motion.md`. `--t-fast 140ms` still covers colour, border and hover changes; `--t 240ms` the legend fade. Canvas motion (750 ms glide, fades) is unchanged.
 - Only opacity, transform, colour, border-color and box-shadow are animated; layout properties never are.
-- `prefers-reduced-motion: reduce`: the existing rule stays (all durations 0). The canvas already reads `reducedMotion`.
+- `prefers-reduced-motion: reduce`: hover and colour durations are 0; panels, modals and popovers fade in 100 ms with no movement. The canvas already reads `reducedMotion`.
 
 ## Implementation checklist (`frontend/`)
 

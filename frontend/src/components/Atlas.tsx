@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Presence } from "@/components/Motion";
 import { Legend } from "@/components/Legend";
 import { Brief } from "@/components/Brief";
 import { AskTrigger, Chat, type ChatAction } from "@/components/Chat";
@@ -46,9 +47,8 @@ export default function Atlas({ model }: { model: Model }) {
   const [selected, setSelected] = useState<GNode | null>(null);
   const [scope, setScope] = useState<Scope>("all");
   const scoped = useMemo(() => scopeSet(model, scope), [model, scope]);
-  // Cluster focus. The left slot has one occupant: the cluster card, the Brief or the chat. `card` outlives `cluster` while the card leaves.
+  // Cluster focus. The left slot has one occupant: the cluster card, the Brief or the chat. AnimatePresence keeps the card on screen while it leaves.
   const [cluster, setCluster] = useState<Cluster | null>(() => hashCluster(model));
-  const [card, setCard] = useState<Cluster | null>(cluster);
   const [byKeyboard, setByKeyboard] = useState(false);
   const [live, setLive] = useState("");
   const [draft, setDraft] = useState<{ text: string; n: number }>();
@@ -72,8 +72,6 @@ export default function Atlas({ model }: { model: Model }) {
   const showBrief = !!brief && briefOpen && !chatOpen && !(narrow && selected) && !cluster;
   const showInspector = !(narrow && chatOpen);
   if (!chatOpen && chatMatches) setChatMatches(null); // chat highlights end with the chat
-  if (cluster && card !== cluster) setCard(cluster);
-  if (!cluster && card && narrow && selected) setCard(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -159,7 +157,6 @@ export default function Atlas({ model }: { model: Model }) {
   const openChat = useCallback((open: boolean) => {
     setChatOpen(open);
     setPreview(null);
-    if (open) setCard(null);
     if (open && cluster) {
       if (selected) map.current?.holdCamera();
       leave(true);
@@ -243,8 +240,8 @@ export default function Atlas({ model }: { model: Model }) {
     if (node) select(node);
   };
 
-  const back = () => { leave(); map.current?.focusCanvas(); };
-  const onCluster = (c: Cluster | null, keyboard?: boolean) => (c ? enter(c, keyboard) : back());
+  const back = useCallback(() => { leave(); map.current?.focusCanvas(); }, [leave]);
+  const onCluster = useCallback((c: Cluster | null, keyboard?: boolean) => (c ? enter(c, keyboard) : back()), [enter, back]); // stable, so opening a panel does not re-render the map
 
   return (
     <>
@@ -268,21 +265,21 @@ export default function Atlas({ model }: { model: Model }) {
         ask={<AskTrigger open={chatOpen} onOpen={openChat} />}
         explain={brief ? <ExplainCard model={model} onCluster={(c) => enter(c, true)} onItem={(n) => selectById(n.id)} /> : undefined}
       />
-      {card && !chatOpen && !(narrow && selected) && <ClusterCard cluster={card} model={model} leaving={!cluster} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} onGone={() => setCard(null)} removed={removed} />}
+      <Presence>{cluster && !chatOpen && !(narrow && selected) && <ClusterCard key="card" cluster={cluster} model={model} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} removed={removed} />}</Presence>
       {brief && <Brief data={brief} model={model} open={showBrief} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}
       <Chat model={model} selected={selected} open={chatOpen} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} draft={draft} />
-      <HighlightChip highlight={highlight} onClear={clearHighlight} />
+      <Presence>{highlight && <HighlightChip key="highlight" highlight={highlight} onClear={clearHighlight} />}</Presence>
       </div>
       <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} scope={scoped} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} removed={removed} absent={absent} />
       {!scrub && <Legend model={model} hidden={!!selected || showBrief || chatOpen} pack={pack} onPack={(o) => { setPack((p) => (p === o ? null : o)); setChatMatches(null); }} />}
-      {scrub && timeline && <Scrubber entries={timeline.entries} nodes={model.nodes} firstSeen={timeline.first_seen} date={scrub} onDate={setScrub} onClose={() => setScrub(null)} />}
+      <Presence>{scrub && timeline && <Scrubber key="scrub" entries={timeline.entries} nodes={model.nodes} firstSeen={timeline.first_seen} date={scrub} onDate={setScrub} onClose={() => setScrub(null)} />}</Presence>
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
-      {selected && showInspector && (
-        <Suspense fallback={<InspectorSkeleton item={selected} />}>
+      <Presence>{selected && showInspector && (
+        <Suspense key="inspector" fallback={<InspectorSkeleton item={selected} />}>
           <Inspector model={model} item={selected} brief={brief ?? undefined} onAsk={ask} onCluster={(c) => enter(c, true)} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} whatIf={whatIf} removed={removed} onToggle={toggleRemove} />
         </Suspense>
-      )}
-      {removed && !showBrief && <WhatIfChip count={removed.size} saved={budget(model.nodes, removed).saved} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} onExit={() => startWhatIf(false)} />}
+      )}</Presence>
+      <Presence>{removed && !showBrief && <WhatIfChip key="whatif" count={removed.size} saved={budget(model.nodes, removed).saved} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} onExit={() => startWhatIf(false)} />}</Presence>
       <p className="sr-only" aria-live="polite">{live}</p>
       <p className="sr-only" aria-live="polite">{selected ? `Selected ${selected.name}, ${verdictOf(selected, model.overlapsOf.get(selected) ?? [], model.links.filter((l) => l.source === selected && l.kind === "contains").map((l) => l.target), model.usageWindow).label}` : ""}</p>
     </>

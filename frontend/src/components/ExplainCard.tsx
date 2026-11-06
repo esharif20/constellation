@@ -85,7 +85,7 @@ export function ExplainCard({ model, onCluster, onItem }: { model: Model; onClus
       </DialogTrigger>
       <DialogContent
         onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).querySelector<HTMLElement>("[data-title]")?.focus(); }}
-        className="glass top-0 left-0 flex h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none p-0 pb-[env(safe-area-inset-bottom)] duration-0 motion-safe:duration-100 sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[min(720px,90dvh)] sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+        className="glass top-0 left-0 flex h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none p-0 pb-[env(safe-area-inset-bottom)] max-sm:zoom-in-100 max-sm:zoom-out-100 max-sm:data-[state=open]:slide-in-from-bottom-6 max-sm:data-[state=closed]:slide-out-to-bottom-6 sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[min(720px,90dvh)] sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
       >
         <div className="px-6 pt-6 pb-2">
           <DialogTitle data-title tabIndex={-1} className="font-serif text-[22px] leading-tight font-normal italic outline-none">Your setup at a glance</DialogTitle>

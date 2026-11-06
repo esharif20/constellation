@@ -811,3 +811,10 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Less crowding: 4 starter questions with "More questions" for the rest; header separated by a rule; sticky input footer with the field label kept for screen readers only; submit reads "Send". On phones the intro line is hidden and the Smarter sentence sits behind "What is Smarter?" so four questions fit.
 - Unchanged: chat API, answers, privacy wording, `A` shortcut, Escape. Check scripts, README and TopBar comment renamed from "Ask locally" to "Ask".
 - No deviations. Screenshots checked by eye at 1440 and 390 on demo-250 (port 8799).
+
+## Panel and modal transitions (2026-11-06, branch `claude/transitions`)
+
+- Status: done. Every panel, modal and popover now enters and exits smoothly. Root cause: the shadcn Radix wrappers used base-ui `data-open`/`data-closed` hooks (never set by Radix), so no Radix animation ever ran; hand-built panels had no exit. Fix: Radix uses `data-[state]` + tw-animate with `--m-*` tokens; non-Radix panels use a small CSS `Presence`/`Pane` (`src/components/Motion.tsx`, `src/lib/motion.ts`). Design note: `docs/design/motion.md`.
+- Decision (no deviation, nothing in the plan names a motion library): `motion@14.5.0` was tried (+32 KB gzip on the Atlas chunk) and not adopted; the CSS presence is +0.6 KB. Not in `package.json`.
+- StarMap is `memo` with a stable `onCluster`; no extra renders while a panel animates (2 per toggle, unchanged frame times). `npm run motion:check` (durations, curves, reduced motion, CSS twins) and `npm run motion:perf` added.
+- `chat-cluster-check.mjs` treats `[data-leaving]` as gone. Known and pre-existing: that check fails at 700 px on main too (wrapped header button under the Brief); not changed here.

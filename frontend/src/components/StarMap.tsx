@@ -1,6 +1,6 @@
 import { easeCubicInOut } from "d3-ease";
 import type { ForceLink } from "d3-force";
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type PointerEvent } from "react";
 import ForceGraph2D, { type ForceGraphMethods } from "react-force-graph-2d";
 import { flightMs, flightPath } from "@/graph/flight";
 import { applyForces, fitView, focusView, haloOf, type LLink, type LNode, type View } from "@/graph/layout";
@@ -59,8 +59,9 @@ function fittedView(painter: Painter, model: Model): View {
   return fitView(model.nodes, model.clusters, painter.view, innerWidth, innerHeight);
 }
 
-export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, scope, panelWidth, leftPanel, cluster, onSelect, onCluster, removed = null, absent = null }, ref) {
+export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ model, selected, preview, matches, scope, panelWidth, leftPanel, cluster, onSelect, onCluster, removed = null, absent = null }, ref) {
   const fg = useRef<ForceGraphMethods<GNode, GLink> | undefined>(undefined);
+  useEffect(() => { if (import.meta.env.VITE_RENDER_COUNT) { const w = window as { __sm?: number }; w.__sm = (w.__sm ?? 0) + 1; } }); // opt-in render counter for npm run motion:perf; compiled out otherwise
   const wrap = useRef<HTMLDivElement>(null);
   const painter = useMemo(() => makePainter(model, reduced()), [model]);
   useEffect(() => { if (import.meta.env.DEV) Object.assign(window, { __cx: { model, painter, zoom: () => fg.current?.zoom(), at: (n: GNode) => fg.current?.graph2ScreenCoords(n.x!, n.y!) } }); }, [model, painter]); // dev only: the screenshot harness reads it
@@ -490,4 +491,4 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
     {tip && <Hover key={tip.n.id} tip={tip} model={model} painter={painter} wake={wake} />}
     </>
   );
-});
+}));
