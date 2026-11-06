@@ -1,5 +1,7 @@
 import argparse
 import asyncio
+import importlib.metadata
+import importlib.resources
 import importlib.util
 import json
 import os
@@ -63,6 +65,7 @@ def main(
         epilog=_help_groups(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--version", action="version", version=f"constellation {importlib.metadata.version('constellation-cli')}")
     commands = parser.add_subparsers(dest="command", required=True, help=argparse.SUPPRESS, prog="constellation")
     for c in cli_reports.COMMANDS:
         sub = commands.add_parser(c.name, help=c.help, description=c.help)
@@ -103,7 +106,9 @@ def main(
     scan_command.add_argument(
         "--review-ambiguous", action="store_true", help="pause uncertain pairs for same/different/skip before model verification"
     )
-    open_command = commands.add_parser("open", help="serve a constellation JSON file as a graph in the browser")
+    open_command = commands.add_parser(
+        "open", help="serve a constellation JSON file as a graph in the browser (`open demo` shows the packaged invented demo)"
+    )
     open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     open_command.add_argument("--port", type=int, default=8765)
     open_command.add_argument("--no-browser", action="store_true")
@@ -470,8 +475,19 @@ def _report(args: argparse.Namespace) -> int:
 
 
 def _open(args: argparse.Namespace, serve: Serve | None, expansion_query: Query | None) -> int:
-    if not args.file.is_file():
-        print(f"{args.file} not found; run `constellation scan` first.", file=sys.stderr)
+    if str(args.file) == "demo":
+        # The demo never touches your caches: its history, checklist and pins live in a temp dir that is deleted on exit.
+        with (
+            importlib.resources.as_file(importlib.resources.files("constellation") / "demo" / "demo.json") as demo,
+            tempfile.TemporaryDirectory(prefix="constellation-demo-") as tmp,
+        ):
+            return _serve_scan(args, demo, Path(tmp), serve, expansion_query)
+    return _serve_scan(args, args.file, None, serve, expansion_query)
+
+
+def _serve_scan(args: argparse.Namespace, scan_file: Path, sandbox: Path | None, serve: Serve | None, expansion_query: Query | None) -> int:
+    if not scan_file.is_file():
+        print(f"{scan_file} not found; run `constellation scan` first.", file=sys.stderr)
         return 2
     if args.preview and not args.preview.is_file():
         print(f"{args.preview} not found; make it with `constellation preview DIR --out FILE`.", file=sys.stderr)
@@ -479,19 +495,23 @@ def _open(args: argparse.Namespace, serve: Serve | None, expansion_query: Query 
     try:
         from . import server
     except ImportError:
-        print("fastapi and uvicorn are not installed; run `uv sync --extra app`.", file=sys.stderr)
+        print("fastapi and uvicorn are not installed; reinstall with `uv tool install --force constellation-cli`.", file=sys.stderr)
         return 2
     if not (server.STATIC / "index.html").is_file():
         print(server.BUILD_HINT, file=sys.stderr)
         return 2
     try:
+        box = sandbox or Path()  # only used when sandbox is set
         app = server.create_app(
-            args.file,
-            checklist=args.checklist,
+            scan_file,
+            checklist=args.checklist if sandbox is None else sandbox / "checklist.md",
             config_dir=args.config_dir,
             expansion_query=expansion_query,
-            history=args.history,
+            history=args.history if sandbox is None else sandbox / "history.json",
             preview=args.preview,
+            habits=None if sandbox is None else box / "habits.json",
+            pins=None if sandbox is None else box / "pins.json",
+            weekly=None if sandbox is None else box / "weekly.json",
         )
     except (OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
