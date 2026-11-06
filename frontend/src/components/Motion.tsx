@@ -1,19 +1,23 @@
-import { createContext, forwardRef, isValidElement, useCallback, useContext, useEffect, useMemo, useState, type ComponentProps, type ReactElement, type ReactNode } from "react";
+import { createContext, forwardRef, isValidElement, useContext, useEffect, useState, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import { exitMs } from "@/lib/motion";
 
 // Presence without a library: while its child is falsy Presence keeps the last child mounted, marked as leaving, until the exit has
 // played (index.css `[data-pane][data-leaving]`). Same idea as AnimatePresence, ~1 KB instead of ~30 KB gzip (docs/design/motion.md).
-const Leave = createContext<{ leaving: boolean; done: () => void }>({ leaving: false, done: () => {} });
+const Leave = createContext(false);
 
 export function Presence({ children }: { children: ReactNode }) {
   const live = isValidElement(children) ? (children as ReactElement) : null;
   const [held, setHeld] = useState<ReactElement | null>(live);
   if (live && held !== live) setHeld(live);
-  const done = useCallback(() => setHeld(null), []);
   const leaving = !live;
-  const value = useMemo(() => ({ leaving, done }), [leaving, done]);
+  // Presence owns the exit timer, not the child: a child with no Pane (the Suspense fallback skeleton) would otherwise never unmount.
+  useEffect(() => {
+    if (!leaving) return;
+    const id = setTimeout(() => setHeld(null), exitMs("panel"));
+    return () => clearTimeout(id);
+  }, [leaving]);
   const shown = live ?? held;
-  return shown ? <Leave value={value}>{shown}</Leave> : null;
+  return shown ? <Leave value={leaving}>{shown}</Leave> : null;
 }
 
 type Tag = "section" | "aside" | "div";
@@ -25,14 +29,9 @@ type PaneProps = Omit<ComponentProps<"div">, "ref"> & {
   delay?: number;
 };
 
-// Fades and slides in; under Presence it plays its exit before unmounting. While leaving it is inert (no clicks, no focus, hidden from
+// Fades and slides in; under Presence it plays its exit before Presence unmounts it. While leaving it is inert (no clicks, no focus, hidden from
 // assistive technology). Only transform and opacity animate, so nothing reflows.
 export const Pane = forwardRef<HTMLElement, PaneProps>(function Pane({ as: Tag = "div", from, delay = 0, style, ...rest }, ref) {
-  const { leaving, done } = useContext(Leave);
-  useEffect(() => {
-    if (!leaving) return;
-    const id = setTimeout(done, exitMs("panel"));
-    return () => clearTimeout(id);
-  }, [leaving, done]);
+  const leaving = useContext(Leave);
   return <Tag ref={ref as never} data-pane={from} data-leaving={leaving || undefined} inert={leaving || undefined} style={delay ? { "--pane-delay": `${delay}ms`, ...style } as never : style} {...rest} />;
 });
