@@ -1,7 +1,7 @@
 // When the "Find by what it does" list appears, and how a hit is shown (docs/design/inspector.md search box, #80).
 // Run: npm run find:check
 import { strict as assert } from "node:assert";
-import { oneLine, wantsFind } from "../src/graph/find.ts";
+import { findState, oneLine, wantsFind } from "../src/graph/find.ts";
 import { searchItems } from "../src/graph/search.ts";
 
 const items = [
@@ -14,6 +14,8 @@ assert.ok(wantsFind(rows("typography for websites"), "typography for websites"))
 assert.ok(!wantsFind(rows("shadcn"), "shadcn")); // a name the user knew
 assert.ok(!wantsFind(rows("shadnc"), "shadnc")); // a typo of a name: did-you-mean covers it
 assert.ok(!wantsFind(rows("cabinet"), "cabinet"));
+assert.ok(wantsFind([{ why: 'close to "deploy-preview"' }], "pull request review")); // a phrase is not a typo
+assert.ok(!wantsFind([{ why: 'close to "cabinet"' }], "cabinat"));
 assert.ok(wantsFind(rows("material"), "material")); // description-only match is not a name match
 assert.ok(!wantsFind([], "ab")); // too short to search by meaning
 assert.ok(!wantsFind([], "  a ")); // whitespace does not count
@@ -21,4 +23,12 @@ assert.ok(!wantsFind([], "  a ")); // whitespace does not count
 assert.equal(oneLine("a\n  b   c"), "a b c");
 assert.equal(oneLine("x".repeat(200)).length, 110);
 assert.ok(oneLine("x".repeat(200)).endsWith("…"));
+
+const none = { available: true, results: [], note: null };
+assert.equal(findState(false, null, false, 0), "off");
+assert.equal(findState(true, null, true, 0), "loading");
+assert.equal(findState(true, null, false, 0), "off"); // API absent
+assert.equal(findState(true, { ...none, note: "Run constellation find" }, false, 0), "note");
+assert.equal(findState(true, none, false, 0), "none");
+assert.equal(findState(true, none, false, 2), "hits");
 console.log("find ok");

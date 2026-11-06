@@ -9,7 +9,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverHeader, PopoverTitle, Po
 import { cn } from "@/lib/utils";
 import { Presence, Pane } from "@/components/Motion";
 import { useFind } from "@/components/useFind";
-import { oneLine, wantsFind } from "@/graph/find";
+import { findState, isSearchShortcut, oneLine, searchHint, wantsFind } from "@/graph/find";
 import { didYouMean, warningMention, type Row } from "@/graph/searchMerge";
 import { groupWarnings, hasScopes, kindName, type Cluster, type GNode, type Model, type Scope, type WarningGroup } from "@/graph/model";
 
@@ -118,6 +118,7 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
   const asking = wantsFind(rows, query) && !pending;
   const { found: finds, pending: finding } = useFind(query, asking);
   const hits = (finds?.results ?? []).filter((h) => byId.has(h.id));
+  const state = findState(asking, finds, finding, hits.length);
   const grouped = (items.length > 0 ? 1 : 0) + (related.length > 0 ? 1 : 0) + (clusterHits.length > 0 ? 1 : 0) > 1;
   const row = ({ item: n, why }: Row<GNode>) => (
     <CommandItem key={n.id} value={n.id} onSelect={() => onChoose(n)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 gap-3 rounded-md px-3">
@@ -130,11 +131,13 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
     </CommandItem>
   );
 
-  // "/" focuses search from anywhere, as in most developer tools
+  // "/" focuses search when not typing; Cmd/Ctrl+K focuses it from anywhere, even inside another field
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
-      if (e.key === "/" && !typing) { e.preventDefault(); input.current?.focus(); }
+      const t = e.target;
+      const typing = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable);
+      if (isSearchShortcut(e)) { e.preventDefault(); input.current?.focus(); input.current?.select(); }
+      else if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); input.current?.focus(); }
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
@@ -162,13 +165,14 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
               }}
               placeholder="Find an Item"
               aria-label="Find an Item by name"
+              aria-keyshortcuts="Meta+K Control+K /"
               aria-describedby="search-count"
               className="glass h-11 w-full rounded-lg border border-line-2 pr-10 pl-10 text-base text-foreground transition-[border-color,box-shadow] duration-(--t-fast) outline-none placeholder:text-text-3 hover:border-line-3 focus-visible:border-indigo-bright focus-visible:shadow-[0_0_0_3px_rgb(130_143_255/0.25)] sm:h-10 sm:text-sm"
             />
             <p id="search-count" className="sr-only" aria-live="polite">
               {query.trim() && !pending ? `${found.length} ${found.length === 1 ? "Item matches" : "Items match"}, all lit on the map${clusterHits.length ? `, ${clusterHits.length} ${clusterHits.length === 1 ? "cluster" : "clusters"}` : ""}` : ""}
             </p>
-            {!focused && !query && <Kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 lg:inline-flex">/</Kbd>}
+            {!focused && !query && <Kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 lg:inline-flex" aria-hidden>{searchHint(typeof navigator === "undefined" ? "" : navigator.platform)}</Kbd>}
           </div>
         </PopoverAnchor>
         <PopoverContent
@@ -181,9 +185,9 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
         >
           <CommandList aria-label="Matching Items">
             <CommandEmpty className="px-3 py-4 text-left text-[13px] text-text-3">
-              {pending ? <p>Searching</p> : (
+              {pending ? <p>Searching</p> : state === "loading" || state === "note" ? null : (
                 <>
-                  <p className="text-text-2">No Item matches that</p>
+                  <p className="text-text-2">{state === "none" ? "No Item matches that, and nothing found by what it does" : "No Item matches that"}</p>
                   {mention && <p className="mt-1 break-words">Mentioned in a scan warning: {mention}</p>}
                   <p className="mt-1">Items come from your Claude config: plugins, skills, agents, commands, hooks and MCP servers are shown, not CLI tools such as git or npm</p>
                   <p className="mt-1">{model.nodes.length} Items scanned</p>
@@ -209,11 +213,11 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
             )}
             {items.length > 0 && <CommandGroup className="p-0" heading={grouped ? "Items" : undefined}>{items.map(row)}</CommandGroup>}
             {related.length > 0 && <CommandGroup className="p-0" heading="Related">{related.map(row)}</CommandGroup>}
-            <Presence>{asking && (finds?.note || hits.length > 0 || finding) ? (
+            <Presence>{state === "loading" || state === "note" || state === "hits" ? (
               <Pane from="top" aria-label="Find by what it does">
                 <CommandGroup className="p-0" heading="Find by what it does">
-                  {finds?.note ? <p className="px-3 py-2 text-[13px] text-text-3">{finds.note}</p> : hits.length === 0 ? <p className="px-3 py-2 text-[13px] text-text-3">Looking through skill descriptions and headings</p> : hits.map((h) => (
-                    <CommandItem key={h.id} value={h.id} onSelect={() => onChoose(byId.get(h.id)!)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 items-start gap-3 rounded-md px-3 py-2">
+                  {state === "note" ? <p className="px-3 pt-2 pb-3 text-[13px] break-words text-text-3">{finds?.note}</p> : state === "loading" ? <p role="status" aria-busy className="px-3 py-2 text-[13px] text-text-3">Looking through skill descriptions and headings</p> : hits.map((h) => (
+                    <CommandItem key={h.id} value={`find:${h.id}`} onSelect={() => onChoose(byId.get(h.id)!)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 items-start gap-3 rounded-md px-3 py-2">
                       <span className="glyph mt-1.5" data-kind="skill" />
                       <span className="min-w-0 flex-1">
                         <span className="block font-medium">{h.name}</span>
@@ -226,7 +230,7 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
                 </CommandGroup>
               </Pane>
             ) : null}</Presence>
-            {note && <p className="px-3 pt-2 pb-1 text-xs text-text-3">{note}</p>}
+            {note && <p className="px-3 pt-2 pb-3 text-xs break-words text-text-3">{note}</p>}
           </CommandList>
         </PopoverContent>
       </Popover>

@@ -30,6 +30,7 @@
     "sky:check": "node scripts/sky-check.ts",
     "dismiss:check": "node scripts/dismiss-check.ts",
     "find:check": "node scripts/find-check.ts",
+    "cmdk:check": "node scripts/cmdk-check.ts",
     "dismiss:browser": "node scripts/dismiss-browser-check.mjs"
   },
   "dependencies": {
