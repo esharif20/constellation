@@ -25,11 +25,12 @@ from .claude_code import read_secrets
 from .diff import diff_scans, render_diff
 from .env import load_env
 from .expansion import Query, expand
-from .models import LLM, Constellation, Embedder, TokenCounter
+from .idkey import id_key
+from .models import LLM, Constellation, Embedder, Item, Relation, TokenCounter
 from .overlaps import estimate_cost
 from .preview import delta, preview, render_delta, render_preview
 from .public_export import LIMITS, NOTICE, write_snapshot
-from .redact import redact_tree
+from .redact import redact_tree, unique_ids
 from .report import render_cleanup, render_report, write_private
 from .review import build_review_graph, open_checkpointer, thread_id
 from .skill_search import find_skills
@@ -332,14 +333,16 @@ def main(
         first = next((w for w in result.warnings if FAILED_PREFIX in w), "unknown")
         print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1
-    _write(
+    saved = _write(
         result, args.out, read_secrets(args.config_dir, args.project), args.config_dir, None if args.no_history else history.DEFAULT_CACHE
     )
     if not (args.no_usage or args.no_habits or args.no_history):  # smarter-verdict 3.2: the habit ledger, local only
-        for warning in habits.update(habits.DEFAULT_CACHE, args.config_dir, result.items, result.relations):
+        # Built from the redacted scan: nothing derived from a raw id, name or description is written to the cache.
+        items, relations = [Item(**i) for i in saved["items"]], [Relation(**r) for r in saved["relations"]]
+        for warning in habits.update(habits.DEFAULT_CACHE, args.config_dir, items, relations):
             print(warning, file=sys.stderr)
     if not args.no_history:  # the weekly snapshot needs the ledger above, so it comes last
-        for warning in weekly.record_scan(asdict(result)):
+        for warning in weekly.record_scan(saved):
             print(warning, file=sys.stderr)
     return 0
 
@@ -625,11 +628,13 @@ def _delta(args: argparse.Namespace) -> int:
     return 0
 
 
-def _write(result: Constellation, path: Path, secrets: set[str], config_dir: Path, history_path: Path | None) -> None:
+def _write(result: Constellation, path: Path, secrets: set[str], config_dir: Path, history_path: Path | None) -> dict[str, Any]:
+    """Save the redacted scan and return exactly what was saved, for the other caches to be built from."""
     day, setup = history._today(), history.key(str(config_dir.resolve()))
     result.scanned_at, result.setup = day, setup
     # One redaction of everything saved (names, ids, warnings, paths, descriptions), not per field: the Items hold raw text.
-    data = redact_tree(asdict(result), secrets)
+    ids = unique_ids((i.id for i in result.items), secrets, id_key(history.DEFAULT_CACHE.with_name("id-key")))
+    data: dict[str, Any] = redact_tree(asdict(result), secrets, ids)
     text = json.dumps(data, indent=2)  # serialise first: a failure must not leave an empty file behind
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     os.chmod(path, 0o600)  # open() keeps the mode of a file that already existed
@@ -640,6 +645,7 @@ def _write(result: Constellation, path: Path, secrets: set[str], config_dir: Pat
             history.record(history_path, history.entry(data, setup, day))
         except OSError as error:
             print(f"could not save scan history: {error}", file=sys.stderr)
+    return data
 
 
 def _local_embedder() -> Embedder | None:

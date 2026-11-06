@@ -6,8 +6,10 @@ import re
 from collections.abc import Iterable
 from pathlib import Path
 
+from . import history
 from .claude_code import SOURCE, _frontmatter, _manifest, _plugin_roots, read_items, read_secrets
-from .redact import _ASSIGNMENT, _FLAG, redact
+from .idkey import id_key
+from .redact import _ASSIGNMENT, _FLAG, redact, unique_ids
 from .retrieve import Index
 
 DEFAULT_CACHE = Path.home() / ".cache" / "constellation" / "skill-content.json"
@@ -110,12 +112,15 @@ def find_skills(query: str, config_dir: Path, *, cache: Path | None = None) -> t
         if (value := match["v"].strip("\"'"))
     }
     references = _references(config_dir)
+    # The name is equivalent when changed in case on a case-insensitive file system.
+    key_file = history.DEFAULT_CACHE.with_name("id-key")  # pragma: no mutate
+    saved = unique_ids((i.id for i in items), known, id_key(key_file))  # the same ids as the saved scan
     names = {i.id: i.name for i in items}
     # Only plugin containment links target skills in the source adapter's relations.
     owners = {r.target: names[r.source] for r in relations}
     metadata = [
         {
-            "id": _safe(i.id, known),
+            "id": saved.get(i.id) or _safe(i.id),
             "kind": i.kind,
             "name": _safe(i.name, known),
             "description": _safe(i.description, known),
@@ -131,7 +136,7 @@ def find_skills(query: str, config_dir: Path, *, cache: Path | None = None) -> t
         body = bodies[item.id]
         entries = _entries(body)
         entries += [("file", name) for name in references.get(item.id, [])]
-        content[_safe(item.id, known)] = [(kind, _safe(text, known)[:MAX_HINT_CHARS]) for kind, text in entries]
+        content[saved.get(item.id) or _safe(item.id)] = [(kind, _safe(text, known)[:MAX_HINT_CHARS]) for kind, text in entries]
     path = cache or DEFAULT_CACHE
     try:
         if path.resolve().is_relative_to(config_dir.resolve()):
