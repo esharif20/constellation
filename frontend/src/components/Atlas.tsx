@@ -14,7 +14,7 @@ import { absentAt, type Timeline } from "@/graph/history";
 import { useRemoteSearch } from "@/components/useRemoteSearch";
 import { searchItems } from "@/graph/search";
 import { matchClusters, mergeResults } from "@/graph/searchMerge";
-import { budget, clusterSummary, withContents, type Assessment, type BriefData, type BriefRow, type Cluster, type GNode, type GOverlap, type Model, type Scope, scopeSet } from "@/graph/model";
+import { budget, clusterSummary, withContents, type Assessment, type BriefData, type Habits, type BriefRow, type Cluster, type GNode, type GOverlap, type Model, type Scope, scopeSet } from "@/graph/model";
 import { InspectorSkeleton } from "@/components/inspector/Skeleton";
 import { verdictOf } from "@/lib/verdict";
 import { briefFrom } from "@/lib/brief";
@@ -34,6 +34,7 @@ export default function Atlas({ model }: { model: Model }) {
   const pill = useRef<HTMLButtonElement>(null);
   const [brief, setBrief] = useState<BriefData | null>(null);
   const [assess, setAssess] = useState<Record<string, Assessment> | null>(null);
+  const [habits, setHabits] = useState<Habits | null>(null);
   const assessments = assess ?? model.assessments;
   const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [briefOpen, setBriefOpen] = useState(() => {
@@ -82,7 +83,10 @@ export default function Atlas({ model }: { model: Model }) {
     const controller = new AbortController();
     void fetch("api/assess", { signal: controller.signal }) // the live verdicts; the Constellation's own `assessments` cover a Snapshot
       .then((response) => { if (!response.ok) throw new Error("Assess unavailable"); return response.json(); })
-      .then((data: { items?: Record<string, Assessment> }) => { if (data.items && typeof data.items === "object") setAssess(data.items); })
+      .then((data: { items?: Record<string, Assessment>; habits?: Habits["items"]; evidence?: { sessions?: number; active_days?: number } }) => {
+        if (data.items && typeof data.items === "object") setAssess(data.items);
+        if (data.habits && typeof data.habits === "object") setHabits({ items: data.habits, sessions: data.evidence?.sessions ?? 0, activeDays: data.evidence?.active_days ?? 0 });
+      })
       .catch(() => { /* Static Snapshots and older servers have no /api/assess. */ });
     return () => controller.abort();
   }, []);
@@ -290,7 +294,7 @@ export default function Atlas({ model }: { model: Model }) {
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
       {selected && showInspector && (
         <Suspense fallback={<InspectorSkeleton item={selected} />}>
-          <Inspector model={model} item={selected} brief={brief ?? undefined} assessments={assessments} onAsk={ask} onCluster={(c) => enter(c, true)} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} whatIf={whatIf} removed={removed} onToggle={toggleRemove} />
+          <Inspector model={model} item={selected} brief={brief ?? undefined} assessments={assessments} habits={habits} onFind={setQuery} onAsk={ask} onCluster={(c) => enter(c, true)} onSelect={select} onPreview={setPreview} onClose={close} backTo={narrow ? cluster?.name : undefined} whatIf={whatIf} removed={removed} onToggle={toggleRemove} />
         </Suspense>
       )}
       {removed && !showBrief && <WhatIfChip count={removed.size} saved={budget(model.nodes, removed).saved} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} onExit={() => startWhatIf(false)} />}
