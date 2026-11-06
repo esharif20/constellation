@@ -217,11 +217,9 @@ def _co(
     old: dict[str, Any], fresh: Fresh, window: UsageWindow, hashes: dict[str, str], kept: dict[str, Any], today: str, cutoff: str
 ) -> Any:
     lo, hi = (window.first or "")[:7], min(window.last or "", today)[:7]  # pragma: no mutate  (a month slice's length is equivalent)
-    if window.skipped:
-        lo = hi = ""  # an unreadable transcript may hide sessions: nothing is replaced, counts only grow
-    pairs: dict[str, dict[str, int]] = {
-        k: {m: n for m, n in per.items() if not lo < m <= hi} for k, per in old.items()
-    }  # months strictly after the window's first are recomputed; that first month is partial, so it takes the maximum
+    # Months strictly after the window's first are recomputed; that first month is partial, so it takes the maximum.
+    # An unreadable transcript may hide sessions: then nothing is replaced and counts only grow.
+    pairs: dict[str, dict[str, int]] = {k: {m: n for m, n in per.items() if window.skipped or not lo < m <= hi} for k, per in old.items()}
     counted: dict[str, dict[str, int]] = {}
     for day, session_ids in fresh.co:
         if day > today:
@@ -372,7 +370,8 @@ def update(path: Path, config_dir: Path, items: list[Item], relations: list[Rela
     try:
         with _locked(path):
             records, warning = load(path)
-            warnings += [warning] if warning else []
+            if warning:
+                warnings.append(warning)
             ledger = records.get(setup) or new()
             fresh, window = usage.read_fresh(config_dir, items, relations, ledger["salt"])
             records[setup] = merge(ledger, fresh, window, [i.id for i in items if i.kind in TRACKED], today)

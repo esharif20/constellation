@@ -1,12 +1,25 @@
 name: CI
+# Budget rule: GitHub Actions minutes cost money on this private repo. Push to main rarely (batch merges),
+# docs-only pushes skip CI, a newer push cancels the older run, and the slow mutation gate runs only when started by hand.
 on:
   push:
     branches: [main]
-  pull_request:
+    paths-ignore: ["docs/**", "**.md"]
+  workflow_dispatch:
+    inputs:
+      mutation:
+        description: "Also run the full mutation gate (slow, uses many minutes)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   python:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.3
@@ -15,7 +28,17 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest -q
-      # Mutation gate for the redaction guard: every mutant must be killed (about 10 seconds).
+
+  # Mutation gate: every mutant must be killed. It takes about an hour, so it runs only on a manual dispatch;
+  # agents run it locally on the modules they change (see AGENTS.md).
+  mutation:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mutation }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv sync --locked --extra app --extra llm
       - run: |
           uv run mutmut run
           survivors="$(uv run mutmut results)"
@@ -23,6 +46,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend

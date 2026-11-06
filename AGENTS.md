@@ -17,11 +17,17 @@ Project: Constellation, a local FastAPI + LangGraph app that scans a Claude Code
 
 ## Workflow
 - Work on a branch named `codex/ticket-<n>`. After all gates pass and the tracker is updated, commit and push only that branch, then stop and report. Never push to `main`, merge, or close issues; Claude owns review and merging.
-- Gates before you say done (all must pass, same as CI): `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy`, `uv run pytest -q` (use `--all-extras` locally), and the mutation gate `uv run mutmut run` then `uv run mutmut results` must print nothing (zero survivors). Frontend: `cd frontend && npm run lint && npm run build && npm run layout:check`.
+- Gates before you say done (all must pass, same as CI): `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy`, `uv run pytest -q` (use `--all-extras` locally), and the mutation gate on the modules you changed (see Money and disk rules; the full run is manual only): `uv run mutmut run`, then `uv run mutmut results` must print nothing (zero survivors). Frontend: `cd frontend && npm run lint && npm run build && npm run layout:check`.
 - Tests go through the public seams (`scan()`, `render_report`, `cli.main`, the HTTP API), test-first, with fixtures; kill mutants with boundary tests.
 - macOS quirk: if imports break after uv rebuilds, run `chflags nohidden .venv/lib/python3.13/site-packages/*.pth`.
 - Update `docs/plan-tracker.md` (status, any deviation from the plan with the reason) in the same commit. If the right choice differs from the plan, stop and say so instead of building on it.
 - Final report: branch, what changed, gate results, what you did not verify, and any provider data sent or user processes started. Claude runs an Opus review for work that sends data or starts a user's server.
+
+## Money and disk rules (owner has no budget to add)
+- GitHub Actions minutes cost money on this private repo and the owner will not add budget. CI runs only on pushes to `main` (docs-only pushes skip it) or by hand; the slow mutation gate (about an hour) runs only by manual dispatch. Pushing a branch triggers nothing, so push branches freely, but push `main` rarely: batch merges, run every gate locally first, then one push. Never push `main` per slice, never push a failing tree to "see what CI says", and never re-run CI to retry a flake. A newer push cancels the older run.
+- The mutation gate is enforced locally: run `mutmut` only on the modules you changed, one run at a time (delete `mutants/` before and after), zero survivors, and say so in the report. Before a manual full run, ask the owner.
+- Disk is small (the data volume was at 95% full). Do not create extra worktrees casually: each one with its own `.venv` and `node_modules` costs hundreds of MB. Reuse one worktree per task, remove it (`git worktree remove`) as soon as its branch is merged, and delete `mutants/`, `.pytest_cache`, build output and screenshots you do not commit. Never download large models, datasets or images into the repo or caches without asking. Check `df -h /System/Volumes/Data` before big installs and stop if less than 10 GB is free.
+- Never run anything that spends money (paid model calls, cloud services, new paid plans) without asking first.
 
 ## Skills note
 The skill names below are Claude Code plugin names. See `docs/agents/codex-skills.md` for installed Codex equivalents and remaining gaps. Use the available skills alongside the written design docs (`docs/design/DESIGN.md` for UI tokens and type, `docs/design/graph-app.md`, `docs/plans/*`). UI work is done by Claude; Codex takes Python tickets.

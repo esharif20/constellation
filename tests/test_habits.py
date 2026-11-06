@@ -861,3 +861,59 @@ def test_two_scans_at_once_take_turns(config, tmp_path):
     os.close(lock)
     worker.join(10)
     assert done.is_set() and stat.S_IMODE(os.stat(str(path) + ".lock").st_mode) == 0o600
+
+
+def test_read_returns_exact_bytes_and_refuses_links_directories_and_pipes(tmp_path, monkeypatch):
+    import os
+
+    f = tmp_path / "f.json"
+    f.write_bytes(b'{"a": 1}')
+    data = habits._read(f)
+    assert isinstance(data, bytes) and data == b'{"a": 1}'
+    link = tmp_path / "l.json"
+    link.symlink_to(f)
+    with pytest.raises(OSError):
+        habits._read(link)  # never through a symlink
+    with pytest.raises(OSError):
+        habits._read(tmp_path)  # a directory
+    fifo = tmp_path / "p"
+    os.mkfifo(fifo)
+    with pytest.raises(OSError, match=r"^not a regular file$"):
+        habits._read(fifo)  # a pipe opens without blocking, then is refused
+    monkeypatch.setattr(habits, "MAX_FILE", 10)
+    (tmp_path / "ten").write_bytes(b"x" * 10)
+    (tmp_path / "eleven").write_bytes(b"x" * 11)
+    (tmp_path / "twelve").write_bytes(b"x" * 12)
+    assert habits._read(tmp_path / "ten") == b"x" * 10  # exactly the cap
+    for name in ("eleven", "twelve"):
+        with pytest.raises(ValueError, match=r"^too large$"):
+            habits._read(tmp_path / name)
+
+
+def test_read_asks_for_one_byte_more_than_the_cap(tmp_path, monkeypatch):
+    sizes = []
+    real_fdopen = habits.os.fdopen
+
+    class Spy:
+        def __init__(self, f):
+            self._f = f
+
+        def __enter__(self):
+            self._f.__enter__()
+            return self
+
+        def __exit__(self, *a):
+            return self._f.__exit__(*a)
+
+        def fileno(self):
+            return self._f.fileno()
+
+        def read(self, n=None):
+            sizes.append(n)
+            return self._f.read(n)
+
+    monkeypatch.setattr(habits.os, "fdopen", lambda fd, mode: Spy(real_fdopen(fd, mode)))
+    monkeypatch.setattr(habits, "MAX_FILE", 10)
+    (tmp_path / "f").write_bytes(b"abc")
+    assert habits._read(tmp_path / "f") == b"abc"
+    assert sizes == [11]  # the cap plus one, so an oversize file is noticed without reading it all
