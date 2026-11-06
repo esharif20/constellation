@@ -1,97 +1,114 @@
-"""No-args menu: a pure key -> state machine (`step`) plus a thin raw-terminal layer. Each entry just runs an existing subcommand."""
+"""No-args menu, in the style of Mole: a pure key -> state machine (`step`), pure frames (`render`, `banner`) and a thin terminal layer.
+
+Every entry just runs an existing subcommand through `cli.main`; nothing here reads your setup except through those commands.
+"""
 
 import contextlib
-import importlib.metadata
-import os
-import sys
-import time
-from collections.abc import Callable, Iterable, Iterator
-from contextlib import AbstractContextManager
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any
 
-from .cli_reports import Style, style_for_stdout
+from .cli_reports import Style
+from .keys import Action
 
 ENTRIES = (
-    ("Analyze", "what costs context, what is unused, what clashes"),
-    ("Doctor", "one-screen health of your setup and this install"),
-    ("Clean", "build a cleanup checklist (nothing is deleted)"),
-    ("Weekly", "what changed since last week"),
-    ("Open map", "the interactive graph in your browser"),
-    ("Update", "check for a newer version"),
+    ("Open", "The graph of your setup, in the browser"),
+    ("Analyze", "Rank what loads at the start of every session"),
+    ("Find", "Say what a forgotten skill does"),
+    ("Clean", "A cleanup checklist with verdicts"),
+    ("Status", "Health, this week, what went quiet"),
 )
-_COMMANDS = ("doctor", "clean", "weekly", "open", "update")
+MORE = (
+    ("Twins", "Overlapping skills and which you use"),
+    ("Weekly", "What changed since the last scan"),
+    ("Remove preview", "What breaks if you remove an Item"),
+    ("Share", "Write a public-safe snapshot"),
+    ("Doctor --env", "Check Python, install and key"),
+)
+FOOTER = "↑↓ | Enter | M More | V Version | U Update | Q Quit"
+MORE_FOOTER = "↑↓ | Enter | Esc Back | Q Quit"
+URL = "github.com/esharif20/constellation"
 DAY = 86400
-_WORDS = {"q": "quit", "h": "help"}
-_NUMBERS = {str(n): n - 1 for n in range(1, len(ENTRIES) + 1)}
+PORT = 8765
+CLEAR = "\033[2J\033[H"
+HIDE = "\033[?25l"
+SHOW = "\033[?25h"
+OLIVE, STEEL, TEAL, DIM = "38;5;143", "38;5;110", "38;5;109", "2"
+FONT = {
+    "C": (" _ ", "|  ", "|_ "),
+    "O": (" _ ", "| |", "|_|"),
+    "N": ("   ", "|\\|", "| |"),
+    "S": (" _ ", "|_ ", " _|"),
+    "T": ("___", " | ", " | "),
+    "E": (" _ ", "|_ ", "|_ "),
+    "L": ("   ", "|  ", "|_ "),
+    "A": (" _ ", "|_|", "| |"),
+    "I": ("___", " | ", "___"),
+}
+ART = tuple(" ".join(FONT[ch][row] for ch in "CONSTELLATION") for row in range(3))
+_NUMBERS = {str(n): n - 1 for n in range(1, 10)}
 
 
-class Action(NamedTuple):
-    kind: str  # "run", "help", "quit" or "interrupt"
-    choice: int = 0
-
-
-def step(index: int, key: str) -> int | Action:
-    """One key press: the new selected index, or the Action that ends the menu."""
-    last = len(ENTRIES) - 1
+def step(index: int, key: str, count: int = len(ENTRIES), top: bool = True) -> int | Action:
+    """One key press: the new selected index, or the Action that ends the page. `top` is the main menu (More, Version, Update)."""
     if key == "up":
         return max(0, index - 1)
     if key == "down":
-        return min(last, index + 1)
+        return min(count - 1, index + 1)
     if key == "enter":
         return Action("run", index)
     if key == "q":
         return Action("quit")
-    if key == "h":
-        return Action("help")
     if key == "ctrl-c":
         return Action("interrupt")
-    if key in _NUMBERS:
+    if key == "esc" and not top:
+        return Action("back")
+    if top and key in ("m", "v", "u"):
+        return Action({"m": "more", "v": "version", "u": "update"}[key])
+    if key in _NUMBERS and _NUMBERS[key] < count:
         return _NUMBERS[key]
     return index
 
 
-def parse_key(data: bytes) -> str:
-    named = {b"": "q", b"\x1b[A": "up", b"\x1b[B": "down", b"\r": "enter", b"\n": "enter", b"\x03": "ctrl-c", b"\x04": "q"}  # b"" is EOF
-    if data in named:
-        return named[data]
-    return chr(data[0]).lower() if len(data) == 1 and data[0] < 128 else ""
+def _c(st: Style, code: str, text: str) -> str:
+    return f"\033[{code}m{text}\033[0m" if st.color else text
 
 
-def age_text(seconds: float | None) -> str:
-    if seconds is None:
-        return "no scan yet"
-    days = int(seconds) // DAY
-    return "today" if days == 0 else f"{days} day{'s' if days > 1 else ''} ago"
+def _fit(text: str, width: int) -> str:
+    return text if len(text) <= width else text[: width - 1] + "…"
 
 
-def render(index: int, st: Style, version: str, age: str) -> list[str]:
-    rows = [f"{'➤' if i == index else ' '} {i + 1}  {name:<13} {text}" for i, (name, text) in enumerate(ENTRIES)]
-    rows = [st.title(row) if i == index else row for i, row in enumerate(rows)]
-    hint = "↑↓ or 1-6 · Enter run · h help · q quit"
-    return [
-        st.title(f"Constellation {version}") + " · your Claude Code setup, mapped",
-        "",
-        *(f"  {r}" for r in rows),
-        "",
-        f"  {hint}   last scan: {age}",
-    ]
+def banner(st: Style, version: str) -> list[str]:
+    tagline = f"Map your Claude setup · {version}"
+    if st.width < len(ART[0]) + 3:
+        return [_c(st, OLIVE, _fit("  CONSTELLATION", st.width)), _c(st, DIM, _fit(f"  {tagline}", st.width))]
+    art = [_c(st, OLIVE, row) for row in ART]
+    if st.width >= len(ART[0]) + 2 + len(URL):
+        return [art[0], f"{art[1]}  {_c(st, STEEL, URL)}", f"{art[2]}  {_c(st, OLIVE, tagline)}"]
+    return [*art, _c(st, STEEL, _fit(URL, st.width)), _c(st, OLIVE, _fit(tagline, st.width))]
 
 
-def plan(index: int, fresh: bool, config_dir: str) -> list[list[str]]:
-    """The subcommands an entry runs, in order. Analyze scans offline first when there is no fresh scan."""
-    if index == 0:
-        return ([] if fresh else [["scan", config_dir, "--offline"]]) + [["doctor"], ["cost"], ["unused"]]
-    return [[_COMMANDS[index - 1]]]
+def render(index: int, st: Style, version: str, entries: tuple[tuple[str, str], ...] = ENTRIES, top: bool = True) -> list[str]:
+    name_w = max(len(name) for name, _ in entries) + 1
+    rows = []
+    for i, (name, hint) in enumerate(entries):
+        row = _fit(f"{'➤' if i == index else ' '} {i + 1}. {name:<{name_w}} {hint}", st.width - 2)
+        rows.append("  " + (_c(st, TEAL, row) if i == index else row))
+    return ["", *banner(st, version), "", *rows, "", "  " + _c(st, DIM, _fit(FOOTER if top else MORE_FOOTER, st.width - 2))]
 
 
-def choose(keys: Iterable[str], write: Callable[[str], object], lines_for: Callable[[int], list[str]]) -> Action:
-    """Draw the frame, then redraw over it after each key until one ends the menu (running out of keys quits)."""
-    index = 0
+def choose(
+    keys: Iterator[str],
+    write: Callable[[str], object],
+    lines_for: Callable[[int], list[str]],
+    stepper: Callable[[int, str], int | Action] = step,
+    index: int = 0,
+) -> Action:
+    """Draw the frame, then redraw over it after each key until one ends the page (running out of keys quits)."""
     first = lines_for(index)
     write("\r\n".join(first) + "\r\n")
     for key in keys:
-        result = step(index, key)
+        result = stepper(index, key)
         if isinstance(result, Action):
             return result
         index = result
@@ -99,23 +116,26 @@ def choose(keys: Iterable[str], write: Callable[[str], object], lines_for: Calla
     return Action("quit")
 
 
-def _answers(input_fn: Callable[[str], str]) -> Iterator[str]:
+def _answers(input_fn: Callable[[str], str], prompt: str) -> Iterator[str]:
     try:
         while True:
-            yield input_fn("number, h or q: ")
+            yield input_fn(prompt)
     except EOFError:
         return
 
 
-def numbered(input_fn: Callable[[str], str], write: Callable[[str], object], lines_for: Callable[[int], list[str]]) -> Action:
-    """No termios (Windows): list the entries and read a number, h or q."""
+def numbered(
+    input_fn: Callable[[str], str], write: Callable[[str], object], lines_for: Callable[[int], list[str]], count: int, words: dict[str, str]
+) -> Action:
+    """No termios (Windows): list the entries and read a number or one of `words` (letter -> action kind)."""
     write("\n".join(lines_for(-1)) + "\n")
-    for line in _answers(input_fn):
+    prompt = f"number, {', '.join(w for w in words if w != 'q')} or q: "
+    for line in _answers(input_fn, prompt):
         answer = line.strip().lower()
-        if answer in _NUMBERS:
+        if answer in _NUMBERS and _NUMBERS[answer] < count:
             return Action("run", _NUMBERS[answer])
-        if answer in _WORDS:
-            return Action(_WORDS[answer])
+        if answer in words:
+            return Action(words[answer])
     return Action("quit")
 
 
@@ -134,68 +154,3 @@ def scan_age(path: Path, now: float) -> float | None:
         return max(0.0, now - path.stat().st_mtime)
     except OSError:
         return None
-
-
-def launch(
-    run: Callable[[list[str]], int],
-    scan_file: Path = Path("constellation.json"),
-    config_dir: str | None = None,
-    *,
-    st: Style,
-    confirm: Callable[[str], str] = input,
-    raw: Callable[[], AbstractContextManager[None]] | None = None,
-    keys: Iterable[str] | None = None,
-    now: Callable[[], float] = time.time,
-) -> int:
-    """Show the menu, then run the chosen subcommands through `run` (cli.main). Returns the exit code."""
-    age = scan_age(scan_file, now())
-    version = importlib.metadata.version("constellation-cli")
-
-    def lines_for(index: int) -> list[str]:
-        return render(index, st, version, age_text(age))
-
-    def write(text: str) -> None:
-        sys.stdout.write(text)
-        sys.stdout.flush()
-
-    if keys is None:
-        action = numbered(confirm, write, lines_for)
-    else:
-        with (raw or contextlib.nullcontext)():
-            action = choose(keys, write, lines_for)
-    if action.kind == "interrupt":
-        return 130
-    if action.kind == "help":
-        return run(["--help"])
-    if action.kind == "quit":
-        return 0
-    steps = plan(action.choice, age is not None and age < DAY, config_dir or str(Path.home() / ".claude"))
-    if steps[0][0] == "scan":
-        answer = confirm(f"No fresh scan. Run `constellation {' '.join(steps[0])}` (reads {steps[0][1]} locally, sends nothing)? [y/N] ")
-        if answer.strip().lower() != "y":
-            return 0
-    for argv in steps:
-        code = run(argv)
-        if code:
-            return code
-    return 0
-
-
-def terminal() -> tuple[Callable[[], AbstractContextManager[None]], Iterable[str]] | None:
-    """Raw-mode context and the stream of keys for the real terminal, or None where termios is missing."""
-    try:
-        import termios
-        import tty
-    except ImportError:
-        return None
-    fd = sys.stdin.fileno()
-    return (lambda: raw_mode(fd, termios, tty)), iter(lambda: parse_key(os.read(fd, 8)), None)
-
-
-def open_menu(run: Callable[[list[str]], int]) -> int:
-    """Entry point used by cli.main when stdin and stdout are both a TTY. Ctrl-C exits 130 with the terminal restored."""
-    term = terminal()
-    try:
-        return launch(run, st=style_for_stdout(), raw=term[0] if term else None, keys=term[1] if term else None)
-    except KeyboardInterrupt:
-        return 130
