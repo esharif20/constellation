@@ -43,13 +43,13 @@ def test_title_is_bold_only_with_colour():
 
 
 def test_unused_skips_tracked_off_and_untracked_and_sorts_by_saving():
-    items = [entry(k) for k in ("off", "untracked", "used", "none", "zero", "one", "big", "tie-b", "tie-a")]
+    items = [entry(k) for k in ("off", "untracked", "used", "none", "azero", "one", "big", "tie-b", "tie-a")]
     judged = {
         "off": verdict("off"),
         "untracked": verdict("untracked"),
         "used": verdict(saves=500),
         "none": verdict(saves=None),
-        "zero": verdict(saves=0),
+        "azero": verdict(saves=0),
         "one": verdict(saves=1),
         "big": verdict(saves=300),
         "tie-b": verdict(saves=300),
@@ -60,7 +60,7 @@ def test_unused_skips_tracked_off_and_untracked_and_sorts_by_saving():
 
     out = cr._unused(s, None)
 
-    assert [r["name"] for r in out["rows"]] == ["big", "tie-a", "tie-b", "one", "zero", "none"]
+    assert [r["name"] for r in out["rows"]] == ["big", "tie-a", "tie-b", "one", "azero", "none"]
     assert out["rows"][0] == {"name": "big", "label": "Keep", "confidence": "high", "saves": 300}
     assert (out["sessions"], out["active_days"], out["span_days"], out["count"]) == (3, 2, 9, 6)
 
@@ -331,3 +331,10 @@ def test_doctor_warns_when_greedy_and_never_counts_are_equal():
     }
 
     assert "  ! 1 skills never fire, 1 fire greedily\n" in cr._r_doctor(d, PLAIN)
+
+
+def test_a_name_half_as_similar_as_the_cutoff_still_counts_as_close():
+    with pytest.raises(cr.ReportError) as raised:
+        cr.find_item(fake_scan([entry("abcdef")]), "abcxyz")
+
+    assert str(raised.value) == "No Item named 'abcxyz'. Did you mean: abcdef?"

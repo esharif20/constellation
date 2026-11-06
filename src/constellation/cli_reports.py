@@ -221,7 +221,7 @@ def _why(s: Scan, query: str | None) -> dict[str, Any]:
         "frees": a.saves,
         "referenced_by": sorted(refs),
         "contains": parts,
-        "twin": s.label(a.twin_id) if a.twin_id else None,
+        "twin": s.names[a.twin_id] if a.twin_id else None,
         "history_days": s.found.evidence.active_days,
     }
 
