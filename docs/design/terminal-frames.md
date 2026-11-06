@@ -7,59 +7,114 @@ functions in `menu.py`, `analyze.py` and `cleanup.py`; exact frames are pinned i
 
 ## Main menu, 80 columns (the URL moves beside the art at 87 columns or more)
 
+Entries mirror the command map: 1 Scan, 2 Open, 3 Analyze, 4 Find, 5 Clean, 6 Status, M More. Logic in `frontdoor.py` (entries,
+More list, first-run wording) and `menu.py` (frames); `tests/test_menu.py` pins the frames.
+
 ```
 
- _   _       _  ___  _           _  ___ ___  _
+ _   _       _  ___  _           _  ___ ___  _     
 |   | | |\| |_   |  |_  |   |   |_|  |   |  | | |\|
 |_  |_| | |  _|  |  |_  |_  |_  | |  |  ___ |_| | |
 github.com/esharif20/constellation
 Map your Claude setup · 0.2.0
 
-  ➤ 1. Open     The graph of your setup, in the browser
-    2. Analyze  Rank what loads at the start of every session
-    3. Find     Say what a forgotten skill does
-    4. Clean    A cleanup checklist with verdicts
-    5. Status   Health, this week, what went quiet
+  ➤ 1. Scan     Read ~/.claude, build or refresh the scan
+    2. Open     The graph of your setup, in the browser
+    3. Analyze  Rank what loads at the start of every session
+    4. Find     Say what a forgotten skill does
+    5. Clean    A cleanup checklist with verdicts
+    6. Status   Health, this week, what went quiet
 
   ↑↓ | Enter | M More | V Version | U Update | Q Quit
 ```
 
-## Main menu, 50 columns (compact banner, every line cut to the width)
+## First run (no saved scan): the header says so, Scan is highlighted and explains itself
+
+Open, Analyze, Clean and Status then ask `Scan first? (y/N) ` instead of failing (Open still falls back to the demo on N).
 
 ```
 
-  CONSTELLATION
-  Map your Claude setup · 0.2.0
-
-    1. Open     The graph of your setup, in the b…
-  ➤ 2. Analyze  Rank what loads at the start of e…
-    3. Find     Say what a forgotten skill does
-    4. Clean    A cleanup checklist with verdicts
-    5. Status   Health, this week, what went quiet
-
-  ↑↓ | Enter | M More | V Version | U Update | Q …
-```
-
-## M More
-
-```
-
- _   _       _  ___  _           _  ___ ___  _
+ _   _       _  ___  _           _  ___ ___  _     
 |   | | |\| |_   |  |_  |   |   |_|  |   |  | | |\|
 |_  |_| | |  _|  |  |_  |_  |_  | |  |  ___ |_| | |
 github.com/esharif20/constellation
 Map your Claude setup · 0.2.0
 
-    1. Twins           Overlapping skills and which you use
-    2. Weekly          What changed since the last scan
-  ➤ 3. Remove preview  What breaks if you remove an Item
-    4. Share           Write a public-safe snapshot
-    5. Doctor --env    Check Python, install and key
+  No scan yet. Start with 1 Scan.
+
+  ➤ 1. Scan     Start here: read ~/.claude and build your map
+    2. Open     The graph of your setup, in the browser
+    3. Analyze  Rank what loads at the start of every session
+    4. Find     Say what a forgotten skill does
+    5. Clean    A cleanup checklist with verdicts
+    6. Status   Health, this week, what went quiet
+
+  ↑↓ | Enter | M More | V Version | U Update | Q Quit
+```
+
+## 1 Scan
+
+```
+  ▸ Scan
+
+  Reads ~/.claude (local files only) and writes constellation.json.
+  Offline: nothing is sent anywhere.
+
+  Scan now? (y/N, Esc to cancel)
+  Scanning your setup (offline, nothing is sent)...
+  Done: 97 Items, 12 clusters
+  Next: constellation status
+```
+
+Prompts take typed text; Esc (alone, then Enter) cancels and goes back. In a terminal each command also ends with one dim
+`Next: constellation ...` line from `next_step.py` (after unused: why <first item>; cost: clean; find: why <top hit>; scan: status;
+status: unused; doctor: cost; clean: open). Nothing is printed when stdout is piped or `--json` is used.
+
+## M More: every other command, grouped as in `constellation --help` (Look, Act, Map, Manage)
+
+Commands that need an answer ask a short question first (Why: Which Item? Ask: What do you want to know? Profile: Which project?).
+
+```
+
+ _   _       _  ___  _           _  ___ ___  _     
+|   | | |\| |_   |  |_  |   |   |_|  |   |  | | |\|
+|_  |_| | |  _|  |  |_  |_  |_  | |  |  ___ |_| | |
+github.com/esharif20/constellation
+Map your Claude setup · 0.2.0
+
+    1. Doctor          Look · One-screen health check
+    2. Cost            Look · What loads at session start
+    3. Unused          Look · Items not used lately
+    4. Twins           Look · Overlapping skills and which you use
+    5. Why             Look · Why one Item has its verdict
+  ➤ 6. Remove preview  Look · What breaks if you remove an Item
+    7. Hooks           Look · Every hook, ranked
+    8. Clashes         Look · Hook, MCP and trigger collisions
+    9. Triggers        Look · Skills that never or over-fire
+    10. Explain         Look · Plain-English summary of the setup
+    11. Ask             Look · Ask a question (local rules, no model)
+    12. Report          Look · Plain-text report of the scan
+    13. Assess          Look · Every verdict, as JSON
+    14. Weekly          Look · What changed since the last scan
+    15. Diff            Look · Items changed between two scans
+    16. Delta           Look · Tokens and Overlaps between two scans
+    17. Preview         Look · What a downloaded plugin would add
+    18. Profile         Look · What one project really uses
+    19. Expand          Look · Tools of one local MCP server
+    20. Review          Act · Go through Suggestions one by one
+    21. Share           Act · Write a public-safe snapshot
+    22. Export          Act · Show the public snapshot (dry run)
+    23. Scan preview    Map · Show what a scan would send and write
+    24. Purge           Manage · Items only used by idle projects
+    25. Update          Manage · The upgrade command for this install
+    26. Uninstall       Manage · How to remove it (dry run)
+    27. Completion      Manage · A shell completion script
+    28. Doctor --env    Manage · Check Python, install and key
 
   ↑↓ | Enter | Esc Back | Q Quit
 ```
 
-## 2 Analyze (ranked by always-on cost; Enter why, O open in the graph, P removal preview, F file path, R rescan)
+## 3 Analyze (ranked by always-on cost; Enter why, O open in the graph, P removal preview, F file path, R rescan)
 
 ```
 Analyze Setup  (5,503 tokens at session start)
@@ -81,7 +136,7 @@ What loads at the start of every session, biggest first:  10 Items
 
 While scanning the same page shows `Scanning…` in the header with an empty list.
 
-## 4 Clean: a dry run first (Space toggles an Item in or out of the checklist, P pins it as keep, A writes a new checklist)
+## 5 Clean: a dry run first (Space toggles an Item in or out of the checklist, P pins it as keep, A writes a new checklist)
 
 ```
 Clean  (dry run: nothing is deleted)

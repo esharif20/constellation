@@ -10,22 +10,11 @@ from typing import Any
 
 from . import banner
 from .cli_reports import Style
+from .frontdoor import main_entries, more_entries
 from .keys import Action
 
-ENTRIES = (
-    ("Open", "The graph of your setup, in the browser"),
-    ("Analyze", "Rank what loads at the start of every session"),
-    ("Find", "Say what a forgotten skill does"),
-    ("Clean", "A cleanup checklist with verdicts"),
-    ("Status", "Health, this week, what went quiet"),
-)
-MORE = (
-    ("Twins", "Overlapping skills and which you use"),
-    ("Weekly", "What changed since the last scan"),
-    ("Remove preview", "What breaks if you remove an Item"),
-    ("Share", "Write a public-safe snapshot"),
-    ("Doctor --env", "Check Python, install and key"),
-)
+ENTRIES = main_entries(False)
+MORE = more_entries()
 FOOTER = "↑↓ | Enter | M More | V Version | U Update | Q Quit"
 MORE_FOOTER = "↑↓ | Enter | Esc Back | Q Quit"
 URL = "github.com/esharif20/constellation"
@@ -67,13 +56,23 @@ def _fit(text: str, width: int) -> str:
     return text if len(text) <= width else text[: width - 1] + "…"
 
 
-def render(index: int, st: Style, version: str, entries: tuple[tuple[str, str], ...] = ENTRIES, top: bool = True) -> list[str]:
+def render(
+    index: int, st: Style, version: str, entries: tuple[tuple[str, str], ...] = ENTRIES, top: bool = True, note: str = ""
+) -> list[str]:
     name_w = max(len(name) for name, _ in entries) + 1
     rows = []
     for i, (name, hint) in enumerate(entries):
         row = _fit(f"{'➤' if i == index else ' '} {i + 1}. {name:<{name_w}} {hint}", st.width - 2)
         rows.append("  " + (_c(st, TEAL, row) if i == index else row))
-    return ["", *banner.render(st, version), "", *rows, "", "  " + _c(st, DIM, _fit(FOOTER if top else MORE_FOOTER, st.width - 2))]
+    return [
+        "",
+        *banner.render(st, version),
+        "",
+        *(["  " + _c(st, DIM, _fit(note, st.width - 2)), ""] if note else []),
+        *rows,
+        "",
+        "  " + _c(st, DIM, _fit(FOOTER if top else MORE_FOOTER, st.width - 2)),
+    ]
 
 
 def choose(

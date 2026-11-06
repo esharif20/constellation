@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import contextlib
 import importlib.metadata
 import importlib.resources
 import importlib.util
@@ -24,6 +25,7 @@ from . import (
     find_view,
     habits,
     history,
+    next_step,
     scan,
     scan_graph,
     selfcheck,
@@ -240,6 +242,7 @@ def main(
         limit = None if args.all else args.limit
         for line in find_view.render(hits, args.query, len(loose), style, style.width, limit=limit, closest=closest):
             print(line)
+        _hint("find", {"hits": hits})
         return 0
     if args.command == "profile":
         return _profile(args)
@@ -257,7 +260,10 @@ def main(
         return 2 if data is None else weekly.command(data, args.json, args.since)
     if args.command == "status":
         data = _load_scan(args.file)
-        return 2 if data is None else status.command(data, args.json, cli_reports.style_for_stdout())
+        code = 2 if data is None else status.command(data, args.json, cli_reports.style_for_stdout())
+        if not code:
+            _hint("status", as_json=args.json)
+        return code
     if args.command in {c.name for c in cli_reports.COMMANDS}:
         return _report_command(args)
     if args.command == "preview":
@@ -397,6 +403,7 @@ def main(
     if not args.no_history:  # the weekly snapshot needs the ledger above, so it comes last
         for warning in weekly.record_scan(saved):
             print(warning, file=sys.stderr)
+    _hint("scan")
     return 0
 
 
@@ -460,7 +467,20 @@ def _report_command(args: argparse.Namespace) -> int:
         print(error, file=sys.stderr)
         return 2
     print(out, end="")
+    result = None
+    if sys.stdout.isatty() and not getattr(args, "json", False) and args.command in cli_reports.BUILD:
+        with contextlib.suppress(cli_reports.ReportError):
+            result = cli_reports.BUILD[args.command](scan, getattr(args, "arg", None))
+    _hint(args.command, result, getattr(args, "json", False))
     return 0
+
+
+def _hint(command: str, result: dict[str, Any] | None = None, as_json: bool = False) -> None:
+    """The dim `Next:` line, only for a person at a terminal (never piped or --json)."""
+    if sys.stdout.isatty() and not as_json:
+        line = next_step.hint_line(cli_reports.style_for_stdout(), command, result)
+        if line:
+            print(line)
 
 
 def _load_scan(file: Path) -> dict[str, Any] | None:

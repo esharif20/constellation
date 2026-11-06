@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from test_cleanup import fake_scan
 
-from constellation import banner, cli, menu, session
+from constellation import banner, cli, cli_help, frontdoor, menu, session
 from constellation import pins as pin_file
 from constellation.cli_reports import ReportError, Style
 from constellation.keys import Action, Cancel
@@ -37,8 +37,8 @@ def test_step_navigation_and_bounds():
     assert menu.step(0, "up") == 0
     assert menu.step(1, "up") == 0
     assert menu.step(0, "down") == 1
-    assert menu.step(3, "down") == 4
-    assert menu.step(4, "down") == 4
+    assert menu.step(4, "down") == 5
+    assert menu.step(5, "down") == 5
     assert menu.step(2, "x") == 2
     assert menu.step(2, "") == 2
     assert menu.step(1, "down", 2) == 1
@@ -46,7 +46,7 @@ def test_step_navigation_and_bounds():
 
 
 def test_step_up_moves_exactly_one_row():
-    assert menu.step(3, "up") == 2 and menu.step(4, "up") == 3
+    assert menu.step(3, "up") == 2 and menu.step(5, "up") == 4
 
 
 def test_fit_cuts_at_the_width_with_an_ellipsis():
@@ -57,9 +57,9 @@ def test_fit_cuts_at_the_width_with_an_ellipsis():
 
 def test_step_digits_select_within_range():
     assert menu.step(3, "1") == 0
-    assert menu.step(0, "5") == 4
+    assert menu.step(0, "6") == 5
     assert menu.step(2, "0") == 2
-    assert menu.step(2, "6") == 2
+    assert menu.step(2, "7") == 2
     assert menu.step(0, "3", 3) == 2
     assert menu.step(0, "4", 3) == 0
     assert menu.step(2, "²") == 2
@@ -105,50 +105,63 @@ def test_render_main_menu_exact_frame():
     assert "\n".join(menu.render(0, PLAIN, "0.2.0")) == (
         "\n" + "\n".join(banner.render(PLAIN, "0.2.0", utf8=True)) + "\n"
         "\n"
-        "  ➤ 1. Open     The graph of your setup, in the browser\n"
-        "    2. Analyze  Rank what loads at the start of every session\n"
-        "    3. Find     Say what a forgotten skill does\n"
-        "    4. Clean    A cleanup checklist with verdicts\n"
-        "    5. Status   Health, this week, what went quiet\n"
+        "  ➤ 1. Scan     Read ~/.claude, build or refresh the scan\n"
+        "    2. Open     The graph of your setup, in the browser\n"
+        "    3. Analyze  Rank what loads at the start of every session\n"
+        "    4. Find     Say what a forgotten skill does\n"
+        "    5. Clean    A cleanup checklist with verdicts\n"
+        "    6. Status   Health, this week, what went quiet\n"
         "\n"
         "  ↑↓ | Enter | M More | V Version | U Update | Q Quit"
     )
 
 
-def test_render_more_page_and_selection():
-    lines = menu.render(2, PLAIN, "0.2.0", menu.MORE, False)
-    assert (
-        lines[-8:-1]
-        == [
-            "    1. Twins           Overlapping skills and which you use",
-            "    2. Weekly          What changed since the last scan",
-            "  ➤ 3. Remove preview  What breaks if you remove an Item",
-            "    4. Share           Write a public-safe snapshot",
-            "    5. Doctor --env    Check Python, install and key",
-            "",
-        ]
-        or True
-    )
+def test_render_first_run_says_no_scan_and_explains_scan():
+    lines = menu.render(0, PLAIN, "0.2.0", frontdoor.main_entries(True), note=frontdoor.NO_SCAN)
+    at = lines.index("  No scan yet. Start with 1 Scan.")
+    assert lines[at - 2 : at + 2] == ["            github.com/esharif20/constellation", "", lines[at], ""]
+    assert lines[at + 2] == "  ➤ 1. Scan     Start here: read ~/.claude and build your map"
+    assert "No scan yet" not in "".join(menu.render(0, PLAIN, "0.2.0"))
+    assert f"  {ESC}[2mhi{ESC}[0m" in menu.render(0, Style(True, 100), "0", note="hi")
+    assert "  " + "x" * 17 + "…" in menu.render(0, Style(False, 20), "0", note="x" * 40)
+
+
+def test_render_more_page_groups_and_selection():
+    lines = menu.render(5, PLAIN, "0.2.0", menu.MORE, False)
+    rows = lines[lines.index("") + 1 :]
+    first = next(i for i, line in enumerate(lines) if line.startswith(("    1. ", "  ➤ 1. ")))
+    assert lines[first : first + 2] == [
+        "    1. Doctor          Look · One-screen health check",
+        "    2. Cost            Look · What loads at session start",
+    ]
+    assert lines[first + 5] == "  ➤ 6. Remove preview  Look · What breaks if you remove an Item"
+    assert any(line.endswith("Act · Write a public-safe snapshot") for line in lines)
+    assert any(line.endswith("Manage · Items only used by idle projects") for line in lines) and rows
     assert lines[-1] == "  ↑↓ | Enter | Esc Back | Q Quit"
-    assert [i for i, line in enumerate(lines) if "➤" in line] == [len(lines) - 5]
+
+
+def test_more_reaches_every_cli_command():
+    reached = {c.argv[0] for c in frontdoor.MORE} | {"scan", "open", "find", "clean", "status", "doctor", "weekly"}
+    assert reached >= set(cli_help._VERBS)
 
 
 def test_render_narrow_cuts_every_line_to_the_width():
     lines = menu.render(1, Style(False, 40), "1", menu.ENTRIES)
     assert lines[1:3] == ["⋆✦⋆ Constellation", "Map your Claude setup · 1"]
-    assert lines[4] == "    1. Open     The graph of your setup…"
-    assert lines[5].startswith("  ➤ 2. Analyze")
+    assert lines[4] == "    1. Scan     Read ~/.claude, build o…"
+    assert lines[5].startswith("  ➤ 2. Open")
     assert all(len(line) <= 40 for line in lines)
     assert lines[-1] == "  ↑↓ | Enter | M More | V Version | U U…"
 
 
 def test_render_colours_the_selected_row_teal_and_the_footer_dim():
-    lines = menu.render(1, Style(True, 100), "1")
+    lines = menu.render(2, Style(True, 100), "1")
     assert lines[-1] == f"  {ESC}[2m↑↓ | Enter | M More | V Version | U Update | Q Quit{ESC}[0m"
     sel = [line for line in lines if "➤" in line]
-    assert sel == [f"  {ESC}[{menu.TEAL}m➤ 2. Analyze  Rank what loads at the start of every session{ESC}[0m"]
-    assert sum(menu.TEAL in line for line in lines[5:]) == 1
-    assert "\033" not in "".join(menu.render(1, PLAIN, "1"))
+    assert sel == [f"  {ESC}[{menu.TEAL}m➤ 3. Analyze  Rank what loads at the start of every session{ESC}[0m"]
+    rows = lines[next(i for i, line in enumerate(lines) if "1. Scan" in line) :]
+    assert sum(menu.TEAL in line for line in rows) == 1
+    assert "\033" not in "".join(menu.render(2, PLAIN, "1"))
 
 
 def test_numbered_fallback():
@@ -295,7 +308,7 @@ class Session:
         self.asked.append(prompt)
         if prompt.startswith("\n  Press Enter"):
             answer = next(self.pause, "")
-        elif prompt.startswith("No fresh scan") or prompt.startswith("  Write a checklist"):
+        elif prompt.startswith(("No fresh scan", "Scan first", "  Scan now", "  Write a checklist")):
             answer = next(self.say, "n")
         else:
             answer = next(self.typed)
@@ -343,47 +356,47 @@ def test_quit_and_interrupt_restore_the_cursor(tmp_path, capsys):
     s = go(tmp_path, "q", capsys=capsys)
     assert (s.code, s.runner.calls, s.entered) == (0, [], ["in", "out"])
     assert s.out.startswith(menu.CLEAR + menu.HIDE) and s.out.endswith(menu.SHOW)
-    assert s.out.count(menu.HIDE) == 1 and "➤ 1. Open" in s.out and f"Map your Claude setup · {VERSION}" in s.out
+    assert s.out.count(menu.HIDE) == 1 and "➤ 1. Scan" in s.out and f"Map your Claude setup · {VERSION}" in s.out
     s = go(tmp_path / "b", "ctrl-c", capsys=capsys)
     assert s.code == 130 and s.out.endswith(menu.SHOW)
 
 
 def test_ctrl_c_while_a_command_runs_restores_the_cursor(tmp_path, capsys):
-    s = go(tmp_path, "5", "enter", "q", age=0, runner=Runner(boom={"doctor": KeyboardInterrupt()}), capsys=capsys)
+    s = go(tmp_path, "6", "enter", "q", age=0, runner=Runner(boom={"doctor": KeyboardInterrupt()}), capsys=capsys)
     assert s.code == 0 and s.runner.calls == [["doctor"]]  # cancelled: the rest of the chain is skipped, the menu stays up
     assert "\n  Cancelled\n" in s.out and "Stopped" not in s.out and s.out.endswith(menu.SHOW)
     assert len(s.asked) == 1 and s.asked[0].startswith("\n  Press Enter or Esc")
 
 
 def test_status_runs_doctor_then_weekly_and_returns_to_the_menu(tmp_path, capsys):
-    s = go(tmp_path, "5", "enter", "q", age=0, capsys=capsys)
+    s = go(tmp_path, "6", "enter", "q", age=0, capsys=capsys)
     assert (s.code, s.runner.calls, s.entered) == (0, [["doctor"], ["weekly"]], ["in", "out", "in", "out"])
     assert menu.CLEAR + "  ▸ Status\n\n" in s.out
     assert "Press Enter or Esc to return (q to quit) " in s.asked[0]
-    assert s.out.count("➤ 5. Status") >= 2
+    assert s.out.count("➤ 6. Status") >= 2
 
 
 def test_status_stops_at_the_first_failure_and_says_so(tmp_path, capsys):
-    s = go(tmp_path, "5", "enter", "q", age=0, runner=Runner({"doctor": 3}), capsys=capsys)
+    s = go(tmp_path, "6", "enter", "q", age=0, runner=Runner({"doctor": 3}), capsys=capsys)
     assert s.runner.calls == [["doctor"]] and s.code == 0
     assert "boom from doctor\n\n  Stopped: exit code 3\n" in s.out
-    s = go(tmp_path / "r", "5", "enter", "q", age=0, runner=Runner({"weekly": 2}), capsys=capsys)
+    s = go(tmp_path / "r", "6", "enter", "q", age=0, runner=Runner({"weekly": 2}), capsys=capsys)
     assert s.runner.calls == [["doctor"], ["weekly"]] and "Stopped: exit code 2" in s.out
 
 
 def test_stopped_message_is_red_with_colour(tmp_path, capsys):
-    s = Session(tmp_path, "5", "enter", "q", age=0, runner=Runner({"doctor": 3}))
+    s = Session(tmp_path, "6", "enter", "q", age=0, runner=Runner({"doctor": 3}))
     s.run(Style(True, 80))
     out = capsys.readouterr().out
     assert f"{ESC}[31m\n  Stopped: exit code 3{ESC}[0m" in out and f"{ESC}[1;{menu.OLIVE}m  ▸ Status{ESC}[0m" in out
 
 
 def test_pause_q_or_eof_quits_and_enter_returns(tmp_path, capsys):
-    assert go(tmp_path, "5", "enter", age=0, pause=(" Q ",)).code == 0
-    s = Session(tmp_path / "e", "5", "enter", age=0)
+    assert go(tmp_path, "6", "enter", age=0, pause=(" Q ",)).code == 0
+    s = Session(tmp_path / "e", "6", "enter", age=0)
     s.confirm = lambda prompt: (_ for _ in ()).throw(EOFError)
     assert s.run() == 0
-    s = go(tmp_path / "n", "5", "enter", "q", age=0, pause=("",), capsys=capsys)
+    s = go(tmp_path / "n", "6", "enter", "q", age=0, pause=("",), capsys=capsys)
     assert s.runner.calls == [["doctor"], ["weekly"]]
 
 
@@ -394,50 +407,51 @@ def test_version_and_update_entries(tmp_path, capsys):
 
 
 def test_scan_needing_entries_ask_first_and_scan_offline_when_agreed(tmp_path, capsys):
-    s = go(tmp_path, "5", "enter", "q", capsys=capsys)
-    assert s.asked[0] == "No fresh scan. Run `constellation scan /cfg --offline` (reads /cfg locally, sends nothing)? [y/N] "
+    s = go(tmp_path, "6", "enter", "q", capsys=capsys)
+    assert s.asked[0] == "Scan first? (y/N) "
     assert s.runner.calls == [["scan", "/cfg", "--offline"], ["doctor"], ["weekly"]]
     assert "  Scanning your setup (offline, nothing is sent)...\n" in s.out and "boom" not in s.out
-    stale = go(tmp_path / "s", "5", "enter", "q", age=menu.DAY, capsys=capsys)
+    stale = go(tmp_path / "s", "6", "enter", "q", age=menu.DAY, capsys=capsys)
+    assert stale.asked[0].startswith("No fresh scan. Run `constellation scan /cfg --offline` (reads /cfg locally, sends nothing)? [y/N]")
     assert stale.runner.calls[0] == ["scan", "/cfg", "--offline"]
-    fresh = go(tmp_path / "f", "5", "enter", "q", age=menu.DAY - 1, capsys=capsys)
-    assert fresh.runner.calls == [["doctor"], ["weekly"]] and not any(a.startswith("No fresh") for a in fresh.asked)
+    fresh = go(tmp_path / "f", "6", "enter", "q", age=menu.DAY - 1, capsys=capsys)
+    assert fresh.runner.calls == [["doctor"], ["weekly"]] and not any(a.startswith(("No fresh", "Scan first")) for a in fresh.asked)
 
 
 @pytest.mark.parametrize("answer", ["n", "", "yes please"])
 def test_declining_the_scan_runs_nothing_and_does_not_pause(tmp_path, answer):
-    s = go(tmp_path, "5", "enter", "q", say=(answer,))
+    s = go(tmp_path, "6", "enter", "q", say=(answer,))
     assert s.runner.calls == [] and len(s.asked) == 1
 
 
 def test_answer_is_case_and_space_insensitive(tmp_path):
-    assert len(go(tmp_path, "5", "enter", "q", say=(" Y ",)).runner.calls) == 3
+    assert len(go(tmp_path, "6", "enter", "q", say=(" Y ",)).runner.calls) == 3
 
 
 def test_a_failing_scan_is_shown_and_stops_there(tmp_path, capsys):
-    s = go(tmp_path, "5", "enter", "q", runner=Runner({"scan": 2}), capsys=capsys)
+    s = go(tmp_path, "6", "enter", "q", runner=Runner({"scan": 2}), capsys=capsys)
     assert s.runner.calls == [["scan", "/cfg", "--offline"]]
     assert "boom from scan\n\n  Stopped: exit code 2\n" in s.out and len(s.asked) == 2
 
 
 def test_open_serves_the_latest_scan_and_names_the_address(tmp_path, capsys):
-    s = go(tmp_path, "enter", "q", age=menu.DAY * 9, capsys=capsys)
+    s = go(tmp_path, "2", "enter", "q", age=menu.DAY * 9, capsys=capsys)
     assert s.runner.calls == [["open", str(s.scan), "--port", "8765"]]
     assert "  ▸ Open\n\n" in s.out and "demo" not in s.out and "Ctrl-C" not in s.out
     assert s.asked == []  # the server ended normally, so there is nothing to press Enter for
 
 
 def test_open_without_a_scan_offers_one_then_falls_back_to_the_demo(tmp_path, capsys):
-    s = go(tmp_path, "enter", "q", say=("n",), capsys=capsys)
+    s = go(tmp_path, "2", "enter", "q", say=("n",), capsys=capsys)
     assert s.runner.calls == [["open", "demo", "--port", "8765"]]
     assert "  No scan of your setup, so this shows the packaged demo (invented data).\n" in s.out
-    s = go(tmp_path / "y", "enter", "q", say=("y",), runner=Runner({"scan": 2}), capsys=capsys)
+    s = go(tmp_path / "y", "2", "enter", "q", say=("y",), runner=Runner({"scan": 2}), capsys=capsys)
     assert s.runner.calls == [["scan", "/cfg", "--offline"], ["open", "demo", "--port", "8765"]]
     assert "boom from scan" in s.out
 
 
 def test_open_after_a_successful_scan_serves_that_scan(tmp_path):
-    s = Session(tmp_path, "enter", "q", say=("y",))
+    s = Session(tmp_path, "2", "enter", "q", say=("y",))
     calls = []
 
     def run(argv):
@@ -452,41 +466,96 @@ def test_open_after_a_successful_scan_serves_that_scan(tmp_path):
 
 
 def test_ctrl_c_in_the_server_returns_to_the_menu(tmp_path, capsys):
-    s = go(tmp_path, "enter", "q", age=0, runner=Runner(boom={"open": KeyboardInterrupt()}), capsys=capsys)
+    s = go(tmp_path, "2", "enter", "q", age=0, runner=Runner(boom={"open": KeyboardInterrupt()}), capsys=capsys)
     assert s.code == 0 and "Cancelled" not in s.out and s.asked == []
     assert s.runner.calls == [["open", str(s.scan), "--port", "8765"]]
 
 
 def test_find_asks_what_the_skill_does_and_runs_find(tmp_path, capsys):
-    s = go(tmp_path, "3", "enter", "q", typed=("  tidy my git history ",), capsys=capsys)
+    s = go(tmp_path, "4", "enter", "q", typed=("  tidy my git history ",), capsys=capsys)
     assert s.runner.calls == [["find", "tidy my git history", "--config-dir", "/cfg"]]
     assert "\n  What does the skill do? " in s.out and "  ▸ Find\n\n" in s.out
-    s = go(tmp_path / "e", "3", "enter", "q", typed=("  ",))
+    s = go(tmp_path / "e", "4", "enter", "q", typed=("  ",))
     assert s.runner.calls == [] and s.code == 0
-    s = Session(tmp_path / "eof", "3", "enter")
+    s = Session(tmp_path / "eof", "4", "enter")
     s.confirm = lambda prompt: (_ for _ in ()).throw(EOFError)
     assert s.run() == 0 and s.runner.calls == []
 
 
+def test_scan_entry_shows_what_it_reads_then_scans_and_suggests_status(tmp_path, capsys):
+    class Writes(Runner):
+        def __call__(self, argv):
+            if argv[0] == "scan":
+                (tmp_path / "c.json").write_text(json.dumps({"items": [{}, {}, {}], "clusters": [{}]}))
+            return super().__call__(argv)
+
+    s = go(tmp_path, "enter", "q", runner=Writes(), pause=("",), capsys=capsys)
+    assert s.asked[0] == "  Scan now? [y/N] " and s.runner.calls == [["scan", "/cfg", "--offline"]]
+    assert f"  Reads /cfg (local files only) and writes {s.scan}.\n  Offline: nothing is sent anywhere.\n" in s.out
+    assert "  Scanning your setup (offline, nothing is sent)...\n  Done: 3 Items, 1 cluster\n  Next: constellation status\n" in s.out
+
+
+@pytest.mark.parametrize("answer", ["", "n", "\x1b", "\x1bq"])
+def test_scan_entry_cancels_without_scanning(tmp_path, answer):
+    s = go(tmp_path, "enter", "q", say=(answer,))
+    assert s.runner.calls == [] and len(s.asked) == 1 and s.code == 0
+
+
+def test_scan_entry_failure_stops_there(tmp_path, capsys):
+    s = go(tmp_path, "enter", "q", runner=Runner({"scan": 2}), capsys=capsys)
+    assert "Stopped: exit code 2" in s.out and "Done" not in s.out and "Next:" not in s.out
+
+
+def test_first_run_menu_says_no_scan_and_a_saved_scan_does_not(tmp_path, capsys):
+    s = go(tmp_path, "q", capsys=capsys)
+    assert "No scan yet. Start with 1 Scan." in s.out and "Start here: read ~/.claude and build your map" in s.out
+    assert "No scan yet" not in go(tmp_path / "n", "q", age=0, capsys=capsys).out
+
+
+@pytest.mark.parametrize("key", ["3", "5", "6"])
+def test_open_analyze_clean_status_offer_scan_first_when_there_is_none(tmp_path, key):
+    s = go(tmp_path, key, "enter", "q", say=("n",))
+    assert s.asked == ["Scan first? (y/N) "] and s.runner.calls == []
+
+
+LAST = ["down"] * 27  # Doctor --env, the last More row
+
+
 def test_more_page_runs_each_entry(tmp_path, capsys):
-    s = go(tmp_path, "m", "enter", "down", "enter", "4", "enter", "5", "enter", "esc", "q", age=0, capsys=capsys)
-    assert s.runner.calls == [["twins"], ["weekly"], ["share"], ["doctor", "--env"]]
-    assert s.code == 0 and "  ▸ Twins\n\n" in s.out and "  ▸ Doctor --env\n\n" in s.out
-    assert s.out.count("Esc Back") >= 5
+    s = go(tmp_path, "m", "4", "enter", "2", "enter", "3", "enter", "esc", "q", age=0, capsys=capsys)
+    assert s.runner.calls == [["twins"], ["cost"], ["unused"]]
+    assert s.code == 0 and "  ▸ Twins\n\n" in s.out and "  ▸ Unused\n\n" in s.out
+    assert s.out.count("Esc Back") >= 4
+    s = go(tmp_path / "e", "m", *LAST, "enter", "esc", "q", age=0, capsys=capsys)
+    assert s.runner.calls == [["doctor", "--env"]]
+
+
+def test_more_commands_with_no_prompt_or_a_fixed_flag(tmp_path):
+    rows = {c.name: frontdoor.argv_for(c, "/cfg") for c in frontdoor.MORE}
+    assert rows["Scan preview"] == ["scan", "/cfg", "--dry-run"] and rows["Export"] == ["export", "--public", "--dry-run"]
+    assert rows["Purge"] == ["purge"] and rows["Uninstall"] == ["uninstall", "--dry-run"] and rows["Review"] == ["review", "--dry-run"]
 
 
 def test_more_doctor_env_needs_no_scan_but_the_others_do(tmp_path):
-    s = go(tmp_path, "m", "5", "enter", "esc", "q")
-    assert s.runner.calls == [["doctor", "--env"]] and not any(a.startswith("No fresh") for a in s.asked)
+    s = go(tmp_path, "m", *LAST, "enter", "esc", "q")
+    assert s.runner.calls == [["doctor", "--env"]] and not any(a.startswith(("No fresh", "Scan first")) for a in s.asked)
     s = go(tmp_path / "t", "m", "enter", "q", say=("n",))
-    assert s.runner.calls == [] and s.asked[0].startswith("No fresh scan")
-    assert go(tmp_path / "y", "m", "enter", "esc", "q", say=("y",)).runner.calls[:2] == [["scan", "/cfg", "--offline"], ["twins"]]
+    assert s.runner.calls == [] and s.asked[0] == "Scan first? (y/N) "
+    assert go(tmp_path / "y", "m", "enter", "esc", "q", say=("y",)).runner.calls[:2] == [["scan", "/cfg", "--offline"], ["doctor"]]
 
 
-def test_more_remove_preview_asks_for_the_item(tmp_path, capsys):
-    s = go(tmp_path, "m", "3", "enter", "esc", "q", age=0, typed=(" my-skill ",), capsys=capsys)
+def test_more_prompts_take_free_text_and_esc_goes_back(tmp_path, capsys):
+    s = go(tmp_path, "m", "6", "enter", "esc", "q", age=0, typed=(" my-skill ",), capsys=capsys)
     assert s.runner.calls == [["remove-preview", "my-skill"]] and "\n  Which Item? " in s.out
-    assert go(tmp_path / "e", "m", "3", "enter", "esc", "q", age=0, typed=("",)).runner.calls == []
+    assert go(tmp_path / "e", "m", "6", "enter", "esc", "q", age=0, typed=("",)).runner.calls == []
+    s = go(tmp_path / "w", "m", "5", "enter", "esc", "q", age=0, typed=("my  skill",))
+    assert s.runner.calls == [["why", "my skill"]]
+    s = go(tmp_path / "a", "m", *["down"] * 10, "enter", "esc", "q", age=0, typed=("what costs the most?",))
+    assert s.runner.calls == [["ask", "what costs the most?"]]
+    s = go(tmp_path / "x", "m", "6", "enter", "esc", "q", age=0, typed=("\x1b",))
+    assert s.runner.calls == []
+    s = go(tmp_path / "d", "m", *["down"] * 14, "enter", "esc", "q", age=0, typed=("a.json   b.json",))
+    assert s.runner.calls == [["diff", "a.json", "b.json"]]
 
 
 def test_more_quit_and_interrupt_end_the_menu(tmp_path):
@@ -498,7 +567,7 @@ def test_more_quit_and_interrupt_end_the_menu(tmp_path):
 
 
 def test_analyze_draws_the_ranked_list_and_goes_back(tmp_path, capsys):
-    s = go(tmp_path, "2", "enter", "down", "esc", "q", age=0, capsys=capsys)
+    s = go(tmp_path, "3", "enter", "down", "esc", "q", age=0, capsys=capsys)
     assert s.runner.calls == [["cost", "--json"]] and s.code == 0
     assert "Analyze Setup  (1,500 tokens at session start)" in s.out and "2 Items" in s.out
     assert "▶  1. " in s.out and "▶  2. " in s.out and "1,000 tok" in s.out and "unmeasured" not in s.out
@@ -506,44 +575,44 @@ def test_analyze_draws_the_ranked_list_and_goes_back(tmp_path, capsys):
 
 
 def test_analyze_enter_o_p_f_act_on_the_selected_row(tmp_path, capsys):
-    s = go(tmp_path, "2", "enter", "down", "enter", "esc", "q", age=0, capsys=capsys)
+    s = go(tmp_path, "3", "enter", "down", "enter", "esc", "q", age=0, capsys=capsys)
     assert s.runner.calls == [["cost", "--json"], ["why", "small"]]
-    s = go(tmp_path / "p", "2", "enter", "p", "esc", "q", age=0, capsys=capsys)
+    s = go(tmp_path / "p", "3", "enter", "p", "esc", "q", age=0, capsys=capsys)
     assert s.runner.calls[1:] == [["remove-preview", "big"]]
-    s = go(tmp_path / "o", "2", "enter", "o", "esc", "q", age=0, capsys=capsys)
+    s = go(tmp_path / "o", "3", "enter", "o", "esc", "q", age=0, capsys=capsys)
     assert s.runner.calls[1:] == [["open", str(s.scan), "--port", "8765"]]
-    s = go(tmp_path / "f", "2", "enter", "f", "esc", "q", age=0, capsys=capsys)
+    s = go(tmp_path / "f", "3", "enter", "f", "esc", "q", age=0, capsys=capsys)
     assert "  ▸ big\n\n  /s/big/SKILL.md\n" in s.out
-    s = go(tmp_path / "g", "2", "enter", "down", "f", "esc", "q", age=0, capsys=capsys)
+    s = go(tmp_path / "g", "3", "enter", "down", "f", "esc", "q", age=0, capsys=capsys)
     assert "  no file path recorded for this Item\n" in s.out
 
 
 def test_analyze_refresh_rescans_and_shows_the_scanning_state(tmp_path, capsys):
-    s = go(tmp_path, "2", "enter", "r", "esc", "q", age=0, capsys=capsys)
+    s = go(tmp_path, "3", "enter", "r", "esc", "q", age=0, capsys=capsys)
     assert s.runner.calls == [["cost", "--json"], ["scan", "/cfg", "--offline"], ["cost", "--json"]]
     assert "Scanning…" in s.out
     assert s.out.count("Analyze Setup") >= 3
 
 
 def test_analyze_asks_before_scanning_when_stale(tmp_path, capsys):
-    s = go(tmp_path, "2", "enter", "esc", "q", say=("y",), capsys=capsys)
+    s = go(tmp_path, "3", "enter", "esc", "q", say=("y",), capsys=capsys)
     assert s.runner.calls == [["scan", "/cfg", "--offline"], ["cost", "--json"]]
     assert "Scanning…" in s.out
-    s = go(tmp_path / "n", "2", "enter", "q", say=("n",))
+    s = go(tmp_path / "n", "3", "enter", "q", say=("n",))
     assert s.runner.calls == [] and s.code == 0
 
 
 def test_analyze_failures_show_the_output_and_return(tmp_path, capsys):
-    s = go(tmp_path, "2", "enter", "q", age=0, runner=Runner({"cost": 2}), capsys=capsys)
+    s = go(tmp_path, "3", "enter", "q", age=0, runner=Runner({"cost": 2}), capsys=capsys)
     assert "boom from cost\n\n" in s.out and s.code == 0 and "Analyze Setup" not in s.out
-    s = go(tmp_path / "s", "2", "enter", "q", say=("y",), runner=Runner({"scan": 2}), capsys=capsys)
+    s = go(tmp_path / "s", "3", "enter", "q", say=("y",), runner=Runner({"scan": 2}), capsys=capsys)
     assert s.runner.calls == [["scan", "/cfg", "--offline"]] and "boom from scan" in s.out
 
 
 def test_analyze_ctrl_c_and_quit(tmp_path):
-    assert go(tmp_path, "2", "enter", "ctrl-c", "ctrl-c", age=0).code == 130
-    assert go(tmp_path / "l", "2", "enter", "left", "q", age=0).code == 0 and go(tmp_path / "b", "2", "enter", "b", "q", age=0).code == 0
-    assert go(tmp_path / "q", "2", "enter", "q", "q", age=0).code == 0
+    assert go(tmp_path, "3", "enter", "ctrl-c", "ctrl-c", age=0).code == 130
+    assert go(tmp_path / "l", "3", "enter", "left", "q", age=0).code == 0 and go(tmp_path / "b", "3", "enter", "b", "q", age=0).code == 0
+    assert go(tmp_path / "q", "3", "enter", "q", "q", age=0).code == 0
 
 
 def test_analyze_with_no_rows_still_refreshes_and_goes_back(tmp_path, capsys):
@@ -554,28 +623,28 @@ def test_analyze_with_no_rows_still_refreshes_and_goes_back(tmp_path, capsys):
                 print(json.dumps({**COST, "top": []}))
             return 0
 
-    s = go(tmp_path, "2", "enter", "enter", "o", "esc", "q", age=0, runner=Empty(), capsys=capsys)
+    s = go(tmp_path, "3", "enter", "enter", "o", "esc", "q", age=0, runner=Empty(), capsys=capsys)
     assert s.runner.calls[0] == ["cost", "--json"] and len(s.runner.calls) == 1
-    s = go(tmp_path / "x", "2", "enter", "o", "esc", "q", age=0, runner=Empty())
+    s = go(tmp_path / "x", "3", "enter", "o", "esc", "q", age=0, runner=Empty())
     assert len(s.runner.calls) == 1
 
 
 def test_analyze_without_a_readable_scan_file_still_lists_rows(tmp_path, capsys):
-    s = Session(tmp_path, "2", "enter", "f", "esc", "q", age=0)
+    s = Session(tmp_path, "3", "enter", "f", "esc", "q", age=0)
     s.scan.write_text("not json")
     assert s.run() == 0
     assert "no file path recorded" in capsys.readouterr().out
 
 
 def test_clean_lists_the_dry_run_and_goes_back(tmp_path, capsys):
-    s = go(tmp_path, "4", "enter", "esc", "q", age=0, capsys=capsys)
+    s = go(tmp_path, "5", "enter", "esc", "q", age=0, capsys=capsys)
     assert s.runner.calls == [] and s.code == 0
     assert "Clean  (dry run: nothing is deleted)" in s.out and "Protected (pinned)" in s.out
     assert "Could free ~160 tokens per session" in s.out
 
 
 def test_clean_space_toggles_and_a_writes_a_new_private_checklist(tmp_path, capsys):
-    s = go(tmp_path, "4", "enter", "down", " ", "a", "esc", "q", age=0, say=("y",), capsys=capsys)
+    s = go(tmp_path, "5", "enter", "down", " ", "a", "esc", "q", age=0, say=("y",), capsys=capsys)
     path = tmp_path / "cleanup.md"
     assert f"  Write a checklist of 3 Items to {path.resolve()} (new file, deletes nothing)? [y/N] " in s.asked
     text = path.read_text()
@@ -588,22 +657,22 @@ def test_clean_space_toggles_and_a_writes_a_new_private_checklist(tmp_path, caps
 def test_clean_never_overwrites_an_existing_checklist(tmp_path, capsys):
     (tmp_path).mkdir(exist_ok=True)
     (tmp_path / "cleanup.md").write_text("mine")
-    s = go(tmp_path, "4", "enter", "a", "esc", "q", age=0, say=("y",), capsys=capsys)
+    s = go(tmp_path, "5", "enter", "a", "esc", "q", age=0, say=("y",), capsys=capsys)
     assert (tmp_path / "cleanup.md").read_text() == "mine"
     assert "already exists, so nothing was written" in s.out and "Stopped: exit code 1" in s.out
 
 
 def test_clean_declined_confirm_writes_nothing(tmp_path):
-    go(tmp_path, "4", "enter", "a", "esc", "q", age=0, say=("n",))
+    go(tmp_path, "5", "enter", "a", "esc", "q", age=0, say=("n",))
     assert not (tmp_path / "cleanup.md").exists()
 
 
 def test_clean_write_failure_is_reported(tmp_path, capsys):
-    s = Session(tmp_path, "4", "enter", "a", "esc", "q", age=0, say=("y",))
+    s = Session(tmp_path, "5", "enter", "a", "esc", "q", age=0, say=("y",))
     (tmp_path / "cleanup.md").mkdir()  # a directory: exists, so refused
     s.run()
     assert "already exists" in capsys.readouterr().out
-    s = Session(tmp_path / "sub", "4", "enter", "a", "esc", "q", age=0, say=("y",))
+    s = Session(tmp_path / "sub", "5", "enter", "a", "esc", "q", age=0, say=("y",))
     s.scan = tmp_path / "missing-dir" / "c.json"
     s.now = 0.0
     s.load = lambda path: fake_scan()
@@ -619,7 +688,7 @@ def test_clean_write_failure_is_reported(tmp_path, capsys):
 
 
 def test_clean_enter_shows_why_and_the_removal_preview(tmp_path, capsys):
-    s = go(tmp_path, "4", "enter", "enter", "esc", "q", age=0, capsys=capsys)
+    s = go(tmp_path, "5", "enter", "enter", "esc", "q", age=0, capsys=capsys)
     assert s.runner.calls == [["why", "alpha"], ["remove-preview", "alpha"]] and "  ▸ alpha\n\n" in s.out
 
 
@@ -630,21 +699,21 @@ def test_clean_p_pins_through_the_pin_store_and_reloads(tmp_path, capsys):
         loads.append(path)
         return fake_scan()
 
-    s = go(tmp_path, "4", "enter", "p", "esc", "q", age=0, load=load, capsys=capsys)
+    s = go(tmp_path, "5", "enter", "p", "esc", "q", age=0, load=load, capsys=capsys)
     assert pin_file.load(tmp_path / "pins.json").keys() == {"s:a"} and len(loads) == 2
     assert s.code == 0
 
 
 def test_clean_pin_on_a_protected_row_does_nothing(tmp_path):
     loads = []
-    go(tmp_path, "4", "enter", "down", "down", "down", "down", "p", "esc", "q", age=0, load=lambda p: loads.append(p) or fake_scan())
+    go(tmp_path, "5", "enter", "down", "down", "down", "down", "p", "esc", "q", age=0, load=lambda p: loads.append(p) or fake_scan())
     assert not (tmp_path / "pins.json").exists() and len(loads) == 1
 
 
 def test_clean_pin_failure_is_shown(tmp_path, capsys):
     tmp_path.mkdir(exist_ok=True)
     (tmp_path / "blocker").write_text("a file, so nothing can be created under it")
-    s = go(tmp_path, "4", "enter", "p", "esc", "q", age=0, pins=tmp_path / "blocker" / "pins.json", capsys=capsys)
+    s = go(tmp_path, "5", "enter", "p", "esc", "q", age=0, pins=tmp_path / "blocker" / "pins.json", capsys=capsys)
     assert "Could not pin:" in s.out and "Stopped: exit code 1" in s.out
 
 
@@ -652,28 +721,28 @@ def test_clean_load_error_is_shown(tmp_path, capsys):
     def load(path):
         raise ReportError("nope")
 
-    s = go(tmp_path, "4", "enter", "q", age=0, load=load, capsys=capsys)
+    s = go(tmp_path, "5", "enter", "q", age=0, load=load, capsys=capsys)
     assert "  nope\n" in s.out and "Stopped: exit code 1" in s.out
 
 
 def test_clean_with_nothing_proposed_still_goes_back(tmp_path):
     empty = fake_scan()
     empty.found.assessments.clear()
-    s = go(tmp_path, "4", "enter", "enter", "p", "a", "esc", "q", age=0, load=lambda p: empty)
+    s = go(tmp_path, "5", "enter", "enter", "p", "a", "esc", "q", age=0, load=lambda p: empty)
     assert s.code == 0 and s.runner.calls == []
-    assert go(tmp_path / "c", "4", "enter", "ctrl-c", "ctrl-c", age=0).code == 130
-    assert go(tmp_path / "l", "4", "enter", "left", "q", age=0).code == 0 and go(tmp_path / "b", "4", "enter", "b", "q", age=0).code == 0
-    assert go(tmp_path / "q", "4", "enter", "q", "q", age=0).code == 0
+    assert go(tmp_path / "c", "5", "enter", "ctrl-c", "ctrl-c", age=0).code == 130
+    assert go(tmp_path / "l", "5", "enter", "left", "q", age=0).code == 0 and go(tmp_path / "b", "5", "enter", "b", "q", age=0).code == 0
+    assert go(tmp_path / "q", "5", "enter", "q", "q", age=0).code == 0
 
 
 def test_clean_asks_before_scanning_and_declining_returns(tmp_path):
-    s = go(tmp_path, "4", "enter", "q", say=("n",))
-    assert s.runner.calls == [] and s.asked[0].startswith("No fresh scan")
+    s = go(tmp_path, "5", "enter", "q", say=("n",))
+    assert s.runner.calls == [] and s.asked[0] == "Scan first? (y/N) "
 
 
 def test_numbered_fallback_when_there_are_no_raw_keys(tmp_path, capsys):
     s = Session(tmp_path, age=0, interactive=False)
-    answers = iter(["5", "", "m", "1", "", "b", "q"])
+    answers = iter(["6", "", "m", "4", "", "b", "q"])
     s.confirm = lambda prompt: next(answers)
     assert s.run() == 0
     assert s.runner.calls == [["doctor"], ["weekly"], ["twins"]]
@@ -684,7 +753,7 @@ def test_numbered_fallback_when_there_are_no_raw_keys(tmp_path, capsys):
 
 def test_numbered_analyze_prints_the_list_once_and_goes_back(tmp_path, capsys):
     s = Session(tmp_path, age=0, interactive=False)
-    answers = iter(["2", "q"])
+    answers = iter(["3", "q"])
     s.confirm = lambda prompt: next(answers)
     assert s.run() == 0
     assert "Analyze Setup" in capsys.readouterr().out
@@ -694,7 +763,7 @@ def test_default_config_dir_is_the_users_claude_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     runner = Runner()
     session.launch(
-        runner, tmp_path / "x", None, st=PLAIN, confirm=lambda p: "y" if p.startswith("No") else "", keys=keys_of("5", "enter", "q")
+        runner, tmp_path / "x", None, st=PLAIN, confirm=lambda p: "y" if p.startswith("Scan first") else "", keys=keys_of("6", "enter", "q")
     )
     assert runner.calls[0] == ["scan", str(tmp_path / ".claude"), "--offline"]
 
@@ -843,10 +912,10 @@ def test_pty_arrows_enter_status_return_and_quit(tmp_path):
     out, code = pty_session(
         tmp_path,
         [
-            (b"Q Quit", DOWN * 4),
-            (b"\xe2\x9e\xa4 5. Status", b"\r"),
+            (b"Q Quit", DOWN * 5),
+            (b"\xe2\x9e\xa4 6. Status", b"\r"),
             (b"Press Enter or Esc to return", b"\r"),
-            (b"\xe2\x9e\xa4 5. Status", b"q"),
+            (b"\xe2\x9e\xa4 6. Status", b"q"),
         ],
     )
     assert code == 0
@@ -857,7 +926,7 @@ def test_pty_arrows_enter_status_return_and_quit(tmp_path):
 
 @pty_only
 def test_pty_analyze_shows_the_ranked_bars_and_esc_goes_back(tmp_path):
-    out, code = pty_session(tmp_path, [(b"Q Quit", b"2"), (b"\xe2\x9e\xa4 2. Analyze", b"\r"), (b"Esc/Q Back", b"\x1b"), (b"Q Quit", b"q")])
+    out, code = pty_session(tmp_path, [(b"Q Quit", b"3"), (b"\xe2\x9e\xa4 3. Analyze", b"\r"), (b"Esc/Q Back", b"\x1b"), (b"Q Quit", b"q")])
     assert code == 0 and "Analyze Setup  (5,503 tokens at session start)" in out
     assert "▶  1. " in out and "█" in out and " tok" in out
 
@@ -867,8 +936,8 @@ def test_pty_clean_toggle_then_write_a_new_private_checklist(tmp_path):
     out, code = pty_session(
         tmp_path,
         [
-            (b"Q Quit", b"4"),
-            (b"\xe2\x9e\xa4 4. Clean", b"\r"),
+            (b"Q Quit", b"5"),
+            (b"\xe2\x9e\xa4 5. Clean", b"\r"),
             (b"A Write checklist", b" "),
             (b"[ ] quarterly", b"a"),
             (b"Esc to cancel] ", b"y\r"),
@@ -885,7 +954,7 @@ def test_pty_clean_toggle_then_write_a_new_private_checklist(tmp_path):
 
 @pty_only
 def test_pty_more_page_and_back(tmp_path):
-    out, code = pty_session(tmp_path, [(b"Q Quit", b"m"), (b"Esc Back", b"\x1b"), (b"\xe2\x9e\xa4 1. Open", b"q")])
+    out, code = pty_session(tmp_path, [(b"Q Quit", b"m"), (b"Esc Back", b"\x1b"), (b"\xe2\x9e\xa4 1. Scan", b"q")])
     assert code == 0 and "Remove preview" in out and out.count("Q Quit") >= 3
 
 
