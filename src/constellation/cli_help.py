@@ -35,6 +35,11 @@ _VERBS: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "What changed since the last scan, and what went quiet.",
         ("constellation weekly", "constellation weekly --since 2026-11-01"),
     ),
+    "status": (
+        "Look",
+        "One screen of setup health: session-start cost, verdicts, this week.",
+        ("constellation status", "constellation status --json"),
+    ),
     "diff": ("Look", "List Items added, removed or changed between two saved scans.", ("constellation diff old.json new.json",)),
     "delta": ("Look", "What changed between two saved scans, in tokens and Overlaps.", ("constellation delta old.json new.json",)),
     "preview": (
