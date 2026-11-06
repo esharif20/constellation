@@ -1,7 +1,7 @@
 // When the "Find by what it does" list appears, and how a hit is shown (docs/design/inspector.md search box, #80).
 // Run: npm run find:check
 import { strict as assert } from "node:assert";
-import { findState, oneLine, wantsFind } from "../src/graph/find.ts";
+import { filtersActive, findQuery, findState, NO_FILTERS, oneLine, wantsFind } from "../src/graph/find.ts";
 import { searchItems } from "../src/graph/search.ts";
 
 const items = [
@@ -31,4 +31,8 @@ assert.equal(findState(true, null, false, 0), "off"); // API absent
 assert.equal(findState(true, { ...none, note: "Run constellation find" }, false, 0), "note");
 assert.equal(findState(true, none, false, 0), "none");
 assert.equal(findState(true, none, false, 2), "hits");
+assert.equal(findQuery("a b", NO_FILTERS), "q=a%20b&kind=skill");
+assert.equal(findQuery("x", { kind: "mcp", forgotten: true, origin: "plugin" }), "q=x&kind=mcp&forgotten=true&origin=plugin");
+assert.equal(filtersActive(NO_FILTERS), false);
+assert.equal(filtersActive({ ...NO_FILTERS, forgotten: true }), true);
 console.log("find ok");

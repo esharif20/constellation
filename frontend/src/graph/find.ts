@@ -1,5 +1,10 @@
 // "Find by what it does" (#80): when the typed text names no Item well, ask the local skill search. Pure helpers, no DOM.
-export type FindHit = { id: string; name: string; description: string; invoke: string; why: string };
+export type FindHit = { id: string; name: string; description: string; invoke: string; why: string; last_seen?: string; cost?: string };
+export type FindFilters = { kind: "skill" | "agent" | "command" | "mcp"; forgotten: boolean; origin: "" | "plugin" | "yours" };
+export const NO_FILTERS: FindFilters = { kind: "skill", forgotten: false, origin: "" };
+export const filtersActive = (f: FindFilters) => f.kind !== "skill" || f.forgotten || f.origin !== "";
+// The /api/find query string; the server filters, so the 8 shown are the best 8 after filtering.
+export const findQuery = (q: string, f: FindFilters) => `q=${encodeURIComponent(q)}&kind=${f.kind}${f.forgotten ? "&forgotten=true" : ""}${f.origin ? `&origin=${f.origin}` : ""}`;
 export type Found = { available: boolean; results: FindHit[]; note: string | null };
 
 const MIN = 3;
