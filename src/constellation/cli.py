@@ -29,6 +29,7 @@ from .public_export import LIMITS, NOTICE, write_snapshot
 from .redact import redact
 from .report import render_cleanup, render_report, write_private
 from .review import build_review_graph, open_checkpointer, thread_id
+from .skill_search import find_skills
 from .suggestions import Suggestion, suggest
 
 Serve = Callable[[Any, int, bool], None]  # app, port, open the browser
@@ -130,7 +131,17 @@ def main(
     delta_command = commands.add_parser("delta", help="what changed between two saved scans: Items, always-on tokens, new Overlaps")
     delta_command.add_argument("before", type=Path)
     delta_command.add_argument("after", type=Path)
+    find_command = commands.add_parser("find", help="find an installed skill from local names, descriptions and content")
+    find_command.add_argument("query")
+    find_command.add_argument("--config-dir", type=Path, default=Path.home() / ".claude")
     args = parser.parse_args(argv)
+    if args.command == "find":
+        hits, warnings = find_skills(args.query, args.config_dir)
+        for warning in warnings:
+            print(warning, file=sys.stderr)
+        for hit in hits:
+            print(f"{hit['name']}: {hit['description']}\n  {hit['invoke']} — {hit['why']}")
+        return 0
     if args.command == "preview":
         return _preview(args, embedder)  # reads the folder and saved scan only, so it skips load_env
     if args.command == "delta":

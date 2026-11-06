@@ -47,6 +47,7 @@ def private_default_caches(tmp_path_factory, monkeypatch):
         ("costs", "token-counts"),
         ("overlaps", "verdicts"),
         ("retrieve", "embeddings"),
+        ("skill_search", "skill-content"),
         ("history", "history"),
         ("habits", "habits"),
         ("pins", "pins"),
