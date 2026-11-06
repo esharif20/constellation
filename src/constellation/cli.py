@@ -16,7 +16,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import cleanup, cli_help, cli_reports, completion, habits, history, menu, scan, scan_graph, selfcheck, session, status, weekly
+from . import cleanup, cli_help, cli_reports, completion, habits, history, scan, scan_graph, selfcheck, session, status, weekly
 from . import origins as origin_sources
 from . import profile as project_profile
 from . import purge as purge_report
