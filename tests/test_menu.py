@@ -518,7 +518,7 @@ def test_open_analyze_clean_status_offer_scan_first_when_there_is_none(tmp_path,
     assert s.asked == ["Scan first? (y/N) "] and s.runner.calls == []
 
 
-LAST = ["down"] * 27  # Doctor --env, the last More row
+LAST = ["down"] * 28  # Doctor --env, the last More row
 
 
 def test_more_page_runs_each_entry(tmp_path, capsys):

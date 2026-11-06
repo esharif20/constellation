@@ -57,6 +57,7 @@ MORE = (
     _c("Profile", "Look", "What one project really uses", "profile", "{ask}", ask="Which project?", scan=False),
     _c("Expand", "Look", "Tools of one local MCP server", "expand", "{ask}", "--config-dir", "{cfg}", ask="Which Item id?"),
     _c("Review", "Act", "Go through Suggestions one by one", "review", "--dry-run"),
+    _c("Advise", "Act", "Which of your Items fit a project", "advise", "{ask}", "--dry-run", ask="Which project folder?"),
     _c("Share", "Act", "Write a public-safe snapshot", "share"),
     _c("Export", "Act", "Show the public snapshot (dry run)", "export", "--public", "--dry-run"),
     _c("Scan preview", "Map", "Show what a scan would send and write", "scan", "{cfg}", "--dry-run", scan=False),
