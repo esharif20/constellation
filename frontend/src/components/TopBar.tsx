@@ -9,7 +9,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverHeader, PopoverTitle, Po
 import { cn } from "@/lib/utils";
 import { Presence, Pane } from "@/components/Motion";
 import { useFind } from "@/components/useFind";
-import { findState, isSearchShortcut, oneLine, searchHint, wantsFind } from "@/graph/find";
+import { filtersActive, findState, isSearchShortcut, NO_FILTERS, type FindFilters, oneLine, searchHint, wantsFind } from "@/graph/find";
 import { didYouMean, warningMention, type Row } from "@/graph/searchMerge";
 import { groupWarnings, hasScopes, kindName, type Cluster, type GNode, type Model, type Scope, type WarningGroup } from "@/graph/model";
 
@@ -124,7 +124,8 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
   const mention = warningMention(model.warnings, query);
   const byId = new Map(model.nodes.map((n) => [n.id, n]));
   const asking = wantsFind(rows, query) && !pending;
-  const { found: finds, pending: finding } = useFind(query, asking);
+  const [filters, setFilters] = useState<FindFilters>(NO_FILTERS);
+  const { found: finds, pending: finding } = useFind(query, asking, filters);
   const hits = (finds?.results ?? []).filter((h) => byId.has(h.id));
   const state = findState(asking, finds, finding, hits.length);
   const grouped = (items.length > 0 ? 1 : 0) + (related.length > 0 ? 1 : 0) + (clusterHits.length > 0 ? 1 : 0) > 1;
@@ -221,9 +222,11 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
             )}
             {items.length > 0 && <CommandGroup className="p-0" heading={grouped ? "Items" : undefined}>{items.map(row)}</CommandGroup>}
             {related.length > 0 && <CommandGroup className="p-0" heading="Related">{related.map(row)}</CommandGroup>}
-            <Presence>{state === "loading" || state === "note" || state === "hits" ? (
+            <Presence>{state === "loading" || state === "note" || state === "hits" || (state === "none" && filtersActive(filters)) ? (
               <Pane from="top" aria-label="Find by what it does">
                 <CommandGroup className="p-0" heading="Find by what it does">
+                  <FindChips filters={filters} onChange={setFilters} />
+                  {state === "none" ? <p className="px-3 py-2 text-[13px] text-text-3">Nothing matches with these filters.</p> : null}
                   {state === "note" ? <p className="px-3 pt-2 pb-3 text-[13px] break-words text-text-3">{finds?.note}</p> : state === "loading" ? <p role="status" aria-busy className="px-3 py-2 text-[13px] text-text-3">Looking through skill descriptions and headings</p> : hits.map((h) => (
                     <CommandItem key={h.id} value={`find:${h.id}`} onSelect={() => onChoose(byId.get(h.id)!)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 items-start gap-3 rounded-md px-3 py-2">
                       <span className="glyph mt-1.5" data-kind="skill" />
@@ -231,6 +234,7 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
                         <span className="block font-medium">{h.name}</span>
                         <span className="block truncate text-xs text-text-2">{oneLine(h.description)}</span>
                         <span className="block truncate text-xs text-text-3">Matched {h.why}</span>
+                        {h.last_seen && <span className="block truncate text-xs text-text-3">{h.last_seen}{h.cost ? ` · ${h.cost}` : ""}</span>}
                       </span>
                       <CopyInvoke invoke={h.invoke} />
                     </CommandItem>
@@ -243,6 +247,26 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
         </PopoverContent>
       </Popover>
     </Command>
+  );
+}
+
+const KIND_CHIPS = [["skill", "Skills"], ["agent", "Agents"], ["command", "Commands"], ["mcp", "MCP"]] as const;
+const ORIGIN_CHIPS = [["yours", "Yours"], ["plugin", "Plugins"]] as const;
+
+// Small toggles over the find results; they filter on the server, so they never steal focus from the search box.
+function FindChips({ filters, onChange }: { filters: FindFilters; onChange: (f: FindFilters) => void }) {
+  const chip = (label: string, on: boolean, next: FindFilters) => (
+    <button key={label} type="button" aria-pressed={on} onMouseDown={(e) => e.preventDefault()} onClick={() => onChange(next)}
+      className={cn("min-h-7 rounded-full border px-2.5 text-xs", on ? "border-text-2 bg-surface-2 text-text" : "border-transparent text-text-3 hover:text-text-2")}>
+      {label}
+    </button>
+  );
+  return (
+    <div role="group" aria-label="Filter results" className="flex flex-wrap gap-1 px-3 pb-1">
+      {KIND_CHIPS.map(([kind, label]) => chip(label, filters.kind === kind, { ...filters, kind }))}
+      {ORIGIN_CHIPS.map(([origin, label]) => chip(label, filters.origin === origin, { ...filters, origin: filters.origin === origin ? "" : origin }))}
+      {chip("Forgotten", filters.forgotten, { ...filters, forgotten: !filters.forgotten })}
+    </div>
   );
 }
 

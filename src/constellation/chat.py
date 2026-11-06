@@ -6,11 +6,13 @@ import re
 import threading
 from collections import OrderedDict
 from collections.abc import Callable
+from datetime import date
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
+from . import find_view
 from .answer import (
     INSTRUCTION,
     LATELY_DAYS,
@@ -19,6 +21,7 @@ from .answer import (
     comparison,
     cost_value,
     cut,
+    first_sentence,
     idle_days,
     kind_label,
     past,
@@ -82,6 +85,21 @@ def _refusal_kind(question: str) -> str | None:
     return "general" if re.search(_GENERAL, q) and not re.search(_OURS, q) else None
 
 
+# "which skill helps with X", "is there an agent for X": answered by the same local find the CLI uses.
+_FINDSKILL = (
+    r"\b(?:which|what)\s+(?:skills?|agents?|commands?)\s+(?:can\s+|could\s+|would\s+|will\s+|should\s+)?(?:help|do|handle|cover|support)\w*"
+    r"|\b(?:is there|do i have|have i got)\s+an?\s+(?:skill|agent|command)\s+(?:for|that|to|which)\b"
+)
+FIND_TOP = 3
+
+
+def _find_terms(question: str) -> str:
+    """The words after "with/for/to/that" in a find question; the whole question when none."""
+    q = _strip(question)
+    parts = re.split(r"\b(?:with|for|to|that|about)\b", q, maxsplit=1)
+    return (parts[1] if len(parts) > 1 else q).strip(" ?.!")
+
+
 _GROUPED = r"\b(cost|costs|heav\w*|expensive|tokens?|biggest|most|usage|used|unused|which|group|by|per|roll)\b"
 _NEGATIVE = r"\b(not|never|unused|idle|stale|dormant|haven'?t|hasn'?t|lately|recently)\b|n't"
 
@@ -140,6 +158,8 @@ def _intent(question: str) -> str:
         intent = "count"
     elif re.search(_START, q):
         intent = "start"
+    elif re.search(_FINDSKILL, q):
+        intent = "findskill"
     elif _since(q):
         intent = "since"
     elif _refusal_kind(q):
@@ -503,6 +523,31 @@ def _items_answer(state: ChatState, *, explain: bool = False, kind: str = "highl
     )
 
 
+def _findskill(state: ChatState) -> dict[str, Any]:
+    found = state["data"].get("find")
+    if found is None:
+        return _response(
+            "Search by what a skill does needs your local ~/.claude, which this saved scan does not have.",
+            next_='Run `constellation find "your words"` on the machine that has it.',
+            follow_ups=ASK_NEXT,
+        )
+    if not found:
+        return _not_found(_find_terms(state["question"]), ASK_NEXT)
+    items = _by_id(state)
+    top = found[:FIND_TOP]
+    rows = [
+        {"id": h["id"], "name": h["name"], "kind": h["kind"], "what": first_sentence(h["description"]), "value": h["value"]} for h in top
+    ]
+    return _response(
+        f'{plural(len(top), "match")} for "{_find_terms(state["question"])}", starting with {top[0]["name"]}.',
+        [h["id"] for h in top if h["id"] in items],
+        rows=rows,
+        more=max(0, len(found) - len(top)),
+        next_="Click a name to see it on the map.",
+        follow_ups=[f"Should I keep {top[0]['name']}?", *ASK_NEXT],
+    )
+
+
 def _search(state: ChatState) -> dict[str, Any]:
     return _items_answer(state)
 
@@ -637,6 +682,7 @@ def _graph() -> Any:
         "count": _count,
         "compare": _compare,
         "whatis": _whatis,
+        "findskill": _findskill,
     }
     for name, operation in operations.items():
         graph.add_node(name, operation)
@@ -661,6 +707,7 @@ def _graph() -> Any:
             "count": "count",
             "compare": "compare",
             "whatis": "whatis",
+            "findskill": "findskill",
         },
     )
     return graph.compile()
@@ -679,6 +726,7 @@ class LocalChat:
         selected: list[str],
         index_for: Callable[[list[dict[str, Any]]], Index],
         assessed: Assessed,
+        finder: Callable[[str], tuple[list[dict[str, Any]], list[str]] | None] | None = None,
     ) -> dict[str, Any]:
         clean: dict[str, Any] = {
             "items": [
@@ -713,6 +761,21 @@ class LocalChat:
         shown = [r for g in ("safe", "look") for r in rows[g]["rows"]]  # only these can be added to the checklist (POST /api/checklist)
         clean["checklist"] = {i: r["id"] for r in shown for i in r["item_ids"]}
         clean["removals"] = [{k: r[k] for k in ("kind", "item_ids", "removes", "saves")} for r in shown if r["removes"]]
+        if _intent(question) == "findskill":
+            result = finder(_find_terms(question)) if finder else None
+            today = date.today()
+            clean["find"] = (
+                None
+                if result is None
+                else [
+                    {
+                        "id": h["id"],
+                        **{k: redact(h[k]) for k in ("name", "kind", "description")},
+                        "value": redact(f"{h['invoke']} · {find_view.last_seen(h, today)} · {find_view.cost_text(h)}"),
+                    }
+                    for h in result[0][: FIND_TOP + 5]
+                ]
+            )
         index: Index | None = None  # pragma: no mutate (equivalent: unused unless set below)
         if _intent(question) in ("compare", "whatis"):
             index = index_for(data["items"])

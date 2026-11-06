@@ -7,16 +7,17 @@ import sys
 import threading
 import unicodedata
 from collections.abc import Awaitable, Callable
+from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from . import find_view, opener, retrieve
 from . import history as scan_history
-from . import opener, retrieve
 from . import pins as pin_file
 from . import weekly as weekly_summary
 from .assessment import Assessed, compute
@@ -404,6 +405,19 @@ def create_app(
 
     chat = LocalChat()
 
+    def find(
+        q: str, kind: str | None = None, forgotten: bool = False, origin: str | None = None
+    ) -> tuple[list[dict[str, Any]], list[str]] | None:
+        """The same local find as the CLI, with last-used and cost from the saved scan; None without a live config dir."""
+        if config_dir is None or not config_dir.is_dir():
+            return None
+        hits, warnings = find_skills(q, config_dir, kinds=[find_view.KINDS.get(kind or "skill", "skill")])
+        try:
+            scan: dict[str, Any] | None = read_items()
+        except HTTPException:
+            scan = None
+        return find_view.refine(find_view.annotate(hits, scan), date.today(), forgotten=forgotten, origin_filter=origin), warnings
+
     @app.post("/api/chat", dependencies=[Depends(local_only)])
     def ask_chat(entry: ChatRequest) -> dict[str, Any]:
         data = read_items()
@@ -411,7 +425,7 @@ def create_app(
         if any(id_ not in ids for id_ in entry.selected_ids):
             raise HTTPException(404, "That Item is not in the current scan")
         try:
-            return chat.answer(data, entry.question, entry.selected_ids, index_for, assessed(data))
+            return chat.answer(data, entry.question, entry.selected_ids, index_for, assessed(data), lambda q: find(q))
         except (ValueError, TypeError, KeyError, AttributeError):
             raise HTTPException(404, "The saved scan could not be read") from None
 
@@ -444,12 +458,19 @@ def create_app(
         return search(entry.q, entry.limit)
 
     @app.get("/api/find", dependencies=[Depends(local_only)])
-    def get_find(q: str = Query(max_length=retrieve.MAX_QUERY)) -> dict[str, Any]:
+    def get_find(
+        q: str = Query(max_length=retrieve.MAX_QUERY),
+        kind: Literal["skill", "agent", "command", "mcp"] | None = None,
+        forgotten: bool = False,
+        origin: Literal["plugin", "yours"] | None = None,
+    ) -> dict[str, Any]:
         # local words over names, descriptions, headings and file names; no model, nothing sent; needs the live config dir
-        if config_dir is None or not config_dir.is_dir():
+        found = find(q, kind, forgotten, origin)
+        if found is None:
             return {"available": False, "results": [], "warnings": [], "note": FIND_UNAVAILABLE}
-        hits, warnings = find_skills(q, config_dir)
-        return {"available": True, "results": hits[:FIND_LIMIT], "warnings": warnings, "note": None}
+        today = date.today()
+        rows = [{**h, "last_seen": find_view.last_seen(h, today), "cost": find_view.cost_text(h)} for h in found[0][:FIND_LIMIT]]
+        return {"available": True, "results": rows, "warnings": found[1], "note": None}
 
     app.mount("/", StaticFiles(directory=STATIC, html=True))  # last: the API route above wins
     return app

@@ -11,6 +11,7 @@ import sys
 import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import asdict
+from datetime import date
 from difflib import get_close_matches
 from pathlib import Path
 from typing import Any
@@ -221,6 +222,10 @@ def main(
     find_command.add_argument("--limit", type=int, default=find_view.LIMIT, help="show at most N results (default 8)")
     find_command.add_argument("--all", action="store_true", help="show every match")
     find_command.add_argument("--json", action="store_true", help="print structured hits")
+    find_command.add_argument("--kind", choices=sorted(find_view.KINDS), help="search only this kind (default: skills)")
+    find_command.add_argument("--forgotten", action="store_true", help="only items not used in 30+ days, or never seen used")
+    find_command.add_argument("--origin", choices=("plugin", "yours"), help="only plugin items, or only your own")
+    find_command.add_argument("--file", type=Path, default=None, help="saved scan for last-used and cost (default: the latest scan)")
     find_command.add_argument("--verbose", action="store_true", help="list the files read leniently")
     profile_command = commands.add_parser("profile", help="which global Items one project really uses and which are noise there")
     profile_command.add_argument("project", help="the project folder (or its name) you open Claude Code in")
@@ -251,17 +256,26 @@ def main(
         print(completion.render(parser, args.shell), end="")
         return 0
     if args.command == "find":
-        hits, warnings = find_skills(args.query, args.config_dir, limit=find_view.FETCH)
+        kinds = [find_view.KINDS[args.kind]] if args.kind else ["skill"]
+        hits, warnings = find_skills(args.query, args.config_dir, limit=find_view.FETCH, kinds=kinds)
+        today = date.today()
+        try:
+            saved = json.loads(scanfile.latest_scan(args.file).read_text())
+        except (OSError, ValueError):
+            saved = None  # no saved scan: usage and cost show as unknown
+        hits = find_view.refine(
+            find_view.annotate(hits, saved if isinstance(saved, dict) else None), today, forgotten=args.forgotten, origin_filter=args.origin
+        )
         loose, other = find_view.split_warnings(warnings)
         if args.json:
-            print(json.dumps(find_view.as_json(hits if args.all else hits[: args.limit], args.query, other), indent=2))
+            print(json.dumps(find_view.as_json(hits if args.all else hits[: args.limit], args.query, other, today), indent=2))
             return 0
         for warning in [*other, *(loose if args.verbose else [])]:
             print(find_view.clean(warning), file=sys.stderr)
         closest = [] if hits else closest_names(args.query, args.config_dir)
         style = cli_reports.style_for_stdout()
         limit = None if args.all else args.limit
-        for line in find_view.render(hits, args.query, len(loose), style, style.width, limit=limit, closest=closest):
+        for line in find_view.render(hits, args.query, len(loose), style, style.width, limit=limit, closest=closest, today=today):
             print(line)
         _hint("find", {"hits": hits})
         return 0

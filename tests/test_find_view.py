@@ -125,6 +125,9 @@ def test_json_has_structured_hits_and_no_loose_text():
                 "why": "heading: Intro",
                 "origin": "p",
                 "rank": 1,
+                "last_used": None,
+                "always_on": None,
+                "last_seen": "usage not read",
             }
         ],
         "warnings": ["note"],

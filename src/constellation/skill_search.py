@@ -4,7 +4,7 @@ import difflib
 import json
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from pathlib import Path
 
 from . import history
@@ -103,7 +103,12 @@ def _references(config_dir: Path) -> dict[str, list[str]]:
     return found
 
 
-def find_skills(query: str, config_dir: Path, *, cache: Path | None = None, limit: int = LIMIT) -> tuple[list[dict[str, str]], list[str]]:
+SIGIL = {"skill": "/", "command": "/", "agent": "@", "mcp_server": "@"}
+
+
+def find_skills(
+    query: str, config_dir: Path, *, cache: Path | None = None, limit: int = LIMIT, kinds: Collection[str] = ("skill",)
+) -> tuple[list[dict[str, str]], list[str]]:
     """Offline search with local evidence; content never becomes an Item field or embedding input."""
     items, warnings, relations, bodies = read_items(config_dir)
     known = read_secrets(config_dir)
@@ -127,10 +132,10 @@ def find_skills(query: str, config_dir: Path, *, cache: Path | None = None, limi
             "kind": i.kind,
             "name": _safe(i.name, known),
             "description": _safe(i.description, known),
-            "invoke": _safe(f"/{owners[i.id] + ':' if i.id in owners else ''}{i.name}", known),
+            "invoke": _safe(f"{SIGIL.get(i.kind, '/')}{owners[i.id] + ':' if i.id in owners else ''}{i.name}", known),
         }
         for i in items
-        if i.kind == "skill"
+        if i.kind in kinds
     ]
     content = {}
     for item in items:
