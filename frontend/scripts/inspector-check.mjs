@@ -260,6 +260,11 @@ try {
   assert.equal(briefFrom({}), null);
   assert.equal(briefFrom(null), null);
 
+  // Regression (browser review 2): siblings sharing one key={item.id} left the previous Item's sections on screen after a switch.
+  const { readFileSync } = await import("node:fs");
+  const keys = [...readFileSync(new URL("../src/components/Inspector.tsx", import.meta.url), "utf8").matchAll(/<(\w+) key=\{([^}]*(?:\}[^}]*)?)\}/g)].map((m) => m[2]);
+  assert.equal(new Set(keys).size, keys.length, `Inspector sibling keys must be unique: ${keys}`);
+
   console.log("Purpose, Your use, Compared, next step and rich instruction helpers; Inspector verdict reader and banner, instructions by action, Brief shapes, header, description split, kind details and Related groups pass.");
 } finally {
   await vite.close();

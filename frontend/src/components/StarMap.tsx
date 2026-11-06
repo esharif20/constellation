@@ -494,7 +494,8 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
         onNodeDrag={(n) => { // the star follows the pointer; its links pull their neighbours along on springs (elastic.ts), the layout's homes never change
           if (!dragging.current) {
             dragging.current = true;
-            const c = n.cluster;
+            const c = n.cluster, p0 = (n as { __initialDragPos?: { x: number; y: number } }).__initialDragPos;
+            if (p0) { n.x = p0.x; n.y = p0.y; } // force-graph has already moved the star to the pointer; its home is where the drag began
             elastic.grab(n, reduced() ? new Map([[n, 1]]) : pullWeights(n, (m) => model.neighbours.get(m) ?? [], c?.members ?? [], c?.members.reduce((h, m) => (m.degree > h.degree ? m : h)), (m) => elastic.home(m)));
             focus.stretch = (l) => elastic.stretch(l.source, l.target);
             pump();

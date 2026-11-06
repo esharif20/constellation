@@ -488,7 +488,8 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       const mine = fc === c, hidden = (fc && (mine || focus.flying)) || false; // the focused name lives in the card; no names while flying in
       if (fc) zoomAlpha = hidden ? 0 : 0.4; // other names stay as quiet, clickable context, at any zoom
       else if (focused) zoomAlpha = 1; // the hovered or selected Item's cluster keeps its name at any depth
-      const spot = !hidden && tries && zoomAlpha > 0.03 && (c.a > 0.03 || !!fc)
+      const held = !!focus.stretch && c.la > 0.02; // a drag is pulling stars: keep the name (and its remembered pick) where it was, or settling would leave it on a different spot
+      const spot = !held && !hidden && tries && zoomAlpha > 0.03 && (c.a > 0.03 || !!fc)
         ? chooseSpot({ cx, cy, r: h.r * sc.k, w, h: lh, pick: c.pick, allowed: focused ? 2 : 0, W, H, top: view.top, bottom: view.bottom, right: view.right, placed, obstacles })
         : null;
       if (spot) {
@@ -499,7 +500,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
         c.lx = appearing ? gx : ease(c.lx, gx, fk);
         c.ly = appearing ? gy : ease(c.ly, gy, fk);
         c.la = ease(c.la, spot.crowded ? 0.7 : 1, fk);
-      } else c.la = ease(c.la, 0, fk);
+      } else if (!held) c.la = ease(c.la, 0, fk);
       if (c.la > 0.02 && zoomAlpha > 0.03) {
         ctx.font = `italic 400 ${size * m.scale}px ${ink.serif}`;
         const [sx, sy] = sc.apply(c.lx, c.ly);
