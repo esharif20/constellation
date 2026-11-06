@@ -5,6 +5,7 @@ import unicodedata
 from typing import Any
 from urllib.parse import unquote
 
+from .answer import cut
 from .redact import REDACTED, redact
 
 _KINDS = ("skill", "agent", "plugin", "hook", "mcp_server", "connector", "mcp_tool", "command")
@@ -55,6 +56,34 @@ def _cost(value: object) -> int | None:
     return value if type(value) is int and value >= 0 else None
 
 
+def _ordinals(data: dict[str, Any]) -> dict[str, str]:
+    return {id_: f"item-{n}" for n, id_ in enumerate(sorted({i["id"] for i in data["items"] if i.get("kind") in _KINDS}), 1)}
+
+
+TOOLS_MAX, TOOL_DESCRIPTION = 100, 160
+
+
+def expansions(data: dict[str, Any], raw: object) -> dict[str, list[dict[str, str]]]:
+    """Tool names and one-line descriptions of already-expanded local MCP servers, keyed by public id.
+
+    Reads only name and description of each tool (never ids, schemas, defaults or env), so nothing else can leak.
+    `raw` is one `constellation expand` result or a list of them; anything malformed is skipped.
+    """
+    ids = _ordinals(data)
+    servers = {i["id"] for i in data["items"] if i.get("kind") == "mcp_server"}
+    out: dict[str, list[dict[str, str]]] = {}
+    for entry in raw if isinstance(raw, list) else [raw]:
+        if not isinstance(entry, dict) or entry.get("status") != "expanded" or entry.get("item_id") not in servers:
+            continue
+        tools = [
+            {"name": _public_text(t["name"])[:80], "description": cut(_public_text(" ".join(t["description"].split())), TOOL_DESCRIPTION)}
+            for t in (entry.get("items") or [])[:TOOLS_MAX]
+            if isinstance(t, dict) and isinstance(t.get("name"), str) and isinstance(t.get("description"), str)
+        ]
+        out[ids[entry["item_id"]]] = tools
+    return out
+
+
 def snapshot(data: dict[str, Any]) -> dict[str, Any]:
     """Allowlist saved scan fields and scrub public identifiers without reading credentials.
 
@@ -63,7 +92,7 @@ def snapshot(data: dict[str, Any]) -> dict[str, Any]:
     Orphan or invalid references are dropped, including clusters with no members.
     """
     items = [i for i in data["items"] if i.get("kind") in _KINDS]
-    ids = {id_: f"item-{n}" for n, id_ in enumerate(sorted({i["id"] for i in items}), 1)}
+    ids = _ordinals(data)
 
     kinds = {i["id"]: i["kind"] for i in items}
 
