@@ -210,7 +210,9 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.textAlign = "left";
       for (let i = 1; i <= 4; i++) { // declination on the rings, along one meridian
         const t = -Math.PI / 12, rr = STEP * i;
-        ctx.fillText(`+${90 - i * 18}°`, Math.cos(t) * rr + 4 / k, Math.sin(t) * rr - 6 / k);
+        const lx = Math.cos(t) * rr + 4 / k, ly = Math.sin(t) * rr - 6 / k;
+        if (model.nodes.some((n) => Math.abs(n.x! - lx - 14 / k) < n.r + 18 / k && Math.abs(n.y! - ly) < n.r + 8 / k)) continue; // decoration: never over a star
+        ctx.fillText(`+${90 - i * 18}°`, lx, ly);
       }
       ctx.restore();
     }

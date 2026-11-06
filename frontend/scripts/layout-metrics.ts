@@ -417,6 +417,25 @@ for (const file of ["demo.json", "demo-250.json", "demo-offline.json"]) {
     if (bad) failed = true;
   }
 }
+// One giant catch-all cluster (a real setup can put hundreds of Items in "Other"): the settled stars must stay spread over the disc,
+// not collapse into a dense knot with an empty ring (links pulled hub-linked Items inward when they were stronger than the homes).
+if (!legacy) {
+  const d = load("demo-250.json"), items = [...d.items, ...d.items.map((i) => ({ ...i, id: i.id + "~b", name: i.name + "~b" }))].map((i) => ({ ...i, origin: null, kind: "skill" })); // no origin or kind: the fallback grouping must stay out of the way
+  const big = buildModel({ ...d, items, relations: [...d.relations!, ...d.relations!.map((r) => ({ ...r, source: r.source + "~b", target: r.target + "~b" }))], clusters: [{ name: "Other", item_ids: items.map((i) => i.id) }], overlaps: [] } as Constellation);
+  const c = big.clusters[0], bands = new Array(8).fill(0), homes = new Array(8).fill(0);
+  for (const n of c.members) {
+    bands[Math.min(7, Math.floor((Math.hypot(n.x! - c.x, n.y! - c.y) / c.r) * 8))]++;
+    homes[Math.min(7, Math.floor((Math.hypot(n.sx - c.x, n.sy - c.y) / c.r) * 8))]++;
+  }
+  const drift = Math.max(...bands.map((b, i) => Math.abs(b - homes[i]) / Math.max(homes[i], 1)));
+  console.log("giant cluster", c.members.length, "bands", bands.join(" "), "homes", homes.join(" "), "max drift", drift.toFixed(2));
+  assert.ok(drift < 0.5, `giant cluster collapsed: a radial band holds ${(drift * 100).toFixed(0)}% more or fewer stars than its slots`);
+}
+
+if (!legacy) { // no clusters at all: the map groups by pack origin or kind instead of one blob
+  const d = load("demo-250.json"), m0 = buildModel({ ...d, clusters: [], overlaps: [] } as Constellation);
+  assert.ok(m0.clusters.length >= 3, "no-cluster fallback grouping");
+}
 console.log(legacy ? "OLD force layout (replica)" : "NEW slot layout");
 console.table(rows);
 console.table(aa.table);

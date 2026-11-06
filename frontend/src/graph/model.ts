@@ -127,6 +127,22 @@ export function buildModel(data: Constellation, aspect = 1): Model {
   // Clusters of fewer than 3 Items, and Items in no cluster, share one quiet region called "Other"
   const big = clusters.filter((c) => c.members.length >= 3);
   big.forEach((c) => c.members.forEach((n) => (n.cluster = c)));
+  // No real clusters, or one blob holding nearly everything (an offline or failed grouping): group by pack origin, else by kind, so the map still shows distinct regions
+  if ((!big.length || (big.length === 1 && big[0].members.length >= 0.8 * nodes.length)) && nodes.length >= 12) {
+    for (const key of [(n: GNode) => (n.origin ? originTail(n.origin) : ""), (n: GNode) => kindName(n.kind)]) {
+      const by = new Map<string, GNode[]>();
+      for (const n of nodes) { const k = key(n); if (k) by.set(k, [...(by.get(k) ?? []), n]); }
+      const groups = [...by].filter(([, m]) => m.length >= 3);
+      if (groups.length < 2 || groups.reduce((t, [, m]) => t + m.length, 0) < nodes.length / 2) continue; // too few or too little covered: try the next key
+      big.length = 0;
+      for (const [name, members] of groups) {
+        const c: Cluster = { name, members, x: 0, y: 0, r: 0, mx: 0, my: 0, fr: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0, slug: "", box: newBox(), hit: false };
+        members.forEach((n) => (n.cluster = c));
+        big.push(c);
+      }
+      break;
+    }
+  }
   const rest = nodes.filter((n) => !n.cluster);
   if (rest.length) {
     const other: Cluster = { name: "Other", members: rest, x: 0, y: 0, r: 0, mx: 0, my: 0, fr: 0, a: 0, la: 0, lx: 0, ly: 0, pick: 0, slug: "", box: newBox(), hit: false };
