@@ -46,7 +46,7 @@ def get(tmp_path, data, query=""):
     return TestClient(create_app(path), base_url=BASE_URL).get("/api/explain" + query)
 
 
-def test_explain_lists_three_largest_clusters_five_costs_unused_and_three_actions(tmp_path):
+def test_explain_lists_three_largest_clusters_five_costs_unused_and_capped_actions(tmp_path):
     usage = {i: {"count": 0 if n < 7 else 2} for n, i in enumerate(IDS)}
     window = {"files": 4, "first": "2026-10-01", "last": "2026-10-10", "skipped": 0}
     body = get(tmp_path, scan(usage=usage, usage_window=window)).json()
@@ -54,7 +54,7 @@ def test_explain_lists_three_largest_clusters_five_costs_unused_and_three_action
     assert [c["items"] for c in body["clusters"]] == [3, 2, 2]
     assert [c["name"] for c in body["costs"]] == ["gizmo-5", "gizmo-4", "gizmo-3", "gizmo-2", "gizmo-1"]
     assert body["costs"][0] == {"name": "gizmo-5", "kind": "skill", "always_on": 60}
-    assert len(body["unused"]) == 5 and len(body["actions"]) == 3
+    assert len(body["unused"]) == 5 and len(body["actions"]) == 8
     assert body["window"] == {"files": 4, "days": 10}
     assert (body["items"], body["known"], body["unknown"], body["public"]) == (8, 210, 2, False)
 
@@ -110,7 +110,7 @@ def test_public_explain_has_no_usage_ids_or_private_text(tmp_path):
     assert [m for m in banned if m in text] == []
     body = res.json()
     assert body["public"] is True and body["unused"] is None and body["window"] is None
-    assert set(body) == {"public", "items", "known", "unknown", "clusters", "costs", "unused", "window", "actions", "text"}
+    assert set(body) == {"public", "items", "known", "unknown", "clusters", "costs", "unused", "window", "scanned_at", "actions", "text"}
     assert body["actions"] and all(a["reason"].strip() for a in body["actions"])
 
 
@@ -214,3 +214,20 @@ def test_explain_public_flag_must_be_boolean_and_defaults_to_private(tmp_path):
 def test_explain_404_does_not_show_the_scan_path(tmp_path):
     res = TestClient(create_app(tmp_path / "missing.json"), base_url=BASE_URL).get("/api/explain")
     assert res.json() == {"detail": "scan could not be read"}
+
+
+def test_explain_action_dates_come_from_the_scan_and_never_leak_publicly():
+    from constellation.explain import explain
+
+    usage = {IDS[1]: {"count": 2, "last_used": "2026-10-09"}, IDS[2]: {"count": 0}}
+    data = scan(scanned_at="2026-11-05", usage=usage, usage_window={"files": 4, "first": "2026-10-01", "last": "2026-10-10", "skipped": 0})
+    body = explain(data)
+    assert body["scanned_at"] == "2026-11-05" and len(body["actions"]) <= 8
+    assert all(set(a) == {"kind", "reason", "tokens_saved", "last_used", "since"} for a in body["actions"])
+    unused = next(a for a in body["actions"] if a["kind"] == "remove_unused")
+    assert unused["since"] == "2026-10-01" and unused["last_used"] is None
+    assert all(a["since"] is None for a in body["actions"] if a["kind"] != "remove_unused")
+    assert any(a["last_used"] == "2026-10-09" for a in body["actions"])
+    pub = explain(data, public=True)
+    assert pub["scanned_at"] is None and all(a["last_used"] is None and a["since"] is None for a in pub["actions"])
+    assert explain(scan())["scanned_at"] is None
