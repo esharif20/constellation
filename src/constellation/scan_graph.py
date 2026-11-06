@@ -6,6 +6,7 @@ descriptions, vectors, project labels, secrets) lives in `Context`, which LangGr
 
 import functools
 import hashlib
+import json
 import operator
 import re
 import sqlite3
@@ -15,17 +16,31 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Annotated, Any, TypedDict
 
+from langgraph.errors import GraphInterrupt
 from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
-from langgraph.types import Send
+from langgraph.types import Command, Send, interrupt
 
-from .checkpoint import close_checkpointer, open_checkpointer
+from .checkpoint import Checkpointer, close_checkpointer, open_checkpointer
 from .classify import MAX_CONCURRENCY, _prompt, label_flush, label_one, label_plan
 from .cluster import cluster, join_contents
 from .costs import cache_key, count_texts, measure
 from .hooks import static_hook_texts
 from .models import LLM, Cluster, Cost, Embedder, Item, Overlap, Relation, TokenCounter, Weight
-from .overlaps import BAND_LOW, _parse, announce_cost, check_one, exact_duplicates, pair_job, rank, verify_flush, verify_plan, wrappers
+from .overlaps import (
+    BAND_LOW,
+    MAX_PAIRS,
+    _parse,
+    announce_cost,
+    check_one,
+    exact_duplicates,
+    pair_job,
+    rank,
+    verify_flush,
+    verify_plan,
+    wrappers,
+)
+from .overlaps import _prompt as _pair_prompt
 from .redact import redact
 
 DEFAULT_CHECKPOINT = Path.home() / ".cache" / "constellation" / "scan.sqlite"
@@ -34,6 +49,13 @@ MEMORY_FILE = "CLAUDE.md"  # pragma: no mutate  (file names are case-insensitive
 CACHE_KEY = re.compile(r"[0-9a-f]{64}")
 QUOTED_PATH = re.compile(r"""(['"])(?:/|[A-Za-z]:\\)[^'"]*\1""")
 CHECKPOINT_WARNING = "Ignored an unreadable or foreign scan checkpoint; this scan ran from the start."
+REVIEW_THREAD_TAG = "review-ambiguous"
+MAX_REVIEW_STEPS = MAX_PAIRS + 1  # the initial stream plus at most one resume per capped pair
+PAIR_CHOICES = ("skip", "same", "different")
+HUMAN_VERDICTS = {1: ("duplicate", "Human review: same job."), 2: ("distinct", "Human review: different jobs.")}
+REVIEW_SCHEMA = "CREATE TABLE IF NOT EXISTS pair_reviews (content_hash TEXT PRIMARY KEY, answer INTEGER NOT NULL)"
+REVIEW_READ = "SELECT answer FROM pair_reviews WHERE content_hash = ?"
+REVIEW_WRITE = "INSERT OR REPLACE INTO pair_reviews (content_hash, answer) VALUES (?, ?)"
 
 
 @dataclass
@@ -62,6 +84,9 @@ class Context:
     verifier_model: str = ""
     on_verify: Callable[[int, int], None] | None = None
     relations: list[Relation] = field(default_factory=list)
+    ask_pairs: Callable[[str, str], str] | None = None
+    review_cache: Checkpointer | None = field(default=None, repr=False)
+    _reviewed: dict[str, int] = field(default_factory=dict, repr=False)  # accepted answers survive this call's checkpoint fallback
     _alias: dict[str, str] = field(init=False, repr=False, default_factory=dict)  # Item id -> the id State holds
     _back: dict[str, str] = field(init=False, repr=False, default_factory=dict)
 
@@ -121,11 +146,17 @@ class NodeError(Exception):
     """Stands in for an exception inside a node whose class cannot be rebuilt from a message alone."""
 
 
+class _ReviewCallbackError(Exception):
+    """Keeps a caller-side failure separate from a failed graph node, leaving its pause intact."""
+
+
 def _guarded[F: Callable[..., Any]](node: F) -> F:  # keeps the node's own signature for LangGraph and mypy
     @functools.wraps(node)
     def guarded(state: Any, runtime: Runtime[Context]) -> Any:
         try:
             return node(state, runtime)
+        except GraphInterrupt:
+            raise  # interrupt() is graph control flow, not an error message to reconstruct
         except Exception as error:
             # LangGraph saves repr(exception) in the checkpoint, so the original (its message may hold a secret or a home path)
             # must not be the one that propagates: raise the same class with a scrubbed message, and no chained cause.
@@ -265,7 +296,7 @@ def rank_pairs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     cached, jobs = verify_plan([(a, b) for a, b, _ in ranked], ctx.items, ctx.bodies, ctx.secrets, ctx.verdict_cache, ctx.verifier_model)
     sent = [j for j in jobs if score[j["a"].id, j["b"].id] >= BAND_LOW]
     skipped = [j for j in jobs if score[j["a"].id, j["b"].id] < BAND_LOW]
-    if sent and ctx.on_verify:  # before the first paid call
+    if sent and ctx.on_verify and ctx.review_cache is None and not ctx._reviewed:  # reviews announce only pairs the user skips
         ctx.on_verify(*announce_cost(sent))
     return {
         "ranked": [(ctx.sid(a), ctx.sid(b), s) for a, b, s in ranked],
@@ -287,17 +318,64 @@ def route_pairs(state: State) -> list[Send] | str:
     return [Send("verify", {"a_id": a, "b_id": b}) for a, b in state["pair_jobs"]] or "verdicts_done"
 
 
+def _cached_review(saver: Checkpointer | None, key: str) -> int | None:
+    if saver is None:
+        return None
+    with saver.lock, saver.conn:
+        row = saver.conn.execute(REVIEW_READ, (key,)).fetchone()
+    if row is not None and type(row[0]) is int and row[0] in range(len(PAIR_CHOICES)):
+        return row[0]
+    return None
+
+
+def _review_pair(ctx: Context, prompt: str, pair: tuple[str, str]) -> tuple[int | None, str | None]:
+    """Only a content hash and a numeric choice are cached, transactionally in the private SQLite file."""
+    saver = ctx.review_cache
+    key = cache_key(prompt, ctx.secrets)  # human answers do not expire when the verifier model changes
+    if saver is None:
+        return ctx._reviewed.get(key), None
+    cached = _cached_review(saver, key)
+    if cached is not None:
+        ctx._reviewed[key] = cached
+        return cached, None
+    # The node restarts on Command(resume=...). Nothing paid happens before this interrupt;
+    # the payload is ids only, because LangGraph saves it along with the pending task.
+    answer = interrupt(pair)
+    if type(answer) is not int or answer not in range(len(PAIR_CHOICES)):
+        raise ValueError
+    ctx._reviewed[key] = answer
+    try:
+        with saver.lock, saver.conn:
+            saver.conn.execute(REVIEW_WRITE, (key, answer))
+    except sqlite3.Error:
+        return answer, "Could not cache pair review; this scan keeps the answer, but a later scan may ask again."
+    return answer, None
+
+
 @_guarded
 def verify(state: _PairJob, runtime: Runtime[Context]) -> dict[str, Any]:
     ctx = runtime.context
     assert ctx.verifier  # only reached through a Send from rank_pairs
     job = pair_job(ctx.item(state["a_id"]), ctx.item(state["b_id"]), ctx.bodies, ctx.secrets, ctx.verifier_model)
-    result = check_one(job, ctx.verifier)
+    reviewing = ctx.review_cache is not None or bool(ctx._reviewed)
+    choice, warning = _review_pair(ctx, job["prompt"], (state["a_id"], state["b_id"])) if reviewing else (0, None)
+    if choice:
+        verdict, reason = HUMAN_VERDICTS[choice]
+        reply = json.dumps({"verdict": verdict, "reason": reason})
+        result = check_one(job, lambda _: reply)
+    else:
+        if reviewing and ctx.on_verify:
+            ctx.on_verify(*announce_cost([job]))
+        result = check_one(job, ctx.verifier)
+    warnings = ([warning] if warning else []) + result.get("warnings", [])
     if "warnings" in result:
-        return {"warnings": ctx.safe_warnings("overlaps", result["warnings"])}
+        return {"warnings": ctx.safe_warnings("overlaps", warnings)}
     # The paid reply is model output and may echo a secret or carry extra fields: save only a redacted copy that still parses.
     replies = {key: clean for key, reply in result["replies"].items() if _parse(clean := ctx.safe(reply))}
-    return {"verdicts": [ctx.safe_overlap(o) for o in result["overlaps"]], "verdict_replies": replies}
+    update: dict[str, Any] = {"verdicts": [ctx.safe_overlap(o) for o in result["overlaps"]], "verdict_replies": replies}
+    if warnings:
+        update["warnings"] = ctx.safe_warnings("overlaps", warnings)
+    return update
 
 
 @_guarded
@@ -368,6 +446,7 @@ def thread_id(context: Context) -> str:
         str(context.offline),
         str(context.count_bodies),
         str(context.cluster_threshold),
+        *([REVIEW_THREAD_TAG] if context.ask_pairs is not None else []),
     ]
     return "scan:" + hashlib.sha256("\0".join(parts).encode()).hexdigest()  # pragma: no mutate  (any separator keeps the parts apart)
 
@@ -397,18 +476,52 @@ def _stream(
     tracker = _Progress(progress, total) if progress else None
     final: State = {}  # pragma: no mutate  (a graph always ends with a "values" chunk)
     options: Any = {"durability": "sync"} if "configurable" in config else {}  # durability needs a checkpointer
-    for mode, chunk in graph.stream(start, config, context=context, stream_mode=["updates", "values"], **options):
-        if mode == "values":
-            final = chunk
-        elif tracker:
-            tracker(chunk)
-    return context.restore(final)
+    current: Any = start
+
+    def pending() -> Any:
+        return next((pause for task in graph.get_state(config).tasks for pause in task.interrupts), None)
+
+    pause = pending() if context.review_cache is not None else None
+    if context.review_cache is not None and tracker:
+        tracker.done["verify"] = sum(task.name == "verify" and task.result is not None for task in graph.get_state(config).tasks)
+    for _ in range(MAX_REVIEW_STEPS):
+        if pause is not None:
+            a, b = pause.value
+            key = cache_key(_pair_prompt(context.item(a), context.item(b), context.bodies), context.secrets)
+            choice = _cached_review(context.review_cache, key)
+            if choice is None:
+                if progress:
+                    for id_ in (a, b):
+                        item = context.item(id_)
+                        progress(f"{context.safe(item.name)}: {context.safe(item.description)}")
+                assert context.ask_pairs is not None
+                try:
+                    answer = context.ask_pairs(a, b)
+                    if type(answer) is not str or answer not in PAIR_CHOICES:
+                        raise ValueError("Pair review must return same, different or skip")
+                except Exception as error:
+                    raise _ReviewCallbackError from error
+                choice = PAIR_CHOICES.index(answer)
+            # Validate before Command: even an invalid resume value is saved by the checkpointer.
+            # An id map targets exactly one pause, never reusing its answer for another Send branch.
+            context._reviewed[key] = choice  # keep it even if saving the resume command fails before the node runs
+            current = Command(resume={pause.id: choice})
+        for mode, chunk in graph.stream(current, config, context=context, stream_mode=["updates", "values"], **options):
+            if mode == "values":
+                final = chunk  # Return only after every pending interrupt has been drained below.
+            elif tracker and not (context.review_cache is not None and chunk.get("__metadata__", {}).get("cached")):
+                # Review resumes replay completed Send updates; count those once, including after reopening the checkpoint.
+                tracker(chunk)
+        pause = pending() if context.review_cache is not None else None
+        if pause is None:
+            return context.restore(final)
+    raise RuntimeError  # a broken resume must not loop indefinitely
 
 
 def _unchecked(context: Context, config: Any, progress: Callable[[str], None] | None) -> State:
     """The checkpoint file could not be used: run from the start without one, and say so (a fixed message, never the error text)."""
     config.pop("configurable", None)
-    state = _stream(build_graph(), {"label_jobs": [], "pair_jobs": []}, context, config, progress, {})
+    state = _stream(build_graph(), {"label_jobs": [], "pair_jobs": []}, replace(context, review_cache=None), config, progress, {})
     state["final_warnings"] = [*state["final_warnings"], CHECKPOINT_WARNING]
     return state
 
@@ -465,6 +578,10 @@ def run(context: Context, checkpoint: Path | None = None, progress: Callable[[st
         graph, tid = build_graph(saver), thread_id(context)
         config["configurable"] = {"thread_id": tid}
         try:
+            if context.ask_pairs is not None:
+                with saver.lock, saver.conn:
+                    saver.conn.execute(REVIEW_SCHEMA)
+                context = replace(context, review_cache=saver)
             snapshot = graph.get_state(config)  # reading a corrupt or foreign file can fail in many ways
             resuming = bool(snapshot.next)
             # a resumed run replays the finished branches' results as updates: the count restarts at 0, the totals come from the plan
@@ -477,6 +594,9 @@ def run(context: Context, checkpoint: Path | None = None, progress: Callable[[st
             progress("resuming an interrupted scan")
         try:
             state = _stream(graph, None if resuming else start, context, config, progress, total)
+        except _ReviewCallbackError as error:
+            assert error.__cause__ is not None
+            raise error.__cause__ from None  # the callback is outside the graph; keep its pending pause
         except sqlite3.Error:
             return _unchecked(context, config, progress)
         except Exception:
