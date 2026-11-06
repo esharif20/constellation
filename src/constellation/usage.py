@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, BinaryIO
 
+from .claude_code import SOURCE
 from .models import Item, ProjectUsage, Relation, Usage, UsageWindow
 from .redact import redact
 
@@ -22,6 +23,9 @@ PROJECTS = "projects"
 SUBAGENTS = "subagents"
 TRACKED = {"skill", "agent", "mcp_server", "connector"}
 LABEL_CAP = 60
+CONNECTOR = f"{SOURCE}:connector:claude.ai/"
+STRANGER = "stranger:"  # a stand-in id for an MCP server that is neither an Item nor a claude.ai connector; counted, never stored
+DESCRIPTION = "Connected through claude.ai; seen only in transcripts, so its tools and cost are unknown"
 SKey = tuple[str, str]  # (project folder, session): a main transcript and its subagent files share one
 
 
@@ -100,12 +104,30 @@ def _index(items: list[Item], relations: list[Relation]) -> tuple[dict[tuple[str
                 names.setdefault((i.kind, f"{plugin}:{i.name}"), []).append(i.id)
             if not plugin or (i.kind, i.name) not in local:
                 names.setdefault((i.kind, i.name), []).append(i.id)
-        if i.kind == "mcp_server":  # scans no longer produce connectors; they return with transcript-seen connectors
+        if i.kind == "mcp_server":
             normalized = re.sub(r"[^A-Za-z0-9_-]", "_", i.name)
             if plugin:
                 normalized = "plugin_" + re.sub(r"[^A-Za-z0-9_-]", "_", plugin) + "_" + normalized
             prefixes.setdefault(f"mcp__{normalized}__", []).append(i.id)
     return names, prefixes
+
+
+def _stranger(tool: str) -> list[str]:
+    """The id for a tool call to an MCP server with no Item. Only the server segment of the tool name is read, nothing else."""
+    if connector := re.match(r"mcp__claude_ai_([A-Za-z0-9_-]{1,60}?)__", tool):
+        return [CONNECTOR + redact(connector[1])]
+    server = re.match(r"mcp__(.+?)__", tool)
+    return [STRANGER + server[1]] if server else []
+
+
+def connector_items(usage: dict[str, Usage], items: list[Item]) -> list[Item]:
+    """An Item for each claude.ai connector the transcripts called that the config does not hold, so it gets a place on the map."""
+    known = {i.id for i in items}
+    return [
+        Item(id_, "connector", id_.removeprefix(CONNECTOR).replace("_", " "), DESCRIPTION, SOURCE, origin="claude.ai")
+        for id_ in sorted(usage)
+        if id_.startswith(CONNECTOR) and id_ not in known
+    ]
 
 
 def _digest(value: str) -> bytes:
@@ -134,10 +156,8 @@ def _block(role: str, block: Any, record: dict[str, Any], index: Index) -> tuple
                     raise ValueError
                 groups = [names.get(("skill" if name == "Skill" else "agent", value), [])]
         elif name.startswith("mcp__"):
-            for prefix in sorted(prefixes, reverse=True):
-                if name.startswith(prefix):
-                    groups = [prefixes[prefix]]
-                    break
+            matched = next((prefixes[p] for p in sorted(prefixes, reverse=True) if name.startswith(p)), None)
+            groups = [matched] if matched else [_stranger(name)]
     elif role == "user" and block.get("type") == "text":
         text, key = block.get("text"), record.get("uuid")
         if not isinstance(text, str) or not isinstance(key, str):
@@ -305,6 +325,7 @@ def _read(
     folders: set[str] = set()
     credited: dict[str, dict[str, Usage]] = {}  # Item id -> project folder -> Usage; folders become opaque keys at the end
     ambiguous: set[tuple[str, ...]] = set()
+    strangers: set[str] = set()
     sessions: set[SKey] = set()
     active: dict[str, set[SKey]] = {}  # day -> sessions with a dated record
     cells: dict[tuple[str, str], tuple[list[int], set[SKey], dict[str, int]]] = {}  # (Item id, day) -> invocations, sessions, per folder
@@ -351,7 +372,10 @@ def _read(
                             seen.add(key)
                             ambiguous.update(group for group in ids.values() if group)
                             for id_ in ids:
-                                usage[id_] = _bump(usage[id_], used_day)
+                                if id_.startswith(STRANGER):
+                                    strangers.add(id_)
+                                    continue
+                                usage[id_] = _bump(usage.get(id_, Usage(0, None)), used_day)
                                 per = credited.setdefault(id_, {})
                                 per[folder] = _bump(per.get(folder, Usage(0, None)), used_day)
                                 if used_day:
@@ -372,6 +396,9 @@ def _read(
             f"usage: skipped {malformed} malformed lines, {oversize} oversize line, "
             f"{skipped} files ({big} too big, {symlinks} symlinks skipped on purpose, {skipped - big - symlinks} unreadable)"
         )
+    if strangers:
+        noun = "server was" if len(strangers) == 1 else "servers were"
+        warnings.append(f"usage: {len(strangers)} MCP {noun} called in transcripts but not in your config")
     if ambiguous:
         warnings.append(f"usage: {len(ambiguous)} invocation names matched more than one Item; each was credited")
     window = UsageWindow(files, first, last, skipped, len(sessions))

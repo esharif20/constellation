@@ -105,6 +105,7 @@ def test_matching_scopes_slashes_agents_and_mcp(tmp_path):
         "a.b-c": 1,
         "p/s": 1,
         "q/s": 0,
+        "claude.ai/x": 1,  # an unmatched claude.ai prefix is a connector seen only in transcripts
     }
     assert result.warnings == ["usage: 1 invocation names matched more than one Item; each was credited"]
 

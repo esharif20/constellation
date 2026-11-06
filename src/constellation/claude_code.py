@@ -2,7 +2,7 @@
 
 import json
 import re
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path, PurePath
@@ -109,32 +109,94 @@ def _claude_json(config_dir: Path, warnings: list[str]) -> Path | None:
     inside = config_dir / ".claude.json"
     if inside.exists():
         return inside
-    if config_dir.name != ".claude":
-        return None
     beside = config_dir.parent / ".claude.json"
+    if config_dir.name != ".claude":
+        if beside.exists():  # existence only: the file is never opened, so a copy still never reads the real home
+            warnings.append("user-scope MCP servers were not read: the config dir is not named .claude and has no .claude.json inside it")
+        return None
     if not beside.exists():
         warnings.append("no .claude.json found beside the config dir, so user-scope MCP servers are not listed")
         return None
     return beside
 
 
-def _read_claude_json(config_dir: Path, items: list[Item], warnings: list[str], secrets: set[str]) -> None:
-    """User and local-scope MCP servers. The file also holds OAuth tokens: it is parsed in memory, only the `mcpServers` shapes are
-    taken, and nothing else from it is kept, logged or put in a warning."""
+def _project_dir(key: str) -> Path | None:
+    """The folder of a `.claude.json` project key if it is an absolute path to an existing directory."""
+    path = Path(key)
+    return path.resolve() if path.is_absolute() and path.is_dir() else None
+
+
+def numbered_projects(projects: dict[Any, Any]) -> list[str]:
+    """The `.claude.json` project keys that get a `local/<n>/` index: those with servers of their own or an existing folder holding a
+    `.mcp.json`, in sorted path order. The path stays out of ids (it holds the username); the index keeps same-named servers apart.
+    Expansion numbers with this too, so both name the same server."""
+    return [
+        p
+        for p in sorted(projects, key=str)
+        if isinstance(projects[p], dict) and (projects[p].get("mcpServers") or ((d := _project_dir(p)) and (d / ".mcp.json").is_file()))
+    ]
+
+
+def _names(entry: dict[str, Any], key: str, secrets: set[str]) -> set[str]:
+    """The (redacted) server names in a list setting; anything that is not a list of strings is ignored."""
+    listed = entry.get(key)
+    return {redact(n, secrets) for n in listed if isinstance(n, str)} if isinstance(listed, list) else set()
+
+
+def _approved(name: str, entry: dict[str, Any], settings: dict[str, Any], secrets: set[str]) -> bool:
+    """Whether Claude Code would load a project `.mcp.json` server: approved by name or by enable-all, and not on a disabled list."""
+    both = (entry, settings)
+    if any(name in _names(e, "disabledMcpjsonServers", secrets) for e in both):
+        return False
+    return any(e.get("enableAllProjectMcpServers") is True or name in _names(e, "enabledMcpjsonServers", secrets) for e in both)
+
+
+def _mark_off(items: list[Item], first: int, off: Callable[[str], bool]) -> None:
+    items[first:] = [replace(i, disabled=True) if off(i.name) else i for i in items[first:]]
+
+
+def _read_claude_json(
+    config_dir: Path, items: list[Item], warnings: list[str], secrets: set[str], settings: dict[str, Any], project: Path | None
+) -> dict[Path, dict[str, Any]]:
+    """User, local-scope and every listed project's `.mcp.json` servers; returns each existing project folder's entry. The file also
+    holds OAuth tokens: it is parsed in memory, only server shapes and approval lists are taken, and nothing else from it is kept,
+    logged or put in a warning. A project path never enters an id or a warning."""
     path = _claude_json(config_dir, warnings)
     data = _load(path, warnings, ".claude.json") if path else None
     if not isinstance(data, dict):
-        return
+        return {}
+    first = len(items)
     _add_servers(data.get("mcpServers", {}), "user/", items, warnings, secrets, ".claude.json")
     projects = data.get("projects")
     if not LOCAL_SCOPE or not isinstance(projects, dict):
-        return
-    # The project path stays out of the id (it holds the username); a per-scan index in sorted path order keeps same-named servers apart.
-    having = [p for p in sorted(projects, key=str) if isinstance(projects[p], dict) and projects[p].get("mcpServers")]
-    for number, project in enumerate(having, 1):
-        first = len(items)
-        _add_servers(projects[project]["mcpServers"], f"local/{number}/", items, warnings, secrets, ".claude.json")
+        return {}
+    entries = {p: projects[p] for p in numbered_projects(projects)}
+    # A user server is off only when every listed project turns it off: one project's switch does not remove it elsewhere.
+    every = [_names(e, "disabledMcpServers", secrets) for e in projects.values() if isinstance(e, dict)]
+    off_everywhere = set.intersection(*every) if every else set()
+    _mark_off(items, first, off_everywhere.__contains__)
+    folders = {p: d for p in entries if (d := _project_dir(p))}
+    has_file = {p for p, d in folders.items() if (d / ".mcp.json").is_file()}
+    mine = project.resolve() if project is not None else None
+    for number, key in enumerate(entries, 1):
+        entry, scope, first = entries[key], f"local/{number}/", len(items)
+        _add_servers(entry.get("mcpServers") or {}, scope, items, warnings, secrets, ".claude.json")
+        _mark_off(items, first, _names(entry, "disabledMcpServers", secrets).__contains__)
         items[first:] = [replace(i, scope="project") for i in items[first:]]
+        if key in has_file and folders[key] != mine and _contained(folders[key] / ".mcp.json", folders[key], "project/", warnings):
+            parsed = _load(folders[key] / ".mcp.json", warnings, f"{scope}.mcp.json")
+            if parsed is not None:
+                _add_project_servers(parsed, scope, entry, settings, items, warnings, secrets)
+    return {d: entries[p] for p, d in folders.items()}
+
+
+def _add_project_servers(
+    data: Any, scope: str, entry: dict[str, Any], settings: dict[str, Any], items: list[Item], warnings: list[str], secrets: set[str]
+) -> None:
+    """A project `.mcp.json`: project-scope Items, switched off unless Claude Code would have approved them."""
+    first = len(items)
+    _add_servers(data, scope, items, warnings, secrets, f"{scope}.mcp.json")
+    items[first:] = [replace(i, scope="project", disabled=not _approved(i.name, entry, settings, secrets)) for i in items[first:]]
 
 
 def _plugin_servers(meta: dict[str, Any], root: Path, scope: str, items: list[Item], warnings: list[str], secrets: set[str]) -> None:
@@ -290,23 +352,49 @@ def _installed(config_dir: Path) -> tuple[dict[Path, str], bool]:
     return found, clean
 
 
-def _plugin_manifests(config_dir: Path) -> list[Path]:
-    """One manifest per plugin: the version installed_plugins.json names, else the newest cached one (stale versions duplicate ids)."""
+_PLUGIN_PARTS = ("skills", "agents", "commands", ".mcp.json", "hooks/hooks.json")
+
+
+def _plugin_roots(config_dir: Path) -> list[Path]:
+    """One root per plugin: the version installed_plugins.json names, else the newest cached one (stale versions duplicate ids).
+    A manifest is optional in Claude Code, so a cached version with any default plugin folder or file counts too."""
     named = set(_installed(config_dir)[0])
     newest: dict[Path, Path] = {}
-    for manifest in sorted(config_dir.glob("plugins/cache/*/*/*/.claude-plugin/plugin.json")):
-        root = manifest.parent.parent
-        if not named or root in named:
-            newest[root.parent] = manifest  # sorted, so the last version of a plugin wins when nothing names one
+    for root in sorted(config_dir.glob("plugins/cache/*/*/*")):
+        has = (root / ".claude-plugin" / "plugin.json").exists() or any((root / part).exists() for part in _PLUGIN_PARTS)
+        if has and (not named or root in named):
+            newest[root.parent] = root  # sorted, so the last version of a plugin wins when nothing names one
     cache = config_dir / "plugins" / "cache"
     for root in sorted(named):  # a local-directory marketplace installs outside the cache
         if not root.is_relative_to(cache) and (root / ".claude-plugin" / "plugin.json").exists():
-            newest[root] = root / ".claude-plugin" / "plugin.json"
+            newest[root] = root
     return list(newest.values())
 
 
+def _manifest(root: Path, warnings: list[str]) -> dict[str, Any] | None:
+    """plugin.json, or for a plugin without one the folder name as its name. A malformed manifest is a warning, never the path."""
+    path = root / ".claude-plugin" / "plugin.json"
+    if not path.exists():
+        return {"name": root.parent.name}
+    try:
+        meta = json.loads(path.read_text())
+    except (OSError, ValueError):
+        meta = None
+    if not isinstance(meta, dict) or not isinstance(meta.get("name"), str) or not meta["name"]:
+        warnings.append("skipped a plugin: its plugin.json is unreadable, not valid JSON or has no name")
+        return None
+    return meta
+
+
 def _read_project(
-    project: Path, items: list[Item], warnings: list[str], relations: list[Relation], bodies: dict[str, str], secrets: set[str]
+    project: Path,
+    items: list[Item],
+    warnings: list[str],
+    relations: list[Relation],
+    bodies: dict[str, str],
+    secrets: set[str],
+    entry: dict[str, Any],
+    settings: dict[str, Any],
 ) -> None:
     """Items from a repo's `.claude/` and `.mcp.json`, scope `project`. Warnings show `<project>`, never the path."""
     root = project.resolve()
@@ -318,7 +406,7 @@ def _read_project(
     if mcp_file.is_file() and _contained(mcp_file, root, "project/", mine):
         data = _load(mcp_file, mine, "project/.mcp.json")
         if data is not None:
-            _add_servers(data, "project/", items, mine, secrets, "project/.mcp.json")
+            _add_project_servers(data, "project/", entry, settings, items, mine, secrets)
     items[first:] = [replace(i, scope="project") for i in items[first:]]
     for warning in mine:  # _shown wrote ~/... for a repo under home, the absolute path elsewhere
         warnings.append(warning.replace(_shown(root), "<project>").replace(str(root), "<project>"))
@@ -338,15 +426,18 @@ def read_items(
     if lockfile is not None:
         lock, lock_warnings = read_lock(lockfile, secrets)
         warnings += lock_warnings
-    _read_claude_json(config_dir, items, warnings, secrets)  # first, so a hook can link to a user-scope server
+    settings = _json_or_empty(config_dir / "settings.json")
+    # first, so a hook can link to a user-scope server
+    entries = _read_claude_json(config_dir, items, warnings, secrets, settings, Path(project) if project is not None else None)
     _read_root(config_dir, "", items, warnings, relations, bodies, secrets, lock, config_dir)
-    enabled = _json_or_empty(config_dir / "settings.json").get("enabledPlugins", {})
+    enabled = settings.get("enabledPlugins", {})
     keys, clean = _installed(config_dir)
     if not clean:
         warnings.append("skipped malformed entries in installed_plugins.json")
-    for manifest in _plugin_manifests(config_dir):
-        meta = json.loads(manifest.read_text())
-        root = manifest.parent.parent
+    for root in _plugin_roots(config_dir):
+        meta = _manifest(root, warnings)
+        if meta is None:
+            continue
         plugin = Item(f"{SOURCE}:plugin:{meta['name']}", "plugin", meta["name"], meta.get("description", ""), SOURCE)
         if any(i.id == plugin.id for i in items):  # the same plugin installed twice (user and project scope)
             continue
@@ -361,7 +452,7 @@ def read_items(
         if isinstance(enabled, dict) and enabled.get(key) is False:  # off in settings: still on the map, flagged, with its contents
             items[first - 1 :] = [replace(i, disabled=True) for i in items[first - 1 :]]
     if project is not None:
-        _read_project(Path(project), items, warnings, relations, bodies, secrets)
+        _read_project(Path(project), items, warnings, relations, bodies, secrets, entries.get(Path(project).resolve(), {}), settings)
     return items, warnings, relations, bodies
 
 
@@ -380,23 +471,35 @@ def _json_or_empty(path: Path) -> Any:
     return json.loads(path.read_text()) if path.exists() else {}
 
 
-def _env_values(settings: Path, mcp: Path) -> list[str]:
-    values = list(_strings(_json_or_empty(settings).get("env", {})))
+def _mcp_env(mcp: Path) -> list[str]:
     try:  # a malformed .mcp.json is read_items' warning to give; here it only means no env values to collect
-        values += [v for s in _json_or_empty(mcp).get("mcpServers", {}).values() for v in _strings(s.get("env", {}))]
-    except (ValueError, AttributeError):
-        pass
-    return values
+        return [v for s in _json_or_empty(mcp).get("mcpServers", {}).values() for v in _strings(s.get("env", {}))]
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
+def _env_values(settings: Path, mcp: Path) -> list[str]:
+    return [*_strings(_json_or_empty(settings).get("env", {})), *_mcp_env(mcp)]
+
+
+def _listed_projects(config_dir: Path) -> list[Path]:
+    """Existing folders of the `.claude.json` project keys, for their `.mcp.json` env values. Nothing else is taken from that file."""
+    path = _claude_json(config_dir, [])
+    data = _load(path, [], "") if path else None
+    projects = data.get("projects") if isinstance(data, dict) else None
+    return [d for key in projects if (d := _project_dir(key))] if isinstance(projects, dict) and LOCAL_SCOPE else []
 
 
 def read_secrets(config_dir: Path, project: Path | None = None) -> set[str]:
     """Secret values held in the config's own secret-bearing files, and a --project repo's settings and .mcp.json env values.
     Never reads the process environment or anything else."""
     config_dir = Path(config_dir)
-    plugin_roots = [m.parent.parent for m in _plugin_manifests(config_dir)]
+    plugin_roots = _plugin_roots(config_dir)
     values = list(_strings(_json_or_empty(config_dir / ".credentials.json")))  # an auth file: every value is secret
     for root in [config_dir, *plugin_roots]:
         values += _env_values(root / "settings.json", root / ".mcp.json")
+    for folder in _listed_projects(config_dir):
+        values += _mcp_env(folder / ".mcp.json")
     if project is not None:
         try:  # a repo's malformed settings.json is read_items' warning to give
             values += _env_values(Path(project) / ".claude" / "settings.json", Path(project) / ".mcp.json")

@@ -33,6 +33,7 @@ export function KindDetails({ item, model }: { item: GNode; model: Model }) {
     rows = (
       <>
         <Row label="Shape">{item.description ? <code className="font-mono text-xs text-text-2">{item.description}</code> : unknown}</Row>
+        {item.kind === "connector" && <Row label="Source">MCP servers connected through claude.ai are only seen in transcripts.</Row>}
         {item.scope && <Row label="Scope"><Badge>{item.scope === "project" ? "Project" : "Global"}</Badge></Row>}
       </>
     );

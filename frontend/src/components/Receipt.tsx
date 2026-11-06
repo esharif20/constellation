@@ -24,6 +24,7 @@ export function Receipt({ data, onItem }: { data: ReceiptData; onItem: (id: stri
       </>}
       {data.uncounted_bytes > 0 && <p className="mt-2 text-xs leading-[1.4] text-text-3">+ <span className="font-mono tabular-nums">{data.uncounted_bytes.toLocaleString()}</span> bytes from hooks and CLAUDE.md not counted as tokens</p>}
       {data.unknown > 0 && <p className="mt-1 text-xs leading-[1.4] text-text-3">{data.unknown} unknown, including MCP tool schemas (not measured yet)</p>}
+      {data.groups.some((g) => g.kind === "connector") && <p className="mt-1 text-xs leading-[1.4] text-text-3">MCP servers connected through claude.ai are only seen in transcripts</p>}
       <ul className="-mx-2 mt-2 flex flex-col gap-1">
         {data.rows.slice(0, TOP).map((row) => {
           const value = row.tokens != null ? tokens(row.tokens) : row.bytes != null ? `${row.bytes.toLocaleString()} bytes` : null;
