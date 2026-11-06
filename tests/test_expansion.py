@@ -1373,3 +1373,21 @@ def test_non_object_server_files_are_skipped_not_input_failures(tmp_path, monkey
     (config / ".mcp.json").write_text("[]")
     client = TestClient(server.create_app(saved, config_dir=config), base_url=BASE_URL)
     assert client.post("/api/expand", json={"id": id_}).json()["status"] == "unreachable"
+
+
+def test_lookup_skips_a_malformed_manifest_and_continues_to_later_plugins(tmp_path, monkeypatch):
+    config, saved, _ = setup_scan(tmp_path, monkeypatch)
+    for market, text in (("a", "{not json"), ("b", json.dumps({"name": "good", "mcpServers": {"s": {"command": "later"}}}))):
+        root = config / f"plugins/cache/{market}/demo/1"
+        (root / ".claude-plugin").mkdir(parents=True)
+        (root / ".claude-plugin/plugin.json").write_text(text)
+    saved.write_text(json.dumps(asdict(scan(config, offline=True, usage=False))))
+    commands = []
+
+    async def query(registration):
+        commands.append(registration.command)
+        return []
+
+    client = TestClient(server.create_app(saved, config_dir=config, expansion_query=query), base_url=BASE_URL)
+    assert client.post("/api/expand", json={"id": "claude-code:mcp_server:good/s"}).json()["status"] == "expanded"
+    assert commands == ["later"]

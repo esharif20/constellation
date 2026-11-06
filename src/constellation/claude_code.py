@@ -42,7 +42,7 @@ def _shown(path: Path) -> str:
 def _frontmatter(path: Path) -> tuple[dict[str, Any], str | None]:
     """The file's frontmatter, and a warning if it was not clean. Real files are not always valid YAML (an unquoted ': ' in a
     description), and Claude Code still loads them, so fall back to reading name and description line by line."""
-    parts = path.read_text().split("---", 2)
+    parts = path.read_text().split("---")
     if len(parts) < 3:
         return {}, f"no frontmatter in {_shown(path)}"
     try:
@@ -405,14 +405,11 @@ def _manifest(root: Path, warnings: list[str]) -> dict[str, Any] | None:
         return {"name": root.parent.name}
     if not _contained(path, root, "plugin/", warnings):
         return None
-    try:
-        meta = json.loads(path.read_text())
-    except (OSError, ValueError, RecursionError):
-        meta = None
-    if not isinstance(meta, dict) or not isinstance(meta.get("name"), str) or not meta["name"]:
+    meta = _quiet_json(path)  # {} when unreadable, invalid or not an object
+    if not isinstance(meta.get("name"), str) or not meta["name"]:
         warnings.append("skipped a plugin: its plugin.json is unreadable, not valid JSON or has no name")
         return None
-    return meta
+    return dict(meta)
 
 
 def _read_project(
@@ -499,7 +496,7 @@ def _strings(node: object) -> Iterator[str]:
     """Every string under a JSON value; iterative so hostile nesting cannot exhaust the stack."""
     stack = [node]
     while stack:
-        top = stack.pop()
+        top = stack.pop()  # pragma: no mutate (the only mutant, top = None, never shrinks the stack: a timeout, not a survivor)
         if isinstance(top, str):
             yield top
         elif isinstance(top, dict):
@@ -538,19 +535,19 @@ def _quiet_json(path: Path, *, only_object: bool = True) -> Any:
 
 def _mcp_env(mcp: Path) -> list[str]:
     try:  # a malformed .mcp.json is read_items' warning to give; here it only means no env values to collect
-        return [v for s in _quiet_json(mcp).get("mcpServers", {}).values() for v in _strings(s.get("env", {}))]
+        return [v for s in _quiet_json(mcp).get("mcpServers").values() for v in _strings(s.get("env"))]
     except (OSError, ValueError, AttributeError, RecursionError):
         return []
 
 
 def _env_values(settings: Path, mcp: Path) -> list[str]:
-    return [*_strings(_quiet_json(settings).get("env", {})), *_mcp_env(mcp)]
+    return [*_strings(_quiet_json(settings).get("env")), *_mcp_env(mcp)]
 
 
 def _listed_projects(config_dir: Path) -> list[Path]:
     """Existing folders of the `.claude.json` project keys, for their `.mcp.json` env values. Nothing else is taken from that file."""
     path = _claude_json(config_dir, [])
-    data = _load(path, [], "") if path else None
+    data = _load(path, [], "") if path else None  # pragma: no mutate (equivalent: the label only feeds a discarded warning)
     projects = data.get("projects") if isinstance(data, dict) else None
     return [d for key in projects if (d := _project_dir(key))] if isinstance(projects, dict) and LOCAL_SCOPE else []
 
@@ -560,7 +557,8 @@ def read_secrets(config_dir: Path, project: Path | None = None) -> set[str]:
     Never reads the process environment or anything else."""
     config_dir = Path(config_dir)
     plugin_roots = _plugin_roots(config_dir)
-    values = list(_strings(_quiet_json(config_dir / ".credentials.json", only_object=False)))  # an auth file: every value is secret
+    auth = _quiet_json(config_dir / ".credentials.json", only_object=False)  # pragma: no mutate (None is as falsy as False)
+    values = list(_strings(auth))  # an auth file: every value is secret
     for root in [config_dir, *plugin_roots]:
         values += _env_values(root / "settings.json", root / ".mcp.json")
     for folder in _listed_projects(config_dir):
@@ -609,7 +607,7 @@ def _vet_pack_files(root: Path, meta: dict[str, Any] | None) -> None:
     """Refuse (ValueError) a frontmatter with a YAML anchor or alias, and a declared MCP file over the size cap, before either is read."""
     for pattern in ("SKILL.md", "skills/*/SKILL.md", "skills/synced/*/*/SKILL.md", "agents/*.md", "commands/*.md"):
         for path in _inside(root, pattern, "pack", []):
-            parts = path.read_text().split("---", 2) if path.is_file() else []
+            parts = path.read_text().split("---") if path.is_file() else []
             if len(parts) > 1 and _YAML_REFERENCE.search(parts[1]):
                 raise ValueError
     declared = meta.get("mcpServers") if meta else None
