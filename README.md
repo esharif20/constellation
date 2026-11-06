@@ -1,6 +1,74 @@
 # Constellation
 
-An interactive map of a Claude Code setup. See `GLOSSARY.md` for the vocabulary and `docs/adr/` for the decisions.
+See your whole Claude Code setup as a map: what loads every session, what you never use, what overlaps.
+
+![The map, on invented demo data](docs/design/screenshots/23-after-01-rest-desk.jpg)
+
+*Invented demo data. No real setup appears anywhere in this repository.*
+
+## Quick start
+
+Python 3.13 is needed; `uv` fetches it for you.
+
+```sh
+# Once published on PyPI:
+uv tool install constellation-cli        # or: pipx install constellation-cli
+
+# Until then, straight from GitHub:
+uv tool install git+https://github.com/esharif20/constellation
+
+constellation open demo                  # try it on invented data first
+constellation open ~/constellation.json  # your own map, after a scan
+```
+
+Or run the small installer (no sudo; it only drives uv or pipx and prints what it does). Read it first, it is short:
+
+```sh
+sh install.sh --dry-run    # show what it would do
+sh install.sh
+```
+
+The package is not on PyPI yet, so the PyPI lines above start working once it is published.
+
+## Commands
+
+Run `constellation --help` for the full list. The main ones:
+
+| Command | What it does |
+|---|---|
+| `scan` | Read a Claude Code config directory and write a scan file |
+| `open` | Serve a scan as a graph in the browser (`open demo` for sample data) |
+| `doctor` | One-screen health check of your setup |
+| `cost` | What loads at session start, biggest first |
+| `unused` | Items not used lately, with confidence |
+| `twins` / `clashes` | Overlapping pairs; hook, name and trigger collisions |
+| `why <item>` | Why an Item has its verdict, and what removing it frees |
+| `clean` | Write a removal checklist (it never edits your setup) |
+| `weekly` | What changed since the last scan, what went quiet |
+| `share` | Write a public, redacted Snapshot |
+
+Add `--dry-run` where it is offered to see what would happen without doing it.
+
+## Privacy
+
+- Your config files are read on your machine. File bodies and transcript text are never sent anywhere.
+- At most, Item kinds, names and descriptions (plus short local signals) go to a model provider, after secrets and
+  paths are redacted, and only if you give an API key. With no key, or with `--offline`, nothing is sent.
+- The one exception is opt-in: `constellation scan --count-bodies` sends each skill's redacted body to Anthropic's
+  token-counting endpoint to measure its cost when used. Without the flag that cost is shown as unknown.
+- No telemetry. Constellation never edits your Claude setup.
+
+## Free by default
+
+Hashing, wrapper checks, embeddings and clustering all run locally and cost nothing. A paid call happens only for a
+new or changed Item, and its answer is cached by the content hash of the redacted text, so scanning an unchanged setup
+makes zero paid calls. Every real run prints a call count and cost estimate first.
+
+## Reference
+
+Details below are for contributors and for the deeper features (report, snapshot, plugin, review).
+
+See `GLOSSARY.md` for the vocabulary and `docs/adr/` for the decisions.
 
 ## Development
 
