@@ -31,6 +31,7 @@
     "motion:perf": "node scripts/motion-perf.mjs",
     "sky:check": "node scripts/sky-check.ts",
     "dismiss:check": "node scripts/dismiss-check.ts",
+    "elastic:check": "node scripts/elastic-check.ts",
     "find:check": "node scripts/find-check.ts",
     "cmdk:check": "node scripts/cmdk-check.ts",
     "dismiss:browser": "node scripts/dismiss-browser-check.mjs"

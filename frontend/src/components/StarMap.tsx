@@ -7,6 +7,7 @@ import { flightMs, flightPath } from "@/graph/flight";
 import { applyForces, fitView, focusView, haloOf, type LLink, type LNode, type View } from "@/graph/layout";
 import { step, type Cluster, type GLink, type GNode, type Model } from "@/graph/model";
 import { hoverTarget } from "@/graph/hover";
+import { createElastic, pullWeights } from "@/graph/elastic";
 import { FEEL, hoverRadius, makePainter, type Painter } from "@/graph/paint";
 import { skyGraph } from "@/graph/sky";
 import { onSky } from "@/graph/skySettings";
@@ -71,7 +72,8 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
   const [size, setSize] = useState({ w: innerWidth, h: innerHeight });
   const [ready, setReady] = useState(false); // the first fit is done: the camera may fly
   const [data, setData] = useState<{ nodes: GNode[]; links: GLink[] }>({ nodes: [], links: [] });
-  const rest = useRef<{ x: number; y: number } | null>(null);
+  const elastic = useMemo(() => createElastic<GNode>(), []); // spring offsets of the stars a drag pulled; empty (and no rAF) at rest
+  const spin = useRef(0);
   const dragging = useRef(false); // a node drag keeps its star lit even when the pointer strays off the canvas
   const nameClick = useRef(false); // pointerup already entered a cluster; the rAF click force-graph fires after it must not act
   const onClusterRef = useRef(onCluster);
@@ -109,6 +111,21 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
     };
     loop.current = requestAnimationFrame(tick);
   }, [painter]);
+  // One rAF loop for the elastic springs: it runs only while a drag is held or a star is still displaced, then stops by itself.
+  const pump = useCallback(() => {
+    if (spin.current) return;
+    let last = performance.now();
+    const frame = (now: number) => {
+      elastic.move();
+      const live = elastic.tick(Math.min(0.05, (now - last) / 1000));
+      last = now;
+      wake();
+      if (live || dragging.current) spin.current = requestAnimationFrame(frame);
+      else { spin.current = 0; focus.stretch = null; }
+    };
+    spin.current = requestAnimationFrame(frame);
+  }, [elastic, wake, focus]);
+  useEffect(() => () => { cancelAnimationFrame(spin.current); spin.current = 0; }, []);
   useEffect(() => () => { cancelAnimationFrame(loop.current); loop.current = 0; }, []); // zeroed too, or a StrictMode remount would never restart the loop
   // Webfonts arrive after the first paint; the map is at rest by then, so repaint once they land.
   useEffect(() => { void document.fonts.ready.then(wake); }, [wake]);
@@ -471,26 +488,25 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
         onRenderFramePre={painter.pre}
         onRenderFramePost={painter.post}
         onNodeHover={(n) => {
-          if (n && !dragging.current) rest.current = { x: n.x!, y: n.y! }; // a drag always starts with a hover: this is the home it eases back to
           if (tipRef.current.touch) { focus.hover = n ?? null; tipRef.current.raw = n ?? null; wake(); return; } // a finger's tooltip comes from its taps (onNodeClick)
           settle(n ?? null);
         }}
-        onNodeDrag={(n) => { // the star follows the pointer; the engine never runs, so no neighbour is pushed and the layout keeps its shape
-          dragging.current = true; focus.hover = n; hideTip();
+        onNodeDrag={(n) => { // the star follows the pointer; its links pull their neighbours along on springs (elastic.ts), the layout's homes never change
+          if (!dragging.current) {
+            dragging.current = true;
+            const c = n.cluster;
+            elastic.grab(n, reduced() ? new Map([[n, 1]]) : pullWeights(n, (m) => model.neighbours.get(m) ?? [], c?.members ?? [], c?.members.reduce((h, m) => (m.degree > h.degree ? m : h)), (m) => elastic.home(m)));
+            focus.stretch = (l) => elastic.stretch(l.source, l.target);
+            pump();
+          }
+          focus.hover = n; hideTip();
         }}
         onNodeDragEnd={(n) => {
           dragging.current = false; focus.hover = null;
-          const to = rest.current, from = { x: n.x!, y: n.y! };
           n.fx = n.fy = undefined;
-          if (!to) return wake();
-          const t0 = performance.now(), ms = reduced() ? 0 : 260;
-          const step = (now: number) => { // ease back to the home slot
-            const p = ms ? Math.min(1, (now - t0) / ms) : 1, e = 1 - (1 - p) ** 3;
-            n.x = from.x + (to.x - from.x) * e; n.y = from.y + (to.y - from.y) * e;
-            wake();
-            if (p < 1 && !dragging.current) requestAnimationFrame(step);
-          };
-          requestAnimationFrame(step);
+          elastic.release();
+          if (reduced()) elastic.clear(); // follow, then snap back
+          pump();
         }}
         onNodeClick={(n) => {
           if (nameClick.current) { nameClick.current = false; return; }
