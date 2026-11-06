@@ -1,5 +1,6 @@
 """Optional human review uses real interrupts and invented setup data only."""
 
+import io
 import json
 import re
 import sqlite3
@@ -17,6 +18,11 @@ def config(tmp_path):
     write_skill(root, "cedar", "First invented body", description="alpha topic")
     write_skill(root, "maple", "Second invented body", description="omega words")
     return root
+
+
+@pytest.fixture
+def terminal(monkeypatch):
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
 
 
 def run_scan(config, tmp_path, **kwargs):
@@ -224,7 +230,6 @@ def test_resume_uses_an_answer_committed_before_the_task_checkpoint_failed(confi
     first = run_scan(config, tmp_path, ask_pairs=lambda a, b: "same", **options)
     assert first.warnings.count(scan_graph.CHECKPOINT_WARNING) == 1
     monkeypatch.setattr(SqliteSaver, "put_writes", original)
-    (tmp_path / "verdicts.json").unlink()
 
     def ask(a, b):
         pytest.fail("A committed human answer must not be asked again")
@@ -241,7 +246,6 @@ def test_answers_are_content_cached_independently_of_the_verifier_model(config, 
         return asked.append((a, b)) or "same"
 
     first = run_scan(config, tmp_path, ask_pairs=ask, verifier_model="invented-first", **options)
-    (tmp_path / "verdicts.json").unlink()
     second = run_scan(config, tmp_path, ask_pairs=ask, verifier_model="invented-second", **options)
     assert first.overlaps == second.overlaps and len(asked) == 1
     write_skill(config, "maple", "Second invented body", description="New invented topic")
@@ -249,7 +253,7 @@ def test_answers_are_content_cached_independently_of_the_verifier_model(config, 
     assert len(asked) == 2 and options["verifier"].prompts == []
 
 
-def test_cli_review_flag_asks_for_a_decision_before_verification(config, tmp_path, monkeypatch, capsys):
+def test_cli_review_flag_asks_for_a_decision_before_verification(config, tmp_path, monkeypatch, capsys, terminal):
     monkeypatch.setattr(cli, "load_env", lambda: None)
     answers = iter(["not-a-choice", " DiFfErEnT "])
     monkeypatch.setattr("builtins.input", lambda: next(answers))
@@ -266,12 +270,14 @@ def test_cli_review_flag_asks_for_a_decision_before_verification(config, tmp_pat
     assert json.loads(out.read_text())["overlaps"][0]["reason"] == "Human review: different jobs."
     printed = capsys.readouterr()
     assert "cedar: alpha topic" in printed.err and "maple: omega words" in printed.err
+    assert printed.err.count("maximum possible cost for 1 pair with") == 1
+    assert printed.err.index("maximum possible cost") < printed.err.index("same (duplicate job)")
     assert "not-a-choice" not in printed.err
     assert "invented body" not in printed.out + printed.err
 
 
 @pytest.mark.parametrize("stop", [EOFError, KeyboardInterrupt])
-def test_cli_leaves_a_pause_resumable_without_writing_a_partial_scan(config, tmp_path, monkeypatch, capsys, stop):
+def test_cli_leaves_a_pause_resumable_without_writing_a_partial_scan(config, tmp_path, monkeypatch, capsys, stop, terminal):
     monkeypatch.setattr(cli, "load_env", lambda: None)
 
     def closed_input():
@@ -448,7 +454,6 @@ def test_cached_human_answers_skip_new_interrupt_writes(config, tmp_path, monkey
 
     options = {"verifier": FakeVerifier(), "checkpoint": tmp_path / "scan.sqlite"}
     run_scan(config, tmp_path, ask_pairs=lambda a, b: "same", **options)
-    (tmp_path / "verdicts.json").unlink()
     original = SqliteSaver.put_writes
     interrupts = []
 
@@ -471,7 +476,6 @@ def test_cached_human_answer_survives_a_later_checkpoint_write_failure(config, t
 
     options = {"verifier": FakeVerifier(), "checkpoint": tmp_path / "scan.sqlite"}
     run_scan(config, tmp_path, ask_pairs=lambda a, b: "same", **options)
-    (tmp_path / "verdicts.json").unlink()
     (tmp_path / "verdicts.json").mkdir()  # the model cache cannot mask loss of the human answer
     original = SqliteSaver.put_writes
 
@@ -495,7 +499,6 @@ def test_answer_added_to_a_paused_scan_is_reused_without_asking(config, tmp_path
     with pytest.raises(EOFError):
         run_scan(config, tmp_path, verifier=FakeVerifier(), ask_pairs=stopped, checkpoint=paused_db)
     run_scan(config, tmp_path, verifier=FakeVerifier(), ask_pairs=lambda a, b: "different", checkpoint=answered_db)
-    (tmp_path / "verdicts.json").unlink()
     with sqlite3.connect(answered_db) as connection:
         answer = connection.execute("SELECT content_hash, answer FROM pair_reviews").fetchone()
     with sqlite3.connect(paused_db) as connection:
@@ -516,3 +519,131 @@ def test_resume_progress_does_not_count_the_completed_cluster_as_a_pair(config, 
     result = run_scan(config, tmp_path, ask_pairs=lambda a, b: "same", on_progress=progress.append, **options)
     assert result.overlaps[0].verdict == "duplicate"
     assert [line for line in progress if line.startswith("verified")] == ["verified 1/1"]
+
+
+@pytest.mark.parametrize("pipe", ["closed", "silent"])
+def test_cli_nonterminal_review_flag_warns_and_uses_the_verifier(config, tmp_path, monkeypatch, capsys, pipe):
+    monkeypatch.setattr(cli, "load_env", lambda: None)
+    monkeypatch.setattr(cli.sys, "stdin", io.StringIO(""))
+
+    def read():
+        if pipe == "closed":
+            raise EOFError
+        pytest.fail("A silent nonterminal pipe must never be read")
+
+    monkeypatch.setattr("builtins.input", read)
+    out = tmp_path / "scan.json"
+    verifier = FakeVerifier(default=verdict("overlap", "Verifier fallback"))
+    code = cli.main(
+        ["scan", str(config), "--review-ambiguous", "--no-usage", "--no-origins", "--no-history", "--out", str(out)],
+        llm=FakeLLM({}, default="topic"),
+        embedder=FakeEmbedder({}, default=[1.0, 0.0]),
+        verifier=verifier,
+    )
+    assert code == 0 and len(verifier.prompts) == 1
+    assert json.loads(out.read_text())["overlaps"][0]["verdict"] == "overlap"
+    printed = capsys.readouterr().err
+    assert "Ignoring --review-ambiguous: stdin is not a terminal; using the verifier." in printed
+    assert "same (duplicate job)" not in printed and "paused" not in printed
+
+
+@pytest.mark.parametrize("length", [199, 200, 201])
+def test_review_prompt_strips_terminal_controls_and_clips_descriptions(config, tmp_path, length):
+    controls = "".join(chr(n) for n in [*range(32), *range(127, 160)])
+    name = "cedar\x1b[31m" + controls
+    description = controls + "x" * length
+    (config / "skills" / "cedar" / "SKILL.md").write_text(
+        f"---\nname: {json.dumps(name)}\ndescription: {json.dumps(description)}\n---\nFirst invented body"
+    )
+    progress = []
+    result = run_scan(
+        config,
+        tmp_path,
+        verifier=FakeVerifier(),
+        ask_pairs=lambda a, b: "same",
+        checkpoint=tmp_path / "scan.sqlite",
+        on_progress=progress.append,
+    )
+    assert result.overlaps[0].verdict == "duplicate"
+    assert f"cedar[31m: {'x' * min(length, 200)}" in progress
+    assert all(c not in "".join(progress) for c in controls)
+
+
+@pytest.mark.parametrize(
+    "answer, first_verdict, changed_answer, changed_verdict",
+    [("same", "duplicate", 2, "distinct"), ("different", "distinct", 1, "duplicate")],
+)
+def test_human_verdicts_stay_out_of_the_model_cache_and_changed_answers_take_effect(
+    config, tmp_path, answer, first_verdict, changed_answer, changed_verdict
+):
+    db = tmp_path / "scan.sqlite"
+    verifier = FakeVerifier(default=verdict("overlap", "Verifier fallback"))
+    first = run_scan(config, tmp_path, verifier=verifier, ask_pairs=lambda a, b: answer, checkpoint=db)
+    assert first.overlaps[0].verdict == first_verdict
+    assert not (tmp_path / "verdicts.json").exists()
+    with sqlite3.connect(db) as connection:
+        connection.execute("UPDATE pair_reviews SET answer = ?", (changed_answer,))
+    second = run_scan(
+        config, tmp_path, verifier=verifier, ask_pairs=lambda a, b: pytest.fail("The changed answer is cached"), checkpoint=db
+    )
+    assert second.overlaps[0].verdict == changed_verdict and verifier.prompts == []
+    assert not (tmp_path / "verdicts.json").exists()
+
+
+def test_review_estimates_all_possible_calls_once_before_the_first_prompt(config, tmp_path):
+    write_skill(config, "birch", "Third invented body", description="delta topic")
+    events = []
+    answers = iter(["same", "skip", "different"])
+
+    def ask(a, b):
+        events.append(("prompt", a, b))
+        return next(answers)
+
+    verifier = FakeVerifier(default=verdict("overlap", "Verifier fallback"))
+    result = run_scan(
+        config,
+        tmp_path,
+        verifier=verifier,
+        ask_pairs=ask,
+        checkpoint=tmp_path / "scan.sqlite",
+        on_verify=lambda n, tokens: events.append(("estimate", n, tokens)),
+    )
+    assert len(result.overlaps) == 3 and len(verifier.prompts) == 1
+    assert events[0][0:2] == ("estimate", 3) and events[0][2] > 0
+    assert sum(event[0] == "estimate" for event in events) == 1
+    cached = json.loads((tmp_path / "verdicts.json").read_text())
+    assert len(cached) == 1 and "Human review" not in json.dumps(cached)
+
+
+def test_resumed_review_prints_the_possible_estimate_before_asking(config, tmp_path):
+    def stopped(a, b):
+        raise EOFError
+
+    options = {"verifier": FakeVerifier(), "checkpoint": tmp_path / "scan.sqlite"}
+    original_estimates = []
+    with pytest.raises(EOFError):
+        run_scan(config, tmp_path, ask_pairs=stopped, on_verify=lambda n, tokens: original_estimates.append((n, tokens)), **options)
+    events = []
+    result = run_scan(
+        config,
+        tmp_path,
+        ask_pairs=lambda a, b: events.append("prompt") or "same",
+        on_verify=lambda n, tokens: events.append(("estimate", n, tokens)),
+        **options,
+    )
+    assert result.overlaps[0].verdict == "duplicate"
+    assert len(events) == 2 and events[0][0:2] == ("estimate", 1) and events[0][2] > 0 and events[1] == "prompt"
+    assert type(events[0][2]) is int
+    assert events[0][1:] == original_estimates[0]
+
+
+def test_review_step_limit_has_a_fixed_explanation(config, tmp_path, monkeypatch):
+    monkeypatch.setattr(scan_graph, "MAX_REVIEW_STEPS", 1)
+    with pytest.raises(RuntimeError, match="^Scan review exceeded the maximum number of resume steps\\.$"):
+        run_scan(
+            config,
+            tmp_path,
+            verifier=FakeVerifier(),
+            ask_pairs=lambda a, b: pytest.fail("The limit is reached before the first resume"),
+            checkpoint=tmp_path / "scan.sqlite",
+        )

@@ -147,6 +147,10 @@ def main(
         return _report(args)  # reads the file only, so it skips load_env
     if args.command == "open":
         return _open(args, serve, expansion_query)  # serving never needs the API key, so it skips load_env
+    review_ambiguous = args.review_ambiguous and not args.dry_run
+    if review_ambiguous and not sys.stdin.isatty():
+        print("Ignoring --review-ambiguous: stdin is not a terminal; using the verifier.", file=sys.stderr)
+        review_ambiguous = False
     load_env()  # a .env file in the working directory may hold ANTHROPIC_API_KEY
 
     if not args.config_dir.is_dir():
@@ -210,7 +214,7 @@ def main(
                 cost_cache=cache,
                 verifier=None if args.no_verify else verifier,
                 verdict_cache=Path(scratch) / "verdicts.json" if args.dry_run else None,
-                on_verify=None if args.dry_run else _announce,
+                on_verify=None if args.dry_run else lambda calls, tokens: _announce(calls, tokens, possible=review_ambiguous),
                 label_cache=Path(scratch) / "labels.json" if args.dry_run else None,
                 label_model=label_model,
                 verifier_model=verifier_model,
@@ -221,7 +225,7 @@ def main(
                 project=args.project,
                 checkpoint=None if args.dry_run else scan_graph.DEFAULT_CHECKPOINT,  # a dry run writes no file
                 on_progress=None if args.dry_run else lambda line: print(line, file=sys.stderr),
-                ask_pairs=_ask_pair_stdin if args.review_ambiguous and not args.dry_run else None,
+                ask_pairs=_ask_pair_stdin if review_ambiguous else None,
             )
         except _PairReviewStopped:
             print("Scan paused; rerun with --review-ambiguous to resume.", file=sys.stderr)
@@ -454,12 +458,13 @@ def _local_embedder() -> Embedder | None:
     return fastembed_embedder()
 
 
-def _announce(calls: int, input_tokens: int) -> None:
+def _announce(calls: int, input_tokens: int, *, possible: bool = False) -> None:
     from .anthropic_llm import VERIFIER_MODEL
 
     pairs = f"{calls} pair" + ("" if calls == 1 else "s")
+    action = "maximum possible cost for" if possible else "verifying"
     print(
-        f"verifying {pairs} with {VERIFIER_MODEL}, about ${estimate_cost(calls, input_tokens):.3f} (cached pairs are free)", file=sys.stderr
+        f"{action} {pairs} with {VERIFIER_MODEL}, about ${estimate_cost(calls, input_tokens):.3f} (cached pairs are free)", file=sys.stderr
     )
 
 

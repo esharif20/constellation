@@ -51,6 +51,8 @@ QUOTED_PATH = re.compile(r"""(['"])(?:/|[A-Za-z]:\\)[^'"]*\1""")
 CHECKPOINT_WARNING = "Ignored an unreadable or foreign scan checkpoint; this scan ran from the start."
 REVIEW_THREAD_TAG = "review-ambiguous"
 MAX_REVIEW_STEPS = MAX_PAIRS + 1  # the initial stream plus at most one resume per capped pair
+PROMPT_CONTROLS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+PROMPT_DESCRIPTION_LIMIT = 200
 PAIR_CHOICES = ("skip", "same", "different")
 HUMAN_VERDICTS = {1: ("duplicate", "Human review: same job."), 2: ("distinct", "Human review: different jobs.")}
 REVIEW_SCHEMA = "CREATE TABLE IF NOT EXISTS pair_reviews (content_hash TEXT PRIMARY KEY, answer INTEGER NOT NULL)"
@@ -296,7 +298,7 @@ def rank_pairs(state: State, runtime: Runtime[Context]) -> dict[str, Any]:
     cached, jobs = verify_plan([(a, b) for a, b, _ in ranked], ctx.items, ctx.bodies, ctx.secrets, ctx.verdict_cache, ctx.verifier_model)
     sent = [j for j in jobs if score[j["a"].id, j["b"].id] >= BAND_LOW]
     skipped = [j for j in jobs if score[j["a"].id, j["b"].id] < BAND_LOW]
-    if sent and ctx.on_verify and ctx.review_cache is None and not ctx._reviewed:  # reviews announce only pairs the user skips
+    if sent and ctx.on_verify and not ctx._reviewed:  # the maximum possible estimate precedes any human prompt
         ctx.on_verify(*announce_cost(sent))
     return {
         "ranked": [(ctx.sid(a), ctx.sid(b), s) for a, b, s in ranked],
@@ -363,9 +365,8 @@ def verify(state: _PairJob, runtime: Runtime[Context]) -> dict[str, Any]:
         verdict, reason = HUMAN_VERDICTS[choice]
         reply = json.dumps({"verdict": verdict, "reason": reason})
         result = check_one(job, lambda _: reply)
+        result["replies"] = {}  # human decisions belong only in pair_reviews, never in the model-salted cache
     else:
-        if reviewing and ctx.on_verify:
-            ctx.on_verify(*announce_cost([job]))
         result = check_one(job, ctx.verifier)
     warnings = ([warning] if warning else []) + result.get("warnings", [])
     if "warnings" in result:
@@ -484,6 +485,10 @@ def _stream(
     pause = pending() if context.review_cache is not None else None
     if context.review_cache is not None and tracker:
         tracker.done["verify"] = sum(task.name == "verify" and task.result is not None for task in graph.get_state(config).tasks)
+    if pause is not None and context.on_verify:
+        pairs = graph.get_state(config).values["pair_jobs"]
+        tokens = sum(len(_pair_prompt(context.item(a), context.item(b), context.bodies)) // 4 for a, b in pairs)
+        context.on_verify(len(pairs), tokens)  # same rough estimate as announce_cost; a resumed pause does not re-run rank_pairs
     for _ in range(MAX_REVIEW_STEPS):
         if pause is not None:
             a, b = pause.value
@@ -493,7 +498,9 @@ def _stream(
                 if progress:
                     for id_ in (a, b):
                         item = context.item(id_)
-                        progress(f"{context.safe(item.name)}: {context.safe(item.description)}")
+                        name = PROMPT_CONTROLS.sub("", context.safe(item.name))
+                        description = PROMPT_CONTROLS.sub("", context.safe(item.description))[:PROMPT_DESCRIPTION_LIMIT]
+                        progress(f"{name}: {description}")
                 assert context.ask_pairs is not None
                 try:
                     answer = context.ask_pairs(a, b)
@@ -515,7 +522,7 @@ def _stream(
         pause = pending() if context.review_cache is not None else None
         if pause is None:
             return context.restore(final)
-    raise RuntimeError  # a broken resume must not loop indefinitely
+    raise RuntimeError("Scan review exceeded the maximum number of resume steps.")
 
 
 def _unchecked(context: Context, config: Any, progress: Callable[[str], None] | None) -> State:
