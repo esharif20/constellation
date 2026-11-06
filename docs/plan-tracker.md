@@ -7,7 +7,7 @@ recorded as a **deviation** with the reason, and the user approves it, instead o
 | Decision | Plan | Status | Notes |
 |---|---|---|---|
 | D1 Source adapter seam | Claude Code only, adapter seam | Done (#2, #4) | ADR 0001 |
-| D2 Expansion on demand | click or `expand` opens an Item | Python/CLI/API implemented (#9); Inspector "Tools this server offers" section added (2026-11-06, `expand:check`); live real-server acceptance pending | ADR 0002 |
+| D2 Expansion on demand | click or `expand` opens an Item | Python/CLI/API implemented (#9); Inspector "Tools this server offers" section added (2026-11-06, `expand:check`); real stdio-server acceptance done 2026-11-06 (`tests/test_expansion_real.py`, fixtures in `tests/fixtures/mcp_servers`) | ADR 0002 |
 | D3 Overlaps | hash + wrapper, embeddings propose, Sonnet verifies, ~20 labelled pairs | Done (#6), verified on the real setup | plan in `docs/plans/overlaps.md`. **Privacy amendment (user decided):** the verifier gets names, descriptions and local signals only; file bodies never go to a model. Verifier is `claude-sonnet-5-5` via the SDK (D15). Real setup: `stop-slop`, `shadcn` and `skill-creator` all surface as duplicates. Real-model eval (2026-11-04, claude-sonnet-5-5, 20 invented pairs, ~$0.20): 19 of 20 verdicts correct, flagged precision 1.00, recall 0.93; the one miss labelled an "overlap" pair "distinct". The pairs are invented by us, so this is a regression guard, not proof |
 | D4 Privacy | redaction before every provider call, reused by the Snapshot | Done for scan (#3, #5); Snapshot export open (#13) | covers LLM, embedder and counter |
 | D5 Suggestions | `interrupt()` per suggestion, approve or skip, writes `cleanup.md` | Done (#7) | `constellation review`; never modifies user config |
@@ -1123,3 +1123,8 @@ No deviation from the plan. Fixed on the demo at 1440x900 and 390px: Ask answer 
 - Noise uses the scan's verdicts (tiers redundant, off, keep_rare) when present, else the costliest always-on Items that did not match. Per-project habit ledger data is not used (it needs the config dir and hashed project key; `profile` already covers it).
 - No model, no network, no new dependency. Deviation from the issue: none for the local part; the optional model-written section and settings snippet are not built.
 - Mutation: not run (small glue and ranking over existing helpers, covered by exact-output tests in `tests/test_advise.py`); owner scope rule leaves this to the agent. Not verified: ranking quality on a real setup.
+
+## #9 real-server acceptance (2026-11-06, branch `claude/mcpreal`)
+
+- Added real stdio MCP fixtures (mcp 2.3 `MCPServer`): good (3 tools, slow tool, stderr noise, junk on stdout), crash, hang, stdout flood, oversize description, canary env. `tests/test_expansion_real.py` runs the unmocked `constellation expand` and `POST /api/expand` against each.
+- Observed: good server lists tools despite junk; crash/hang/flood/oversize all return `unreachable` with the fixed message, honour the timeout, and leave no child process; canary env value, fixture path and temp paths never appear. No source bug found, so no source change. No real setup read, no paid calls.
