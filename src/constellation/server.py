@@ -208,17 +208,21 @@ def create_app(
     _checklist_path(pins_file, scan_file, "Pins file")
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
+    body_limits = {"/api/chat": ("Chat", 16384), "/api/pin": ("Pin", 2048)}  # POST bodies are small; refuse the rest before reading them
+
     @app.middleware("http")
     async def limit_chat_body(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        if request.method == "POST" and request.url.path == "/api/chat":
+        if request.method == "POST" and request.url.path in body_limits:
+            label, limit = body_limits[request.url.path]
             if "transfer-encoding" in request.headers:
-                return JSONResponse({"detail": "Content-Length is required; chunked chat requests are not supported"}, status_code=411)
+                detail = f"Content-Length is required; chunked {label.lower()} requests are not supported"
+                return JSONResponse({"detail": detail}, status_code=411)
             try:
                 length = int(request.headers.get("content-length", "0"))
             except ValueError:
                 return JSONResponse({"detail": "Invalid Content-Length"}, status_code=400)
-            if length > 16384:
-                return JSONResponse({"detail": "Chat request exceeds 16384 bytes"}, status_code=413)
+            if length > limit:
+                return JSONResponse({"detail": f"{label} request exceeds {limit} bytes"}, status_code=413)
         return await call_next(request)
 
     @app.get("/api/constellation", dependencies=[Depends(local_only)])

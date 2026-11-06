@@ -60,7 +60,7 @@ def main(
         action="store_true",
         help="also count each skill's full text (sends redacted bodies to Anthropic's counting endpoint)",
     )
-    scan_command.add_argument("--no-history", action="store_true", help="do not record this scan's counts in the scan history")
+    scan_command.add_argument("--no-history", action="store_true", help="do not record this scan in the scan history or the habit ledger")
     scan_command.add_argument(
         "--no-habits", action="store_true", help="do not keep the local habit ledger (per-day usage counts across scans)"
     )
@@ -240,7 +240,7 @@ def main(
     _write(
         result, args.out, read_secrets(args.config_dir, args.project), args.config_dir, None if args.no_history else history.DEFAULT_CACHE
     )
-    if not (args.no_usage or args.no_habits):  # smarter-verdict 3.2: the habit ledger, local only
+    if not (args.no_usage or args.no_habits or args.no_history):  # smarter-verdict 3.2: the habit ledger, local only
         for warning in habits.update(habits.DEFAULT_CACHE, args.config_dir, result.items, result.relations):
             print(warning, file=sys.stderr)
     return 0

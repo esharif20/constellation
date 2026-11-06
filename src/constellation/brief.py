@@ -3,7 +3,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .report import CAVEAT, _known_costs, _names, _saving
+from .answer import clean_name
+from .redact import redact
+from .report import CAVEAT, _known_costs, _saving
 from .suggestions import Kind, Suggestion, _make, _moves
 from .verdict_types import Assessment, Evidence
 
@@ -97,7 +99,8 @@ def build_brief(data: dict[str, Any], assessments: dict[str, Assessment], eviden
 
     Rank key is (-saves / risk, -saves, name, id); an unknown saving sorts last and is never 0.
     """
-    names, items = _names(data), {i["id"]: i for i in data["items"]}
+    items = {i["id"]: i for i in data["items"]}
+    names = {k: f"{clean_name(i['name'])} ({i['kind']})" for k, i in items.items()}
     moves = {s.item_ids[0]: s for s in _moves(data)}
     labels = data.get("projects") or {}
     groups: dict[str, list[tuple[dict[str, Any], Assessment]]] = {"safe": [], "look": [], "wait": []}
@@ -105,7 +108,7 @@ def build_brief(data: dict[str, Any], assessments: dict[str, Assessment], eviden
         if a.group is None or a.id not in items:
             continue
         kind: Kind = _KIND.get(a.action, "wait")
-        s = _make(kind, _row_ids(a, data), f"{names[a.id]}: {a.reasons[0].text}", None)
+        s = _make(kind, _row_ids(a, data), redact(f"{names[a.id]}: {a.reasons[0].text}"), None)
         row: dict[str, Any] = {
             "id": s.id,
             "kind": s.kind,
@@ -115,7 +118,7 @@ def build_brief(data: dict[str, Any], assessments: dict[str, Assessment], eviden
             "saves": a.saves,
             "tier": a.tier,
             "confidence": a.confidence,
-            "reasons": [{"code": r.code, "text": r.text} for r in a.reasons],
+            "reasons": [{"code": r.code, "text": redact(r.text)} for r in a.reasons],
         }
         if (m := moves.get(a.id)) and a.action == "move_to_project":
             row.update(project=m.project, project_label=labels.get(m.project))

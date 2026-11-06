@@ -1,6 +1,7 @@
 """Plain-language answer blocks for local chat: wording, cards, verdicts and the plain-text rendering. Local signals only; no provider."""
 
 import re
+import unicodedata
 from datetime import date
 from typing import Any
 
@@ -129,8 +130,11 @@ def handoff(data: dict[str, Any], item: dict[str, Any], overlap: dict[str, Any] 
     id_, name, label = item["id"], quote(item["name"]), kind_label(item["kind"])
     action = ((data.get("assessments") or {}).get(id_) or {}).get("action", "none")
     other = None  # pragma: no mutate (equivalent: only read when there is an overlap)
-    if overlap:
-        names = {i["id"]: i["name"] for i in data["items"]}
+    names = {i["id"]: i["name"] for i in data["items"]}
+    twin = ((data.get("assessments") or {}).get(id_) or {}).get("twin_id")
+    if twin in names:  # the Item the engine compared, not whichever Overlap is shown
+        other = quote(names[twin])
+    elif overlap:
         other = quote(names[overlap["b_id"] if overlap["a_id"] == id_ else overlap["a_id"]])
 
     def remove() -> str:
@@ -270,8 +274,19 @@ def refusal(category: str, question: str, item: dict[str, Any] | None) -> tuple[
     return REFUSALS[category], {"instruction": _ASK[category].format(q=q, of=of), "checklist_id": None}
 
 
+NAME_MAX = 80
+
+
+def clean_name(name: str) -> str:
+    """A third-party name made safe to paste into an instruction or a checklist line: one line, no control characters, at most
+    NAME_MAX characters. Mirrors cleanName() in frontend/src/lib/instruction.ts."""
+    text = " ".join("".join(" " if ch.isspace() or unicodedata.category(ch)[0] == "C" else ch for ch in name).split())
+    return text if len(text) <= NAME_MAX else text[: NAME_MAX - 1] + "…"
+
+
 def quote(name: str) -> str:
-    return '"' + name.replace('"', "'") + '"'
+    """The cleaned name in a code span (backticks inside become apostrophes), so it reads as a name and not as an instruction."""
+    return "`" + clean_name(name).replace("`", "'") + "`"
 
 
 def what_line(c: dict[str, Any]) -> str:

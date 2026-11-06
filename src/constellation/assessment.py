@@ -4,6 +4,7 @@
 and Ask can never disagree. The engine keys Items by name; this module adapts the scan's id-keyed overlaps and conflicts.
 """
 
+import math
 import re
 import statistics
 from dataclasses import asdict, dataclass, replace
@@ -48,6 +49,12 @@ def _keys(items: list[dict[str, Any]]) -> dict[str, str]:
     return keys
 
 
+def _tokens(value: Any) -> int | float | None:
+    """A token count the engine can trust: a finite number, else unknown (NaN and infinity come from a hand-edited scan)."""
+    ok = isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
+    return value if ok else None
+
+
 def adapt(data: dict[str, Any], keys: dict[str, str]) -> dict[str, Any]:
     """The engine's input (verdict.py docstring) from a real scan; Items are renamed to their unique key."""
     costs = data.get("costs") or {}
@@ -65,7 +72,7 @@ def adapt(data: dict[str, Any], keys: dict[str, str]) -> dict[str, Any]:
         parent = parents.get(i["id"])
         item: dict[str, Any] = {
             "id": i["id"], "kind": i["kind"], "name": keys[i["id"]], "description": i["description"], "origin": i.get("origin"),
-            "always_on": (costs.get(i["id"]) or {}).get("always_on"), "scope": i.get("scope", "global"),
+            "always_on": _tokens((costs.get(i["id"]) or {}).get("always_on")), "scope": i.get("scope", "global"),
             "match": i["name"], "callers": sorted(callers.get(i["id"], [])),
         }  # fmt: skip
         if i.get("disabled"):

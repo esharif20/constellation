@@ -363,7 +363,7 @@ def test_refusals_hand_off_a_copyable_instruction_and_change_nothing(tmp_path, m
         ),
         "What does tune-spacing say in full?": (
             "Constellation does not read or show file contents. Claude Code can open the file for you.",
-            'Open the file (the skill "tune-spacing") and tell me what it says, in full. Do not change anything.',
+            "Open the file (the skill `tune-spacing`) and tell me what it says, in full. Do not change anything.",
         ),
         "Why did my hook fail?": (
             "Constellation sees how your setup is shaped, not how it ran. Claude Code can look at the failure.",
@@ -441,20 +441,20 @@ def test_every_card_ends_in_a_per_kind_instruction(tmp_path, monkeypatch):
         for name in ("skill-5", "pdf-tools", "mailbox", "scribe", "twin-one", "shim", "core", "geo-helper")
     }
     confirm = " Show me exactly what will change and wait for my OK."
-    assert said["skill-5"] == 'Remove the skill "skill-5": find its folder (under ~/.claude/skills) and delete only that folder.' + confirm
+    assert said["skill-5"] == "Remove the skill `skill-5`: find its folder (under ~/.claude/skills) and delete only that folder." + confirm
     review = "tell me what it does and whether I still need it. Change nothing."
-    assert said["pdf-tools"] == f'Review the plugin "pdf-tools": {review}'  # a plugin with no verdict to act on
-    assert said["mailbox"] == f'Review the MCP server "mailbox": {review}'  # costs too little to be worth removing
+    assert said["pdf-tools"] == f"Review the plugin `pdf-tools`: {review}"  # a plugin with no verdict to act on
+    assert said["mailbox"] == f"Review the MCP server `mailbox`: {review}"  # costs too little to be worth removing
     assert (
         said["twin-one"]
-        == 'Remove the skill "twin-one": find its folder (under ~/.claude/skills) and delete only that folder. '
-        + 'It does the same job as "twin-two", which stays.'
+        == "Remove the skill `twin-one`: find its folder (under ~/.claude/skills) and delete only that folder. "
+        + "It does the same job as `twin-two`, which stays."
         + confirm
     )
-    assert said["shim"] == 'The skill "shim" only calls "core". Show me how to use "core" directly, then remove "shim".' + confirm
-    assert said["core"] == f'Review the skill "core": {review}'
-    assert said["geo-helper"].startswith('Move the skill "geo-helper" out of my global setup')
-    assert said["scribe"] == 'Review the agent "scribe": tell me what it does and whether I still need it. Change nothing.'
+    assert said["shim"] == "The skill `shim` only calls `core`. Show me how to use `core` directly, then remove `shim`." + confirm
+    assert said["core"] == f"Review the skill `core`: {review}"
+    assert said["geo-helper"].startswith("Move the skill `geo-helper` out of my global setup")
+    assert said["scribe"] == "Review the agent `scribe`: tell me what it does and whether I still need it. Change nothing."
     assert "my-private-project" not in str(ask(client, "What is geo-helper?"))
 
 
@@ -464,7 +464,7 @@ def test_origin_is_named_so_a_plugins_files_are_not_edited_in_place(tmp_path, mo
     extra["costs"]["ag"] = cost(300)
     text = card_handoff(make(tmp_path, monkeypatch, items, **extra), "scribe")["instruction"]
     assert (
-        text.startswith('Remove the agent "scribe"') and 'It came from "acme/tools": if that is a plugin or pack, change it there' in text
+        text.startswith("Remove the agent `scribe`") and "It came from `acme/tools`: if that is a plugin or pack, change it there" in text
     )
 
 
@@ -497,7 +497,7 @@ def test_the_remove_list_ends_in_one_instruction_for_its_rows(tmp_path, monkeypa
     blocks = ask(make(tmp_path, monkeypatch, items, **extra), "what could I remove")["blocks"]
     hand = blocks["handoff"]
     assert hand["checklist_id"] is None
-    assert hand["instruction"].startswith('Review these in my Claude Code setup as removal candidates: skill "skill-5", ')
+    assert hand["instruction"].startswith("Review these in my Claude Code setup as removal candidates: skill `skill-5`, ")
     assert hand["instruction"].endswith("Show me each one and wait for my OK before you remove anything.")
 
 
@@ -530,7 +530,7 @@ def test_remove_exact_fields_and_row_limits(tmp_path, monkeypatch):
         assert len(reply["actions"][0]["item_ids"]) == 5
         assert reply["blocks"]["rows"][0]["value"] == "Not seen; saves 1,500 tokens"
         assert reply["blocks"]["note"] == "Unused rests on saved transcripts, which Claude Code deletes over time."
-        assert len(reply["blocks"]["handoff"]["instruction"].split('skill "')) == 6  # five names
+        assert len(reply["blocks"]["handoff"]["instruction"].split("skill `")) == 6  # five names
     empty = ask(make(tmp_path, monkeypatch, [item("a", "alpha")]), "what could I remove")["blocks"]
     assert empty["follow_ups"] == FOLLOW and empty["handoff"] is None
 
@@ -551,7 +551,7 @@ def test_remove_wrapper_and_unknown_duplicate_rows(tmp_path, monkeypatch):
     reply = ask(make(tmp_path, monkeypatch, pair, **extra), "what could I remove")
     assert reply["blocks"]["rows"][0]["name"] == "dup-one" and reply["blocks"]["follow_ups"][0] == "Should I keep dup-one?"
     assert reply["blocks"]["rows"][0]["value"] == "Same job as dup-two; saving unknown"
-    assert reply["actions"][0]["item_ids"] == ["d1"] and 'skill "dup-one"' in reply["blocks"]["handoff"]["instruction"]
+    assert reply["actions"][0]["item_ids"] == ["d1"] and "skill `dup-one`" in reply["blocks"]["handoff"]["instruction"]
     costed = {"costs": {"d1": cost(200), "d2": cost(100)}, **extra}
     reply = ask(make(tmp_path, monkeypatch, pair, **costed), "what could I remove")
     assert reply["blocks"]["rows"][0]["name"] == "dup-one" and reply["blocks"]["follow_ups"][0] == "Should I keep dup-one?"  # dearer goes
@@ -789,7 +789,7 @@ def test_origin_sentence_per_kind(tmp_path, monkeypatch):
             **{"usage": {"a": NEVER}, "usage_window": WINDOW},
         )
         text = ask(client, "Should I keep alpha?")["blocks"]["cards"][0]["handoff"]["instruction"]
-        assert 'It came from "acme/tools": if that is a plugin or pack' in text, kind
+        assert "It came from `acme/tools`: if that is a plugin or pack" in text, kind
     client = make(
         tmp_path,
         monkeypatch,
@@ -807,9 +807,9 @@ def test_unknown_kinds_and_quoted_names_in_instructions(tmp_path, monkeypatch):
     client = make(tmp_path, monkeypatch, items, **extra)
     confirm = " Show me exactly what will change and wait for my OK."
     memory = ask(client, "Should I keep notes?")["blocks"]["cards"][0]["handoff"]["instruction"]
-    assert memory == 'Review the memory "notes" and tell me how to remove it.' + confirm
+    assert memory == "Review the memory `notes` and tell me how to remove it." + confirm
     quoted = ask(client, "what is this", selected_ids=["q"])["blocks"]["cards"][0]["handoff"]["instruction"]
-    assert quoted.startswith("Remove the skill \"say 'hi'\": find its folder")
+    assert quoted.startswith('Remove the skill `say "hi"`: find its folder')
     hook = ask(client, "Should I keep pre-hook?")["blocks"]["cards"][0]
     assert hook["verdict"]["label"] == "Not tracked"
-    assert hook["handoff"]["instruction"] == 'Review the hook "pre-hook": tell me what it does and whether I still need it. Change nothing.'
+    assert hook["handoff"]["instruction"] == "Review the hook `pre-hook`: tell me what it does and whether I still need it. Change nothing."

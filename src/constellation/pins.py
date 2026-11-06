@@ -33,6 +33,7 @@ def add(path: Path, id_: str, day: str | None = None) -> bool:
         raise ValueError("too many pins")
     pins[id_] = day or date.today().isoformat()
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path.parent.chmod(0o700)  # the mode above applies only to a directory made now
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".pins-")  # mkstemp creates the file 0600
     try:
         with os.fdopen(fd, "w") as f:

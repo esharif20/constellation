@@ -31,7 +31,7 @@ export type Overlap = { a_id: string; b_id: string; verdict: Verdict; reason: st
 // The server's verdict for one Item (smarter-verdict.md 4.1; src/constellation/verdict_types.py). The app only reads it.
 export type Tier = "keep" | "keep_rare" | "review" | "redundant" | "could_go" | "too_early" | "off" | "untracked";
 export type Confidence = "high" | "medium" | "low";
-export type Assessment = { id: string; tier: Tier; label: string; confidence: Confidence | null; reasons: { code: string; text: string }[]; action: string; saves: number | null; risk: number; group: "safe" | "look" | "wait" | null; recheck_after: number | null };
+export type Assessment = { id: string; tier: Tier; label: string; confidence: Confidence | null; reasons: { code: string; text: string }[]; action: string; saves: number | null; risk: number; group: "safe" | "look" | "wait" | null; recheck_after: number | null; twin_id?: string | null };
 export type BriefRow = { id: string; kind: string; item_ids: string[]; removes: string | null; reason: string; saves?: number | null; tokens_saved?: number | null; tier?: Tier; confidence?: Confidence | null; reasons?: { code: string; text: string }[]; project?: string | null; project_label?: string | null };
 export type BriefGroup = { rows: BriefRow[]; saves?: number; unknown?: number };
 export type Checklist = { path: string; ids: string[]; frees: number | null; unknown_rows: number };

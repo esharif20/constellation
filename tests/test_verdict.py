@@ -214,7 +214,10 @@ def test_grace_texts() -> None:
     assert r(first_seen="2026-10-30", changed_on="2026-11-03") == "Changed 2 days ago"
     assert r(first_seen="2026-11-03", changed_on="2026-10-30") == "Added 2 days ago"
     assert r(first_seen="2026-10-01", changed_on="2026-11-01") == "Changed 4 days ago"
-    assert one(run([item("a")], {"a": ItemEvidence(first_seen="2026-11-06")}), "a").tier == "could_go"  # future day ignored
+    assert r(first_seen="2026-11-06") == "Added today"  # a future day is today, so it cannot skip the grace period
+    assert r(first_seen="2026-11-09", changed_on="2026-11-01") == "Added today"
+    assert one(run([item("a")], {"a": ItemEvidence(first_seen="soon")}), "a").tier == "could_go"  # a malformed day is unknown
+    assert one(run([item("a")], {"a": ItemEvidence(changed_on="")}), "a").tier == "could_go"
     used = ItemEvidence(count=5, sessions_used=5, changed_on="2026-11-01")
     assert one(run([item("a")], {"a": used}), "a").tier == "too_early"
 

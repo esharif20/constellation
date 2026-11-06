@@ -99,12 +99,12 @@ def specificity(description: str) -> tuple[int, bool]:
 def referenced_by(item: Item, data: dict[str, Any]) -> tuple[str, ...]:
     """Names of enabled Items that lean on this one: a wrapper over it, or a description naming it (whole word)."""
     name = item["name"]
-    shown = item.get("match", name)  # the real name: `name` may carry a qualifier that no description contains
+    shown: str = item.get("match") or name  # the real name: `name` may carry a qualifier that no description contains
     found = {o["a"] for o in data.get("overlaps", []) if o["verdict"] == "wrapper" and o["b"] == name}
     found |= set(item.get("callers", ()))
     pattern = re.compile(rf"(?<![\w-]){re.escape(shown)}(?![\w-])", re.IGNORECASE)
     for other in data["items"]:
-        if other.get("match", other["name"]) != shown and not other.get("disabled") and pattern.search(other["description"]):
+        if (other.get("match") or other["name"]) != shown and not other.get("disabled") and pattern.search(other["description"]):
             found.add(other["name"])
     return tuple(sorted(found))
 
@@ -219,7 +219,8 @@ def _twin_loser(ctx: _Ctx, item: Item, other: str) -> Assessment:
         text, conf = f"Does the same job as {other}; neither has been used", "medium"
     else:
         text, conf = f"Does the same job as {other}, which you use more ({theirs} vs {mine} times)", "medium"
-    return _make(ctx, item, "redundant", _penalised(ctx, conf, item, True), "duplicate_loser", text, "remove_twin", twin=True)
+    found = _make(ctx, item, "redundant", _penalised(ctx, conf, item, True), "duplicate_loser", text, "remove_twin", twin=True)
+    return replace(found, twin_id=ctx.by_name[other]["id"])
 
 
 def _wrapper(ctx: _Ctx, item: Item, link: dict[str, str]) -> Assessment | None:
@@ -280,11 +281,19 @@ def _untracked(ctx: _Ctx, item: Item) -> Assessment | None:
     return _make(ctx, item, "untracked", None, "hook_weight", text)
 
 
+def _age(today: date, day: str | None) -> int | None:
+    """Whole days since `day`; None for no date or one that does not parse (unknown), 0 for a future date (never skips the grace)."""
+    try:
+        return None if day is None else max(0, (today - date.fromisoformat(day)).days)
+    except (ValueError, TypeError):
+        return None
+
+
 def _too_new(ctx: _Ctx, item: Item) -> Assessment | None:
     ie = ctx.ie(item["name"])
     ages = []
     for verb, day in (("Added", ie.first_seen), ("Changed", ie.changed_on)):
-        if day is not None and 0 <= (age := (ctx.today - date.fromisoformat(day)).days) <= GRACE_DAYS:
+        if (age := _age(ctx.today, day)) is not None and age <= GRACE_DAYS:
             ages.append((age, verb))
     if not ages:
         return None

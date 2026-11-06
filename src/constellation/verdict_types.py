@@ -29,6 +29,7 @@ class Assessment:
     risk: int  # 1 low, 2 medium, 4 high
     group: Group | None
     recheck_after: int | None  # active days of extra history that would settle a too_early / keep_rare verdict
+    twin_id: str | None = None  # remove_twin: the id of the Item this was compared with (the one that stays)
 
 
 @dataclass(frozen=True)
