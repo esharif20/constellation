@@ -173,3 +173,35 @@ def test_the_cli_reports_an_unknown_project_or_missing_ledger_on_stderr(tmp_path
     (config / "projects" / "-x-ghost").mkdir(parents=True)
     assert cli.main(["profile", "ghost", "--config-dir", str(config), "--habits", str(tmp_path / "none.json")]) == 2
     assert "No habit ledger yet" in capsys.readouterr().err
+
+
+def test_encode_keeps_case_and_a_trailing_letter_of_the_name_is_not_stripped():
+    assert pf.encode("My-App/x") == "My-App-x"
+    assert pf.resolve("appX", None, ["-me-app", "-me-appX"]) == ("-me-appX", None)
+    assert pf.resolve("app-", None, ["-me-app"]) == ("-me-app", None)
+
+
+def test_today_counts_for_sessions_and_for_uses():
+    led = ledger(days={TODAY: {"sessions": 5, "projects": {pk(FOLDER): 5}}}, items={"a": (OLD, used(here=2, day=TODAY))})
+    out = build(led, "a")
+    assert out["state"] == "ok" and out["note"] == "" and out["used"][0]["uses"] == 2
+
+
+def test_render_is_exact_for_all_three_sections_and_a_full_page_has_no_more_line():
+    led = ledger(items={"a": (OLD, used(here=9, elsewhere=1)), "n": (OLD, used(elsewhere=2)), "f": (TODAY, {})})
+    assert pf.render(build(led, "a", "n", "f")) == (
+        "Profile of my-app: 6 session(s) over 1 active day(s).\n"
+        "\nUsed here:\n  a (skill): 9 here, 1 elsewhere, last 2026-11-01\n"
+        "\nNoise here (global, never used in this project):\n  n (skill): used only in other projects\n"
+        "\nCould be local to this project:\n  a (skill): 9 uses here, 1 elsewhere\n"
+        "\n1 Item(s) too new to judge for this project."
+    )
+    assert pf.render(build(ledger(sessions=2), "a")) == (
+        "Profile of my-app: 2 session(s) over 1 active day(s).\nNot enough history yet: 2 session(s) seen here, 5 needed."
+    )
+    names = [f"s{i:02}" for i in range(15)]
+    text = pf.render(build(ledger(items={n: (OLD, used(here=1, elsewhere=1)) for n in names}), *names))
+    assert "more" not in text and text.endswith("s14 (skill): 1 here, 1 elsewhere, last 2026-11-01")
+    names.append("s15")
+    text = pf.render(build(ledger(items={n: (OLD, used(here=1, elsewhere=1)) for n in names}), *names))
+    assert text.endswith("s14 (skill): 1 here, 1 elsewhere, last 2026-11-01\n  ...and 1 more (see --json)")
