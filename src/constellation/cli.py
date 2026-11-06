@@ -16,7 +16,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import cli_reports, habits, history, menu, scan, scan_graph, weekly
+from . import cli_reports, habits, history, menu, scan, scan_graph, selfcheck, weekly
 from . import origins as origin_sources
 from .assessment import compute
 from .assessment import public as assessment_json
@@ -75,6 +75,8 @@ def main(
             sub.add_argument("arg", metavar=c.arg)
         sub.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"), help="saved scan (default constellation.json)")
         sub.add_argument("--habits", type=Path, help="habit ledger to use for verdicts (default ~/.cache/constellation/habits.json)")
+        if c.name == "doctor":
+            sub.add_argument("--env", action="store_true", help="check only Python, install method, cache permissions and key presence")
         if c.name not in ("clean", "share"):
             sub.add_argument("--json", action="store_true", help="print structured JSON instead of text")
         if c.name == "clean":
@@ -170,7 +172,19 @@ def main(
     weekly_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     weekly_command.add_argument("--json", action="store_true", help="print the summary as JSON")
     weekly_command.add_argument("--since", help="compare with the newest scan on or before this date (YYYY-MM-DD)")
+    commands.add_parser("update", help="print the upgrade command for how this was installed (no network, runs nothing)")
+    uninstall_command = commands.add_parser(
+        "uninstall", help="explain how to remove Constellation; deletes its cache only after you type a confirmation"
+    )
+    uninstall_command.add_argument("--dry-run", action="store_true", help="show what would be deleted and delete nothing")
     args = parser.parse_args(argv)
+    if args.command == "update":
+        print(selfcheck.update_text(selfcheck.detect_method(sys.prefix)))
+        return 0
+    if args.command == "uninstall":
+        return selfcheck.uninstall(selfcheck.detect_method(sys.prefix), selfcheck.cache_dir(), args.dry_run, input)
+    if args.command == "doctor" and args.env:
+        return selfcheck.env_report()
     if args.command == "weekly":
         data = _load_scan(args.file)
         return 2 if data is None else weekly.command(data, args.json, args.since)
@@ -322,6 +336,8 @@ _SCAN_COMMANDS = {
     "diff": "Items added, removed or changed between two scans",
     "preview": "what installing a downloaded plugin or skill would add",
     "delta": "what changed between two scans, in tokens and Overlaps",
+    "update": "print the upgrade command for your install",
+    "uninstall": "how to remove Constellation and its cache",
 }
 
 
