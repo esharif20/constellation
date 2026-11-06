@@ -66,6 +66,7 @@ Add `--dry-run` where it is offered to see what would happen without doing it.
   paths are redacted, and only if you give an API key. With no key, or with `--offline`, nothing is sent.
 - The one exception is opt-in: `constellation scan --count-bodies` sends each skill's redacted body to Anthropic's
   token-counting endpoint to measure its cost when used. Without the flag that cost is shown as unknown.
+- Redaction only matches secret values of 8 or more characters, so short PINs and passwords are not masked wherever they appear (a deliberate choice: shorter values also match ordinary words). Expansion tool text follows the same rule.
 - No telemetry. Constellation never edits your Claude setup.
 
 ## Free by default
