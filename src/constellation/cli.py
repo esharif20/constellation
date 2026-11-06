@@ -18,6 +18,7 @@ from typing import Any
 from langgraph.types import Command
 
 from . import (
+    advise,
     cleanup,
     cli_help,
     cli_reports,
@@ -228,6 +229,12 @@ def main(
         "--habits", type=Path, default=habits.DEFAULT_CACHE, help="habit ledger (default ~/.cache/constellation/habits.json)"
     )
     profile_command.add_argument("--json", action="store_true")
+    advise_command = commands.add_parser("advise", help="which installed Items fit a project, and a tiny CLAUDE.md draft (local, free)")
+    advise_command.add_argument("path", type=Path, nargs="?", default=Path("."), help="the project folder (default: here)")
+    advise_command.add_argument("--scan", type=Path, default=None, help="saved scan (default: the latest)")
+    advise_command.add_argument("--write", action="store_true", help="save the draft as a NEW CLAUDE.md in the project; never overwrites")
+    advise_command.add_argument("--json", action="store_true")
+    advise_command.add_argument("--dry-run", action="store_true", help="with --write, show the path and write nothing")
     purge_command = commands.add_parser("purge", help="Items only used by long-idle projects (read-only)")
     purge_command.add_argument("file", type=Path, nargs="?", default=None)
     purge_command.add_argument("--habits", type=Path, default=habits.DEFAULT_CACHE)
@@ -260,6 +267,8 @@ def main(
         return 0
     if args.command == "profile":
         return _profile(args)
+    if args.command == "advise":
+        return _advise(args)
     if args.command == "purge":
         return purge_report.command(args.habits, args.json, _load_scan(args.file))
     if args.command == "update":
@@ -441,6 +450,32 @@ def main(
     return 0
 
 
+def _advise(args: argparse.Namespace) -> int:
+    """Local only: reads the project's top-level docs and the saved scan; writes one new file only with --write."""
+    root = args.path.expanduser()
+    if not root.is_dir():
+        print(f"{args.path} is not a folder.", file=sys.stderr)
+        return 2
+    data = _load_scan(scanfile.latest_scan(args.scan))
+    if data is None:
+        return 2
+    items = [Item(**{k: v for k, v in i.items() if k in Item.__dataclass_fields__}) for i in data["items"]]
+    result = advise.advise(advise.read_project(root), items, data.get("costs") or {}, data.get("assessments") or {})
+    target = root / "CLAUDE.md"
+    if args.write and not args.dry_run:
+        try:
+            with target.open("x") as handle:
+                handle.write(result["draft"])
+        except FileExistsError:
+            print(f"{target} already exists; nothing written.", file=sys.stderr)
+            return 2
+        print(f"Wrote {target}", file=sys.stderr)
+    elif args.write:
+        print(f"Would write {target} (new file only); nothing written.", file=sys.stderr)
+    print(json.dumps(result, indent=2) if args.json else advise.render(result))
+    return 0
+
+
 def _profile(args: argparse.Namespace) -> int:
     """Read-only and local: the ledger, the Item list and the transcript folder names; nothing is written, sent or printed but names."""
     config = args.config_dir.resolve()
@@ -468,6 +503,7 @@ _SCAN_COMMANDS = {
     "weekly": "what changed since the last scan, what went quiet",
     "status": "one screen of setup health",
     "find": "find an installed skill by what it does",
+    "advise": "which installed Items fit a project, plus a CLAUDE.md draft",
     "profile": "which global Items one project uses and which are noise there",
     "purge": "Items only used by long-idle projects",
     "export": "write a read-only public Snapshot",

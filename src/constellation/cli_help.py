@@ -58,6 +58,11 @@ _VERBS: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "Build a private cleanup checklist from the last scan. Nothing in your setup is changed.",
         ("constellation clean --dry-run        # print the checklist, write nothing", "constellation clean --out ~/cleanup.md"),
     ),
+    "advise": (
+        "Act",
+        "Rank your installed skills, agents and MCP servers for one project from its docs, and draft a tiny CLAUDE.md. Local only.",
+        ("constellation advise ~/code/my-app", "constellation advise . --write   # new CLAUDE.md only; never overwrites"),
+    ),
     "share": (
         "Act",
         "Write the public Snapshot (same as export --public). Free text is not anonymised.",
