@@ -315,8 +315,8 @@ def test_co_use_partners_need_lift_two_and_three_sessions_each():
 
 def valid():
     return ledger(
-        days={"2026-10-01": day(2, p1=1)},
-        items={H("a"): {"first_seen": "2026-10-01", "days": {"2026-10-01": cell(2, 1, p1=2)}}},
+        days={"2026-10-01": day(2, aaaaaa=1)},
+        items={H("a"): {"first_seen": "2026-10-01", "days": {"2026-10-01": cell(2, 1, aaaaaa=2)}}},
         co={pair("a", "b"): {"2026-10": 2}},
     )
 
@@ -468,8 +468,8 @@ def test_a_corrupt_file_warns_and_starts_over_and_an_unwritable_one_warns(config
     assert len(load_one(path)["items"]) == 2
     blocked = tmp_path / "file"
     blocked.write_text("x")
-    unreadable, warning = run(config, blocked / "habits.json")  # a path under a file cannot be read either
-    assert unreadable.startswith("habit ledger") and warning.startswith("could not save habit ledger: ")
+    (warning,) = run(config, blocked / "habits.json")  # the lock file cannot be made under a file either
+    assert warning.startswith("could not save habit ledger: ")
     assert str(tmp_path) not in warning
 
 
@@ -542,8 +542,8 @@ def test_files_carry_the_day_they_were_last_modified_without_being_read(tmp_path
 
 def test_zero_counts_are_valid():
     record = valid()
-    record["days"]["2026-10-01"] = day(0, p=0)
-    record["items"][H("a")]["days"]["2026-10-01"] = cell(0, 0, p=0)
+    record["days"]["2026-10-01"] = day(0, aaaaaa=0)
+    record["items"][H("a")]["days"]["2026-10-01"] = cell(0, 0, aaaaaa=0)
     assert habits._valid(record)
 
 
@@ -775,3 +775,89 @@ def test_the_borrowed_prior_is_rounded_to_four_places():
     )
     got = profile(led, {i: "skill" for i in "abcd"}).items["d"]
     assert got.prior_prob == 0.1333
+
+
+# privacy review fixes
+
+
+def test_a_clock_far_ahead_does_not_wipe_the_ledger():
+    old = ledger(days={"2026-09-01": day(3), "2026-10-02": day(2)})
+    new = fresh({"2026-10-02": 2}, {"2026-10-02": {}})
+    got = merge(old, new, window("2026-10-02", "2026-10-02"), [], "2028-11-05")
+    assert got["days"] == old["days"]  # retention counts from the newest evidence, not from the clock
+
+
+def test_a_clock_behind_the_transcripts_keeps_the_days_it_cannot_write_back():
+    old = ledger(days={"2026-10-01": day(1), "2026-10-02": day(2), "2026-10-06": day(5)})
+    new = fresh({"2026-10-01": 1, "2026-10-02": 9, "2026-10-06": 9}, {d: {} for d in ("2026-10-01", "2026-10-02", "2026-10-06")})
+    got = merge(old, new, window("2026-10-01", "2026-10-06"), [], "2026-10-03")
+    assert got["days"] == {"2026-10-01": day(1), "2026-10-02": day(9), "2026-10-06": day(5)}  # the 6th is after "today": untouched
+
+
+def test_unreadable_transcripts_never_lower_stored_days():
+    old = ledger(days={"2026-10-01": day(4), "2026-10-02": day(8, aaaaaa=8)}, co={pair("a", "b"): {"2026-10": 5}})
+    old["items"] = {
+        H("a"): {"first_seen": "2026-10-01", "days": {"2026-10-02": cell(8, 8)}},
+        H("b"): {"first_seen": "2026-10-01", "days": {}},
+    }
+    new = fresh({"2026-10-02": 1}, {"2026-10-02": {"aaaaaa": 1}}, {"a": {"2026-10-02": (1, 1, {})}}, [("2026-10-02", ("a", "b"))])
+    skipped = UsageWindow(1, "2026-10-01", "2026-10-03", 1, 1)
+    got = merge(old, new, skipped, ["a", "b"])
+    assert got["days"] == old["days"] and got["items"][H("a")]["days"] == {"2026-10-02": cell(8, 8)} and got["co"] == old["co"]
+
+
+BAD_ENTRIES = {
+    "item key": lambda r: r["items"].update({"not-hex": r["items"].pop(H("a"))}),
+    "project key": lambda r: r["days"]["2026-10-01"]["projects"].update({"toolongproject": 1}),
+    "pair without a bar": lambda r: r["co"].update({"a" * 24: {"2026-10": 2}}),
+    "pair of odd length": lambda r: r["co"].update({"a" * 12 + "|" + "b" * 11: {"2026-10": 2}}),
+    "huge count": lambda r: r["days"]["2026-10-01"].update(sessions=2**53),
+    "huge co count": lambda r: r["co"][pair("a", "b")].update({"2026-10": 2**80}),
+}
+
+
+@pytest.mark.parametrize("name", BAD_ENTRIES)
+def test_keys_must_be_hashes_and_counts_below_two_to_the_53rd(tmp_path, name):
+    bad = valid()
+    BAD_ENTRIES[name](bad)
+    assert not habits._valid(bad)
+    assert habits._valid({**valid(), "days": {"2026-10-01": day(2**53 - 1)}})
+
+
+def test_profile_survives_a_pair_whose_item_has_no_sessions():
+    led = with_items({TODAY: day(5)}, a={ago(1): cell(0, 0)}, b={TODAY: cell(4, 4)})
+    led["co"] = {pair("a", "b"): {"2026-11": 4}}
+    got = profile(led, {"a": "skill", "b": "skill"}).items
+    assert got["a"].needs == ()
+
+
+def test_load_refuses_a_symlink_a_huge_file_and_a_fifo(tmp_path, monkeypatch):
+    real = tmp_path / "real.json"
+    habits.save(real, {"s": valid()})
+    link = tmp_path / "link.json"
+    link.symlink_to(real)
+    assert habits.load(link) == ({}, "habit ledger could not be read; starting it over")
+    monkeypatch.setattr(habits, "MAX_FILE", 10)
+    assert habits.load(real)[1] == "habit ledger could not be read; starting it over"
+    monkeypatch.setattr(habits, "MAX_FILE", real.stat().st_size)
+    assert habits.load(real)[1] is None  # exactly the cap is allowed
+
+
+def test_two_scans_at_once_take_turns(config, tmp_path):
+    import fcntl
+    import threading
+    import time
+
+    path = tmp_path / "habits.json"
+    habits.save(path, {})
+    lock = os.open(str(path) + ".lock", os.O_RDWR | os.O_CREAT, 0o600)
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    done = threading.Event()
+    worker = threading.Thread(target=lambda: (run(config, path), done.set()))
+    worker.start()
+    time.sleep(0.3)
+    assert not done.is_set()  # waiting for the first scan
+    fcntl.flock(lock, fcntl.LOCK_UN)
+    os.close(lock)
+    worker.join(10)
+    assert done.is_set() and stat.S_IMODE(os.stat(str(path) + ".lock").st_mode) == 0o600

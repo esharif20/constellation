@@ -776,3 +776,6 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Test-only edits outside the slice: `tests/conftest.py` (habits cache redirect, `read_fresh` guard), `tests/test_scan_golden.py` (blanks `changed_on`, a checkout-dependent mtime), `tests/test_usage.py` (`sessions` now counted).
 - Known limits: a pair seen in one session only is not stored (design note rule), so two single sessions months apart never add up; a session spanning two days counts in `s` on each day.
 - `habits.py` added to mutmut `only_mutate`.
+
+- Privacy review fixes (Opus, 2026-11-06): retention counts from the newest evidence and a day is replaced only when it will be written back; a read with unreadable transcripts only raises stored counts; `_valid` demands 12-hex Item keys, 6-hex project keys, `hash|hash` pair keys and counts below 2**53; the `needs` division is guarded; load/modify/save runs under a `flock` lock file; `load` uses `O_NOFOLLOW` and a 16 MiB cap; the design note no longer calls the salted hashes unguessable.
+- **For S4:** `ItemHabits.project_shares` carries stable salted project hashes. They must never appear in an API reply, snapshot or export.
