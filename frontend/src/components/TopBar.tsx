@@ -7,6 +7,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverAnchor, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Presence, Pane } from "@/components/Motion";
+import { useFind } from "@/components/useFind";
+import { oneLine, wantsFind } from "@/graph/find";
 import { didYouMean, warningMention, type Row } from "@/graph/searchMerge";
 import { groupWarnings, hasScopes, kindName, type Cluster, type GNode, type Model, type Scope, type WarningGroup } from "@/graph/model";
 
@@ -111,6 +114,10 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
   const items = shown.filter((r) => !r.related), related = shown.filter((r) => r.related);
   const mean = didYouMean(query, rows[0]?.item.name);
   const mention = warningMention(model.warnings, query);
+  const byId = new Map(model.nodes.map((n) => [n.id, n]));
+  const asking = wantsFind(rows, query) && !pending;
+  const { found: finds, pending: finding } = useFind(query, asking);
+  const hits = (finds?.results ?? []).filter((h) => byId.has(h.id));
   const grouped = (items.length > 0 ? 1 : 0) + (related.length > 0 ? 1 : 0) + (clusterHits.length > 0 ? 1 : 0) > 1;
   const row = ({ item: n, why }: Row<GNode>) => (
     <CommandItem key={n.id} value={n.id} onSelect={() => onChoose(n)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 gap-3 rounded-md px-3">
@@ -202,6 +209,23 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
             )}
             {items.length > 0 && <CommandGroup className="p-0" heading={grouped ? "Items" : undefined}>{items.map(row)}</CommandGroup>}
             {related.length > 0 && <CommandGroup className="p-0" heading="Related">{related.map(row)}</CommandGroup>}
+            <Presence>{asking && (finds?.note || hits.length > 0 || finding) ? (
+              <Pane from="top" aria-label="Find by what it does">
+                <CommandGroup className="p-0" heading="Find by what it does">
+                  {finds?.note ? <p className="px-3 py-2 text-[13px] text-text-3">{finds.note}</p> : hits.length === 0 ? <p className="px-3 py-2 text-[13px] text-text-3">Looking through skill descriptions and headings</p> : hits.map((h) => (
+                    <CommandItem key={h.id} value={h.id} onSelect={() => onChoose(byId.get(h.id)!)} onMouseDown={(e) => e.preventDefault()} className="min-h-11 items-start gap-3 rounded-md px-3 py-2">
+                      <span className="glyph mt-1.5" data-kind="skill" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">{h.name}</span>
+                        <span className="block truncate text-xs text-text-2">{oneLine(h.description)}</span>
+                        <span className="block truncate text-xs text-text-3">Matched {h.why}</span>
+                      </span>
+                      <CopyInvoke invoke={h.invoke} />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Pane>
+            ) : null}</Presence>
             {note && <p className="px-3 pt-2 pb-1 text-xs text-text-3">{note}</p>}
           </CommandList>
         </PopoverContent>
@@ -270,6 +294,26 @@ function Group({ g, collapsed }: { g: WarningGroup; collapsed?: boolean }) {
       {head}
       {body}
     </section>
+  );
+}
+
+function CopyInvoke({ invoke }: { invoke: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-label={`Copy ${invoke}`}
+      className="h-8 shrink-0 gap-1 px-2 font-mono text-xs text-text-2"
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={(e) => {
+        e.stopPropagation(); // copying must not also select the node
+        void navigator.clipboard?.writeText(invoke).then(() => { setDone(true); setTimeout(() => setDone(false), 1200); });
+      }}
+    >
+      {done ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
+      {done ? "Copied" : "Copy"}
+    </Button>
   );
 }
 

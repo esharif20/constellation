@@ -377,3 +377,34 @@ def test_default_checklist_directory_is_private_and_reopens_a_loose_file(scan_fi
     checklist.chmod(0o644)
     assert client.post("/api/checklist", json={"id": row_id}).json()["added"] is False
     assert checklist.stat().st_mode & 0o777 == 0o600
+
+
+def test_find_searches_the_given_config_dir_locally(scan_file, tmp_path, monkeypatch):
+    from fakes import write_skill
+
+    from constellation import skill_search
+
+    root = tmp_path / "invented-setup"
+    write_skill(root, "cabinet", "# Website typography\nA small collection.", description="Assorted reference material")
+    monkeypatch.setattr(skill_search, "DEFAULT_CACHE", tmp_path / "private" / "skill-content.json")
+    client = TestClient(create_app(scan_file, config_dir=root), base_url=BASE_URL)
+    body = client.get("/api/find", params={"q": "typography for websites"}).json()
+    assert body["available"] is True and body["note"] is None
+    [hit] = body["results"]
+    assert (hit["name"], hit["invoke"], hit["why"]) == ("cabinet", "/cabinet", "heading: Website typography")
+    assert hit["description"] == "Assorted reference material"
+    assert client.get("/api/find", params={"q": "zzzqq"}).json()["results"] == []
+
+
+def test_find_says_so_when_no_config_dir_is_available(scan_file, tmp_path):
+    for config_dir in (None, tmp_path / "missing"):
+        client = TestClient(create_app(scan_file, config_dir=config_dir), base_url=BASE_URL)
+        body = client.get("/api/find", params={"q": "typography"}).json()
+        assert body["available"] is False and body["results"] == []
+        assert "constellation find" in body["note"]
+
+
+def test_find_is_local_only_and_bounds_the_query(scan_file, tmp_path):
+    client = TestClient(create_app(scan_file, config_dir=tmp_path), base_url=BASE_URL)
+    assert client.get("/api/find", params={"q": "x" * 5000}).status_code == 422
+    assert TestClient(create_app(scan_file), base_url="http://evil.example").get("/api/find", params={"q": "a"}).status_code >= 400

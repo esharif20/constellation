@@ -31,6 +31,7 @@ from .explain import explain, render_explain
 from .hook_safety import hook_safety
 from .models import Embedder
 from .receipt import receipt
+from .skill_search import find_skills
 from .suggestions import Suggestion
 from .triggers import trigger_audit
 
@@ -192,6 +193,11 @@ def _checklist_path(checklist: Path, scan_file: Path, what: str = "Checklist") -
 
 
 # Counts and words only: no days, hashes or paths.
+FIND_LIMIT = 8
+FIND_UNAVAILABLE = (
+    "Search by what a skill does needs your local ~/.claude, which this saved scan does not have. "
+    'Run `constellation find "your words"` on the machine that has it.'
+)
 HABIT_FIELDS = ("sessions_used", "days_used", "idle_active_days", "mean_gap", "trend", "percentile", "pinned")
 
 
@@ -428,6 +434,14 @@ def create_app(
     @app.post("/api/search", dependencies=[Depends(local_only)])
     def post_search(entry: SearchRequest) -> dict[str, Any]:
         return search(entry.q, entry.limit)
+
+    @app.get("/api/find", dependencies=[Depends(local_only)])
+    def get_find(q: str = Query(max_length=retrieve.MAX_QUERY)) -> dict[str, Any]:
+        # local words over names, descriptions, headings and file names; no model, nothing sent; needs the live config dir
+        if config_dir is None or not config_dir.is_dir():
+            return {"available": False, "results": [], "warnings": [], "note": FIND_UNAVAILABLE}
+        hits, warnings = find_skills(q, config_dir)
+        return {"available": True, "results": hits[:FIND_LIMIT], "warnings": warnings, "note": None}
 
     app.mount("/", StaticFiles(directory=STATIC, html=True))  # last: the API route above wins
     return app
