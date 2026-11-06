@@ -243,6 +243,21 @@ Variants shot on demo-250 at 1440 and 390 in `docs/design/screenshots/bg/`: `o` 
 
 ### Sky pattern (Milky Way, Sky popover)
 
-A deep field under the canvas, rendered once per viewport size by `graph/sky.ts`; see `docs/design/sky-pattern.md`. Alpha-only tokens in `index.css`, each painting an existing ink: `--sky-band: 0.13` (`--indigo` halo, `--halo-name` arms, `--k-plugin` core), `--sky-lane: 0.3` (`--surface-0` dust lanes), `--sky-star: 0.34` (star dust), `--sky-anchor: 0.45` (ten bright stars), `--sky-grain: 0.03` (grain, `--text`), `--sky-ring: 0.1` and `--sky-ring-label: 0.42` (chart rings, `--halo-name` / `--text-3`). The Sky popover's strength multiplies all of them: Off 0, Subtle 1 (default), Rich 1.55. Budget at Subtle: map-area p95 1.18:1 on `--night-lift`, under the 1.45 resting edge. No new colour literals.
+Four image layers under the canvas (band, star dust, bright stars, grain), each rendered once per window size by `graph/sky.ts` at Rich strength. A setting change only fades a layer's opacity (`--t`, `--ease-out`; 0 under reduced motion). See `docs/design/sky-pattern.md`.
 
-**Sky popover:** a ghost icon button (telescope, 44px on phones and 40px on desktop, text-2) in the top bar after Explain. `PopoverContent` is `glass`, 272px wide, `p-3`, with a 16px collision gutter. Title `Sky` 13/500 with a ghost `Reset` at sm. Strength is a shadcn `Slider` (0 to 2, step 1) with the stop labels at 11px text-3 and the current one in text-2. The five layers are rows (min-h 40) with a 13px text-2 label and a shadcn `Switch`; the labels turn text-3 and the switches are disabled when strength is Off.
+Sky-only hues, never data colours:
+- `--sky-core: #f4a39a`: salmon-peach core bulge
+- `--sky-rose: #c47aa6`: dusty rose, and the dust edges
+- `--sky-arm: #8e93da`: lavender blue-violet arms and cool stars
+
+Alphas at Rich:
+- band glow: `--sky-band: 0.18`
+- dust and the outside: `--sky-lane: 0.5`, `--sky-outside: 0.3` (`--surface-0`)
+- `--sky-haze: 0.09`
+- stars: `--sky-star: 0.5`, `--sky-anchor: 0.7`
+- `--sky-grain: 0.03`
+- chart rings: `--sky-ring: 0.1`, `--sky-ring-label: 0.42`
+
+Strength: Off 0, Subtle 1/1.55 opacity (the default), Rich 1. Budget at Subtle: map-area p95 1.16:1 at 1440 on `--night-lift`, under the 1.18 ceiling and the 1.45 resting edge.
+
+**Sky popover:** a ghost icon button (telescope, 44px on phones, 40px on desktop, text-2) in the top bar after Explain. `PopoverContent` is glass, 272px wide, `p-3`, with a 16px collision gutter. Title `Sky` 13/500 with a ghost `Reset` at sm. Strength is a segmented radio group in the scope filter's style: `rounded-lg border bg-surface-2 p-0.5`, three `min-h-9` stops, selected `bg-indigo-bright/20 text-foreground`, others text-2 with `hover:bg-surface-3`, arrow keys to move. The five layers are rows (min-h 40) with a 13px text-2 label and a shadcn `Switch`, disabled and text-3 when strength is Off.

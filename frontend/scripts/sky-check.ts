@@ -1,7 +1,8 @@
 // Sky settings logic and band geometry (docs/design/sky-pattern.md). Run: npm run sky:check
 import { strict as assert } from "node:assert";
-import { DEFAULTS, KEY, LAYERS, fieldKey, fromQuery, gain, load, parse, save } from "../src/graph/skySettings.ts";
-import { bandAt, fbm } from "../src/graph/sky.ts";
+import { DEFAULTS, IMAGE_LAYERS, KEY, LAYERS, fromQuery, gain, layerOpacity, load, parse, save } from "../src/graph/skySettings.ts";
+import { readFileSync } from "node:fs";
+import { bandAt, fbm, sizeKey } from "../src/graph/sky.ts";
 
 // parse keeps only known, well-typed keys
 assert.deepEqual(parse(null), DEFAULTS);
@@ -36,10 +37,19 @@ assert.equal(fromQuery(null), null);
 // strength scales every layer; Off is zero
 assert.equal(gain(0), 0);
 assert.ok(gain(1) < gain(2));
-// a chart-ring toggle never re-renders the deep field; any field change or Off does
-assert.equal(fieldKey(DEFAULTS), fieldKey({ ...DEFAULTS, graticule: true }));
-assert.notEqual(fieldKey(DEFAULTS), fieldKey({ ...DEFAULTS, band: false }));
-assert.equal(fieldKey({ ...DEFAULTS, strength: 0 }), "off");
+// a toggle or strength change is opacity only: layers are rendered at Rich and the render key is the window size alone
+const o = layerOpacity(DEFAULTS);
+assert.ok(Math.abs(o.band - gain(1) / gain(2)) < 1e-9);
+assert.equal(layerOpacity({ ...DEFAULTS, band: false }).band, 0);
+assert.equal(layerOpacity({ ...DEFAULTS, strength: 2 }).dust, 1);
+for (const k of IMAGE_LAYERS) assert.equal(layerOpacity({ ...DEFAULTS, strength: 0 })[k], 0);
+assert.equal(sizeKey(1488, 948), "1488x948");
+// structural: apply() (the onSky handler) sets opacity and never calls a renderer; only renderAll renders
+const src = readFileSync(new URL("../src/graph/sky.ts", import.meta.url), "utf8");
+const applyBody = src.slice(src.indexOf("export function apply()"), src.indexOf("\n}\n", src.indexOf("export function apply()")));
+assert.ok(!/render|fields\(/.test(applyBody.replace("performance.measure(\"sky-apply\"", "")), "apply() must not render");
+assert.ok(/onSky\(apply\)/.test(src), "settings changes go to apply()");
+assert.ok(!/onSky\(renderAll\)/.test(src));
 
 // noise is deterministic and in range
 assert.equal(fbm(12.3, 4.5, 5), fbm(12.3, 4.5, 5));

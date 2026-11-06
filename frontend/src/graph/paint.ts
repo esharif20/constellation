@@ -93,6 +93,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   let introEnd = start + FEEL.introMs * 1.4 + 400;
   const far = Math.max(1, ...model.nodes.map((n) => Math.hypot(n.x ?? 0, n.y ?? 0)));
   const STEP = far * 0.22; // ring spacing: the 5th ring sits just outside the outermost star
+  let ringA = 0;
   const grid = graticulePath(STEP); // drawn only when the Sky settings turn chart rings on
   for (const n of model.nodes) n.born = reducedMotion ? 0 : start + (Math.hypot(n.x ?? 0, n.y ?? 0) / far) * FEEL.introMs * 0.7 + Math.random() * 120;
 
@@ -192,7 +193,8 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     }
     ctx.restore();
     // Sky graticule: a polar star chart anchored to the map, its path built once; full to 1.5x the fitted zoom, gone by 4x
-    const ga = sky.graticule ? clamp01((4 - k / view.fitK) / 2.5) * skyGain : 0;
+    ringA = ease(ringA, sky.graticule ? skyGain : 0, fk); // a toggle fades the rings like the image layers
+    const ga = clamp01((4 - k / view.fitK) / 2.5) * ringA;
     if (ga > 0.01) {
       ctx.save();
       ctx.globalAlpha = ga * ink.skyRing; ctx.strokeStyle = ink.haloName; ctx.lineWidth = 1 / k;

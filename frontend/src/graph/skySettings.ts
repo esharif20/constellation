@@ -34,8 +34,11 @@ export function fromQuery(sky: string | null): SkySettings | null {
   return null;
 }
 
-// the deep field image only depends on these; a graticule toggle must not re-render it
-export const fieldKey = (s: SkySettings) => (s.strength ? [s.band, s.dust, s.anchors, s.grain, s.strength].map(Number).join("") : "off");
+// Each image layer is rendered once at Rich strength; a toggle or strength change only sets its CSS opacity.
+export type ImageLayer = "band" | "dust" | "anchors" | "grain";
+export const IMAGE_LAYERS: ImageLayer[] = ["band", "dust", "anchors", "grain"];
+export const layerOpacity = (s: SkySettings) =>
+  Object.fromEntries(IMAGE_LAYERS.map((k) => [k, s[k] ? gain(s.strength) / gain(2) : 0])) as Record<ImageLayer, number>;
 
 export function load(storage: Pick<Storage, "getItem"> | null): SkySettings {
   try { return parse(JSON.parse(storage?.getItem(KEY) ?? "null")); } catch { return { ...DEFAULTS }; }

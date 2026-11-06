@@ -51,13 +51,18 @@
   /* sky layers (#60), static CSS under the transparent canvas: derived from tokens, zero per-frame cost */
   --vignette: radial-gradient(ellipse 100% 100% at 50% 42%, transparent 55%, color-mix(in srgb, var(--surface-0) 55%, transparent) 100%);
   --nebula: radial-gradient(ellipse 70% 60% at 18% 82%, color-mix(in srgb, var(--indigo) 9%, transparent), transparent 70%), radial-gradient(ellipse 55% 50% at 88% 12%, color-mix(in srgb, var(--indigo) 5%, transparent), transparent 70%);
-  /* sky pattern (docs/design/sky-pattern.md): alphas only, each painting an existing ink; the Sky popover's strength multiplies them (Rich 1.55x) */
-  --sky-band: 0.13; /* Milky Way band peak: --indigo halo, --halo-name arms, --k-plugin starlight in the core bulge */
-  --sky-lane: 0.3; /* dust lanes, --surface-0, cut into the band */
-  --sky-star: 0.34; /* star dust peak, --text with a few --halo-name and --k-plugin */
-  --sky-anchor: 0.45; /* the ten bright stars */
+  /* sky (docs/design/sky-pattern.md): three Milky Way hues, then alphas at Rich strength; Subtle shows each layer at 1/1.55 opacity */
+  --sky-core: #f4a39a; /* salmon-peach glow of the core bulge */
+  --sky-rose: #c47aa6; /* dusty rose between core and arms, and at dust edges */
+  --sky-arm: #8e93da; /* lavender blue-violet arms and cool stars */
+  --sky-band: 0.18; /* band glow peak */
+  --sky-lane: 0.5; /* dust over the band, --surface-0 */
+  --sky-outside: 0.3; /* near-black navy outside the band, --surface-0 */
+  --sky-haze: 0.09; /* unresolved-star haze in the band, --text */
+  --sky-star: 0.5; /* star dust peak, --text with some --sky-core and --sky-arm */
+  --sky-anchor: 0.7; /* the dozen bright stars */
   --sky-grain: 0.03; /* film grain peak, --text */
-  --sky-ring: 0.1; /* chart rings and ticks, --halo-name (canvas, map-anchored) */
+  --sky-ring: 0.1; /* chart rings and ticks, --halo-name (canvas, map-anchored, scaled by strength) */
   --sky-ring-label: 0.42; /* chart ring labels, --text-3 */
 
   /* shadcn semantic tokens */
@@ -174,11 +179,12 @@
     background: var(--vignette), var(--nebula), radial-gradient(120% 90% at 50% 38%, var(--night-lift) 0%, var(--night) 62%);
     background-color: var(--night);
   }
-  /* deep field: an image rendered once per size and setting by graph/sky.ts, on a fixed layer under #root (z -1); the
-     compositor moves it for the opt-in drift, so no frame of JS or canvas work */
-  [data-sky-on] body::before { content: ""; position: fixed; inset: -24px; z-index: -1; pointer-events: none; background: var(--sky-field, none) center / cover no-repeat; }
-  [data-drift] body::before { animation: sky-drift 180s ease-in-out infinite alternate; }
-  @media (prefers-reduced-motion: reduce) { [data-drift] body::before { animation: none; } }
+  /* sky layers: one fixed element per layer under #root (z -1), each an image rendered once per window size by
+     graph/sky.ts; a setting change fades opacity only (--t, 0 under reduced motion); the compositor runs the opt-in drift */
+  .sky-layers { position: fixed; inset: -24px; z-index: -1; pointer-events: none; }
+  .sky-layer { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity var(--t) var(--ease-out); }
+  [data-drift] .sky-layers { animation: sky-drift 180s ease-in-out infinite alternate; }
+  @media (prefers-reduced-motion: reduce) { [data-drift] .sky-layers { animation: none; } }
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
   :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 }
