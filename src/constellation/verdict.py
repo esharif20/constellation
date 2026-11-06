@@ -99,10 +99,12 @@ def specificity(description: str) -> tuple[int, bool]:
 def referenced_by(item: Item, data: dict[str, Any]) -> tuple[str, ...]:
     """Names of enabled Items that lean on this one: a wrapper over it, or a description naming it (whole word)."""
     name = item["name"]
+    shown = item.get("match", name)  # the real name: `name` may carry a qualifier that no description contains
     found = {o["a"] for o in data.get("overlaps", []) if o["verdict"] == "wrapper" and o["b"] == name}
-    pattern = re.compile(rf"(?<![\w-]){re.escape(name)}(?![\w-])", re.IGNORECASE)
+    found |= set(item.get("callers", ()))
+    pattern = re.compile(rf"(?<![\w-]){re.escape(shown)}(?![\w-])", re.IGNORECASE)
     for other in data["items"]:
-        if other["name"] != name and not other.get("disabled") and pattern.search(other["description"]):
+        if other.get("match", other["name"]) != shown and not other.get("disabled") and pattern.search(other["description"]):
             found.add(other["name"])
     return tuple(sorted(found))
 

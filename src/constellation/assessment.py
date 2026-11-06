@@ -55,6 +55,10 @@ def adapt(data: dict[str, Any], keys: dict[str, str]) -> dict[str, Any]:
     for r in data.get("relations") or []:
         if r["kind"] == "contains":
             parents.setdefault(r["target"], r["source"])
+    callers: dict[str, list[str]] = {}
+    for r in data.get("relations") or []:
+        if r["kind"] == "triggers" and r["source"] in keys:
+            callers.setdefault(r["target"], []).append(keys[r["source"]])
     kinds = {i["id"]: i["kind"] for i in data["items"]}
     items = []
     for i in data["items"]:
@@ -62,6 +66,7 @@ def adapt(data: dict[str, Any], keys: dict[str, str]) -> dict[str, Any]:
         item: dict[str, Any] = {
             "id": i["id"], "kind": i["kind"], "name": keys[i["id"]], "description": i["description"], "origin": i.get("origin"),
             "always_on": (costs.get(i["id"]) or {}).get("always_on"), "scope": i.get("scope", "global"),
+            "match": i["name"], "callers": sorted(callers.get(i["id"], [])),
         }  # fmt: skip
         if i.get("disabled"):
             item["disabled"] = True
