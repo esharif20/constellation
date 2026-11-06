@@ -2,27 +2,33 @@ import { ArrowLeftIcon, OrbitIcon, XIcon } from "lucide-react";
 import { Pane } from "@/components/Motion";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { withContents, type Assessment, type BriefData, type Cluster, type GNode, type Model } from "@/graph/model";
-import { instructionFor } from "@/lib/instruction";
+import { withContents, type Assessment, type BriefData, type Habits, type Cluster, type GNode, type Model } from "@/graph/model";
+import { richInstruction } from "@/lib/instruction";
 import { verdictOf } from "@/lib/verdict";
-import { Actions } from "./inspector/Actions";
+import { nextStep } from "@/lib/yours";
+import { Actions, briefRow } from "./inspector/Actions";
 import { About } from "./inspector/About";
 import { Facts } from "./inspector/Facts";
 import { Header } from "./inspector/Header";
 import { KindDetails } from "./inspector/KindDetails";
 import { Related } from "./inspector/Related";
+import { WhatFor, Yours } from "./inspector/Yours";
 import { VerdictBanner } from "./inspector/Verdict";
 
-type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string; whatIf?: ReadonlySet<GNode> | null; removed?: ReadonlySet<GNode> | null; onToggle?: (n: GNode) => void; brief?: BriefData; assessments?: Record<string, Assessment>; onAsk?: (text: string) => void; onCluster?: (c: Cluster) => void }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
+type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string; whatIf?: ReadonlySet<GNode> | null; removed?: ReadonlySet<GNode> | null; onToggle?: (n: GNode) => void; brief?: BriefData; assessments?: Record<string, Assessment>; habits?: Habits | null; onFind?: (name: string) => void; onAsk?: (text: string) => void; onCluster?: (c: Cluster) => void }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
 
 // Non-modal on purpose: the map stays live beside it. A side panel on desktop, a bottom sheet on phones.
-export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo, whatIf = null, removed = null, onToggle, brief, assessments, onAsk, onCluster }, ref) {
+export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo, whatIf = null, removed = null, onToggle, brief, assessments, habits = null, onFind, onAsk, onCluster }, ref) {
   const scroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scroll.current?.scrollTo({ top: 0 });
   }, [item]);
 
   const verdict = verdictOf(item, assessments ?? model.assessments);
+  const habit = habits?.items[item.id];
+  const first = model.overlapsOf.get(item)?.[0], twinId = verdict.twin ?? (first && (first.a === item ? first.b : first.a).id);
+  const twin = twinId ? model.nodes.find((n) => n.id === twinId) : undefined;
+  const next = nextStep(verdict.action, verdict.tier, !!brief?.checklist && !!briefRow(brief, item), !!habit?.pinned);
   return (
     <Pane
       as="aside" from="right"
@@ -37,7 +43,9 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
       <div ref={scroll} className="overflow-y-auto overscroll-contain px-4 pt-3 pb-6 sm:px-6 sm:pt-6">
         {backTo && <Button variant="ghost" className="-mx-2 mb-1 h-10 max-w-[calc(100%-3rem)] justify-start gap-2 px-2 text-[13px] text-text-2" onClick={onClose}><ArrowLeftIcon aria-hidden /><span className="truncate">Back to {backTo}</span></Button>}
         <Header item={item} model={model} />
+        <WhatFor item={item} model={model} />
         <VerdictBanner verdict={verdict} item={item} model={model} />
+        <Yours key={item.id} item={item} model={model} habits={habits} twin={twin} />
         <Facts model={model} item={item} onSelect={onSelect} onPreview={onPreview} />
 
         <About item={item} />
@@ -47,7 +55,7 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
         {whatIf && onToggle && <WhatIfToggle model={model} item={item} whatIf={whatIf} removed={removed} onToggle={onToggle} />}
       </div>
       <footer className="shrink-0 border-t border-line-1 px-4 pt-2 pb-[max(8px,env(safe-area-inset-bottom))] sm:px-6 sm:pt-3 sm:pb-4">
-        <Actions key={item.id} item={item} instruction={instructionFor(item, model, verdict)} brief={brief} onAsk={onAsk} />
+        <Actions key={item.id} item={item} instruction={richInstruction(item, model, verdict, { uses: item.usage?.count, activeDays: habits?.activeDays })} brief={brief} next={next} pinned={!!habit?.pinned} twin={twin} onSelect={onSelect} onFind={onFind} onAsk={onAsk} />
       </footer>
     </Pane>
   );

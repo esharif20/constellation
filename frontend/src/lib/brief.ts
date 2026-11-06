@@ -7,7 +7,7 @@ const arr = (x: unknown): x is unknown[] => Array.isArray(x);
 // ungrouped list ("Worth a look") with no range. Delete the legacy branch when slice S4 has wired the new /api/brief.
 export function briefFrom(data: unknown): BriefData | null {
   const d = data as Partial<BriefData> & Partial<Legacy>;
-  if (arr(d?.safe?.rows) && arr(d?.look?.rows) && arr(d?.wait?.rows) && d.range) return d as BriefData;
+  if (arr(d?.safe?.rows) && arr(d?.look?.rows) && arr(d?.wait?.rows) && d.range) return (d.scope && !arr(d.scope.rows) ? { ...d, scope: undefined } : d) as BriefData; // the server sends scope with a caveat but no rows when nothing is out of scope
   if (!arr(d?.cost?.rows) || !arr(d?.pairs?.rows)) return null;
   const rows = [...d.pairs.rows, ...d.cost.rows].map((r) => ({ ...r, saves: r.saves ?? r.tokens_saved ?? null }));
   return { safe: { rows: [] }, look: { rows }, wait: { summary: [], rows: [] }, range: { low: 0, high: 0, unknown: 0 }, scope: d.scope, checklist: d.checklist };

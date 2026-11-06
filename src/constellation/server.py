@@ -190,6 +190,10 @@ def _checklist_path(checklist: Path, scan_file: Path, what: str = "Checklist") -
     return path
 
 
+# Counts and words only: no days, hashes or paths.
+HABIT_FIELDS = ("sessions_used", "days_used", "idle_active_days", "mean_gap", "trend", "percentile", "pinned")
+
+
 def create_app(
     scan_file: Path,
     checklist: Path | None = None,
@@ -306,6 +310,7 @@ def create_app(
         ev = found.evidence
         return {
             "items": {id_: assessment_json(a) for id_, a in found.assessments.items()},
+            "habits": {id_: {f: getattr(e, f) for f in HABIT_FIELDS} for id_, e in ev.items.items()},
             "evidence": {"sessions": ev.sessions, "active_days": ev.active_days, "span_days": ev.span_days, "ledger": found.ledger},
         }
 

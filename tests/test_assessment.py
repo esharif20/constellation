@@ -118,6 +118,9 @@ def test_no_project_hash_or_day_leaves_in_a_reply(tmp_path, monkeypatch):
     for route in ("/api/assess", "/api/brief"):
         text = client.get(route).text
         assert HASH not in text and "2026-1" not in text, route
+    habits_json = client.get("/api/assess").json()["habits"]
+    assert set(habits_json["s:a"]) == {"sessions_used", "days_used", "idle_active_days", "mean_gap", "trend", "percentile", "pinned"}
+    assert habits_json["s:a"]["sessions_used"] == 60 and habits_json["s:a"]["days_used"] == 60 and habits_json["s:b"]["sessions_used"] == 0
     assert client.get("/api/assess").json()["evidence"] == {"sessions": 120, "active_days": 60, "span_days": 60, "ledger": True}
 
 

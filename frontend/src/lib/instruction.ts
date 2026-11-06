@@ -45,3 +45,22 @@ export function instructionFor(item: GNode, model: Pick<Model, "overlapsOf"> & P
   if (!t.endsWith("Change nothing.")) t += " Show me exactly what will change and wait for my OK.";
   return cut(t);
 }
+
+const CONFIRM = " Show me exactly what will change and wait for my OK.";
+const NOTHING = " Change nothing.";
+const REFS = 5;
+export type Facts = { activeDays?: number | null; uses?: number | null };
+
+// The fuller hand-off for Claude Code: the base instruction, then why, where, what it saves and what to check first. Only counts, the
+// server's label and cleaned names are pasted; descriptions and other third-party text never are.
+export function richInstruction(item: GNode, model: Pick<Model, "overlapsOf" | "links"> & Partial<Pick<Model, "nodes">>, verdict: Verdict, facts: Facts = {}): string {
+  const base = instructionFor(item, model, verdict), tail = [CONFIRM, NOTHING].find((t) => base.endsWith(t));
+  const lines = [tail ? base.slice(0, -tail.length) : base];
+  if (verdict.tier) lines.push(`Why: Constellation marked it "${cleanName(verdict.label).replaceAll('"', "'")}"${facts.uses != null && facts.activeDays != null ? `, with ${facts.uses} uses in ${facts.activeDays} active days` : ""}.`);
+  if (item.source.startsWith("~/") && cleanName(item.source) === item.source) lines.push(`Where: ${item.source}`);
+  if (verdict.saves != null && verdict.saves > 0 && ["remove", "disable_plugin", "remove_twin", "use_underlying"].includes(verdict.action)) lines.push(`It would save about ${verdict.saves.toLocaleString()} tokens at the start of every session.`);
+  const callers = [...new Set(model.links.filter((l) => l.target === item && l.kind !== "contains").map((l) => quote(l.source.name)))];
+  if (callers.length && verdict.action !== "none") lines.push(`Before changing it, check it is not referenced by ${callers.slice(0, REFS).join(", ")}${callers.length > REFS ? ` and ${callers.length - REFS} more` : ""}.`);
+  if (tail) lines.push(tail.trim());
+  return lines.join("\n");
+}
