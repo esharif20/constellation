@@ -65,29 +65,28 @@ you give a key. Offline must still be useful. Paid calls happen only for new or 
 Known limit, accepted: letters-only or digits-only secrets, and secrets under 8 characters, are not caught by the
 entropy step. A false hit costs only a slightly worse label; a miss would leak, so the thresholds lean strict.
 
-## 6. Problems we hit and how we solved them
+## 6. Timeline: what we built and what went wrong
 
-**Privacy and safety**
-- *Secrets hid in names and ids.* Fixed by `redact_tree` over the whole saved scan, with unique ids (stable keyed hash) so redaction cannot merge two Items.
-- *False `[REDACTED]` on ordinary words.* Cause: secrets guessed from skill bodies, plus re-redacting markers. Fixed with the 8-character floor, a single-pass matcher and no guessing.
-- *Overlapping secrets leaked a tail.* The matcher now merges spans before replacing.
-- *A cloned repo could trick `scan` into overwriting a file or being trusted as your scan.* Writes now use a fresh private temp file, and `./constellation.json` is trusted only if it is your own mode-600 file.
-- *Expansion starts your own MCP servers.* Tested against real crashing, hanging and flooding servers; failures return a fixed message and never raw output.
+About 460 commits over four days (3 to 6 November 2026), built by parallel agents with a merge-and-gate loop
+(ruff, mypy, tests, mutation on core logic, privacy review) before each push.
 
-**Quality of the map**
-- *Everything landed in one "Other" cluster.* New grouping engine: combined similarities, a 20% size cap, minimum sizes and categories. Works without the local model ("words only").
-- *Weak cluster names* ("Sort Involve"). Filler-word stoplist and shared-bigram names. Still weak for hook events: next fix.
-- *Verdicts need history.* Short history honestly shows "not enough history" instead of guessing.
+**Day 1, 3 Nov: the skeleton and Overlaps.**
+- Built: scan skills, agents and local MCP servers into Items; the redaction gate; Overlaps in layers (identical text, thin wrappers, embeddings, then a model labels each pair); CLI with a dry run that prints exactly what would be sent; first graph app.
+- Problem: privacy had to hold before any feature. Decision: only kinds, names and descriptions leave, after redaction; offline must still work.
 
-**Experience**
-- *Terminal hard to navigate, ugly find output.* Mole-style menu with Esc back, cards for Find, progress bar, and real pseudo-terminal tests that caught wrapping, resize and 40-column bugs.
-- *Graph drag felt wrong.* Obsidian-style springs: the star follows, neighbours stretch, everything returns home. Under repair after a regression.
-- *UI panels stuck or duplicated.* A `Presence` timer bug fixed with a browser check.
+**Day 2, 4 Nov: usage, cost and the first UI polish.**
+- Built: usage read from transcripts, session-start cost, label cache and offline mode, MCP servers from all scopes, the local Ask panel (free, local search), the Snapshot export, design pass on the graph.
+- Problems: the usage reader dropped data on bad lines (fixed: keep reading, count and report skips); Snapshot leaked in places (scrub gaps closed after review); the first search was too exact (made forgiving).
 
-**Process**
-- *Mutation testing too costly everywhere.* Decision: core backend logic gets per-function zero-survivor runs; UI and terminal glue get exact-output, browser and pty tests. Reports say which is which.
-- *Parallel agents collided* on one lock, one tracker file and some commands. Lock protocol, keep-both merges, and one merge at a time with full gates.
-- *Hangs when piping long test runs.* Redirect output to a file.
+**Day 3, 5 Nov: the Inspector, Brief and Ask grow up.**
+- Built: redesigned Inspector, per-project usage, scope filter, what-if removal, Explain card, trigger audit, readable chat answers, resumable scan, diff between scans, lenses.
+- Problems: Ask answers were unreadable walls (new structured reply format); per-project usage touched sensitive data (privacy-reviewed, hashes never leave); agents' branches kept colliding (keep-both merges, one merge at a time).
+
+**Day 4, 6 Nov: verdicts, packaging, terminal, then hardening.**
+- Built, morning: habit ledger and shared verdict engine, weekly report, Sky background, panel motion, click-outside dismissal, package and installer, grouped help and completions.
+- Problems found by using it: false `[REDACTED]` on ordinary words (stopped guessing secrets from skill bodies); the saved scan was not fully redacted and ids could collide (whole-scan redaction, unique ids); clustering put almost everything in "Other" (new grouping engine with a 20% cap, then better names); the terminal was hard to navigate and `find` output unreadable (Mole-style menu with Esc back, cards, progress bar).
+- Built, afternoon: safe-removal preview, Expansion (list an MCP server's tools), profile, purge, status, find filters, advise, Obsidian-style elastic drag, Snapshot with pre-run Expansions and canned Ask.
+- Problems: CI failed on an unused import I had reported clean (fixed, gates re-run); the repo went public, so every screenshot and fixture was audited for real data (none found); a privacy review found a symlink overwrite and an untrusted `./constellation.json` (fixed); real pty tests found wrapping, resize and 40-column bugs; mutation runs became a bottleneck on one shared lock (rule: core logic only); the elastic drag regressed after a browser fix and is being repaired.
 
 ## 7. Not done
 
