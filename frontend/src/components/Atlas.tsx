@@ -1,3 +1,5 @@
+import { escape, RANK } from "@/lib/dismiss";
+import { useLayer } from "@/lib/useLayer";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Presence } from "@/components/Motion";
 import { Legend } from "@/components/Legend";
@@ -217,6 +219,12 @@ export default function Atlas({ model }: { model: Model }) {
     map.current?.focusCanvas();
   }, [clearHighlight]);
 
+  // Docked layers (docs/design/dismiss.md): Escape closes the Inspector, then the cluster card, then the highlight, then the Brief
+  useLayer(!!selected && showInspector, { rank: RANK.inspector, close: close });
+  useLayer(!!cluster && !selected, { rank: RANK.cluster, close: () => leave() });
+  useLayer(!!highlight, { rank: RANK.highlight, close: clearHighlight });
+  useLayer(showBrief, { rank: RANK.brief, close: () => { openBrief(false); requestAnimationFrame(() => pill.current?.focus()); } });
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = e.target instanceof Element && !!e.target.closest('input, textarea, select, [contenteditable="true"]');
@@ -224,7 +232,7 @@ export default function Atlas({ model }: { model: Model }) {
       if (e.key === "b" && !e.metaKey && !e.ctrlKey && !e.altKey && brief) { e.preventDefault(); if (cluster) leave(); openBrief(cluster || chatOpen ? true : !briefOpen); } // opening the Brief leaves focus
       if (e.key === "a" && !e.metaKey && !e.ctrlKey && !e.altKey && !chatOpen) { e.preventDefault(); openChat(true); }
       if (e.key === "x" && !e.metaKey && !e.ctrlKey && !e.altKey && whatIf && selected) { e.preventDefault(); toggleRemove(selected); }
-      if (e.key === "Escape") { if (scrub) setScrub(null); else if (chatOpen) openChat(false); else if (cluster && !selected) leave(); else close(); } // search and Brief handle their own Escape first
+      if (e.key === "Escape") { if (!escape()) close(); } // the dismiss stack closes one layer per press; search, popovers and a focused panel handle their own Escape first
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);

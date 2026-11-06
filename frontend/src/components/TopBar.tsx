@@ -82,7 +82,7 @@ function Clusters({ model, onCluster }: Pick<Props, "model" | "onCluster">) {
       <PopoverTrigger asChild>
         <button type="button" className="pointer-events-auto -my-3 cursor-pointer py-3 underline decoration-text-3 decoration-dotted underline-offset-4 hover:text-foreground aria-expanded:text-foreground">{model.clusters.length} clusters</button>
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={8} className="glass w-[min(320px,calc(100vw-2rem))] p-1">
+      <PopoverContent align="start" sideOffset={8} closeButton={false} className="glass w-[min(320px,calc(100vw-2rem))] p-1">
         <Command>
           <CommandInput placeholder="Find a cluster" aria-label="Find a cluster" />
           <CommandList aria-label="Clusters">
@@ -167,6 +167,7 @@ function Search({ model, query, found, rows, clusterHits, note, pending, onQuery
         <PopoverContent
           align="start"
           sideOffset={8}
+          closeButton={false}
           onOpenAutoFocus={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
           className="glass w-(--radix-popover-trigger-width) p-1"

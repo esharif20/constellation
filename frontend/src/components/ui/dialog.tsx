@@ -6,11 +6,28 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+import { RANK } from "@/lib/dismiss"
+import { useLayer } from "@/lib/useLayer"
 
+const Inside = React.createContext<React.RefObject<HTMLDivElement | null> | null>(null)
+
+// Joins the dismiss stack (lib/dismiss.ts) so opening it closes any popover and Escape order stays one layer at a time.
 function Dialog({
+  open: openProp,
+  onOpenChange,
+  defaultOpen,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  const [own, setOwn] = React.useState(!!defaultOpen)
+  const content = React.useRef<HTMLDivElement>(null)
+  const open = openProp ?? own
+  const set = (o: boolean) => { setOwn(o); onOpenChange?.(o) }
+  useLayer(open, { rank: RANK.dialog, close: () => set(false), inside: () => [content.current] })
+  return (
+    <Inside.Provider value={content}>
+      <DialogPrimitive.Root data-slot="dialog" open={open} onOpenChange={set} {...props} />
+    </Inside.Provider>
+  )
 }
 
 function DialogTrigger({
@@ -55,10 +72,12 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const inside = React.useContext(Inside)
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
+        ref={inside}
         data-slot="dialog-content"
         className={cn(
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-(--m-modal-in) ease-(--ease-out) outline-none sm:max-w-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.98] data-[state=closed]:duration-(--m-modal-out) data-[state=closed]:ease-(--ease-in)",
@@ -71,7 +90,7 @@ function DialogContent({
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2"
+              className="absolute top-2 right-2 max-sm:size-10"
               size="icon-sm"
             >
               <XIcon

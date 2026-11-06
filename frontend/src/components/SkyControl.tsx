@@ -21,7 +21,7 @@ export const SkyControl = memo(function SkyControl() {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={8} collisionPadding={16} className="glass w-[min(272px,calc(100vw-32px))] gap-3 p-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pr-8">
           <h2 className="text-[13px] font-medium text-foreground">Sky</h2>
           <Button variant="ghost" size="sm" className="-mr-1 h-8 px-2 text-xs text-text-2" onClick={() => setSky({ ...DEFAULTS })}>Reset</Button>
         </div>

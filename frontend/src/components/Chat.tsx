@@ -1,3 +1,5 @@
+import { RANK } from "@/lib/dismiss";
+import { useLayer } from "@/lib/useLayer";
 import { ArrowRightIcon, CheckIcon, CopyIcon, ListPlusIcon, MessageCircleIcon, RotateCcwIcon, SendIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Pane, Presence } from "@/components/Motion";
@@ -248,6 +250,8 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
     onOpen(false);
     requestAnimationFrame(() => document.getElementById("ask-trigger")?.focus());
   }
+  // On the dismiss stack, but a click on a star or the Inspector keeps it (that is the "ask about this" flow); empty sky, Escape and the X close it.
+  useLayer(open, { rank: RANK.panel, press: false, close: (why) => (why === "escape" ? collapse() : onOpen(false)) });
 
   function reset() {
     request.current?.abort();

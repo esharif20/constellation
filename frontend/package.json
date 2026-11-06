@@ -25,7 +25,9 @@
     "chat:cluster:check": "node scripts/chat-cluster-check.mjs",
     "motion:check": "node scripts/motion-check.ts",
     "motion:perf": "node scripts/motion-perf.mjs",
-    "sky:check": "node scripts/sky-check.ts"
+    "sky:check": "node scripts/sky-check.ts",
+    "dismiss:check": "node scripts/dismiss-check.ts",
+    "dismiss:browser": "node scripts/dismiss-browser-check.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

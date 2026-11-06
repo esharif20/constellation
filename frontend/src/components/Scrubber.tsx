@@ -1,3 +1,5 @@
+import { RANK } from "@/lib/dismiss";
+import { useLayer } from "@/lib/useLayer";
 import { XIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +10,7 @@ import { day } from "@/graph/model";
 // Time travel (#70): one step per scan day. Stars never move; the ones first seen after the date fade out in place.
 export function Scrubber({ entries, nodes, firstSeen, date, onDate, onClose }: { entries: HistoryEntry[]; nodes: { id: string }[]; firstSeen: Record<string, string>; date: string; onDate: (d: string) => void; onClose: () => void }) {
   const range = useRef<HTMLInputElement>(null);
+  useLayer(true, { rank: RANK.panel, press: false, background: false, close: onClose }); // a mode: X and Escape close it; it joins the stack so Escape order and "one at a time" hold
   useEffect(() => range.current?.focus({ preventScroll: true }), []);
   const i = Math.max(0, entries.findIndex((e) => e.date === date)), here = nodes.length - absentAt(nodes, firstSeen, date).size;
   const gone = Math.max(0, entries[i].items - here); // on that day but not in today's scan: counted, never drawn (their names are not kept)

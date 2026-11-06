@@ -1,3 +1,4 @@
+import { background as dismissBackground } from "@/lib/dismiss";
 import { easeCubicInOut } from "d3-ease";
 import type { ForceLink } from "d3-force";
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type PointerEvent } from "react";
@@ -395,6 +396,7 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
     if (!g || !box) return;
     if (nameClick.current) { nameClick.current = false; return; }
     hideTip();
+    dismissBackground(); // a click on empty canvas also closes any popover or the Ask panel (a drag never reaches here)
     const x = e.clientX - box.left, y = e.clientY - box.top, named = painter.clusterAt(x, y);
     if (named) return onCluster(named);
     if (cluster && !selected) {
