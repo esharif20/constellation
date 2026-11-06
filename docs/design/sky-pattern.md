@@ -2,6 +2,50 @@
 
 The #60 sky (night radial, vignette, indigo nebula) reads as depth but is flat. Two candidate rounds led to this: the owner chose the deep field's Milky Way band (round 2, `?sky=b`) and asked for it to look much more like the Milky Way while staying quiet behind the graph. The result is a Milky Way background with five layers and a Sky popover to tune it.
 
+## Round 6: a photograph, not a smudge (owner: round 5 "glitchy", "purple dust around the graph", "needs to be a lot better")
+
+**Art direction.** I rendered three candidates in the lab on one geometry (`LOOK` in `graph/sky.ts`; `LOOK='{...}' node scripts/sky-render.ts`):
+- A, photograph: a narrow, luminous band with a warm core and one clean, continuous lane
+- B, starfield: the band shown mostly through star density
+- C, ribbon: a smooth luminous stroke
+
+B reads as noise and grain, and C as a CG gradient. A is closest to the reference photo: a defined lane, a bright warm bulge, few flecks. **A is the default.**
+- It is narrower: sigma 8.5% of the short side, down from 12%.
+- The core is about 40% brighter.
+- The rift is cleaner: raggedness 0.45, down from 0.7.
+- Mottle and filaments drop to about a third.
+- Haze is about half. Stars are 22% fewer.
+- The cool edges move 60% of the way from lavender toward plain starlight, which removes the grey-violet cast.
+
+Candidates: `screenshots/sky/r6-candidate-{a-photograph,b-starfield,c-ribbon}.png`.
+
+**Purple dust around the graph.** It had two sources: the band left at 22% inside the graph mask, and the #60 indigo `--nebula` tint lying under the band. The band is now fully hidden behind the graph (`--sky-hole: 0`, stars at 0.6), and the nebula is removed. The soft bluish glows that remain are the cluster halos (`--halo`, unchanged). Crops: `r6-dust-before.png` and `r6-dust-after.png`. Behind a centred graph (lab, Subtle), p95 went from **1.09 to 1.03**.
+
+**Glitches, measured** (headless Chrome, production build, a synthetic 251-Item setup, 2000x1150 at 2x):
+
+| | before | after |
+| --- | --- | --- |
+| pan | 4 long tasks, 850 ms, max frame 233 ms | **0 long tasks**, max frame 16.8 ms (same as the sky off) |
+| zoom | 0 long tasks | 0 long tasks |
+| 3 quick resizes | 7–10 long tasks, 1.1–1.4 s | 1 long task, 51 ms |
+
+The causes and fixes:
+1. A pan at the fitted zoom counted as "settled", so it re-rendered the sky in the middle of a gesture. Now the band is placed and rendered once per window size, after the first fit. A later pan or refit never moves it, so it never pops.
+2. The mask was updated every 120 ms during a gesture, and each update repaints a full-screen layer. Now it moves once, 200 ms after the camera rests.
+3. The sky rendered even when set to Off. Now nothing renders until it is turned on.
+4. The layers were 4000x2300 at 2x. They are now capped at 1.5x device px.
+5. Images now decode before the swap, and each layer fades in on first load.
+6. `will-change: opacity` and `contain: strict` keep the layers off the map's paint.
+7. A burst of resizes now renders once, 400 ms after it stops.
+
+**Chart rings default.** Stored settings now carry a version (`v: 2`). A record from before that gets the new layers once (rings on) and keeps its strength. Anything saved after that is the reader's own choice and is kept. `sky:check` covers it.
+
+**Graph placement.** I could not reproduce the off-screen fit. I tried demo-250, demo-offline and a synthetic 251-Item, 24-cluster setup, at 2000x1150 and 1440x820, at 1x and 2x, in Chrome and WebKit, with the Brief open, closed and delayed, and with a resize during load. Every fitted view held the whole graph. Two hardenings:
+- StarMap re-checks its size when a background tab is shown (`visibilitychange`), in case a tab loaded hidden was sized before its window.
+- `layout:check` now also asserts the fit at 2000x1150 (inside >= 98%).
+
+The sky never touches the camera.
+
 ## Round 5: a band, not clouds (owner: round 4 "doesn't really look like the Milky Way band")
 
 Round 4's blurred domain-warped noise made shapeless violet clouds: no band, no rift, no star texture, and the dimming assumed the graph sat in the middle of the screen. A photo reads as the Milky Way because of its geometry, so round 5 rebuilds it in one galaxy frame (u along the plane, v across) shared by every layer:
@@ -22,7 +66,7 @@ The renderers are pure (numbers in, RGBA out). `node scripts/sky-render.ts out.p
 
 **Honest assessment:** at first glance it reads as a Milky Way band: diagonal, warm core, a dark rift along it, dense fine stars. Compared with the photo it is dimmer and less saturated on purpose, and its dust has less fine filament detail. With the graph fitted to the screen, most of the band is masked, and it shows mainly in the corners and once the reader pans.
 
-Screenshots: `screenshots/sky/milkyway-1440.png`, `milkyway-390.png`, `milkyway-corner.png` (graph panned to the bottom right), `milkyway-lab-rich.png`.
+Screenshots: `screenshots/sky/milkyway-1440.png`, `milkyway-390.png`, `milkyway-corner.png` (graph panned to the bottom right); round 6 replaced them.
 
 ## Round 4: realism (owner: round 3 "looks weird")
 

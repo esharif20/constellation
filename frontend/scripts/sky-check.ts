@@ -1,6 +1,6 @@
 // Sky settings logic and band geometry (docs/design/sky-pattern.md). Run: npm run sky:check
 import { strict as assert } from "node:assert";
-import { DEFAULTS, IMAGE_LAYERS, KEY, LAYERS, fromQuery, gain, layerOpacity, load, parse, save } from "../src/graph/skySettings.ts";
+import { DEFAULTS, IMAGE_LAYERS, KEY, VERSION, LAYERS, fromQuery, gain, layerOpacity, load, parse, save } from "../src/graph/skySettings.ts";
 import { readFileSync } from "node:fs";
 import { bandAt, fbm, fields, placeFor, sizeKey } from "../src/graph/sky.ts";
 
@@ -27,6 +27,13 @@ assert.deepEqual(load(boom), DEFAULTS);
 save(boom, DEFAULTS); // must not throw
 assert.deepEqual(load(null), DEFAULTS);
 
+// migration: an old v1 record (rings off, no version) gets the new layers once, keeping its strength; a v2 record is kept
+mem.set(KEY, JSON.stringify({ ...DEFAULTS, graticule: false, dust: false, strength: 2 }));
+assert.deepEqual(load(fake), { ...DEFAULTS, strength: 2 });
+mem.set(KEY, JSON.stringify({ ...DEFAULTS, graticule: false, v: VERSION }));
+assert.equal(load(fake).graticule, false, "a choice saved after the migration is kept");
+save(fake, { ...DEFAULTS, grain: false });
+assert.equal(JSON.parse(mem.get(KEY)!).v, VERSION);
 // dev override
 assert.equal(fromQuery("none")!.strength, 0);
 assert.equal(fromQuery("c")!.graticule, true);
@@ -58,7 +65,7 @@ for (let i = 0; i < 500; i++) { const v = fbm(i * 0.37, i * 0.11, 5); assert.ok(
 // band geometry: a narrow Gaussian across the plane, the bulge and the band kept off the graph's real screen box
 for (const [w, h] of [[1440, 900], [390, 844]]) {
   const S = Math.min(w, h), p0 = placeFor(null, w, h), mid = bandAt(w / 2, h / 2, w, h, p0);
-  assert.ok(mid.sigma > 0.08 * S && mid.sigma < 0.16 * S, `band sigma ~12% of the short side at ${w}`);
+  assert.ok(mid.sigma > 0.05 * S && mid.sigma < 0.13 * S, `a narrow band: sigma ~8.5% of the short side at ${w}`);
   assert.ok(bandAt(w / 2 + mid.sigma * 3 * 0.5, h / 2 + mid.sigma * 3 * 0.87, w, h, p0).core < 0.3, "the band falls off across");
   // graph in the bottom-right corner: the band moves up-left, so the graph's centre is well off the plane
   const box = { x: 0.62 * w, y: 0.68 * h, w: 0.34 * w, h: 0.28 * h }, p = placeFor(box, w, h);

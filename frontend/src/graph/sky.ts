@@ -58,18 +58,28 @@ export function frame(w: number, h: number, p: Place) {
 // Where the band is bright at a point, in the galaxy frame: a narrow Gaussian across the plane (sigma ~12% of the short
 // side), a brighter bulge at one end, gentle fall-off along it.
 // Everything that varies only along the plane, sampled once per render into a 1-D table (u in [-1.2, 1.2] of L).
+// The art direction in numbers, so the lab (scripts/sky-render.ts) can try candidates against the same geometry.
+export const LOOK = { // round 6 "photograph": narrow, luminous, a clean continuous lane, few flecks, little grain
+  width: 0.085, // band sigma, share of the short side
+  bulge: 2.0, bulgeW: 0.24, // core brightness and its length along the plane
+  rift: 0.97, rag: 0.45, riftW: 0.36, // the Great Rift: depth, edge raggedness, width (sigma units)
+  mott: 0.22, fil: 0.25, // patchy dust and filaments beside the rift
+  clouds: 0.8, // star-cloud contrast (0 = a smooth ribbon)
+  haze: 0.55, stars: 4.5, // haze grain gain; one star candidate per this many CSS px^2
+  rose: 0.45, neutral: 0.6, // dusty rose in the body; how far the cool edges move from lavender to plain starlight
+};
 const AX = 512;
 function axis(F: ReturnType<typeof frame>) {
   const t = { sigma: new Float32Array(AX), wob: new Float32Array(AX), bulge: new Float32Array(AX), along: new Float32Array(AX), rc: new Float32Array(AX), rw: new Float32Array(AX), rs: new Float32Array(AX) };
   for (let i = 0; i < AX; i++) {
     const un = (i / (AX - 1)) * 2.4 - 1.2, db = (un - F.ub) * Math.sign(-F.ub); // db: distance from the bulge, growing away from it
-    t.sigma[i] = F.S * 0.12 * (0.8 + 0.5 * fbm(un * 2.2 + 4, 8.1, 2));
+    t.sigma[i] = F.S * LOOK.width * (0.8 + 0.5 * fbm(un * 2.2 + 4, 8.1, 2));
     t.wob[i] = (fbm(un * 1.7 + 3, 1.7, 3) - 0.5) * 0.9 * t.sigma[i]; // the plane wanders a little, so it is not a ruler line
-    t.bulge[i] = Math.exp(-(((un - F.ub) / 0.2) ** 2));
+    t.bulge[i] = Math.exp(-(((un - F.ub) / LOOK.bulgeW) ** 2));
     t.along[i] = 0.35 + 0.65 * Math.exp(-((db / 0.95) ** 2)); // the disk fades toward the far end
     // the Great Rift: centre (in sigma units, a little off the plane), width and depth along it; continuous, never cut
     t.rc[i] = 0.1 + 0.9 * (fbm(un * 2.6 + 11, 2.2, 3) - 0.5);
-    t.rw[i] = 0.42 * (0.6 + 0.8 * fbm(un * 3.5 + 5, 6.6, 2)) * (1 + 0.5 * t.bulge[i]);
+    t.rw[i] = LOOK.riftW * (0.6 + 0.8 * fbm(un * 3.5 + 5, 6.6, 2)) * (1 + 0.5 * t.bulge[i]);
     t.rs[i] = 0.85 + 0.15 * smooth(0.3, 0.6, fbm(un * 4 + 1, 9.9, 3));
   }
   return t;
@@ -108,15 +118,15 @@ export function fields(w: number, h: number, p: Place) {
     const qx = fbm(A * 0.5, B * 0.5, 2), qy = fbm(A * 0.5 + 5.2, B * 0.5 + 1.3, 2);
     const clouds = fbm(A + 1.6 * qx, B + 1.6 * qy, 5); // star clouds
     const rag = fbm(A * 1.3 + 7, B * 1.3 + 2, 4) - 0.5; // ragged rift edges
-    const rift = Math.exp(-(((b.vv - b.rc + 0.7 * rag) / b.rw) ** 2)) * b.rs;
+    const rift = Math.exp(-(((b.vv - b.rc + LOOK.rag * rag) / b.rw) ** 2)) * b.rs;
     // fine branching dark filaments, densest next to the rift, and patchy dust; both on the band only
     const near = Math.exp(-0.5 * ((b.vv - b.rc) / 1.3) ** 2);
     const mn = fbm(A * 3.2 + 3 * qy, B * 2.6 + 3 * qx, 5);
     const fil = smooth(0.5, 0.8, ridged(A * 1.7 + 2 * qx, B * 1.4 + 2 * qy, 4)) * smooth(0.4, 0.6, mn) * (0.3 + 0.7 * near) * Math.exp(-0.5 * (b.vv / 1.8) ** 2);
     const mott = smooth(0.48, 0.72, mn) * (0.3 + 0.7 * near) * Math.exp(-0.5 * (b.vv / 1.3) ** 2);
-    const D = 1 - (1 - 0.95 * rift) * (1 - 0.6 * fil) * (1 - 0.5 * mott);
-    const cl = 0.15 + 1.5 * clouds ** 2.5 * 1.6;
-    glow[k] = b.along * (0.8 * b.core * cl + 0.16 * b.halo) + 1.4 * b.bulge * Math.exp(-0.5 * (b.vv / 1.4) ** 2) * (0.55 + 0.6 * clouds);
+    const D = 1 - (1 - LOOK.rift * rift) * (1 - LOOK.fil * fil) * (1 - LOOK.mott * mott);
+    const cl = 1 + LOOK.clouds * (0.15 + 2.4 * clouds ** 2.5 - 1);
+    glow[k] = b.along * (0.8 * b.core * cl + 0.16 * b.halo) + LOOK.bulge * b.bulge * Math.exp(-0.5 * (b.vv / 1.4) ** 2) * (1 + LOOK.clouds * (0.6 * clouds - 0.45));
     dust[k] = D;
     warm[k] = Math.min(1, b.bulge * 1.3) * Math.exp(-0.5 * (b.vv / 1.7) ** 2);
     dens[k] = Math.min(1, glow[k] * (1 - 0.85 * D));
@@ -143,10 +153,11 @@ export function bandPixels(w: number, h: number, f: Fields, ink: Ink) {
     const o = (y * w + x) * 4, D = du[k] * w00 + du[k1] * w10 + du[k2] * w01 + du[k3] * w11, gl = gw[k] * w00 + gw[k1] * w10 + gw[k2] * w01 + gw[k3] * w11;
     const wa = wm[k] * w00 + wm[k1] * w10 + wm[k2] * w01 + wm[k3] * w11, ed = eg[k] * w00 + eg[k1] * w10 + eg[k2] * w01 + eg[k3] * w11;
     const g = gl * (1 - 0.9 * D);
-    let col = mix(ink.rose, ink.arm, smooth(0.2, 0.9, ed));
+    const arm = mix(ink.arm, ink.star, LOOK.neutral), body = mix(arm, ink.rose, LOOK.rose);
+    let col = mix(body, arm, smooth(0.2, 0.9, ed));
     col = mix(col, ink.core, wa);
     col = mix(col, mix(ink.rose, ink.core, 0.4), smooth(0.2, 0.55, D) * (1 - smooth(0.6, 0.95, D)) * 0.6); // dust reddens light at its edges (Gaia)
-    const r = hash(x, y + 9999), hz = r * r * r * Math.min(1, gl * 1.2) * (1 - 0.8 * D) * ink.haze; // haze grain
+    const r = hash(x, y + 9999), hz = r * r * r * Math.min(1, gl * 1.2) * (1 - 0.8 * D) * ink.haze * LOOK.haze; // haze grain
     const la = Math.min(1, g * ink.band + hz);
     const da = 1 - (1 - ink.outside * ed) * (1 - ink.lane * D * Math.min(1, gl * 2)); // the dark: navy outside, dust lanes inside
     const a = la + da * (1 - la);
@@ -168,7 +179,7 @@ export function starPixels(w: number, h: number, dpr: number, f: Fields, ink: In
     if (a <= prev) return;
     out[o] = c[0]; out[o + 1] = c[1]; out[o + 2] = c[2]; out[o + 3] = a * 255;
   };
-  const n = Math.round((w * h) / 3.5);
+  const n = Math.round((w * h) / LOOK.stars);
   for (let i = 0; i < n; i++) {
     const x = r() * w, y = r() * h, d = f.at(f.dens, x, y), D = f.at(f.dust, x, y);
     if (r() > 0.012 + 0.988 * Math.min(1, (d * 1.6) ** 1.6)) continue; // rejection sampling from the band density
@@ -228,51 +239,62 @@ function renderGrain(w: number, h: number, dpr: number, ink: Ink) {
 
 const els = {} as Record<ImageLayer, HTMLDivElement>;
 const urls: Partial<Record<ImageLayer, string>> = {};
-let root: HTMLDivElement | null = null, size = "", timer = 0, place: Place = { side: 1, shift: 0 }, graph: Rect | null = null;
+const ready = new Set<ImageLayer>(); // a layer stays at opacity 0 until its image has landed, so it fades in rather than pops
+let root: HTMLDivElement | null = null, size = "", dims = "", timer = 0, place: Place = { side: 1, shift: 0 }, graph: Rect | null = null;
 export const sizeKey = (w: number, h: number, p: Place = { side: 1, shift: 0 }) => `${w}x${h}:${p.side}:${p.shift}:${p.far ? 1 : 0}`; // all a render depends on (the seed is fixed)
+// The sky is soft: past 1.5x device px nobody sees more detail, and a 2x layer at 2000x1150 is 4000x2300 (37 MB decoded).
+const skyDpr = () => Math.min(1.5, window.devicePixelRatio || 1);
 
 // opacity only: no render, no layout. Measured as "sky-apply".
 export function apply() {
   const t0 = performance.now(), o = layerOpacity(getSky());
-  for (const k of IMAGE_LAYERS) els[k].style.opacity = String(o[k]);
+  for (const k of IMAGE_LAYERS) els[k].style.opacity = String(ready.has(k) ? o[k] : 0);
   performance.measure("sky-apply", { start: t0 });
 }
 
-// The graph's screen box, from the map on every camera move (throttled there). It only moves the CSS mask that dims the
-// band behind the graph; when `settled` (the first fit, a resize) it may also move the band to the graph's far side.
+// The graph's screen box, sent by the map when the camera rests (never during a gesture). It moves the CSS mask that
+// hides the band behind the graph. `settled` marks the fitted view after load or a resize: only then, and only once per
+// window size, is the band placed on the graph's far side and rendered.
 export function skyGraph(r: Rect, settled: boolean) {
   graph = r;
   if (root) {
     const s = root.style, pad = 24; // the layers are inset -24px
     s.setProperty("--hole-x", `${r.x + r.w / 2 + pad}px`); s.setProperty("--hole-y", `${r.y + r.h / 2 + pad}px`);
-    s.setProperty("--hole-rx", `${r.w * 0.7 + 60}px`); s.setProperty("--hole-ry", `${r.h * 0.7 + 60}px`);
+    s.setProperty("--hole-rx", `${r.w * 0.75 + 80}px`); s.setProperty("--hole-ry", `${r.h * 0.75 + 80}px`);
   }
-  if (settled) renderAll();
+  if (settled) { clearTimeout(timer); timer = window.setTimeout(renderAll, 400); } // a window being dragged renders once, when it stops
 }
 
 const idle = (f: () => void) => ("requestIdleCallback" in window ? requestIdleCallback(f, { timeout: 600 }) : setTimeout(f, 30));
 function show(k: ImageLayer, c: HTMLCanvasElement, key: string) {
   c.toBlob((b) => {
     if (!b || key !== size) return;
-    if (urls[k]) URL.revokeObjectURL(urls[k]!);
-    urls[k] = URL.createObjectURL(b);
-    els[k].style.backgroundImage = `url(${urls[k]})`;
+    const url = URL.createObjectURL(b), img = new Image();
+    img.onload = () => { // decoded off the main thread first, so the swap itself costs no frame
+      if (key !== size) return URL.revokeObjectURL(url);
+      if (urls[k]) URL.revokeObjectURL(urls[k]!);
+      urls[k] = url;
+      els[k].style.backgroundImage = `url(${url})`;
+      if (!ready.has(k)) { ready.add(k); apply(); }
+    };
+    img.src = url;
+    void img.decode?.().catch(() => {});
   });
 }
 
-// Render every layer for the current size and placement, cheap ones first, the band in idle time; each step is its own
-// task so the first frames of the map are never blocked by the whole sky.
+// Render every layer for the window size, cheap ones first, the band in idle time; each step is its own task. The
+// placement is decided once per size from the graph box known at that time, so a later pan or refit never moves the band.
 function renderAll() {
-  const w = innerWidth + 48, h = innerHeight + 48, p = placeFor(graph && { ...graph, x: graph.x + 24, y: graph.y + 24 }, w, h), key = sizeKey(w, h, p);
+  if (!getSky().strength) return; // Off: nothing to show, so nothing is rendered until it is turned on
+  const w = innerWidth + 48, h = innerHeight + 48, d = `${w}x${h}`;
+  if (d !== dims) { dims = d; place = placeFor(graph && { ...graph, x: graph.x + 24, y: graph.y + 24 }, w, h); }
+  const key = sizeKey(w, h, place);
   if (key === size) return;
-  const resized = !size.startsWith(`${w}x${h}:`);
-  size = key; place = p;
-  const ink = inks(), dpr = Math.min(2, window.devicePixelRatio || 1);
-  if (resized) {
-    show("grain", renderGrain(w, h, dpr, ink), key);
-    const an = anchorPixels(w, h, dpr, ink);
-    show("anchors", toCanvas(an.W, an.H, an.data), key);
-  }
+  size = key;
+  const ink = inks(), dpr = skyDpr();
+  show("grain", renderGrain(w, h, dpr, ink), key);
+  const an = anchorPixels(w, h, dpr, ink);
+  show("anchors", toCanvas(an.W, an.H, an.data), key);
   idle(() => {
     if (key !== size) return;
     const t0 = performance.now(), f = fields(w, h, place), st = starPixels(w, h, dpr, f, ink);
@@ -286,6 +308,7 @@ function renderAll() {
     });
   });
 }
+const lazy = () => { if (getSky().strength && !size.startsWith(`${innerWidth + 48}x${innerHeight + 48}:`)) renderAll(); }; // turned on after Off
 
 export function startSky() {
   root = document.createElement("div");
@@ -300,6 +323,9 @@ export function startSky() {
   document.body.prepend(root);
   apply();
   onSky(apply);
-  renderAll();
-  addEventListener("resize", () => { clearTimeout(timer); timer = window.setTimeout(renderAll, 250); });
+  onSky(lazy);
+  // the first render waits for the map's first fit (skyGraph settled), so the band is placed once, off the graph; an
+  // empty or failed map gets the default placement after 1.5s. A resize is handled the same way.
+  timer = window.setTimeout(renderAll, 1500);
+  addEventListener("resize", () => { clearTimeout(timer); timer = window.setTimeout(renderAll, 1500); });
 }

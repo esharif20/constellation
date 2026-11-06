@@ -3,7 +3,7 @@
 // Run: node scripts/sky-render.ts out.png [w] [h] [subtle|rich] [graph box x,y,w,h]
 import { readFileSync, writeFileSync } from "node:fs";
 import { deflateSync, crc32 } from "node:zlib";
-import { anchorPixels, bandPixels, fields, placeFor, starPixels, type Ink, type RGB, type Rect } from "../src/graph/sky.ts";
+import { LOOK, anchorPixels, bandPixels, fields, placeFor, starPixels, type Ink, type RGB, type Rect } from "../src/graph/sky.ts";
 import { gain } from "../src/graph/skySettings.ts";
 
 const [out = "sky.png", W = "1488", H = "948", mode = "subtle", box] = process.argv.slice(2);
@@ -19,6 +19,7 @@ const ink: Ink = {
   dust: +tok("--sky-star"), anchor: +tok("--sky-anchor"), grain: +tok("--sky-grain"),
 };
 
+if (process.env.LOOK) Object.assign(LOOK, JSON.parse(process.env.LOOK)); // try a candidate direction
 const t0 = performance.now(), p = placeFor(graph, w, h), f = fields(w, h, p), t1 = performance.now();
 const band = bandPixels(w, h, f, ink), t2 = performance.now();
 const stars = starPixels(w, h, 1, f, ink), t3 = performance.now();
@@ -34,8 +35,8 @@ for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
 // the mask that dims the band behind the graph (index.css .sky-layer[data-layer=band])
 const hole = (x: number, y: number) => {
   if (!graph) return 1;
-  const q = Math.hypot((x - graph.x - graph.w / 2) / (graph.w * 0.7 + 60), (y - graph.y - graph.h / 2) / (graph.h * 0.7 + 60));
-  return 0.22 + 0.78 * Math.min(1, Math.max(0, (q - 0.55) / 0.45));
+  const q = Math.hypot((x - graph.x - graph.w / 2) / (graph.w * 0.75 + 80), (y - graph.y - graph.h / 2) / (graph.h * 0.75 + 80));
+  return Math.min(1, Math.max(0, (q - 0.5) / 0.5)); // --sky-hole 0
 };
 const over = (src: Uint8ClampedArray, m: (x: number, y: number) => number) => {
   for (let i = 0; i < w * h; i++) {
@@ -43,7 +44,7 @@ const over = (src: Uint8ClampedArray, m: (x: number, y: number) => number) => {
     for (let c = 0; c < 3; c++) img[i * 3 + c] += (src[i * 4 + c] - img[i * 3 + c]) * a;
   }
 };
-over(band, hole); over(stars.data, (x, y) => 0.4 + 0.6 * hole(x, y) ** 0.5); over(anchors.data, () => 1);
+over(band, hole); over(stars.data, (x, y) => 0.6 + 0.4 * hole(x, y)) /* --sky-hole-stars 0.6 */; over(anchors.data, () => 1);
 
 // contrast behind the graph box against --night-lift
 const lum = (r: number, g: number, b: number) => [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);

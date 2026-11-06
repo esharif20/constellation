@@ -10,6 +10,9 @@ export const STRENGTHS = ["Off", "Subtle", "Rich"] as const;
 // the recommended subtle blend, chart rings included (the owner's pick; they stay faint, below the Relation lines)
 export const DEFAULTS: SkySettings = { band: true, dust: true, anchors: true, graticule: true, grain: true, strength: 1 };
 export const KEY = "constellation.sky.v1";
+// Bump when the default layers change: a stored setting from an older version gets the new layers once (its strength is
+// kept); anything saved from then on is the reader's own choice and is kept. 2: chart rings on by default.
+export const VERSION = 2;
 
 // how much each strength multiplies every layer's alpha token
 export const gain = (s: Strength) => [0, 1, 1.55][s];
@@ -41,10 +44,13 @@ export const layerOpacity = (s: SkySettings) =>
   Object.fromEntries(IMAGE_LAYERS.map((k) => [k, s[k] ? gain(s.strength) / gain(2) : 0])) as Record<ImageLayer, number>;
 
 export function load(storage: Pick<Storage, "getItem"> | null): SkySettings {
-  try { return parse(JSON.parse(storage?.getItem(KEY) ?? "null")); } catch { return { ...DEFAULTS }; }
+  try {
+    const raw = JSON.parse(storage?.getItem(KEY) ?? "null"), s = parse(raw);
+    return raw && (raw as { v?: unknown }).v === VERSION ? s : { ...DEFAULTS, strength: s.strength };
+  } catch { return { ...DEFAULTS }; }
 }
 export function save(storage: Pick<Storage, "setItem"> | null, s: SkySettings) {
-  try { storage?.setItem(KEY, JSON.stringify(s)); } catch { /* private mode or blocked storage: the setting lasts this visit only */ }
+  try { storage?.setItem(KEY, JSON.stringify({ ...s, v: VERSION })); } catch { /* private mode or blocked storage: the setting lasts this visit only */ }
 }
 
 const store = () => { try { return window.localStorage; } catch { return null; } };

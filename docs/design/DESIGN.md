@@ -235,7 +235,7 @@ Every interactive component has hover, focus-visible (the 2px `--ring` outline u
 The sky stays the `--night` / `--night-lift` radial gradient, with two static layers on `body` in `index.css` (`--vignette`, `--nebula`), both derived from tokens by `color-mix` (no new colour literals):
 
 - **Vignette:** `--surface-0` at 55% at the corners, fading to nothing by 55% of the radius. It only darkens, so name contrast on the `--night` stroke is unchanged.
-- **Nebula:** `--indigo` at 9% (lower left) and 5% (upper right), large ellipses. A tint shift, not a shape.
+- **Nebula:** removed in sky round 6. Its indigo tint sat under the Milky Way band and read as a purple cast around the graph.
 - **Dust:** unchanged. The canvas already draws 260 faint dust specks with a 0.06 pan parallax (`paint.ts`), so no second dust layer was added.
 - **Cost and motion:** pure CSS under the transparent canvas, painted once, nothing per frame. No new motion, so `prefers-reduced-motion` has nothing to turn off (the existing dust parallax is a pan response, not an animation).
 
@@ -254,7 +254,7 @@ Alphas at Rich:
 - band glow: `--sky-band: 0.32`
 - dust and the outside: `--sky-lane: 0.5`, `--sky-outside: 0.3` (`--surface-0`)
 - `--sky-haze: 0.18`
-- behind the graph's live screen box: `--sky-hole: 0.22` (band), `--sky-hole-stars: 0.45` (star dust), a CSS mask
+- behind the graph's live screen box: `--sky-hole: 0` (band), `--sky-hole-stars: 0.6` (star dust), a CSS mask moved when the camera rests
 - stars: `--sky-star: 0.5`, `--sky-anchor: 0.7`
 - `--sky-grain: 0.03`
 - chart rings: `--sky-ring: 0.1`, `--sky-ring-label: 0.42`; on by default (owner's pick)

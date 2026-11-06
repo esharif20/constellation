@@ -410,7 +410,7 @@ assert.equal(cutName("x".repeat(40), 28).length, 28);
 let failed = aa.aaMin < 4.5;
 const rows: Record<string, unknown>[] = [];
 for (const file of ["demo.json", "demo-250.json", "demo-offline.json"]) {
-  for (const [W, H] of [[1440, 900], [390, 844]]) {
+  for (const [W, H] of [[1440, 900], [390, 844], [2000, 1150]]) { // 2000x1150: a wide window, where the owner saw the fit miss
     const r = measure(file, W, H);
     rows.push({ file, size: `${W}x${H}`, ...r });
     const bad = r.starOverlaps > 0 || r.inside < 98 || r.circleClash > 0 || r.labelClash > 0 || r.labelOnStar > 0 || r.namedShare < (W <= 640 ? 0.7 : 0.8) || !r.deterministic || r.sizeRule > 0 || r.overlapLinks > 0 || r.slotGap < GAP - 0.5 || r.haloBad > 0 || r.focusK > 0 || r.focusOutside > 0 || r.focusSmall > 0 || r.flightBad > 0 || r.focusClash > 0 || r.focusShare < (W <= 640 ? 0.4 : 0.6) || r.itemOverlap > 0 || !r.nameHubsOk || !r.nameAllOk;
