@@ -1,3 +1,4 @@
+import { SkyControl } from "@/components/SkyControl";
 import { Command as CommandPrimitive } from "cmdk";
 import { CheckIcon, CloudOffIcon, CopyIcon, InfoIcon, SearchIcon, TriangleAlertIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -48,6 +49,7 @@ export function TopBar({ model, query, found, rows, clusterHits, note, pending, 
       <Warnings warnings={model.warnings} />
       {extra}
       {explain}
+      <SkyControl />
       {hasScopes(model) && <ScopeFilter repo={!!model.currentProject} scope={scope} onScope={onScope} />}
       <Search model={model} query={query} found={found} rows={rows} clusterHits={clusterHits} note={note} pending={pending} onCluster={onCluster} onQuery={onQuery} onChoose={onChoose} onPreview={onPreview} />
     </header>

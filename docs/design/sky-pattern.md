@@ -1,65 +1,69 @@
-# Sky pattern: three candidates (round 2)
+# Sky pattern
 
-The #60 sky (night radial, vignette, indigo nebula, 260 dust specks) reads as depth but is flat. Round 1 (graticule, grain, dot field, all at 1.10–1.23:1) was too subtle. This round makes the patterns clearly perceptible and more designed. The graph stays the subject: the pattern's lines and fields stay under a resting edge, and only a few tiny anchor specks go brighter.
+The #60 sky (night radial, vignette, indigo nebula) reads as depth but is flat. Two candidate rounds led to this: the owner chose the deep field's Milky Way band (round 2, `?sky=b`) and asked for it to look much more like the Milky Way while staying quiet behind the graph. The result is a Milky Way background with five layers and a Sky popover to tune it.
 
-## Budget (round 2), measured
+## Art direction (round 3 research)
 
-WCAG contrast against the sky centre `--night-lift`. Line values come from the tokens. Deep field values come from the rendered image in the browser (pixel percentiles, 1440 × 900 at dpr 1).
+- Stellarium draws the Milky Way as one texture, scaled by an intensity and a separate, low saturation. So the band should be nearly neutral, with brightness doing the work and a little colour only in the core. ([Stellarium MilkyWay class](https://stellarium.org/doc/head/classMilkyWay.html))
+- Procedural space renderers use a band mask along a galactic plane, multi-octave noise for star clouds, and a separate star layer ([procedural starfield](https://skills.sh/ck42bb/procedural-stars-threejs/procedural-starfield), [Godot volumetric cosmic dust](https://godotshaders.com/shader/volumetric-cosmic-dust/)). Research on interstellar dust notes that dust filaments do not look like plain Perlin noise: they are ridged and thin, not soft blobs ([MAVERICK, sculpting procedural noise](https://hal-cstb.archives-ouvertes.fr/LJK_GI_MAVERICK/hal-03762332v1)).
+- Canvas starfields put the Milky Way as a denser band of whiter stars along an arc ([mathling space](https://mathling.com/art/20220207_space.html)).
 
-| Mark | Contrast |
-| --- | --- |
-| Resting Relation edge (`--edge`, alpha 0.2), the reference | 1.45 |
-| Graticule lines and ticks (`--halo-name` at 0.10) | 1.24 (was 1.10) |
-| Graticule labels (`--text-3` at 0.42, 10.5px) | 1.97, legible on purpose, far below any name |
-| Deep field, median pixel | 1.03 |
-| Deep field, nebula core (95th percentile) | 1.32 |
-| Deep field specks (99th / 99.9th percentile) | 1.48 / 1.67 |
-| Deep field anchor star cores (11 points, 1.1px) | 5.6 at most |
+Taken from that: a diagonal band with a bulge in the core; star-cloud texture from 5-octave value noise; dust lanes from ridged noise (filaments) plus a broken central rift; stars whose density follows the band and drops in the lanes; a warm core (`--k-plugin` starlight), cool arms (`--halo-name`) and an indigo outer halo; ten bright stars with a soft glow and no diffraction spikes; and a fine grain.
 
-The rule: lines and fields stay at 1.35:1 or less (under the 1.45 edges). Specks smaller than 1.5px may reach 1.7:1. Only the eleven anchors go brighter, and they are 1px, white and glintless at a distance, so they never read as a coloured Item. `layout:check` aaMin stays **5.44** because every name is stroked in `--night`. Node colours are unchanged, so Item legibility only changes where the ground lifts. At the band core (1.32) the dimmest kind ink still clears 4.5:1.
+Fitted to the app:
+- The core bulge sits in the lower left, away from the map.
+- The band dims by up to 55% over the middle of the screen, where stars, names and badges are densest. That fixed ellipse at (0.56, 0.48) of the screen is a shortcut: it does not follow the map's real bounding box when you pan.
+- The bright stars are kept out of that middle area.
+- Constellation lines are rejected, because lines joining stars read as Relations.
 
-No colour literals. New alpha tokens in `index.css` (also in DESIGN.md): `--sky-ring` 0.10, `--sky-ring-label` 0.42, `--sky-nebula` 0.09, `--sky-star` 0.34, `--sky-anchor` 0.45. They paint `--halo-name`, `--text-3`, `--indigo`, `--surface-0` and `--text`.
+## Layers and defaults
 
-## A. Atlas graticule (`?sky=a`)
+| Layer | Popover name | Default | Drawn |
+| --- | --- | --- | --- |
+| Band (clouds, lanes, warm core) | Milky Way band | on | deep field image |
+| Star dust | Star dust | on | deep field image |
+| Bright stars | Bright stars | on | deep field image |
+| Chart rings (graticule from round 2) | Chart rings | **off** | canvas, map-anchored |
+| Grain | Grain | on | deep field image |
+| Strength | Off / Subtle / Rich | **Subtle** | multiplies every alpha (0, 1, 1.55) |
 
-A polar star chart, centred on the map: the centre is the pole, with 5 declination rings labelled +72° to +18° along one meridian, 12 meridians labelled 0h to 22h outside the outer ring (counter-clockwise, as on a real chart), and ticks on the outer ring every 5°, longer every 15°.
+Chart rings default to off because they are lines behind the Relation lines. Strength Off restores the #60 sky exactly, including its parallax dust.
 
-- **Drawn:** canvas `pre()`. The path is a `Path2D` built once per model (`graticulePath`) and stroked once per repaint, plus 16 short `fillText` calls. Measured: **0.15 ms per frame** for the stroke and labels on a 2880 × 1800 backing store. The canvas still stops repainting at rest.
-- **Zoom and pan:** world-anchored, `lineWidth` 1 screen px. Full strength up to 1.5× the fitted zoom, gone by 4×, so close-up reading has a clean ground (see `c-1440-zoom.png`).
-- **Phone:** same structure. At 390px the labels sit at the edges and the rings frame the clusters.
-- **Risk:** it is lines behind lines. Meridians cross clusters at 1.24 against 1.45 for edges. That reads in the screenshots, but it is the closest call of the three.
+## Cost
 
-## B. Deep field (`?sky=b`, add `&drift` for motion)
+- The deep field (`graph/sky.ts`) is rendered once per viewport size and field setting into a blob image shown by CSS on a fixed `body::before` layer. The nebula is computed at a third of CSS px and smoothed up; stars and grain are drawn at full resolution. Measured render: **about 70 ms at 1440 × 900 and about 23 ms at 390 × 844**, once. Nothing runs per frame on pan, zoom or drag. A chart-ring toggle does not re-render it (`fieldKey`).
+- Chart rings: a cached `Path2D`, stroked once per repaint, 0.15 ms per frame (measured in round 2).
+- The seed is fixed, so the sky is the same on every load.
+- `?drift` adds a slow compositor-only wander. It is off by default and off under `prefers-reduced-motion`.
 
-A Milky Way band from the lower left to the upper right, through the #60 nebula lobes. It has two tones: wide `--indigo` clouds and a tighter `--halo-name` core, with a broken dark lane of `--surface-0` along it. Specks are dense in the band (62%, a gaussian across it) and sparse elsewhere. There are 11 anchor stars with a faint cross glint, kept out of the screen centre. The canvas dust is switched off, because the field brings its own.
+## Contrast budget (measured)
 
-- **Drawn:** `graph/sky.ts` renders it once per viewport size (on load and on resize, debounced 250ms) into a blob image. CSS shows it on a fixed `body::before` under `#root`. **Zero per-frame cost:** no JS or canvas work on pan, zoom or drag. It is seeded, so it looks the same on every load.
-- **Zoom and pan:** screen-fixed, with no parallax. It is distant sky, so not moving is correct.
-- **Drift:** `&drift` adds an 18px wander over 180s, run by the compositor. It is off by default and `prefers-reduced-motion` turns it off.
-- **Phone:** the band is diagonal across the narrow screen, and the density scales with the area.
-- **Weakness:** it is screen-fixed, so it says nothing about the map. It is atmosphere, not information.
+WCAG contrast against `--night-lift`, from the rendered image in the browser. "Map area" is the central ellipse where the graph sits. A resting Relation edge is 1.45.
 
-## C. Atlas over deep field (`?sky=c`)
+| | All p50 | All p95 | All p99 | Map area p95 | Map area p99 |
+| --- | --- | --- | --- | --- | --- |
+| Subtle, 1440 | 1.05 | 1.23 | 1.40 | **1.18** | 1.30 |
+| Subtle, 390 | 1.05 | 1.26 | 1.43 | 1.23 | 1.43 |
+| Rich, 1440 | 1.09 | 1.42 | 1.74 | 1.32 | 1.55 |
+| Rich, 390 | 1.09 | 1.49 | 1.80 | 1.42 | 1.82 |
 
-A and B together: the chart lines over the band. It is the richest of the three and still under the edges everywhere except the anchors and the brightest specks. Cost is A's 0.15 ms per frame. B adds nothing per frame.
+The p99 values are star specks of 1px or less. The ten bright-star cores peak at 3.0:1 (Subtle) and 5.8:1 (Rich). At Subtle, the fields and lanes stay under the edges everywhere. Rich goes up to the edge level in the map area on phones, which is why it is not the default. `layout:check` aaMin is **5.44, unchanged**, because every name is stroked in `--night`.
 
-## Recommendation
+## The Sky popover
 
-**C.** The deep field gives the depth and the varied density the owner asked for. The graticule makes it a star atlas rather than a wallpaper, and it fades away when you zoom in to read. If C feels busy on the real-sized setup, use **B**. It has no per-frame cost and no lines competing with edges. Keep drift off unless the owner likes it.
+`SkyControl.tsx` is a ghost telescope icon button (`aria-label` "Sky settings") in the top bar, after Explain my setup. On phones it sits beside the book icon. The popover is built from shadcn `Popover`, `Slider` and `Switch`, using glass and existing tokens only.
+- **Strength** is a three-stop slider (Off, Subtle, Rich) with `aria-valuetext`.
+- **Layers** are five labelled switches, disabled when strength is Off.
+- **Reset** restores the defaults.
 
-Constellation lines between anchor stars were considered and rejected: lines joining stars are exactly what Relations look like, so they would read as data.
+It works from the keyboard: arrow keys on the slider, Space on the switches, Esc closes. At 390px the popover keeps a 16px gutter.
 
-## Viewing them
+Settings persist in `localStorage` (`constellation.sky.v1`). Reads and writes are wrapped in try/catch, so blocked storage means the setting lasts one visit. Stored values are validated (`parse`). `?sky=none|a|b|c|rich` remains a dev override: it wins over storage and is never saved. `npm run sky:check` covers parsing, storage failure, the override, gain and `fieldKey`, the noise, and the band geometry at 1440 and 390.
 
-```
-cd frontend && npm run build
-uv run --all-extras constellation open docs/design/demo-250.json --port 8793
-```
+## Screenshots
 
-Add `?sky=a`, `?sky=b`, `?sky=c` or `?sky=none` (the #60 sky) to the URL, plus `&drift` with b or c. The switch ships in the build because `constellation open` serves the production bundle. It is a throwaway: once one is chosen, make it unconditional and delete the switch (`main.tsx`, `paint.ts`, `index.css`).
-
-Screenshots in `docs/design/screenshots/sky/`: `none`, `a`, `b`, `c` at 1440 and 390, plus `a-1440-zoom.png` and `c-1440-zoom.png` (about 2.5× zoom). They are on demo-250 (246 Items, 24 clusters, with labels, badges and the Brief open).
-
-## House rules note
-
-taste-skill bans gradients and grid lines on page grounds. This is an app canvas with an approved #60 gradient. The graticule is the star atlas's own device, and the clouds sit under every data mark.
+`docs/design/screenshots/sky/`, on demo-250 (246 invented Items, 24 clusters, labels, badges, the Brief open):
+- `none-*` (#60, before) and `subtle-*` (the default, after), at 1440 and 390
+- `rich-*`
+- `c-1440.png` and `c-1440-zoom.png` (chart rings on)
+- `popover-1440.png` and `popover-390.png`

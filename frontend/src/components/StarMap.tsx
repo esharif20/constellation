@@ -6,6 +6,7 @@ import { flightMs, flightPath } from "@/graph/flight";
 import { applyForces, fitView, focusView, haloOf, type LLink, type LNode, type View } from "@/graph/layout";
 import { step, type Cluster, type GLink, type GNode, type Model } from "@/graph/model";
 import { FEEL, hoverRadius, makePainter, type Painter } from "@/graph/paint";
+import { onSky } from "@/graph/skySettings";
 import { Hover, type Tip } from "@/components/Hover";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +96,7 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   useEffect(() => () => { cancelAnimationFrame(loop.current); loop.current = 0; }, []); // zeroed too, or a StrictMode remount would never restart the loop
   // Webfonts arrive after the first paint; the map is at rest by then, so repaint once they land.
   useEffect(() => { void document.fonts.ready.then(wake); }, [wake]);
+  useEffect(() => onSky(wake), [wake]); // a Sky setting change (chart rings) repaints the resting map
 
   // The layout is fully settled by the warm-up, so the engine does not run at load (cooldownTicks 0). A drag lets it run
   // while held and for 150 more ticks after release (the neighbours spring home), then it rests again.

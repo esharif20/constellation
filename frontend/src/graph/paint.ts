@@ -2,6 +2,7 @@
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
 import { FOCUS_FILL, haloOf } from "./layout";
 import { badgeY } from "./badge";
+import { gain, getSky } from "./skySettings.ts";
 import { chooseSpot, cutName, labelStart, type Box } from "./names";
 import { clusterHealth, rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
 
@@ -91,10 +92,8 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const start = performance.now();
   let introEnd = start + FEEL.introMs * 1.4 + 400;
   const far = Math.max(1, ...model.nodes.map((n) => Math.hypot(n.x ?? 0, n.y ?? 0)));
-  // shortcut: sky candidate switch (?sky=a|b|c|none, docs/design/sky-pattern.md); remove once the owner picks one
-  const skyId = document.documentElement.dataset.sky, deepField = skyId === "b" || skyId === "c";
   const STEP = far * 0.22; // ring spacing: the 5th ring sits just outside the outermost star
-  const grid = skyId === "a" || skyId === "c" ? graticulePath(STEP) : null;
+  const grid = graticulePath(STEP); // drawn only when the Sky settings turn chart rings on
   for (const n of model.nodes) n.born = reducedMotion ? 0 : start + (Math.hypot(n.x ?? 0, n.y ?? 0) / far) * FEEL.introMs * 0.7 + Math.random() * 120;
 
   function sprite(color: string) {
@@ -186,17 +185,18 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     ctx.setTransform(sc.dpr, 0, 0, sc.dpr, 0, 0);
     const w = ctx.canvas.width / sc.dpr, h = ctx.canvas.height / sc.dpr;
     ctx.fillStyle = ink.dust;
-    if (!deepField) for (const d of dust) { // the deep field brings its own specks
+    const sky = getSky(), skyGain = gain(sky.strength);
+    if (!skyGain) for (const d of dust) { // the #60 parallax dust; with the Sky on, its deep field brings its own
       ctx.globalAlpha = d.a * 0.5;
       ctx.fillRect((((d.x * w + sc.tx * 0.06) % w) + w) % w, (((d.y * h + sc.ty * 0.06) % h) + h) % h, d.r, d.r);
     }
     ctx.restore();
     // Sky graticule: a polar star chart anchored to the map, its path built once; full to 1.5x the fitted zoom, gone by 4x
-    const ga = grid ? clamp01((4 - k / view.fitK) / 2.5) : 0;
+    const ga = sky.graticule ? clamp01((4 - k / view.fitK) / 2.5) * skyGain : 0;
     if (ga > 0.01) {
       ctx.save();
       ctx.globalAlpha = ga * ink.skyRing; ctx.strokeStyle = ink.haloName; ctx.lineWidth = 1 / k;
-      ctx.stroke(grid!);
+      ctx.stroke(grid);
       ctx.globalAlpha = ga * ink.skyRingLabel; ctx.fillStyle = ink.text3;
       ctx.font = `${10.5 / k}px ${ink.sans}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       for (let j = 0; j < 12; j++) { // right ascension, counter-clockwise as on a sky chart

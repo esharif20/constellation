@@ -8,11 +8,9 @@ import "@fontsource/jetbrains-mono/latin-400.css";
 import "./index.css";
 import { startSky } from "./graph/sky";
 
-// shortcut: throwaway sky candidate switch (?sky=a|b|c, docs/design/sky-pattern.md); remove once the owner picks one
-const q = new URLSearchParams(location.search), sky = q.get("sky") ?? "none";
-document.documentElement.dataset.sky = sky;
-if (q.has("drift")) document.documentElement.dataset.drift = ""; // opt-in slow drift of the deep field, CSS only
-if (sky === "b" || sky === "c") startSky();
+// ?drift: the deep field's slow wander, off by default and off under reduced motion (CSS only); ?sky= overrides the Sky settings
+if (new URLSearchParams(location.search).has("drift")) document.documentElement.dataset.drift = "";
+startSky();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
