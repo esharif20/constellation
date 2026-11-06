@@ -16,7 +16,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import cli_reports, habits, history, menu, scan, scan_graph, selfcheck, weekly
+from . import cli_help, cli_reports, completion, habits, history, menu, scan, scan_graph, selfcheck, weekly
 from . import origins as origin_sources
 from .assessment import compute
 from .assessment import public as assessment_json
@@ -64,7 +64,6 @@ def main(
     parser = argparse.ArgumentParser(
         prog="constellation",
         usage="constellation [-h] <command> ...",
-        epilog=_help_groups(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=f"constellation {importlib.metadata.version('constellation-cli')}")
@@ -177,7 +176,13 @@ def main(
         "uninstall", help="explain how to remove Constellation; deletes its cache only after you type a confirmation"
     )
     uninstall_command.add_argument("--dry-run", action="store_true", help="show what would be deleted and delete nothing")
+    completion_command = commands.add_parser("completion")
+    completion_command.add_argument("shell", choices=completion.SHELLS)
+    cli_help.decorate(parser, commands.choices)
     args = parser.parse_args(argv)
+    if args.command == "completion":
+        print(completion.render(parser, args.shell), end="")
+        return 0
     if args.command == "update":
         print(selfcheck.update_text(selfcheck.detect_method(sys.prefix)))
         return 0
@@ -301,6 +306,10 @@ def main(
             print("Scan paused; rerun with --review-ambiguous to resume.", file=sys.stderr)
             return 130
     if args.dry_run:
+        saves = None if args.no_history else history.DEFAULT_CACHE
+        ledger = None if args.no_usage or args.no_habits or args.no_history else habits.DEFAULT_CACHE
+        wk = None if args.no_history else weekly.DEFAULT_CACHE
+        print("would write: " + ", ".join(cli_help.scan_writes(args.out, saves, ledger, wk)))
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
         if local is None and not args.no_verify:
             print("No similarity-based verifier prompts can be shown: install the local embedder with `uv sync --extra local`.")
@@ -338,23 +347,19 @@ _SCAN_COMMANDS = {
     "delta": "what changed between two scans, in tokens and Overlaps",
     "update": "print the upgrade command for your install",
     "uninstall": "how to remove Constellation and its cache",
+    "completion": "print a shell completion script",
 }
-
-
-def _help_groups() -> str:
-    groups = {"Scan and open": list(_SCAN_COMMANDS.items())}
-    for c in cli_reports.COMMANDS:
-        groups.setdefault(c.group, []).append((c.name, c.help))
-    return "\n\n".join(f"{g}:\n" + "\n".join(f"  {n:<10}{h}" for n, h in rows) for g, rows in groups.items())
 
 
 def _report_command(args: argparse.Namespace) -> int:
     try:
         scan = cli_reports.load(args.file, args.habits)
-        if args.command == "clean":
+        if args.command == "clean" and args.dry_run:
+            out = render_cleanup(scan.data, top=5)
+        elif args.command == "clean":
             out = cli_reports.clean(scan, args.out, args.force)
         elif args.command == "share":
-            return _export(argparse.Namespace(file=args.file, out=args.out))
+            return _export(argparse.Namespace(file=args.file, out=args.out, dry_run=args.dry_run))
         else:
             out = cli_reports.run(args.command, scan, getattr(args, "arg", None), as_json=args.json, st=cli_reports.style_for_stdout())
     except cli_reports.ReportError as error:
@@ -394,15 +399,38 @@ def _export(args: argparse.Namespace) -> int:
     data = _load_scan(args.file)
     if data is None:
         return 2
+    if args.dry_run:
+        return _export_dry_run(data, args.out)
     try:
         write_snapshot(data, args.out)
     except FileExistsError:
         print("Output already exists; choose a new directory.", file=sys.stderr)
         return 2
-    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+    except OSError:
+        print("Could not export: check the output directory and disk.", file=sys.stderr)
+        return 1
+    except (ValueError, TypeError, KeyError, AttributeError):
         print("Could not export: check the saved scan, frontend build and output directory.", file=sys.stderr)
         return 2
     print(f"{NOTICE}\n{LIMITS}\nWrote {args.out.resolve()}")
+    return 0
+
+
+def _export_dry_run(data: dict[str, Any], out: Path) -> int:
+    if out.exists():
+        print("Output already exists; choose a new directory.", file=sys.stderr)
+        return 2
+    with tempfile.TemporaryDirectory() as scratch:  # build it somewhere disposable, then only list it
+        built = Path(scratch) / "snapshot"
+        try:
+            write_snapshot(data, built)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            print("Could not export: check the saved scan, frontend build and output directory.", file=sys.stderr)
+            return 2
+        files = sorted(p for p in built.rglob("*") if p.is_file())
+        for f in files:
+            print(f"would write {out / f.relative_to(built)}  {f.stat().st_size} bytes")
+    print(f"Dry run: {len(files)} files, nothing written.")
     return 0
 
 
@@ -437,6 +465,9 @@ def _review(args: argparse.Namespace, decide: Callable[[Suggestion], str] | None
     suggestions = suggest(data)
     if not suggestions:
         print("No Suggestions found.")
+        return 0
+    if args.dry_run:
+        print(f"Dry run: would ask about {len(suggestions)} Suggestions and write the approved ones to {args.out}. Nothing written.")
         return 0
     decide = decide or _ask_stdin
     by_id = {s.id: s for s in suggestions}
@@ -487,7 +518,9 @@ def _report(args: argparse.Namespace) -> int:
     color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
     width = max(40, min(shutil.get_terminal_size().columns, 100))
     print(render_report(data, top=args.top, color=color, width=width, show_all=args.all), end="")
-    if args.cleanup:
+    if args.cleanup and args.dry_run:
+        print(render_cleanup(data, top=args.top), end="")
+    elif args.cleanup:
         write_private(args.cleanup, render_cleanup(data, top=args.top))
     return 0
 
@@ -564,7 +597,9 @@ def _preview(args: argparse.Namespace, embedder: Embedder | None) -> int:
         print(str(error), file=sys.stderr)
         return 2
     print(render_preview(result), end="")
-    if args.out:
+    if args.out and args.dry_run:
+        print(f"Dry run: would write {len(json.dumps(result, indent=2))} characters to {args.out}. Nothing written.")
+    elif args.out:
         write_private(args.out, json.dumps(result, indent=2))
     return 0
 

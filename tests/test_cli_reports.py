@@ -208,5 +208,5 @@ def test_help_groups_every_command(capsys):
         main(["--help"])
 
     out = capsys.readouterr().out
-    assert out.index("Scan and open:") < out.index("Analyse:") < out.index("Act:")
+    assert out.index("Look:") < out.index("Act:") < out.index("Map:") < out.index("Manage:")
     assert all(c.name in out for c in cli_reports.COMMANDS)
