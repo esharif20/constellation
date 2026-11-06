@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from test_cleanup import fake_scan
 
-from constellation import cli, menu, session
+from constellation import banner, cli, menu, session
 from constellation import pins as pin_file
 from constellation.cli_reports import ReportError, Style
 from constellation.keys import Action
@@ -96,45 +96,9 @@ def test_choose_quits_when_keys_run_out():
     assert drive()[0] == Action("quit")
 
 
-def test_art_spells_constellation_in_three_rows():
-    assert menu.ART == (
-        " _   _       _  ___  _           _  ___ ___  _     ",
-        "|   | | |\\| |_   |  |_  |   |   |_|  |   |  | | |\\|",
-        "|_  |_| | |  _|  |  |_  |_  |_  | |  |  ___ |_| | |",
-    )
-    assert {len(row) for row in menu.ART} == {51}
-
-
-def test_banner_layouts_by_width():
-    wide = len(menu.ART[0]) + 2 + len(menu.URL)
-    tag = f"Map your Claude setup · {VERSION}"
-    assert menu.banner(Style(False, wide), VERSION) == [
-        menu.ART[0],
-        menu.ART[1] + "  " + menu.URL,
-        menu.ART[2] + "  " + tag,
-    ]
-    assert menu.banner(Style(False, wide - 1), VERSION) == [*menu.ART, menu.URL, tag]
-    assert menu.banner(Style(False, 54), VERSION)[:3] == list(menu.ART)
-    assert menu.banner(Style(False, 53), VERSION) == ["  CONSTELLATION", "  " + tag]
-    assert menu.banner(Style(False, 40), "1.2.3") == ["  CONSTELLATION", "  Map your Claude setup · 1.2.3"]
-    assert menu.banner(Style(False, 30), "1.2.3") == ["  CONSTELLATION", "  Map your Claude setup · 1.2…"]
-
-
-def test_banner_colours():
-    wide = menu.banner(Style(True, 100), "1")
-    assert wide[0] == f"{ESC}[{menu.OLIVE}m{menu.ART[0]}{ESC}[0m"
-    assert wide[1] == f"{ESC}[{menu.OLIVE}m{menu.ART[1]}{ESC}[0m  {ESC}[{menu.STEEL}m{menu.URL}{ESC}[0m"
-    assert wide[2].endswith(f"{ESC}[{menu.OLIVE}mMap your Claude setup · 1{ESC}[0m")
-    low = menu.banner(Style(True, 80), "1")
-    assert low[3] == f"{ESC}[{menu.STEEL}m{menu.URL}{ESC}[0m" and low[4].startswith(f"{ESC}[{menu.OLIVE}m")
-    compact = menu.banner(Style(True, 40), "1")
-    assert compact[0] == f"{ESC}[{menu.OLIVE}m  CONSTELLATION{ESC}[0m" and compact[1] == f"{ESC}[2m  Map your Claude setup · 1{ESC}[0m"
-
-
 def test_render_main_menu_exact_frame():
     assert "\n".join(menu.render(0, PLAIN, "0.2.0")) == (
-        "\n" + "\n".join(menu.ART) + "\ngithub.com/esharif20/constellation\n"
-        "Map your Claude setup · 0.2.0\n"
+        "\n" + "\n".join(banner.render(PLAIN, "0.2.0", utf8=True)) + "\n"
         "\n"
         "  ➤ 1. Open     The graph of your setup, in the browser\n"
         "    2. Analyze  Rank what loads at the start of every session\n"
@@ -166,7 +130,7 @@ def test_render_more_page_and_selection():
 
 def test_render_narrow_cuts_every_line_to_the_width():
     lines = menu.render(1, Style(False, 40), "1", menu.ENTRIES)
-    assert lines[1:3] == ["  CONSTELLATION", "  Map your Claude setup · 1"]
+    assert lines[1:3] == ["⋆✦⋆ Constellation", "Map your Claude setup · 1"]
     assert lines[4] == "    1. Open     The graph of your setup…"
     assert lines[5].startswith("  ➤ 2. Analyze")
     assert all(len(line) <= 40 for line in lines)
@@ -178,7 +142,7 @@ def test_render_colours_the_selected_row_teal_and_the_footer_dim():
     assert lines[-1] == f"  {ESC}[2m↑↓ | Enter | M More | V Version | U Update | Q Quit{ESC}[0m"
     sel = [line for line in lines if "➤" in line]
     assert sel == [f"  {ESC}[{menu.TEAL}m➤ 2. Analyze  Rank what loads at the start of every session{ESC}[0m"]
-    assert sum(menu.TEAL in line for line in lines) == 1
+    assert sum(menu.TEAL in line for line in lines[5:]) == 1
     assert "\033" not in "".join(menu.render(1, PLAIN, "1"))
 
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Constellation">
+<style>.s{fill:#f7f8f8}.l{stroke:#f7f8f8;stroke-opacity:.55;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.a{fill:#828fff}.h{stroke:#828fff;fill:none;stroke-width:1;stroke-opacity:.55}@media(prefers-color-scheme:light){.s{fill:#23252a}.l{stroke:#23252a;stroke-opacity:.6}.a{fill:#5e6ad2}.h{stroke:#5e6ad2}}</style>
+<path class="l" d="M4 11 9.5 23 16 15 23 24.5 28.5 9"/>
+<circle class="h" cx="16" cy="15" r="5.5"/>
+<circle class="s" cx="4" cy="11" r="2"/><circle class="s" cx="9.5" cy="23" r="2.2"/><circle class="s" cx="23" cy="24.5" r="2"/><circle class="s" cx="28.5" cy="9" r="2.4"/>
+<circle class="a" cx="16" cy="15" r="3.4"/>
+</svg>
