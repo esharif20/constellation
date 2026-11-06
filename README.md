@@ -67,6 +67,20 @@ Hashing, wrapper checks, embeddings and clustering all run locally and cost noth
 new or changed Item, and its answer is cached by the content hash of the redacted text, so scanning an unchanged setup
 makes zero paid calls. Every real run prints a call count and cost estimate first.
 
+## How good is it
+
+The Overlap pipeline is scored against 20 hand-labelled pairs (5 each of duplicate, wrapper, overlap, distinct) in
+`tests/eval/overlap_pairs.py`. **The pairs are invented, not taken from a real setup, so this is a regression guard and
+not proof of accuracy on yours.**
+
+| Stage | Precision | Recall | How measured |
+|---|---|---|---|
+| Free local candidate band (word overlap, headings, mentions; flags pairs scoring 0.30 or more) | 0.83 (15 of 18 flagged) | 1.00 (15 of 15) | run 2026-11-06, no model, no network |
+| Stronger-model verifier | not recorded | not recorded | needs an Anthropic key and about $0.20; run `uv run pytest -m eval -s tests/eval/test_overlap_quality.py` (guard: precision 0.8, recall 0.7) |
+
+The local band never decides anything: it only keeps every labelled non-distinct pair in front of the verifier while
+skipping some distinct ones. The scoring code itself is covered by the fast tests with a fake verifier.
+
 ## Reference
 
 Details below are for contributors and for the deeper features (report, snapshot, plugin, review).
@@ -287,24 +301,19 @@ npm --prefix frontend run build
 uv run --all-extras claude --plugin-dir ./plugin/constellation
 ```
 
-Then invoke it with an explicit config directory and an optional output file:
+Then invoke it; the config directory is optional (default `~/.claude`):
 
 ```text
-/constellation:constellation /absolute/path/to/config scan.json
+/constellation:constellation
 ```
 
 Claude Code namespaces plugin commands, so the supported spelling is
 `/constellation:constellation`, approved for this project. The plugin requires `constellation` on the session's
-`PATH` (provided by `uv run` above). It calls `scan --offline --no-usage`, shows the exact
-`constellation report` output, then starts `constellation open` in the
-background. The report enters Claude's conversation context and is processed by
-the model running that session, even though the scan itself runs offline.
-The config directory is always supplied by you; the scan defaults to
-`~/.cache/constellation/constellation.json`, and an existing output file requires
-confirmation before replacement. Path arguments starting with `-` and extra
-arguments are rejected; the wrapper uses `--` before positional paths.
-Paid scans and `--count-bodies`
-require explicit requests. Expansion is pending #9.
+`PATH` (provided by `uv run` above). It runs `constellation scan --offline --no-usage` into the default scan file,
+shows the exact `constellation status` output, then starts `constellation open` in the background. The status
+text enters Claude's conversation context and is processed by the model running that session, even though the
+scan itself runs offline. Path arguments starting with `-` and extra arguments are rejected. Paid scans and
+`--count-bodies` require explicit requests. `/constellation:doctor` runs `constellation doctor` on the latest scan.
 
 This [official local-loading method](https://code.claude.com/docs/en/plugins/create#load-a-directory-or-archive-for-one-session)
 loads the plugin for that session without installing it or changing Claude
