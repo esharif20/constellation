@@ -13,7 +13,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import habits, history, scan, scan_graph
+from . import habits, history, scan, scan_graph, weekly
 from . import origins as origin_sources
 from .assessment import compute
 from .assessment import public as assessment_json
@@ -123,7 +123,16 @@ def main(
     delta_command = commands.add_parser("delta", help="what changed between two saved scans: Items, always-on tokens, new Overlaps")
     delta_command.add_argument("before", type=Path)
     delta_command.add_argument("after", type=Path)
+    weekly_command = commands.add_parser(
+        "weekly", help="what changed since the last scan, what a session costs now, what went quiet (local, free)"
+    )
+    weekly_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    weekly_command.add_argument("--json", action="store_true", help="print the summary as JSON")
+    weekly_command.add_argument("--since", help="compare with the newest scan on or before this date (YYYY-MM-DD)")
     args = parser.parse_args(argv)
+    if args.command == "weekly":
+        data = _load_scan(args.file)
+        return 2 if data is None else weekly.command(data, args.json, args.since)
     if args.command == "preview":
         return _preview(args, embedder)  # reads the folder and saved scan only, so it skips load_env
     if args.command == "delta":
@@ -242,6 +251,9 @@ def main(
     )
     if not (args.no_usage or args.no_habits or args.no_history):  # smarter-verdict 3.2: the habit ledger, local only
         for warning in habits.update(habits.DEFAULT_CACHE, args.config_dir, result.items, result.relations):
+            print(warning, file=sys.stderr)
+    if not args.no_history:  # the weekly snapshot needs the ledger above, so it comes last
+        for warning in weekly.record_scan(asdict(result)):
             print(warning, file=sys.stderr)
     return 0
 

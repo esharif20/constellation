@@ -36,7 +36,18 @@ export type BriefRow = { id: string; kind: string; item_ids: string[]; removes: 
 export type BriefGroup = { rows: BriefRow[]; saves?: number; unknown?: number };
 export type Checklist = { path: string; ids: string[]; frees: number | null; unknown_rows: number };
 // smarter-verdict.md 5.4. `per_day` is absent when the pace is unknown.
+// `weekly` (src/constellation/weekly.py) is null until a second scan exists: names, labels and counts only, never an id or a path.
+type WeeklyRow = { kind: string; name: string };
+export type WeeklyData = {
+  state: "ready"; since: string; days: number; headline: string; added: WeeklyRow[]; removed: WeeklyRow[]; went_quiet: WeeklyRow[];
+  session_start: { then: number | null; now: number | null; delta: number | null; unknown_then: number; unknown_now: number };
+  verdict_changes: (WeeklyRow & { from: string; to: string; why: string })[];
+  used_most: (WeeklyRow & { uses: number })[];
+  reclaim: { now: WeeklyRange; then: WeeklyRange };
+};
+type WeeklyRange = { low: number; high: number; unknown: number; confidence: Confidence };
 export type BriefData = {
+  weekly?: WeeklyData | null;
   evidence?: { sessions: number; active_days: number; span_days: number; ledger?: boolean };
   safe: BriefGroup; look: BriefGroup;
   wait: { summary: { code: string; count: number; recheck_after: number | null }[]; rows: BriefRow[] };
