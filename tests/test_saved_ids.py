@@ -75,9 +75,9 @@ def test_saved_ids_are_stable_between_scans_and_keyed_per_install(setup, tmp_pat
 
 
 def test_redact_tree_maps_exact_ids_and_keys_but_redacts_other_text():
-    ids = {"id:SECRET": "id:[REDACTED]~abc123"}
-    tree = {"id:SECRET": ["id:SECRET", "mentions id:SECRET inside", {"k": "id:SECRET"}]}
-    assert redact_tree(tree, ["SECRET"], ids) == {
+    ids = {"id:SECRET99": "id:[REDACTED]~abc123"}
+    tree = {"id:SECRET99": ["id:SECRET99", "mentions id:SECRET99 inside", {"k": "id:SECRET99"}]}
+    assert redact_tree(tree, ["SECRET99"], ids) == {
         "id:[REDACTED]~abc123": ["id:[REDACTED]~abc123", "mentions id:[REDACTED] inside", {"k": "id:[REDACTED]~abc123"}]
     }
 

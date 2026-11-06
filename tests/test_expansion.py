@@ -171,23 +171,24 @@ def test_empty_tools_and_duplicate_identity_fail_safely(tmp_path, monkeypatch):
     assert identical["status"] == "expanded" and len(identical["items"]) == 1
 
 
-def test_short_explicit_secrets_are_redacted_without_colliding_ids(tmp_path, monkeypatch, capsys, caplog):
-    config, saved, id_ = setup_scan(tmp_path, monkeypatch, {"fixture": {"command": "synthetic", "env": {"SECRET": "xy", "EMPTY": ""}}})
+def test_short_explicit_values_are_never_needles_and_secret_names_do_not_collide(tmp_path, monkeypatch, capsys, caplog):
+    env = {"SECRET": "xy", "LONG": "Q7-fixture-env-value", "EMPTY": ""}
+    config, saved, id_ = setup_scan(tmp_path, monkeypatch, {"fixture": {"command": "synthetic", "env": env}})
 
     async def query(registration):
-        assert registration.env == {"SECRET": "xy", "EMPTY": ""}
-        return [("tool-xy", "Use xy; token=some-private-value"), ("tool-[REDACTED]", "safe")]
+        assert registration.env == env
+        return [("tool-Q7-fixture-env-value", "Use xy; token=some-private-value"), ("tool-[REDACTED]", "safe")]
 
     assert main(["expand", id_, "--config-dir", str(config), "--file", str(saved)], expansion_query=query) == 0
     text = capsys.readouterr().out
-    assert "xy" not in text and "some-private-value" not in text
+    assert "Q7-fixture-env-value" not in text and "some-private-value" not in text
     result = json.loads(text)
     assert [i["name"] for i in result["items"]] == ["tool-[REDACTED]", "tool-[REDACTED]"]
     assert len({i["id"] for i in result["items"]}) == 2
-    assert "safe" in text and "Use [REDACTED]" in text
+    assert "safe" in text and "Use xy; token=[REDACTED]" in text  # "xy" is under 8 chars: never a needle
     client = TestClient(server.create_app(saved, config_dir=config, expansion_query=query), base_url=BASE_URL)
     assert client.post("/api/expand", json={"id": id_}).json() == result
-    assert "xy" not in caplog.text
+    assert "Q7-fixture-env-value" not in caplog.text
 
 
 def test_expansion_never_loads_environment_bodies_or_providers(tmp_path, monkeypatch):
@@ -1154,10 +1155,10 @@ def test_argument_values_are_redacted_from_cli_and_api_tools(tmp_path, monkeypat
 
     assert main(["expand", id_, "--config-dir", str(config), "--file", str(saved)], expansion_query=query) == 0
     output = capsys.readouterr().out
-    assert "xy" not in output and "invented-argument-value" not in output
+    assert "invented-argument-value" not in output
     result = json.loads(output)
-    assert result["items"][0]["name"] == "tool-[REDACTED]"
-    assert result["items"][0]["description"] == "Use [REDACTED] and [REDACTED] [REDACTED] [REDACTED] [REDACTED] [REDACTED] [REDACTED] XXXX"
+    assert result["items"][0]["name"] == "tool-xy"  # under 8 chars: never a needle, so ordinary text is not garbled
+    assert result["items"][0]["description"] == "Use [REDACTED] and xy [REDACTED] [REDACTED] [REDACTED] [REDACTED] [REDACTED] XXXX"
     client = TestClient(server.create_app(saved, config_dir=config, expansion_query=query), base_url=BASE_URL)
     assert client.post("/api/expand", json={"id": id_}).json() == result
 

@@ -64,10 +64,21 @@ def _variants(value: str) -> set[str]:
     }
 
 
+MIN_NEEDLE = 8
+
+
+def _needle(value: str) -> bool:
+    """Whether a known value may be matched literally: long enough, and not a piece of the marker (re-redacting one garbles it)."""
+    # shortcut: values under 8 chars are never matched so "-" or "want" can't garble text; a short real secret would leak.
+    return len(value) >= MIN_NEEDLE and value not in REDACTED
+
+
 def redact(text: str, known: Iterable[str] = ()) -> str:
-    variants = {v for value in known for v in _variants(value)}
-    for value in sorted(variants, key=len, reverse=True):  # longest first so a secret containing another is fully removed
-        text = text.replace(value, REDACTED)
+    # Encoding and base64 never shorten a value or turn it into a piece of the marker, so checking the value covers its variants.
+    # Reverse order puts a needle before any needle that is its prefix, so the longest match wins at each position.
+    needles = sorted({v for value in known if _needle(value) for v in _variants(value)}, reverse=True)
+    if needles:  # one pass: a secret containing another goes whole, and a marker is never matched again
+        text = re.sub("|".join(map(re.escape, needles)), REDACTED, text)
     for pattern in _FORMATS:
         text = pattern.sub(REDACTED, text)
     for pattern in (_FLAG, _ASSIGNMENT):
