@@ -8,12 +8,13 @@ import sys
 import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, replace
+from difflib import get_close_matches
 from pathlib import Path
 from typing import Any
 
 from langgraph.types import Command
 
-from . import habits, history, scan, scan_graph
+from . import cli_reports, habits, history, scan, scan_graph
 from . import origins as origin_sources
 from .assessment import compute
 from .assessment import public as assessment_json
@@ -44,8 +45,34 @@ def main(
     expansion_query: Query | None = None,
     decide: Callable[[Suggestion], str] | None = None,  # returns "a", "s" or "q"; the default asks on stdin
 ) -> int:
-    parser = argparse.ArgumentParser(prog="constellation")
-    commands = parser.add_subparsers(dest="command", required=True)
+    argv = sys.argv[1:] if argv is None else argv
+    names = [c.name for c in cli_reports.COMMANDS] + list(_SCAN_COMMANDS)
+    if argv and not argv[0].startswith("-") and argv[0] not in names:
+        close = get_close_matches(argv[0], names, 1, 0.5)
+        print(
+            f"Unknown command '{argv[0]}'." + (f" Did you mean `{close[0]}`?" if close else " See `constellation --help`."), file=sys.stderr
+        )
+        return 2
+    parser = argparse.ArgumentParser(
+        prog="constellation",
+        usage="constellation [-h] <command> ...",
+        epilog=_help_groups(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    commands = parser.add_subparsers(dest="command", required=True, help=argparse.SUPPRESS, prog="constellation")
+    for c in cli_reports.COMMANDS:
+        sub = commands.add_parser(c.name, help=c.help, description=c.help)
+        if c.arg:
+            sub.add_argument("arg", metavar=c.arg)
+        sub.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"), help="saved scan (default constellation.json)")
+        sub.add_argument("--habits", type=Path, help="habit ledger to use for verdicts (default ~/.cache/constellation/habits.json)")
+        if c.name not in ("clean", "share"):
+            sub.add_argument("--json", action="store_true", help="print structured JSON instead of text")
+        if c.name == "clean":
+            sub.add_argument("--out", type=Path, default=Path("cleanup.md"), help="the checklist to write")
+            sub.add_argument("--force", action="store_true", help="overwrite an existing checklist")
+        if c.name == "share":
+            sub.add_argument("--out", type=Path, default=Path("constellation-share"), help="new output directory")
     scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
     scan_command.add_argument("config_dir", type=Path)
     scan_command.add_argument("--no-usage", action="store_true", help="skip reading local transcripts")
@@ -124,6 +151,8 @@ def main(
     delta_command.add_argument("before", type=Path)
     delta_command.add_argument("after", type=Path)
     args = parser.parse_args(argv)
+    if args.command in {c.name for c in cli_reports.COMMANDS}:
+        return _report_command(args)
     if args.command == "preview":
         return _preview(args, embedder)  # reads the folder and saved scan only, so it skips load_env
     if args.command == "delta":
@@ -243,6 +272,43 @@ def main(
     if not (args.no_usage or args.no_habits or args.no_history):  # smarter-verdict 3.2: the habit ledger, local only
         for warning in habits.update(habits.DEFAULT_CACHE, args.config_dir, result.items, result.relations):
             print(warning, file=sys.stderr)
+    return 0
+
+
+_SCAN_COMMANDS = {
+    "scan": "read a Claude Code config directory and write a scan file",
+    "open": "serve a scan as a graph in the browser",
+    "expand": "list the tools of one local MCP server",
+    "report": "print a plain-text report of a saved scan",
+    "assess": "print every Item's verdict as JSON",
+    "export": "write a read-only public Snapshot",
+    "review": "go through Suggestions one at a time into a checklist",
+    "diff": "Items added, removed or changed between two scans",
+    "preview": "what installing a downloaded plugin or skill would add",
+    "delta": "what changed between two scans, in tokens and Overlaps",
+}
+
+
+def _help_groups() -> str:
+    groups = {"Scan and open": list(_SCAN_COMMANDS.items())}
+    for c in cli_reports.COMMANDS:
+        groups.setdefault(c.group, []).append((c.name, c.help))
+    return "\n\n".join(f"{g}:\n" + "\n".join(f"  {n:<10}{h}" for n, h in rows) for g, rows in groups.items())
+
+
+def _report_command(args: argparse.Namespace) -> int:
+    try:
+        scan = cli_reports.load(args.file, args.habits)
+        if args.command == "clean":
+            out = cli_reports.clean(scan, args.out, args.force)
+        elif args.command == "share":
+            return _export(argparse.Namespace(file=args.file, out=args.out))
+        else:
+            out = cli_reports.run(args.command, scan, getattr(args, "arg", None), as_json=args.json, st=cli_reports.style_for_stdout())
+    except cli_reports.ReportError as error:
+        print(error, file=sys.stderr)
+        return 2
+    print(out, end="")
     return 0
 
 

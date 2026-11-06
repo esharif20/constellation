@@ -821,3 +821,8 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Not built (not approved): O6, O7, O8, O9 public verdicts. S5 merged after the server side passed.
 - Deviation: the scan-usage fallback (no ledger) is an addition, so tests, demo data and `--no-habits` scans still get verdicts.
 - Open: mutmut was run on `assessment.py` only and left 172 survivors (mostly `adapt()` field defaults and `_keys` qualifiers); `pins.py`, `answer.py`, `brief.py` and `chat.py` were not mutation-run after these edits. The zero-survivor gate is NOT met for S4; it needs a follow-up pass of exact-shape tests.
+
+## #78 terminal analysis commands (2026-11-06, branch `claude/cli-commands`)
+- Built: `src/constellation/cli_reports.py` (`doctor`, `cost`, `unused`, `twins`, `why`, `hooks`, `clashes`, `triggers`, `explain`, `ask`, `clean`, `share`), wired through the `COMMANDS` registry in `cli.py` (`weekly` #75 and `find` #80 slot in by appending a `Command`, a builder and a renderer). Thin glue over `compute`, `build_brief`, `receipt`, the lenses, `explain` and `LocalChat`; `--json` on every read command; every string is redacted before printing.
+- Decisions: `ask` builds a word-only `retrieve.Index` (the embedder, a model download, is never loaded); `clean` writes `render_cleanup` privately to `--out` (default `./cleanup.md`, no overwrite without `--force`); `share` defaults to `./constellation-share`; `unused` says "no history yet" rather than listing everything when no sessions were read. No deviation from the plan; no new data leaves the machine.
+- Plugin: `plugin/constellation/commands/doctor.md` adds `/constellation:doctor` (the existing skill already owns `/constellation`).

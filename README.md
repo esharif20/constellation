@@ -54,6 +54,27 @@ uv run pytest -m eval -s tests/eval/test_overlap_quality.py   # scores the Overl
 it and special files, and never runs a hook or MCP server. Overlap is by same name; add `--meaning` to also compare by meaning with the local
 embedder, which may download its model once from the network (it says so first). `preview` and `delta` call no provider and read no `.env`.
 
+## Terminal commands
+
+Read-only, local and free: each reads a saved scan (default `constellation.json`) and uses the same engine as the app, so the terminal and the map cannot disagree. No provider call, no network. Add `--json` for structured output; colour only on a terminal and never with `NO_COLOR`. A mistyped command suggests the closest; exit code 2 means a usage error or a missing scan.
+
+```
+constellation doctor                      # session-start tokens and % of a 200k window, what could be reclaimed, top findings, hooks, MCP
+constellation cost                        # the session-start bill, biggest first, then by plugin
+constellation unused                      # Items not used lately, with confidence and how much history there is
+constellation twins                       # overlapping pairs and which one you use
+constellation why review-diff             # why this Item has its verdict, what removing it frees, what refers to it
+constellation hooks                       # every hook by phase and weight
+constellation clashes                     # hook, MCP name and trigger-phrase collisions
+constellation triggers                    # skills that never fire or fire too greedily
+constellation explain                     # plain-English summary of the whole setup
+constellation ask "what costs the most?"  # the panel's local Ask (rules, no model)
+constellation clean --out cleanup.md      # write the removal checklist; never edits settings
+constellation share --out my-share        # the public Snapshot, same as `export --public`
+```
+
+`--habits FILE` points the verdicts at another habit ledger. Inside Claude Code, `/constellation:doctor` runs `constellation doctor`.
+
 Overlaps: identical instructions and thin wrappers are found locally, embeddings propose similar pairs, and Claude Sonnet 5.5 labels each pair
 from names, descriptions and a few local signals only. File bodies never leave your machine. A real run prints a pair-count and cost estimate
 first; verdicts are cached in `~/.cache/constellation/overlap-verdicts.json`.
