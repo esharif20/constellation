@@ -39,16 +39,23 @@ Run `constellation --help` for the full list. The main ones:
 
 | Command | What it does |
 |---|---|
-| `scan` | Read a Claude Code config directory and write a scan file |
+| *(no command)* | A menu: Scan, Open, Analyze, Find, Clean, Status, More. Esc goes back, Q quits |
+| `scan` | Read a Claude Code config directory and write a scan file (bare `scan` needs no path) |
 | `open` | Serve a scan as a graph in the browser (`open demo` for sample data) |
+| `status` | One screen: session-start cost, verdicts, this week |
+| `find <words>` | Find an installed skill by what it does; `--kind`, `--forgotten`, `--origin` filters |
 | `doctor` | One-screen health check of your setup |
 | `cost` | What loads at session start, biggest first |
-| `unused` | Items not used lately, with confidence |
+| `unused` / `purge` | Items not used lately; Items only used by idle projects |
 | `twins` / `clashes` | Overlapping pairs; hook, name and trigger collisions |
-| `why <item>` | Why an Item has its verdict, and what removing it frees |
+| `why <item>` / `remove-preview <item>` | Why an Item has its verdict; what refers to it and what removing it would lose |
+| `profile <project>` | Which global Items one project really uses |
+| `advise <folder>` | Which of your Items fit a project, plus a draft CLAUDE.md (`--write` never overwrites) |
+| `expand <server>` | List the tools of one configured local MCP server |
 | `clean` | Write a removal checklist (it never edits your setup) |
 | `weekly` | What changed since the last scan, what went quiet |
 | `share` | Write a public, redacted Snapshot |
+| `update` / `uninstall` / `completion` | Print the upgrade command; remove the cache after a typed confirmation; shell completion |
 
 Add `--dry-run` where it is offered to see what would happen without doing it.
 
@@ -80,6 +87,26 @@ not proof of accuracy on yours.**
 
 The local band never decides anything: it only keeps every labelled non-distinct pair in front of the verifier while
 skipping some distinct ones. The scoring code itself is covered by the fast tests with a fake verifier.
+
+## Status
+
+Working and tested: the scan, the graph app (Inspector, Brief, Ask, lenses, verdicts, Find, safe-removal preview,
+Expansion), the terminal menu and commands above, redaction of the whole saved scan, and the public Snapshot (with
+pre-run Expansions and canned Ask answers). Backend logic that touches privacy or parsing is mutation-tested
+function by function; frontend and terminal rendering are covered by exact-output, browser and pseudo-terminal tests.
+See `docs/plan-tracker.md` for the per-ticket detail, including exactly what was and was not mutation-checked.
+
+Not done or not verified:
+
+- **Not on PyPI yet.** Install from GitHub for now (`docs/release.md` has the publish steps).
+- **Real-data checks** (cluster names, verdicts, Find, MCP counts on a real setup) are the owner's to eyeball; the repo only ever holds invented data.
+- **Touch devices** and the **real local embedding model** across many setups are not tested; the phone layout was checked in a desktop browser only.
+- **Deploying a public Snapshot (#14), the landing page (#15), and issues #27 and #28** are parked.
+- **Overlap verifier accuracy** is recorded for the offline path only; the paid verifier score is not recorded.
+- Rebuild the UI with `cd frontend && npm run build` after pulling, or the browser shows an older bundle.
+
+Safety note: a bare `scan` or `open` uses `./constellation.json` only if it is your own file with mode 600; otherwise it
+is ignored with a one-line note (`chmod 600` it to use it), so a file from a cloned repo is never trusted as your scan.
 
 ## Reference
 
@@ -171,8 +198,8 @@ prompt, a changed Item or a new model is asked again and nothing else is): `labe
 adding two skills costs two label calls plus any new candidate pairs. An unwritable cache is a warning, not a crash.
 
 Offline: `--offline`, or simply no `ANTHROPIC_API_KEY`, makes no paid or network calls. You still get Items, Relations, exact-duplicate and
-wrapper Overlaps, token costs already in the cache (others show as unknown), and clusters named after their nearest Item when the local
-embedder is installed (otherwise clustering is skipped with a note). Labels are empty and the file's warnings say the run was offline.
+wrapper Overlaps, token costs already in the cache (others show as unknown), and clusters grouped by words alone when the local
+embedder is not installed (the scan warns "words only"; install fastembed for better groups). Labels are empty and the file's warnings say the run was offline.
 `--offline` cannot be combined with `--count-bodies`, which sends text to Anthropic.
 
 ### Files Constellation reads
