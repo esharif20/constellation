@@ -27,7 +27,7 @@ export const FEEL = {
 
 // cluster: the focused cluster; flying: the camera is on its way (labels wait); landAt: when it landed (Infinity until then);
 // nameHover: the cluster whose name is under the pointer; tip: the star whose tooltip is showing (its canvas name is hidden then)
-export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; scope: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null; tip: GNode | null; removed: Set<GNode> | null; absent: Set<GNode> | null }; // removed: what-if ghosts; absent: not yet scanned at the time-travel date
+export type Focus = { hover: GNode | null; preview: GNode | null; selected: GNode | null; matches: Set<GNode> | null; scope: Set<GNode> | null; keyFocus: boolean; cluster: Cluster | null; flying: boolean; landAt: number; nameHover: Cluster | null; tip: GNode | null; removed: Set<GNode> | null; absent: Set<GNode> | null; stretch: ((l: GLink) => number) | null }; // removed: what-if ghosts; absent: not yet scanned at the time-travel date
 
 // Colours added after the first look. Each is read from a CSS variable when the stylesheet defines it, else the fallback.
 const PALETTE = { overlap: "#ff5fd2", starlight: "#ece4cc" }; // hot magenta: Overlap links are one family apart from the recessive Relation hairlines
@@ -70,7 +70,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const ink = readInk();
   const colorOf = new Map(model.nodes.map((n) => [n, ink.color(n.kind)]));
   const sprites = new Map<string, HTMLCanvasElement>();
-  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, scope: null, keyFocus: false, cluster: null, flying: false, landAt: Infinity, nameHover: null, tip: null, removed: null, absent: null };
+  const focus: Focus = { hover: null, preview: null, selected: null, matches: null, scope: null, keyFocus: false, cluster: null, flying: false, landAt: Infinity, nameHover: null, tip: null, removed: null, absent: null, stretch: null };
   // fitK: zoom at which the whole map fits (label levels are relative to it); top/bottom/right: px that the top bar,
   // legend and inspector cover, so canvas text keeps out from under them (measured by StarMap)
   // tip: the open tooltip's screen box (names keep out of it)
@@ -286,8 +286,8 @@ export function makePainter(model: Model, reducedMotion: boolean) {
 
   function link(l: GLink, ctx: CanvasRenderingContext2D, k: number) {
     if (l.a < 0.01) return;
-    const s = l.source, t = l.target, px = 1 / k;
-    ctx.globalAlpha = l.a * (!l.hot && s.cluster !== t.cluster ? 0.45 : 1); // long links between clusters stay in the background
+    const s = l.source, t = l.target, px = 1 / k, pull = focus.stretch?.(l) ?? 0; // pull: a link being stretched by a drag (elastic.ts) brightens and thickens with its stretch
+    ctx.globalAlpha = Math.min(1, l.a * (!l.hot && s.cluster !== t.cluster ? 0.45 : 1) + pull * 0.55); // long links between clusters stay in the background
     if (l.hot) {
       const g = ctx.createLinearGradient(s.x!, s.y!, t.x!, t.y!);
       g.addColorStop(0, colorOf.get(s)!); g.addColorStop(1, colorOf.get(t)!);
@@ -295,7 +295,7 @@ export function makePainter(model: Model, reducedMotion: boolean) {
       ctx.lineWidth = 1.3 * px;
     } else {
       ctx.strokeStyle = l.kind === "contains" ? ink.edge : ink.edgeAlt;
-      ctx.lineWidth = px;
+      ctx.lineWidth = px * (1 + pull * 0.8);
     }
     ctx.setLineDash(l.kind === "contains" ? [] : l.kind === "triggers" ? [4 * px, 3 * px] : [1 * px, 3 * px]); // solid, dashed, dotted
     ctx.beginPath(); ctx.moveTo(s.x!, s.y!); ctx.lineTo(t.x!, t.y!); ctx.stroke();
