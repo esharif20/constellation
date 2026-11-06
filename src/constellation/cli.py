@@ -16,7 +16,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import cli_reports, habits, history, scan, scan_graph, weekly
+from . import cli_reports, habits, history, menu, scan, scan_graph, weekly
 from . import origins as origin_sources
 from .assessment import compute
 from .assessment import public as assessment_json
@@ -52,6 +52,8 @@ def main(
     decide: Callable[[Suggestion], str] | None = None,  # returns "a", "s" or "q"; the default asks on stdin
 ) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    if not argv and sys.stdin.isatty() and sys.stdout.isatty():
+        return menu.open_menu(main)
     names = [c.name for c in cli_reports.COMMANDS] + list(_SCAN_COMMANDS)
     if argv and not argv[0].startswith("-") and argv[0] not in names:
         close = get_close_matches(argv[0], names, 1, 0.5)
