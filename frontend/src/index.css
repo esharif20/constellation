@@ -50,7 +50,21 @@
 
   /* sky layers (#60), static CSS under the transparent canvas: derived from tokens, zero per-frame cost */
   --vignette: radial-gradient(ellipse 100% 100% at 50% 42%, transparent 55%, color-mix(in srgb, var(--surface-0) 55%, transparent) 100%);
-  --nebula: radial-gradient(ellipse 70% 60% at 18% 82%, color-mix(in srgb, var(--indigo) 9%, transparent), transparent 70%), radial-gradient(ellipse 55% 50% at 88% 12%, color-mix(in srgb, var(--indigo) 5%, transparent), transparent 70%);
+  /* sky (docs/design/sky-pattern.md): three Milky Way hues, then alphas at Rich strength; Subtle shows each layer at 1/1.55 opacity */
+  --sky-core: #f4a39a; /* salmon-peach glow of the core bulge */
+  --sky-rose: #c47aa6; /* dusty rose between core and arms, and at dust edges */
+  --sky-arm: #8e93da; /* lavender blue-violet arms and cool stars */
+  --sky-band: 0.32; /* band glow peak */
+  --sky-lane: 0.5; /* dust over the band, --surface-0 */
+  --sky-outside: 0.3; /* near-black navy outside the band, --surface-0 */
+  --sky-haze: 0.18; /* unresolved-star haze in the band, --text */
+  --sky-star: 0.5; /* star dust peak, --text with some --sky-core and --sky-arm */
+  --sky-anchor: 0.7; /* the dozen bright stars */
+  --sky-hole: 0; /* band opacity left behind the graph's box: none, so no tint gathers around the stars */
+  --sky-hole-stars: 0.6; /* star dust left behind it (white points, no tint) */
+  --sky-grain: 0.03; /* film grain peak, --text */
+  --sky-ring: 0.1; /* chart rings and ticks, --halo-name (canvas, map-anchored, scaled by strength) */
+  --sky-ring-label: 0.42; /* chart ring labels, --text-3 */
 
   /* shadcn semantic tokens */
   --background: var(--night);
@@ -167,6 +181,7 @@
 @media (prefers-reduced-motion: reduce) { @keyframes tip-in { from { opacity: 0; } } } /* opacity only; the durations are already 0 */
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes bar-grow { from { transform: scaleX(0); } }
+@keyframes sky-drift { to { transform: translate3d(-18px, 10px, 0); } }
 @keyframes pulse-star { 50% { transform: scale(0.6); opacity: 0.5; } }
 
 @layer base {
@@ -175,9 +190,19 @@
   body {
     @apply text-foreground font-sans antialiased;
     font-feature-settings: "cv11", "ss01";
-    background: var(--vignette), var(--nebula), radial-gradient(120% 90% at 50% 38%, var(--night-lift) 0%, var(--night) 62%);
+    background: var(--vignette), radial-gradient(120% 90% at 50% 38%, var(--night-lift) 0%, var(--night) 62%); /* the #60 indigo --nebula is gone: under the band it read as a purple cast */
     background-color: var(--night);
   }
+  /* sky layers: one fixed element per layer under #root (z -1), each an image rendered once per window size by
+     graph/sky.ts; a setting change fades opacity only (--t, 0 under reduced motion); the compositor runs the opt-in drift */
+  .sky-layers { position: fixed; inset: -24px; z-index: -1; pointer-events: none; contain: strict; }
+  .sky-layer { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity var(--t) var(--ease-out); will-change: opacity; } /* each its own compositor layer: the map's frames never repaint it */
+  /* the band and its stars dim behind the graph's live screen box (sky.ts skyGraph sets --hole-*); unset, the ellipse is
+     empty and the layer shows whole */
+  .sky-layer[data-layer="band"] { mask-image: radial-gradient(var(--hole-rx, 0px) var(--hole-ry, 0px) at var(--hole-x, 50%) var(--hole-y, 50%), rgb(0 0 0 / var(--sky-hole)) 50%, #000 100%); }
+  .sky-layer[data-layer="dust"] { mask-image: radial-gradient(var(--hole-rx, 0px) var(--hole-ry, 0px) at var(--hole-x, 50%) var(--hole-y, 50%), rgb(0 0 0 / var(--sky-hole-stars)) 50%, #000 100%); }
+  [data-drift] .sky-layers { animation: sky-drift 180s ease-in-out infinite alternate; }
+  @media (prefers-reduced-motion: reduce) { [data-drift] .sky-layers { animation: none; } }
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
   :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 }

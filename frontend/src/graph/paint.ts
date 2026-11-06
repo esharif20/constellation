@@ -2,6 +2,7 @@
 // all fades and focus live on the model objects (mutated in place), so React never re-renders per frame.
 import { CORE_R, FOCUS_FILL, haloOf } from "./layout";
 import { badgeWanted, badgeY } from "./badge";
+import { gain, getSky } from "./skySettings.ts";
 import { chooseSpot, cutName, labelStart, type Box } from "./names";
 import { clusterHealth, rankMembers, type Cluster, type GLink, type GNode, type GOverlap, type Model } from "./model";
 
@@ -40,12 +41,26 @@ function readInk() {
     overlap: t("--overlap") || PALETTE.overlap,
     starlight: t("--k-command") || PALETTE.starlight, // the synthetic centre of a hubless cluster: structural starlight, never a kind colour
     fade: Number(t("--fade")) || 0.1,
+    skyRing: Number(t("--sky-ring")) || 0.1, skyRingLabel: Number(t("--sky-ring-label")) || 0.42,
     edge: t("--edge"), edgeAlt: t("--edge-alt"), halo: t("--halo"), haloName: t("--halo-name"), dust: t("--dust"),
     ring: t("--ring"), text: t("--text"), text2: t("--text-2"), text3: t("--text-3"), warn: t("--warn"), mono: t("--font-mono-stack"), night: t("--night"), serif: t("--font-serif-stack"), sans: t("--font-sans-stack"),
   };
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+// The graticule in world units, built once: 5 declination rings, 12 meridians from the first ring out (the centre stays
+// clear), and ticks on the outer ring every 5 degrees, longer every 15.
+function graticulePath(step: number) {
+  const p = new Path2D(), R = step * 5;
+  for (let i = 1; i <= 5; i++) { p.moveTo(step * i, 0); p.arc(0, 0, step * i, 0, Math.PI * 2); }
+  for (let j = 0; j < 12; j++) { const c = Math.cos((j * Math.PI) / 6), s = Math.sin((j * Math.PI) / 6); p.moveTo(c * step, s * step); p.lineTo(c * R, s * R); }
+  for (let d = 0; d < 360; d += 5) {
+    const t = (d * Math.PI) / 180, l = d % 15 ? step * 0.04 : step * 0.09;
+    p.moveTo(Math.cos(t) * R, Math.sin(t) * R); p.lineTo(Math.cos(t) * (R - l), Math.sin(t) * (R - l));
+  }
+  return p;
+}
 // Drawn radius in graph units: grows with zoom until k = 2.5, then sublinearly, so zooming in reads labels, not giant discs.
 export const radius = (n: GNode, k: number) => n.r * n.s * Math.min(1, Math.sqrt(2.5 / k));
 // the radius in screen px that a hovered star will have once grown (the tooltip anchors to this)
@@ -79,6 +94,9 @@ export function makePainter(model: Model, reducedMotion: boolean) {
   const start = performance.now();
   let introEnd = start + FEEL.introMs * 1.4 + 400;
   const far = Math.max(1, ...model.nodes.map((n) => Math.hypot(n.x ?? 0, n.y ?? 0)));
+  const STEP = far * 0.22; // ring spacing: the 5th ring sits just outside the outermost star
+  let ringA = 0;
+  const grid = graticulePath(STEP); // drawn only when the Sky settings turn chart rings on
   for (const n of model.nodes) n.born = reducedMotion ? 0 : start + (Math.hypot(n.x ?? 0, n.y ?? 0) / far) * FEEL.introMs * 0.7 + Math.random() * 120;
 
   function sprite(color: string) {
@@ -170,11 +188,32 @@ export function makePainter(model: Model, reducedMotion: boolean) {
     ctx.setTransform(sc.dpr, 0, 0, sc.dpr, 0, 0);
     const w = ctx.canvas.width / sc.dpr, h = ctx.canvas.height / sc.dpr;
     ctx.fillStyle = ink.dust;
-    for (const d of dust) {
+    const sky = getSky(), skyGain = gain(sky.strength);
+    if (!skyGain) for (const d of dust) { // the #60 parallax dust; with the Sky on, its deep field brings its own
       ctx.globalAlpha = d.a * 0.5;
       ctx.fillRect((((d.x * w + sc.tx * 0.06) % w) + w) % w, (((d.y * h + sc.ty * 0.06) % h) + h) % h, d.r, d.r);
     }
     ctx.restore();
+    // Sky graticule: a polar star chart anchored to the map, its path built once; full to 1.5x the fitted zoom, gone by 4x
+    ringA = ease(ringA, sky.graticule ? skyGain : 0, fk); // a toggle fades the rings like the image layers
+    const ga = clamp01((4 - k / view.fitK) / 2.5) * ringA;
+    if (ga > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = ga * ink.skyRing; ctx.strokeStyle = ink.haloName; ctx.lineWidth = 1 / k;
+      ctx.stroke(grid);
+      ctx.globalAlpha = ga * ink.skyRingLabel; ctx.fillStyle = ink.text3;
+      ctx.font = `${10.5 / k}px ${ink.sans}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      for (let j = 0; j < 12; j++) { // right ascension, counter-clockwise as on a sky chart
+        const t = (-j * Math.PI) / 6, rr = STEP * 5 + 16 / k;
+        ctx.fillText(`${j * 2}h`, Math.cos(t) * rr, Math.sin(t) * rr);
+      }
+      ctx.textAlign = "left";
+      for (let i = 1; i <= 4; i++) { // declination on the rings, along one meridian
+        const t = -Math.PI / 12, rr = STEP * i;
+        ctx.fillText(`+${90 - i * 18}°`, Math.cos(t) * rr + 4 / k, Math.sin(t) * rr - 6 / k);
+      }
+      ctx.restore();
+    }
     // cluster halos: soft nebulae, one neutral hue (27 clusters is far past what colour can encode)
     for (const c of model.clusters) {
       if (c.members.length < 3 || c.a < 0.01) continue;

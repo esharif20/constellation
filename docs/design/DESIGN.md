@@ -235,8 +235,30 @@ Every interactive component has hover, focus-visible (the 2px `--ring` outline u
 The sky stays the `--night` / `--night-lift` radial gradient, with two static layers on `body` in `index.css` (`--vignette`, `--nebula`), both derived from tokens by `color-mix` (no new colour literals):
 
 - **Vignette:** `--surface-0` at 55% at the corners, fading to nothing by 55% of the radius. It only darkens, so name contrast on the `--night` stroke is unchanged.
-- **Nebula:** `--indigo` at 9% (lower left) and 5% (upper right), large ellipses. A tint shift, not a shape.
+- **Nebula:** removed in sky round 6. Its indigo tint sat under the Milky Way band and read as a purple cast around the graph.
 - **Dust:** unchanged. The canvas already draws 260 faint dust specks with a 0.06 pan parallax (`paint.ts`), so no second dust layer was added.
 - **Cost and motion:** pure CSS under the transparent canvas, painted once, nothing per frame. No new motion, so `prefers-reduced-motion` has nothing to turn off (the existing dust parallax is a pan response, not an animation).
 
 Variants shot on demo-250 at 1440 and 390 in `docs/design/screenshots/bg/`: `o` (original), `a` (vignette only), `b` (vignette + nebula, chosen), `c` (vignette + a stronger two-lobe nebula, indigo 14% and indigo-bright 7%). `a` is nearly indistinguishable from `o`. `c` lifts the lower-left ground enough to flatten the halos. `b` reads as depth without being noticed. `layout:check` aaMin is 5.44, unchanged.
+
+### Sky pattern (Milky Way, Sky popover)
+
+Four image layers under the canvas (band, star dust, bright stars, grain), each rendered once per window size by `graph/sky.ts` at Rich strength. A setting change only fades a layer's opacity (`--t`, `--ease-out`; 0 under reduced motion). See `docs/design/sky-pattern.md`.
+
+Sky-only hues, never data colours:
+- `--sky-core: #f4a39a`: salmon-peach core bulge
+- `--sky-rose: #c47aa6`: dusty rose, and the dust edges
+- `--sky-arm: #8e93da`: lavender blue-violet arms and cool stars
+
+Alphas at Rich:
+- band glow: `--sky-band: 0.32`
+- dust and the outside: `--sky-lane: 0.5`, `--sky-outside: 0.3` (`--surface-0`)
+- `--sky-haze: 0.18`
+- behind the graph's live screen box: `--sky-hole: 0` (band), `--sky-hole-stars: 0.6` (star dust), a CSS mask moved when the camera rests
+- stars: `--sky-star: 0.5`, `--sky-anchor: 0.7`
+- `--sky-grain: 0.03`
+- chart rings: `--sky-ring: 0.1`, `--sky-ring-label: 0.42`; on by default (owner's pick)
+
+Strength: Off 0, Subtle 1/1.55 opacity (the default), Rich 1. Budget at Subtle: map-area p95 1.16:1 at 1440 on `--night-lift`, under the 1.18 ceiling and the 1.45 resting edge.
+
+**Sky popover:** a ghost icon button (telescope, 44px on phones, 40px on desktop, text-2) in the top bar after Explain. `PopoverContent` is glass, 272px wide, `p-3`, with a 16px collision gutter. Title `Sky` 13/500 with a ghost `Reset` at sm. Strength is a segmented radio group in the scope filter's style: `rounded-lg border bg-surface-2 p-0.5`, three `min-h-9` stops, selected `bg-indigo-bright/20 text-foreground`, others text-2 with `hover:bg-surface-3`, arrow keys to move. The five layers are rows (min-h 40) with a 13px text-2 label and a shadcn `Switch`, disabled and text-3 when strength is Off.

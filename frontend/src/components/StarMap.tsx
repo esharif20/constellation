@@ -7,6 +7,8 @@ import { applyForces, fitView, focusView, haloOf, type LLink, type LNode, type V
 import { step, type Cluster, type GLink, type GNode, type Model } from "@/graph/model";
 import { hoverTarget } from "@/graph/hover";
 import { FEEL, hoverRadius, makePainter, type Painter } from "@/graph/paint";
+import { skyGraph } from "@/graph/sky";
+import { onSky } from "@/graph/skySettings";
 import { Hover, type Tip } from "@/components/Hover";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +75,17 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
   const onClusterRef = useRef(onCluster);
   useEffect(() => { onClusterRef.current = onCluster; });
   const zoomK = useRef(1);
+  // The sky hides the band behind the graph's screen box (sky.ts skyGraph): sent once the camera has rested, never during
+  // a gesture (a mask change repaints the layer); `settled` after a fit lets the sky place and render the band.
+  const skyT = useRef(0);
+  const skyBox = useCallback((settled: boolean) => {
+    const g = fg.current, ns = model.nodes;
+    if (!g || !ns.length) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const n of ns) { if (n.x! < x0) x0 = n.x!; if (n.x! > x1) x1 = n.x!; if (n.y! < y0) y0 = n.y!; if (n.y! > y1) y1 = n.y!; }
+    const a = g.graph2ScreenCoords(x0, y0), b = g.graph2ScreenCoords(x1, y1);
+    skyGraph({ x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y }, settled);
+  }, [model]);
   const aimRef = useRef<(instant?: boolean) => void>(() => {});
   const focus = painter.focus;
 
@@ -97,6 +110,7 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
   useEffect(() => () => { cancelAnimationFrame(loop.current); loop.current = 0; }, []); // zeroed too, or a StrictMode remount would never restart the loop
   // Webfonts arrive after the first paint; the map is at rest by then, so repaint once they land.
   useEffect(() => { void document.fonts.ready.then(wake); }, [wake]);
+  useEffect(() => onSky(wake), [wake]); // a Sky setting change (chart rings) repaints the resting map
 
   // The layout is fully settled by the warm-up, so the engine does not run at load (cooldownTicks 0). A drag lets it run
   // while held and for 150 more ticks after release (the neighbours spring home), then it rests again.
@@ -211,8 +225,9 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
     if (!fitted) return;
     painter.view.fitK = fitted.k;
     fly(fitted, true);
+    requestAnimationFrame(() => requestAnimationFrame(() => skyBox(true))); // after the instant flight has landed
     setReady(true);
-  }, [fitted, fly, painter]);
+  }, [fitted, fly, painter, skyBox]);
 
   // Focus a cluster (or leave it): dims start now, the card has mounted, so measure the insets a frame later and fly to the
   // framed halo (read once: the target is frozen, the camera does not chase a dragged member) or back to the fitted view.
@@ -323,8 +338,11 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
         wake();
       });
     };
+    // a tab loaded in the background can be sized before its window is: re-check the size when it is shown
+    const onShow = () => { if (!document.hidden) onResize(); };
     addEventListener("resize", onResize);
-    return () => removeEventListener("resize", onResize);
+    document.addEventListener("visibilitychange", onShow);
+    return () => { removeEventListener("resize", onResize); document.removeEventListener("visibilitychange", onShow); };
   }, [focus, painter, model, wake]);
 
   // Forces go in before the data so the warm-up ticks run with them and the first paint is already settled.
@@ -482,6 +500,7 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
             }, 150);
           }
           zoomK.current = t.k;
+          clearTimeout(skyT.current); skyT.current = window.setTimeout(() => skyBox(false), 200);
           wake(); // names ease in and out over time now, so a zoom that has stopped may still have a fade to finish
           // pulling back past half the focus zoom leaves focus where the reader already is (no flight)
           if (cluster && !focus.flying && cam.current.kFocus && t.k < 0.5 * cam.current.kFocus) { noFlight.current = true; onCluster(null); }
