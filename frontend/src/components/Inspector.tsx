@@ -49,14 +49,14 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
         <Header item={item} model={model} />
         <WhatFor item={item} model={model} />
         <VerdictBanner verdict={verdict} item={item} model={model} />
-        <Yours key={item.id} item={item} model={model} habits={habits} twin={twin} />
+        <Yours key={`yours-${item.id}`} item={item} model={model} habits={habits} twin={twin} />
         <Facts model={model} item={item} onSelect={onSelect} onPreview={onPreview} />
 
         <About item={item} />
         <KindDetails item={item} model={model} />
-        <ToolsSection key={item.id} item={item} />
-        <RemovalPreview key={item.id} item={item} model={model} onSelect={onSelect} listed={new Set((model.overlapsOf.get(item) ?? []).map((o) => (o.a === item ? o.b : o.a).id))} />
-        <Related key={item.id} item={item} model={model} onSelect={onSelect} onPreview={onPreview} />
+        <ToolsSection key={`tools-${item.id}`} item={item} />
+        <RemovalPreview key={`removal-${item.id}`} item={item} model={model} onSelect={onSelect} listed={new Set((model.overlapsOf.get(item) ?? []).map((o) => (o.a === item ? o.b : o.a).id))} />
+        <Related key={`related-${item.id}`} item={item} model={model} onSelect={onSelect} onPreview={onPreview} />
         {onCluster && item.cluster && <Button variant="ghost" className="-mx-2 mt-3 h-11 max-w-full justify-start gap-2 px-2 text-[13px] text-text-2 sm:h-10" onClick={() => onCluster(item.cluster!)}><OrbitIcon aria-hidden /><span className="truncate">Fly to {item.cluster.name}</span></Button>}
         {whatIf && onToggle && <WhatIfToggle model={model} item={item} whatIf={whatIf} removed={removed} onToggle={onToggle} />}
       </div>

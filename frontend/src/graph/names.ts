@@ -28,7 +28,7 @@ export function chooseSpot(o: In): Spot | null {
         const dx = Math.cos(a) * (o.r + gap + w / 2), dy = Math.sin(a) * (o.r + gap + h / 2);
         const x = Math.min(maxX, Math.max(minX, cx + dx)), y = Math.min(maxY, Math.max(minY, cy + dy));
         if (Math.abs(x - cx - dx) + Math.abs(y - cy - dy) > Math.max(w * 0.5, 40)) continue; // not detached from its circle
-        const box: Box = [x - w / 2 - 6, y - h / 2, x + w / 2 + 6, y + h / 2];
+        const box: Box = [x - w / 2 - 6, y - h / 2 - 3, x + w / 2 + 6, y + h / 2 + 3]; // padded 3 px above and below so stacked names never touch
         if (o.placed.some((p) => hit(box, p))) continue;
         let crowded = 0;
         for (const s of o.obstacles) if (hit(box, s)) crowded++;
