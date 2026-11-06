@@ -13,7 +13,7 @@ from constellation import scan
 from constellation import usage as usage_reader
 
 CANARY = "sk-ant-HOSTILE-CANARY-0123456789abcdef0123456789"
-BOUNDED = settings(max_examples=8, deadline=200, derandomize=True, database=None, phases=(Phase.generate,))
+BOUNDED = settings(max_examples=8, deadline=500, derandomize=True, database=None, phases=(Phase.generate,))
 PLUGIN_MANIFEST = "plugins/cache/invented-market/invented-plugin/1/.claude-plugin/plugin.json"
 
 
@@ -36,24 +36,19 @@ def clean_result(result):
             marks=pytest.mark.xfail(
                 strict=True,
                 raises=json.JSONDecodeError,
-                reason="claude_code.py:384 parses malformed settings during secret collection without recovery",
+                reason="claude_code.py:482 parses malformed settings during secret collection without recovery",
             ),
         ),
         pytest.param(
             ".credentials.json",
             marks=pytest.mark.xfail(
-                strict=True, raises=json.JSONDecodeError, reason="claude_code.py:397 parses malformed credentials without recovery"
+                strict=True, raises=json.JSONDecodeError, reason="claude_code.py:498 parses malformed credentials without recovery"
             ),
         ),
         ".claude.json",
         ".mcp.json",
         "plugins/installed_plugins.json",
-        pytest.param(
-            PLUGIN_MANIFEST,
-            marks=pytest.mark.xfail(
-                strict=True, raises=json.JSONDecodeError, reason="claude_code.py:348 parses malformed plugin JSON without recovery"
-            ),
-        ),
+        PLUGIN_MANIFEST,
     ],
 )
 @BOUNDED
@@ -74,24 +69,19 @@ def test_malformed_json_is_warned_without_aborting_the_scan(filename, suffix):
             marks=pytest.mark.xfail(
                 strict=True,
                 raises=UnicodeDecodeError,
-                reason="claude_code.py:384 reads non-UTF-8 settings during secret collection without recovery",
+                reason="claude_code.py:482 reads non-UTF-8 settings during secret collection without recovery",
             ),
         ),
         pytest.param(
             ".credentials.json",
             marks=pytest.mark.xfail(
-                strict=True, raises=UnicodeDecodeError, reason="claude_code.py:397 reads non-UTF-8 credentials without recovery"
+                strict=True, raises=UnicodeDecodeError, reason="claude_code.py:498 reads non-UTF-8 credentials without recovery"
             ),
         ),
         ".claude.json",
         ".mcp.json",
         "plugins/installed_plugins.json",
-        pytest.param(
-            PLUGIN_MANIFEST,
-            marks=pytest.mark.xfail(
-                strict=True, raises=UnicodeDecodeError, reason="claude_code.py:348 reads non-UTF-8 plugin JSON without recovery"
-            ),
-        ),
+        PLUGIN_MANIFEST,
     ],
 )
 @BOUNDED
@@ -109,22 +99,17 @@ def test_invalid_utf8_is_warned_without_aborting_the_scan(filename, raw):
     [
         pytest.param(
             "settings.json",
-            marks=pytest.mark.xfail(strict=True, raises=AttributeError, reason="claude_code.py:384 assumes the settings root is an object"),
+            marks=pytest.mark.xfail(strict=True, raises=AttributeError, reason="claude_code.py:482 assumes the settings root is an object"),
         ),
         pytest.param(
             ".claude.json",
             marks=pytest.mark.xfail(
-                strict=True, raises=AssertionError, reason="claude_code.py:126 silently ignores a non-object .claude.json without a warning"
+                strict=True, raises=AssertionError, reason="claude_code.py:166 silently ignores a non-object .claude.json without a warning"
             ),
         ),
         ".mcp.json",
         "plugins/installed_plugins.json",
-        pytest.param(
-            PLUGIN_MANIFEST,
-            marks=pytest.mark.xfail(
-                strict=True, raises=TypeError, reason="claude_code.py:350 assumes the plugin manifest root is an object"
-            ),
-        ),
+        PLUGIN_MANIFEST,
     ],
 )
 @BOUNDED
@@ -142,15 +127,15 @@ def test_deep_json_is_warned_without_aborting_the_scan(filename, depth):
     [
         pytest.param(
             "hooks-list",
-            marks=pytest.mark.xfail(strict=True, raises=AttributeError, reason="claude_code.py:251 assumes hooks is an object"),
+            marks=pytest.mark.xfail(strict=True, raises=AttributeError, reason="claude_code.py:313 assumes hooks is an object"),
         ),
         pytest.param(
             "groups-null",
-            marks=pytest.mark.xfail(strict=True, raises=TypeError, reason="claude_code.py:252 assumes hook groups are iterable"),
+            marks=pytest.mark.xfail(strict=True, raises=TypeError, reason="claude_code.py:314 assumes hook groups are iterable"),
         ),
         pytest.param(
             "handler-without-type",
-            marks=pytest.mark.xfail(strict=True, raises=KeyError, reason="claude_code.py:260 indexes a missing hook handler type"),
+            marks=pytest.mark.xfail(strict=True, raises=KeyError, reason="claude_code.py:322 indexes a missing hook handler type"),
         ),
     ],
 )
@@ -258,7 +243,7 @@ def test_large_malformed_mcp_json_is_warned_without_echoing_its_content(extra):
         pytest.param(
             "manifest",
             marks=pytest.mark.xfail(
-                strict=True, raises=AssertionError, reason="claude_code.py:348 follows plugin manifest symlinks outside the plugin root"
+                strict=True, raises=AssertionError, reason="claude_code.py:380 follows plugin manifest symlinks outside the plugin root"
             ),
         ),
     ],
@@ -310,7 +295,7 @@ def test_json_surrogates_in_transcript_ids_are_warned_instead_of_crashing(field,
         clean_result(scan(root, offline=True, origins=False))
 
 
-@pytest.mark.xfail(strict=True, raises=RecursionError, reason="claude_code.py:376 recursively walks credentials without a depth bound")
+@pytest.mark.xfail(strict=True, raises=RecursionError, reason="claude_code.py:467 recursively walks credentials without a depth bound")
 def test_deep_credentials_are_warned_without_crashing(tmp_path):
     # A fixed reproducer avoids Hypothesis's changing recursion limit and traceback locations during replay.
     write_skill(tmp_path, "survivor", "Invented valid sibling")

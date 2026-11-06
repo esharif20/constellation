@@ -149,7 +149,9 @@ def canary_scan(canary_setup, tmp_path, capsys):
     return saved, config, captured.out + captured.err, embedder.texts
 
 
-@pytest.mark.parametrize("surface", ["saved-scan", "report", "checklist", "export", "habits", "checkpoint", "logs", "embedder"])
+@pytest.mark.parametrize(
+    "surface", ["saved-scan", "report", "checklist", "export", "habits", "assess", "pins", "checkpoint", "logs", "embedder"]
+)
 def test_canary_is_absent_from_each_pipeline_output(canary_scan, tmp_path, capsys, caplog, surface):
     saved, _, scan_logs, embedded = canary_scan
     data = json.loads(saved.read_text())
@@ -178,6 +180,15 @@ def test_canary_is_absent_from_each_pipeline_output(canary_scan, tmp_path, capsy
         ledger = json.loads(habits.DEFAULT_CACHE.read_text())
         assert any(record["days"] and record["items"] for record in ledger["setups"].values())
         assert_clean(habits.DEFAULT_CACHE.read_bytes())
+    elif surface == "assess":
+        assert main(["assess", str(saved)]) == 0
+    elif surface == "pins":
+        pins_file = tmp_path / "pins.json"
+        with TestClient(
+            server.create_app(saved, pins=pins_file, habits=habits.DEFAULT_CACHE, embedder=FakeEmbedder({})), base_url=BASE_URL
+        ) as client:
+            assert client.post("/api/pin", json={"id": "claude-code:skill:invented"}).json() == {"pinned": True, "added": True}
+        assert_clean(pins_file.read_bytes())
     elif surface == "checkpoint":
         # Pause a review so the checkpoint contains live persisted state, not just an empty database.
         assert main(["review", str(saved), "--out", str(tmp_path / "review.md")], decide=lambda _: "q") == 0
@@ -201,6 +212,7 @@ def test_canary_is_absent_from_each_pipeline_output(canary_scan, tmp_path, capsy
     [
         ("GET", "/api/constellation", None),
         ("GET", "/api/brief", None),
+        ("GET", "/api/assess", None),
         ("GET", "/api/lenses", None),
         ("GET", "/api/history", None),
         ("GET", "/api/explain", None),
@@ -211,6 +223,7 @@ def test_canary_is_absent_from_each_pipeline_output(canary_scan, tmp_path, capsy
         ("POST", "/api/chat", {"question": "What should I remove?"}),
         ("POST", "/api/expand", {"id": "claude-code:mcp_server:invented-stdio"}),
         ("POST", "/api/checklist", "current-row"),
+        ("POST", "/api/pin", {"id": "claude-code:skill:invented"}),
     ],
 )
 def test_canary_is_absent_from_each_api_reply(canary_scan, tmp_path, caplog, method, path, payload):
@@ -221,28 +234,44 @@ def test_canary_is_absent_from_each_api_reply(canary_scan, tmp_path, caplog, met
 
     with TestClient(
         server.create_app(
-            saved, checklist=tmp_path / "api-checklist.md", config_dir=config, embedder=FakeEmbedder({}), expansion_query=invented_tools
+            saved,
+            checklist=tmp_path / "api-checklist.md",
+            config_dir=config,
+            embedder=FakeEmbedder({}),
+            expansion_query=invented_tools,
+            habits=habits.DEFAULT_CACHE,
+            pins=tmp_path / "api-pins.json",
         ),
         base_url=BASE_URL,
     ) as client:
         if payload == "current-row":
             summary = client.get("/api/brief").json()
-            assert summary["pairs"]["rows"], "the fixture must exercise a successful checklist write"
-            payload = {"id": summary["pairs"]["rows"][0]["id"]}
+            rows = summary["safe"]["rows"] + summary["look"]["rows"]
+            assert rows, "the fixture must exercise a successful checklist write"
+            payload = {"id": rows[0]["id"]}
         response = client.request(method, path, json=payload) if method == "POST" else client.get(path)
         assert response.status_code == (404 if path == "/api/preview" else 200)
         assert_clean(response.content)
+        if path in {"/api/brief", "/api/assess"}:
+            assert response.json()["evidence"]["ledger"] is True
+            records = json.loads(habits.DEFAULT_CACHE.read_text())["setups"].values()
+            project_hashes = {key for ledger in records for day in ledger["days"].values() for key in day["projects"]}
+            assert project_hashes
+            assert all(key not in response.text for key in project_hashes)
         assert_clean(caplog.text)
         checklist = tmp_path / "api-checklist.md"
         if checklist.exists():
             assert_clean(checklist.read_bytes())
+        pins_file = tmp_path / "api-pins.json"
+        if pins_file.exists():
+            assert_clean(pins_file.read_bytes())
 
 
 @pytest.mark.parametrize("surface", ["saved-scan", "api"])
 @pytest.mark.xfail(
     strict=True,
     raises=AssertionError,
-    reason="claude_code.py:222 puts raw secret folder paths in warnings; cli.py:416 scrubs only Item descriptions",
+    reason="claude_code.py:284 puts raw secret folder paths in warnings; cli.py:467 scrubs only Item descriptions",
 )
 def test_a_bad_skill_warning_does_not_publish_its_secret_folder(canary_setup, tmp_path, surface):
     config, project = canary_setup
@@ -285,7 +314,7 @@ def test_an_interrupted_scan_checkpoint_has_no_body_or_secret(canary_setup, tmp_
         assert_clean(path.read_bytes())
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="cli.py:416 redacts Item descriptions but writes raw secret names and ids")
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason="cli.py:467 redacts Item descriptions but writes raw secret names and ids")
 def test_a_secret_in_a_skill_name_does_not_reach_the_saved_scan(canary_setup, tmp_path):
     config, _ = canary_setup
     path = config / "skills" / TOKENS["folder"] / "SKILL.md"
