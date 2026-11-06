@@ -13,7 +13,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import history, scan, scan_graph
+from . import habits, history, scan, scan_graph
 from . import origins as origin_sources
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
@@ -229,6 +229,9 @@ def main(
     _write(
         result, args.out, read_secrets(args.config_dir, args.project), args.config_dir, None if args.no_history else history.DEFAULT_CACHE
     )
+    if not (args.no_usage or args.no_history):  # smarter-verdict 3.2: the habit ledger; S4 may give it its own flag
+        for warning in habits.update(habits.DEFAULT_CACHE, args.config_dir, result.items, result.relations):
+            print(warning, file=sys.stderr)
     return 0
 
 

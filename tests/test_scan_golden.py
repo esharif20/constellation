@@ -96,6 +96,8 @@ def test_scan_matches_the_recorded_golden_output(name, tmp_path):
     text = json.dumps(CASES[name](tmp_path), default=list)
     home = str(Path.home())  # warnings show paths home-relative ("~/...")
     actual = json.loads(text.replace(str(FIXTURES), "<fixtures>").replace("~" + str(FIXTURES).removeprefix(home), "<fixtures>"))
+    for item in actual["result"]["items"]:
+        item["changed_on"] = None  # a file's mtime day depends on the checkout, not on the scan
     path = GOLDEN / f"{name}.json"
     if os.environ.get("GOLDEN_RECORD"):
         path.write_text(json.dumps(actual, indent=2, sort_keys=True) + "\n")
