@@ -16,7 +16,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from . import analyze, cleanup, frontdoor, next_step
+from . import analyze, cleanup, frontdoor, next_step, scanfile
 from . import pins as pin_file
 from .cli_reports import ReportError, Scan, Style, style_for_stdout
 from .cli_reports import load as load_scan
@@ -101,10 +101,10 @@ class Session:
     def stopped(self, code: int) -> str:
         return _c(self.st, "31", "\n  Cancelled" if code == CANCELLED else f"\n  Stopped: exit code {code}") + "\n"
 
-    def quiet(self, argv: list[str]) -> tuple[int, str]:
-        """Run a subcommand with its output captured."""
+    def quiet(self, argv: list[str], live: bool = False) -> tuple[int, str]:
+        """Run a subcommand with its output captured (`live`: stderr stays on the terminal, for the scan's progress bar)."""
         buf = io.StringIO()
-        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        with contextlib.redirect_stdout(buf), contextlib.nullcontext() if live else contextlib.redirect_stderr(buf):
             code = self.call(argv)
         return code, buf.getvalue()
 
@@ -161,7 +161,7 @@ class Session:
     def run_scan(self, hint: bool = False) -> bool:
         """Scan offline with a progress line, then say what was found; True when it worked."""
         self.write("  Scanning your setup (offline, nothing is sent)...\n")
-        code, text = self.quiet(["scan", self.cfg, "--offline"])
+        code, text = self.quiet(["scan", self.cfg, "--offline"], live=True)
         if code:
             self.write(text + self.stopped(code))
             self.pause()
@@ -206,7 +206,7 @@ class Session:
     def collect(self, rescan: bool) -> tuple[list[analyze.Row], int | None] | None:
         if rescan:
             self.write(CLEAR + "\r\n".join(analyze.render([], 0, self.st, None, "Scanning…")) + "\r\n")
-            code, text = self.quiet(["scan", self.cfg, "--offline"])
+            code, text = self.quiet(["scan", self.cfg, "--offline"], live=True)
             if code:
                 self.write(text + self.stopped(code))
                 self.pause()
@@ -370,7 +370,7 @@ class Session:
 
 def launch(
     run: Callable[[list[str]], int],
-    scan_file: Path = Path("constellation.json"),
+    scan_file: Path | None = None,
     config_dir: str | None = None,
     *,
     st: Style,
@@ -386,7 +386,7 @@ def launch(
     version = importlib.metadata.version("constellation-cli")
     return Session(
         run,
-        scan_file,
+        scan_file or scanfile.target(),
         config_dir or str(Path.home() / ".claude"),
         st,
         confirm,

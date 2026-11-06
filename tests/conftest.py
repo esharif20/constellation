@@ -70,9 +70,9 @@ def no_real_transcripts(monkeypatch):
     forbidden = _REAL_CLAUDE
     original = usage.read_usage
 
-    def guarded(config_dir, items, relations, project=None, home=None):
+    def guarded(config_dir, items, relations, project=None, home=None, progress=None):
         assert not Path(config_dir).resolve().is_relative_to(forbidden), "real transcripts forbidden"
-        return original(config_dir, items, relations, project, home)
+        return original(config_dir, items, relations, project, home, progress)
 
     monkeypatch.setattr(usage, "read_usage", guarded)
     fresh = usage.read_fresh

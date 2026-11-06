@@ -26,8 +26,10 @@ from . import (
     habits,
     history,
     next_step,
+    progress,
     scan,
     scan_graph,
+    scanfile,
     selfcheck,
     session,
     status,
@@ -94,7 +96,9 @@ def main(
         sub = commands.add_parser(c.name, help=c.help, description=c.help)
         if c.arg:
             sub.add_argument("arg", metavar=c.arg)
-        sub.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"), help="saved scan (default constellation.json)")
+        sub.add_argument(
+            "file", type=Path, nargs="?", default=None, help="saved scan (default: ./constellation.json, else the latest scan)"
+        )
         sub.add_argument("--habits", type=Path, help="habit ledger to use for verdicts (default ~/.cache/constellation/habits.json)")
         if c.name == "doctor":
             sub.add_argument("--env", action="store_true", help="check only Python, install method, cache permissions and key presence")
@@ -107,13 +111,20 @@ def main(
         if c.name == "share":
             sub.add_argument("--out", type=Path, default=Path("constellation-share"), help="new output directory")
     scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
-    scan_command.add_argument("config_dir", type=Path)
+    scan_command.add_argument("config_dir", type=Path, nargs="?", default=Path.home() / ".claude", help="default ~/.claude")
     scan_command.add_argument("--no-usage", action="store_true", help="skip reading local transcripts")
     scan_command.add_argument("--no-origins", action="store_true", help="do not work out where each Item came from (no lockfile is read)")
     scan_command.add_argument(
         "--skill-lock", type=Path, help="the skills installer lockfile to read `source` from (default ~/.agents/.skill-lock.json)"
     )
-    scan_command.add_argument("--out", type=Path, default=Path("constellation.json"))
+    scan_command.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="where to write the scan (default: ./constellation.json if it exists, else ~/.cache/constellation/scan.json)",
+    )
+    scan_command.add_argument("-q", "--quiet", action="store_true", help="no progress bar and no summary line")
+    scan_command.add_argument("-v", "--verbose", action="store_true", help="also say which local files were read for origins")
     scan_command.add_argument("--project", type=Path, help="also read this repo's .claude/ folder and .mcp.json as project-scope Items")
     scan_command.add_argument(
         "--count-bodies",
@@ -135,7 +146,7 @@ def main(
     open_command = commands.add_parser(
         "open", help="serve a constellation JSON file as a graph in the browser (`open demo` shows the packaged invented demo)"
     )
-    open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    open_command.add_argument("file", type=Path, nargs="?", default=None)
     open_command.add_argument("--port", type=int, default=8765)
     open_command.add_argument("--no-browser", action="store_true")
     open_command.add_argument("--menu", action="store_true", help=argparse.SUPPRESS)  # the menu stops the server with Esc or q
@@ -145,12 +156,12 @@ def main(
     expand_command = commands.add_parser("expand", help="list the tools of one configured local MCP server")
     expand_command.add_argument("item_id")
     expand_command.add_argument("--config-dir", type=Path, required=True)
-    expand_command.add_argument("--file", type=Path, default=Path("constellation.json"))
+    expand_command.add_argument("--file", type=Path, default=None)
     open_command.add_argument("--checklist", type=Path, help="private cleanup checklist path (outside the Claude setup)")
     report_command = commands.add_parser(
         "report", help="print a plain-text report of a saved scan (reads the file only; no network, no cost)"
     )
-    report_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    report_command.add_argument("file", type=Path, nargs="?", default=None)
     report_command.add_argument("--top", type=int, default=15, help="how many Items to list by always-on cost")
     report_command.add_argument("--all", action="store_true", help="also list distinct pairs")
     report_command.add_argument("--cleanup", type=Path, help="also write a markdown checklist of cleanup candidates to this new file")
@@ -158,15 +169,15 @@ def main(
     assess_command = commands.add_parser(
         "assess", help="print every Item's verdict from a saved scan as JSON (reads files only, sends nothing)"
     )
-    assess_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    assess_command.add_argument("file", type=Path, nargs="?", default=None)
     export_command = commands.add_parser("export", help="write a read-only public Snapshot; does NOT anonymise free text")
     export_command.add_argument("--public", action="store_true", required=True)
-    export_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    export_command.add_argument("file", type=Path, nargs="?", default=None)
     export_command.add_argument("--out", type=Path, required=True, help="new output directory; never overwrites or publishes")
     review_command = commands.add_parser(
         "review", help="go through Suggestions one at a time and write the approved ones to a checklist (no network, no cost)"
     )
-    review_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    review_command.add_argument("file", type=Path, nargs="?", default=None)
     review_command.add_argument("--out", type=Path, default=Path("cleanup.md"), help="the checklist to write")
     review_command.add_argument("--force", action="store_true", help="overwrite an existing checklist")
     diff_command = commands.add_parser("diff", help="list Items added, removed or changed between two saved scans (reads the files only)")
@@ -177,7 +188,7 @@ def main(
         "preview", help="show what installing a downloaded plugin or skill folder would add (reads the folder only; nothing is run or sent)"
     )
     preview_command.add_argument("dir", type=Path)
-    preview_command.add_argument("--against", type=Path, default=Path("constellation.json"), help="saved scan to compare with")
+    preview_command.add_argument("--against", type=Path, default=None, help="saved scan to compare with (default: the latest scan)")
     preview_command.add_argument("--out", type=Path, help="also write the preview to this new file (private)")
     preview_command.add_argument("--force", action="store_true", help="let --out overwrite an existing file")
     preview_command.add_argument(
@@ -192,11 +203,11 @@ def main(
     weekly_command = commands.add_parser(
         "weekly", help="what changed since the last scan, what a session costs now, what went quiet (local, free)"
     )
-    weekly_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    weekly_command.add_argument("file", type=Path, nargs="?", default=None)
     weekly_command.add_argument("--json", action="store_true", help="print the summary as JSON")
     weekly_command.add_argument("--since", help="compare with the newest scan on or before this date (YYYY-MM-DD)")
     status_command = commands.add_parser("status", help="one screen of setup health: session-start cost, verdicts, this week (local, free)")
-    status_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    status_command.add_argument("file", type=Path, nargs="?", default=None)
     status_command.add_argument("--json", action="store_true", help="print the status as JSON")
     commands.add_parser("update", help="print the upgrade command for how this was installed (no network, runs nothing)")
     uninstall_command = commands.add_parser(
@@ -218,7 +229,7 @@ def main(
     )
     profile_command.add_argument("--json", action="store_true")
     purge_command = commands.add_parser("purge", help="Items only used by long-idle projects (read-only)")
-    purge_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    purge_command.add_argument("file", type=Path, nargs="?", default=None)
     purge_command.add_argument("--habits", type=Path, default=habits.DEFAULT_CACHE)
     purge_command.add_argument("--json", action="store_true")
     purge_command.add_argument("--dry-run", action="store_true", help="accepted for symmetry; purge never deletes")
@@ -226,6 +237,9 @@ def main(
     completion_command.add_argument("shell", choices=completion.SHELLS)
     cli_help.decorate(parser, commands.choices)
     args = parser.parse_args(argv)
+    for name in ("file", "against"):  # an omitted saved-scan argument means the most recent scan
+        if hasattr(args, name) and getattr(args, name) is None:
+            setattr(args, name, scanfile.latest_scan())
     if args.command == "completion":
         print(completion.render(parser, args.shell), end="")
         return 0
@@ -308,8 +322,10 @@ def main(
         return 2
 
     lockfile = args.skill_lock or origin_sources.DEFAULT_LOCKFILE
-    if not args.no_origins and lockfile.is_file():
-        print(f"read origin from {lockfile} (source field only)", file=sys.stderr)
+    if args.verbose and not args.no_origins and lockfile.is_file():
+        print(f"read origin from {scanfile.shown(lockfile)} (source field only)", file=sys.stderr)
+    if args.out is None:
+        args.out = scanfile.target()
     sent: list[str] = []
     # An injected llm stands in for the key; otherwise no key means offline, as if --offline were given.
     offline = not args.dry_run and (args.offline or (llm is None and not os.environ.get("ANTHROPIC_API_KEY")))
@@ -348,9 +364,19 @@ def main(
 
     with tempfile.TemporaryDirectory() as scratch:  # a dry run must not write the real token-count cache
         cache = Path(scratch) / "counts.json" if args.dry_run else None  # likewise the label and verdict caches below
+        show = not (args.dry_run or args.quiet or review_ambiguous)  # a prompt cannot share the line with a bar
+        reporter = progress.Reporter(
+            f"Scanning {scanfile.shown(args.config_dir)}",
+            sys.stderr.isatty(),
+            not os.environ.get("NO_COLOR"),
+            shutil.get_terminal_size().columns,
+        )
+        if show:
+            reporter.__enter__()
         try:
             result = scan(
                 args.config_dir,
+                progress=reporter if show else None,
                 llm=llm,
                 embedder=embedder,
                 counter=counter,
@@ -374,6 +400,9 @@ def main(
         except _PairReviewStopped:
             print("Scan paused; rerun with --review-ambiguous to resume.", file=sys.stderr)
             return 130
+        finally:
+            if show:
+                reporter.__exit__(None, None, None)
     if args.dry_run:
         saves = None if args.no_history else history.DEFAULT_CACHE
         ledger = None if args.no_usage or args.no_habits or args.no_history else habits.DEFAULT_CACHE
@@ -390,6 +419,7 @@ def main(
         first = next((w for w in result.warnings if FAILED_PREFIX in w), "unknown")
         print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1
+    args.out.parent.mkdir(parents=True, exist_ok=True)
     saved = _write(
         result, args.out, read_secrets(args.config_dir, args.project), args.config_dir, None if args.no_history else history.DEFAULT_CACHE
     )
@@ -403,6 +433,10 @@ def main(
     if not args.no_history:  # the weekly snapshot needs the ledger above, so it comes last
         for warning in weekly.record_scan(saved):
             print(warning, file=sys.stderr)
+    scanfile.remember(args.out)
+    if not args.quiet:
+        counts = f"{len(saved['items'])} Items, {len(saved['clusters'])} clusters"
+        print(f"Saved {scanfile.shown(args.out)} ({counts}). Next: constellation open")
     _hint("scan")
     return 0
 

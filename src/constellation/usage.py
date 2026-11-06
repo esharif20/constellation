@@ -15,6 +15,7 @@ from typing import Any, BinaryIO
 
 from .claude_code import SOURCE
 from .models import Item, ProjectUsage, Relation, Usage, UsageWindow
+from .progress import Progress, ProgressEvent
 from .redact import redact
 
 FILE_CAP = 256 * 1024 * 1024
@@ -297,9 +298,14 @@ def _fresh(
 
 
 def read_usage(
-    config_dir: Path, items: list[Item], relations: list[Relation], project: Path | None = None, home: Path | None = None
+    config_dir: Path,
+    items: list[Item],
+    relations: list[Relation],
+    project: Path | None = None,
+    home: Path | None = None,
+    progress: Progress | None = None,
 ) -> tuple[dict[str, Usage], UsageWindow, list[str], ProjectUsage]:
-    return _read(config_dir, items, relations, project, home, None)[:4]
+    return _read(config_dir, items, relations, project, home, None, progress)[:4]
 
 
 def read_fresh(config_dir: Path, items: list[Item], relations: list[Relation], salt: str) -> tuple[Fresh, UsageWindow]:
@@ -309,7 +315,13 @@ def read_fresh(config_dir: Path, items: list[Item], relations: list[Relation], s
 
 
 def _read(
-    config_dir: Path, items: list[Item], relations: list[Relation], project: Path | None, home: Path | None, salt: str | None
+    config_dir: Path,
+    items: list[Item],
+    relations: list[Relation],
+    project: Path | None,
+    home: Path | None,
+    salt: str | None,
+    progress: Progress | None = None,
 ) -> tuple[dict[str, Usage], UsageWindow, list[str], ProjectUsage, Fresh]:
     empty = Fresh({}, {}, {}, [])
     usage = {i.id: Usage(0, None) for i in items if i.kind in TRACKED}
@@ -331,8 +343,13 @@ def _read(
     bundles: dict[SKey, dict[str, str]] = {}  # session -> Item id -> last day used
     files = skipped = malformed = oversize = big = symlinks = 0
     first = last = None
+    visited = size = 0
+    total = sum(isinstance(p, tuple) for p in _transcripts(config_dir)) if progress else 0  # a directory listing only
     try:
         for path in _transcripts(config_dir):
+            visited += isinstance(path, tuple)
+            if progress:
+                progress(ProgressEvent("usage", visited, total, size))
             if path is None or isinstance(path, str):  # None is unreadable, "symlink" is skipped on purpose
                 skipped += 1
                 symlinks += path == "symlink"
@@ -347,6 +364,7 @@ def _read(
                         big += stat.S_ISREG(info.st_mode)  # in this branch a regular file is a too-big one
                         continue
                     files += 1
+                    size += info.st_size
                     folders.add(folder)
                     skey = (folder, session)
                     sessions.add(skey)
@@ -387,6 +405,8 @@ def _read(
                 skipped += 1
     except OSError:
         skipped += 1
+    if progress:
+        progress(ProgressEvent("usage", total, total, size))
     warnings = []
     if malformed or oversize or skipped:
         warnings.append(

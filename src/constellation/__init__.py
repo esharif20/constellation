@@ -5,6 +5,7 @@ from . import origins as origin_sources
 from .claude_code import read_items, read_secrets
 from .cluster import item_vectors
 from .models import LLM, Cluster, Constellation, Embedder, ProjectUsage, TokenCounter
+from .progress import Progress, ProgressEvent
 from .redact import ProviderError, guarded, guarded_count, guarded_embed
 from .scan_graph import Context, run
 from .usage import connector_items, read_usage
@@ -32,6 +33,7 @@ def scan(
     checkpoint: Path | None = None,
     on_progress: Callable[[str], None] | None = None,
     ask_pairs: Callable[[str, str], str] | None = None,
+    progress: Progress | None = None,
 ) -> Constellation:
     """`origins` reads where each Item came from, locally (the lockfile's `source` field only, at `lockfile`, else the skills CLI's own).
     `checkpoint` is a file to save the scan's progress in, so an interrupted scan resumes without repeating paid calls
@@ -43,13 +45,17 @@ def scan(
     `offline` makes no provider calls: any llm, counter and verifier given are ignored, and costs come from the cache alone."""
     if offline:
         llm = counter = verifier = None
-    items, warnings, relations, bodies = read_items(config_dir, (lockfile or origin_sources.DEFAULT_LOCKFILE) if origins else None, project)
+    items, warnings, relations, bodies = read_items(
+        config_dir, (lockfile or origin_sources.DEFAULT_LOCKFILE) if origins else None, project, progress
+    )
     usages, window, usage_warnings, by_project = (
-        read_usage(config_dir, items, relations, project, Path.home()) if usage else ({}, None, [], ProjectUsage())
+        read_usage(config_dir, items, relations, project, Path.home(), progress) if usage else ({}, None, [], ProjectUsage())
     )
     warnings += usage_warnings
     items += connector_items(usages)  # before labels and clusters, so a connector seen only in transcripts has a place on the map
     # The only place providers are called from: all are wrapped here, so everything they receive is redacted first.
+    if progress:
+        progress(ProgressEvent("analyze", 0, len(items)))
     secrets = read_secrets(config_dir, project) if llm or embedder or counter or verifier or offline else set()
     vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails
     centred = False
@@ -84,6 +90,8 @@ def scan(
         ask_pairs=ask_pairs,
     )
     state = run(context, checkpoint, on_progress)
+    if progress:
+        progress(ProgressEvent("analyze", len(items), len(items)))
     warnings += state["final_warnings"]
     # shortcut: user CLAUDE.md only, no @imports or project CLAUDE.md; upgrade when the scan reads projects (#43)
     memory = Path(config_dir) / "CLAUDE.md"
