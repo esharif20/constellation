@@ -1,5 +1,5 @@
 // Sky lab: render the Milky Way layers (src/graph/sky.ts, pure) to a PNG in Node, composited over the body gradient the
-// way the page does, with the graph-box mask. For fast look-and-fix rounds; not a gate.
+// way the page does, with the band dimmed behind the graph box. For fast look-and-fix rounds; not a gate.
 // Run: node scripts/sky-render.ts out.png [w] [h] [subtle|rich] [graph box x,y,w,h]
 import { readFileSync, writeFileSync } from "node:fs";
 import { deflateSync, crc32 } from "node:zlib";
@@ -16,11 +16,11 @@ const hex = (n: string): RGB => { const x = tok(n); return [1, 3, 5].map((i) => 
 const ink: Ink = {
   core: hex("--sky-core"), rose: hex("--sky-rose"), arm: hex("--sky-arm"), star: hex("--text"), deep: hex("--surface-0"),
   band: +tok("--sky-band"), lane: +tok("--sky-lane"), outside: +tok("--sky-outside"), haze: +tok("--sky-haze"),
-  dust: +tok("--sky-star"), anchor: +tok("--sky-anchor"), grain: +tok("--sky-grain"),
+  dust: +tok("--sky-star"), anchor: +tok("--sky-anchor"), grain: +tok("--sky-grain"), hole: +tok("--sky-hole"), holeStars: +tok("--sky-hole-stars"),
 };
 
 if (process.env.LOOK) Object.assign(LOOK, JSON.parse(process.env.LOOK)); // try a candidate direction
-const t0 = performance.now(), p = placeFor(graph, w, h), f = fields(w, h, p), t1 = performance.now();
+const t0 = performance.now(), p = placeFor(graph, w, h), f = fields(w, h, p, graph), t1 = performance.now();
 const band = bandPixels(w, h, f, ink), t2 = performance.now();
 const stars = starPixels(w, h, 1, f, ink), t3 = performance.now();
 const anchors = anchorPixels(w, h, 1, ink);
@@ -32,19 +32,13 @@ for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
   const d = Math.hypot((x / w - 0.5) / 0.6, (y / h - 0.38) / 0.45), t = Math.min(1, d / 0.62 / 1.41), k = (y * w + x) * 3;
   for (let c = 0; c < 3; c++) img[k + c] = lift[c] + (night[c] - lift[c]) * t;
 }
-// the mask that dims the band behind the graph (index.css .sky-layer[data-layer=band])
-const hole = (x: number, y: number) => {
-  if (!graph) return 1;
-  const q = Math.hypot((x - graph.x - graph.w / 2) / (graph.w * 0.75 + 80), (y - graph.y - graph.h / 2) / (graph.h * 0.75 + 80));
-  return Math.min(1, Math.max(0, (q - 0.5) / 0.5)); // --sky-hole 0
-};
-const over = (src: Uint8ClampedArray, m: (x: number, y: number) => number) => {
+const over = (src: Uint8ClampedArray) => {
   for (let i = 0; i < w * h; i++) {
-    const a = (src[i * 4 + 3] / 255) * o * m(i % w, (i / w) | 0);
+    const a = (src[i * 4 + 3] / 255) * o;
     for (let c = 0; c < 3; c++) img[i * 3 + c] += (src[i * 4 + c] - img[i * 3 + c]) * a;
   }
 };
-over(band, hole); over(stars.data, (x, y) => 0.6 + 0.4 * hole(x, y)) /* --sky-hole-stars 0.6 */; over(anchors.data, () => 1);
+over(band); over(stars.data); over(anchors.data); // the dim behind the graph is in the renders (sky.ts fields veil)
 
 // contrast behind the graph box against --night-lift
 const lum = (r: number, g: number, b: number) => [r, g, b].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);

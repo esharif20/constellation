@@ -2,7 +2,7 @@
 import { strict as assert } from "node:assert";
 import { DEFAULTS, IMAGE_LAYERS, KEY, VERSION, LAYERS, fromQuery, gain, layerOpacity, load, parse, save } from "../src/graph/skySettings.ts";
 import { readFileSync } from "node:fs";
-import { bandAt, fbm, fields, placeFor, sizeKey } from "../src/graph/sky.ts";
+import { bandAt, bandPixels, fbm, fields, placeFor, sizeKey, type Ink, type RGB } from "../src/graph/sky.ts";
 
 // parse keeps only known, well-typed keys
 assert.deepEqual(parse(null), DEFAULTS);
@@ -76,6 +76,38 @@ for (const [w, h] of [[1440, 900], [390, 844]]) {
   assert.ok(pc.far && bandAt(w / 2, h / 2, w, h, pc).bulge < 0.2, `bulge off a centred graph at ${w}`);
   // a small pan does not change the placement (no re-render)
   assert.deepEqual(placeFor({ ...box, x: box.x + 8, y: box.y - 6 }, w, h), p);
+}
+// first paint (owner: "it weirdly renders in"): the root stays hidden until every layer has an image, then all four swap
+// in one task and the root fades once; no layer is revealed alone
+const css = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
+assert.match(css, /\.sky-layers \{[^}]*opacity: 0;[^}]*transition: opacity var\(--t-slow\)/, "the sky waits hidden, then one --t-slow fade");
+assert.match(css, /\.sky-layers\[data-ready\] \{ opacity: 1; \}/);
+const showBody = src.slice(src.indexOf("function show("), src.indexOf("\n}\n", src.indexOf("function show(")));
+assert.ok(/pending\.size < IMAGE_LAYERS\.length\) return/.test(showBody), "no layer swaps in before all are decoded");
+assert.ok(showBody.indexOf("backgroundImage") > showBody.indexOf("pending.size <") && /data-ready/.test(showBody), "reveal after the full set");
+// graph zone (owner: "purple dust ... blurs the background"): no CSS mask follows the graph, and the dim is light only
+assert.ok(!/mask-image/.test(css), "no mask on the sky layers: its soft hole smeared the band and jumped after a pan");
+const skyGraphBody = src.slice(src.indexOf("export function skyGraph("), src.indexOf("\n}\n", src.indexOf("export function skyGraph(")));
+assert.ok(!/setProperty|style/.test(skyGraphBody), "a pan or zoom changes nothing in the sky");
+assert.ok(!/--halo:\s*rgb\(120 130 255/.test(css), "cluster halos are not indigo");
+{
+  const w = 240, h = 160, p = { side: 1 as const, shift: 0 }, zone = { x: 60, y: 40, w: 120, h: 80 };
+  const ink: Ink = { core: [244, 163, 154], rose: [196, 122, 166], arm: [142, 147, 218], star: [247, 248, 248], deep: [1, 1, 2], band: 0.32, lane: 0.5, outside: 0.3, haze: 0.18, dust: 0.5, anchor: 0.7, grain: 0.03, hole: 0.2, holeStars: 0.6 };
+  // composited over --night-lift, a pixel behind the graph must lie on the line from the band as rendered (P) to the band
+  // with no light at all (K): a pure fade of the band's own light, adding no colour (chroma) of its own
+  const plain = bandPixels(w, h, fields(w, h, p), ink), dim = bandPixels(w, h, fields(w, h, p, zone), ink), dark = bandPixels(w, h, fields(w, h, p), { ...ink, band: 0, haze: 0 }), body: RGB = [16, 23, 58];
+  const over = (a: Uint8ClampedArray, i: number) => [0, 1, 2].map((c) => body[c] + (a[i + c] - body[c]) * (a[i + 3] / 255));
+  let lit = 0;
+  for (let i = 0; i < plain.length; i += 4) {
+    const P = over(plain, i), D = over(dim, i), K = over(dark, i), c0 = [0, 1, 2].reduce((m, c) => (Math.abs(P[c] - K[c]) > Math.abs(P[m] - K[m]) ? c : m), 0);
+    const s = Math.abs(P[c0] - K[c0]) < 1 ? 1 : (D[c0] - K[c0]) / (P[c0] - K[c0]);
+    assert.ok(s > -0.02 && s < 1.02, `behind the graph the band only fades (px ${i / 4}: ${s})`);
+    for (let c = 0; c < 3; c++) assert.ok(Math.abs(D[c] - (K[c] + s * (P[c] - K[c]))) <= 2, `no tint behind the graph (px ${i / 4}, channel ${c})`);
+    if (s < 0.9) lit++;
+  }
+  assert.ok(lit > 0, "the zone does dim the band");
+  const x = 2, y = 2, i = (y * w + x) * 4; // far outside the zone the band is untouched
+  assert.deepEqual([...dim.subarray(i, i + 4)], [...plain.subarray(i, i + 4)]);
 }
 // render budget: the fields of a 1488x948 sky in well under 150 ms (Node, single thread)
 { const t0 = performance.now(); fields(1488, 948, { side: 1, shift: 0 }); const ms = performance.now() - t0; assert.ok(ms < 150, `fields ${ms | 0} ms`); }

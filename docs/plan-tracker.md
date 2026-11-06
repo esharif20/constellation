@@ -844,6 +844,13 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
   - Rings: a settings version migrates old records once.
   - Placement: could not reproduce on demo or synthetic data (Chrome and WebKit); hardened with a `visibilitychange` re-check and a 2000x1150 fit assertion in layout:check.
   - Gates: typecheck, lint, build, sky, layout (aaMin 5.44), chat, badge, inspector, whatif.
+- Round 7 (branch `claude/sky-fix`, owner: "it weirdly renders in"; "purple dust underneath that sort of blurs the background" when dragging). Measured in headless WebKit on demo-250 (own port), 1440x900 and 2000x1150:
+  - Render-in: each layer revealed on its own as its image landed: grain and bright stars at 2.21 s, star dust 2.23 s, band 2.78 s (570 ms of piecemeal pop). Now every layer waits decoded and all four swap in one task; the `.sky-layers` root fades 0 to 1 once (`--t-slow`, 0 under reduced motion) over the navy body.
+  - Purple smear: the CSS radial mask erased the band (and its dark navy veil) inside a soft ellipse around the graph, so the band's structure dissolved into a blurred patch of the lighter indigo body gradient; it only moved when the camera rested, so it sat at the old spot during a drag and jumped on release (13.2% of pixels changed between the last drag frame and 1.35 s later; a band crop went 57,46,59 to 73,57,68). Removed the mask: the dim behind the fitted graph box is baked into the band and star renders and scales light only (`--sky-hole` 0.2, stars 0.6), so it darkens without tint and a pan changes nothing (0.46% of pixels, canvas easing only). Behind-graph p95 1.04 to 1.06 (ceiling 1.18).
+  - Cluster halos were indigo (`--halo` 120 130 255 / 0.075), measured as +6,+6,+12 over the sky near a cluster; now neutral starlight at 0.03.
+  - Deviation: none from the plan. The dim no longer follows a pan (placement already did not): a stable sky over a moving map.
+  - sky:check adds: the root reveal waits for all layers, no `mask-image`, `skyGraph` touches no style, halos not indigo, and a pixel test that the graph-zone dim is a pure fade toward the light-free band (fails for an alpha mask).
+  - Gates: build, lint, sky, motion, layout (aaMin 5.44), chat, badge, labels, centre, inspector, whatif, explain.
 
 ## #22 scan graph T5: optional human pause (2026-11-06, branch `codex/t5-interrupt`)
 

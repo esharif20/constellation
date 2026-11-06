@@ -75,8 +75,8 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
   const onClusterRef = useRef(onCluster);
   useEffect(() => { onClusterRef.current = onCluster; });
   const zoomK = useRef(1);
-  // The sky hides the band behind the graph's screen box (sky.ts skyGraph): sent once the camera has rested, never during
-  // a gesture (a mask change repaints the layer); `settled` after a fit lets the sky place and render the band.
+  // The graph's screen box goes to the sky (sky.ts skyGraph) once the camera has rested; only a `settled` box (after a
+  // fit) is used, to place the band, dim it behind the graph and render it, once per window size. A pan changes no sky.
   const skyT = useRef(0);
   const skyBox = useCallback((settled: boolean) => {
     const g = fg.current, ns = model.nodes;

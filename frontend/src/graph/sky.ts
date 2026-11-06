@@ -1,7 +1,8 @@
 // The Milky Way behind the map (docs/design/sky-pattern.md). Four image layers (band, star dust, bright stars, grain),
 // each rendered once per window size (and band placement) into its own blob image on a fixed element under #root. A Sky
-// setting change only sets a layer's CSS opacity: it never re-renders. Panning and zooming only move a CSS mask that
-// dims the band behind the graph's live bounding box. The seed is fixed, so it is the same sky on every load.
+// setting change only sets a layer's CSS opacity: it never re-renders. The band's light (never its dark) is dimmed
+// behind the graph's fitted box inside the render, so panning and zooming change nothing in the sky: no CSS mask, no
+// tint, no re-render. The whole sky appears at once, in one fade, when every layer is ready. Fixed seed: same sky on every load.
 // The renderers below are pure (numbers in, RGBA out), so scripts/sky-render.ts can draw them to PNG in Node.
 import { IMAGE_LAYERS, getSky, layerOpacity, onSky, type ImageLayer } from "./skySettings.ts";
 
@@ -41,7 +42,7 @@ const rand = (seed: number) => () => { // mulberry32 for star placement
 };
 
 export type RGB = [number, number, number];
-export type Ink = { core: RGB; rose: RGB; arm: RGB; star: RGB; deep: RGB; band: number; lane: number; outside: number; haze: number; dust: number; anchor: number; grain: number };
+export type Ink = { core: RGB; rose: RGB; arm: RGB; star: RGB; deep: RGB; band: number; lane: number; outside: number; haze: number; dust: number; anchor: number; grain: number; hole: number; holeStars: number };
 const mix = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 // --- geometry: one galaxy frame for every layer -------------------------------------------------------------------
@@ -105,12 +106,15 @@ export function placeFor(r: Rect | null, w: number, h: number): Place {
 // --- shared fields ---------------------------------------------------------------------------------------------------
 const SCALE = 3; // fields are computed every 3 CSS px and interpolated; the fine texture comes from the haze and the stars
 
-export function fields(w: number, h: number, p: Place) {
+// zone: the graph's fitted screen box. veil is 1 behind its middle, easing to 0 well outside it (the old CSS mask's
+// ellipse), and only ever scales light down, so it cannot tint the sky.
+export function fields(w: number, h: number, p: Place, zone: Rect | null = null) {
   const lw = Math.ceil(w / SCALE) + 1, lh = Math.ceil(h / SCALE) + 1, n = lw * lh;
-  const glow = new Float32Array(n), dust = new Float32Array(n), warm = new Float32Array(n), edge = new Float32Array(n), dens = new Float32Array(n);
+  const glow = new Float32Array(n), dust = new Float32Array(n), warm = new Float32Array(n), edge = new Float32Array(n), dens = new Float32Array(n), veil = new Float32Array(n);
   const F = frame(w, h, p), T = axis(F);
   for (let j = 0; j < lh; j++) for (let i = 0; i < lw; i++) {
     const b = bandAt(i * SCALE, j * SCALE, w, h, p, F, T), k = j * lw + i;
+    if (zone) veil[k] = 1 - smooth(0.5, 1, Math.hypot((i * SCALE - zone.x - zone.w / 2) / (zone.w * 0.75 + 80), (j * SCALE - zone.y - zone.h / 2) / (zone.h * 0.75 + 80)));
     edge[k] = Math.min(1, Math.abs(b.vv) / 2.2);
     if (Math.abs(b.vv) > 4.5) { glow[k] = b.along * 0.16 * b.halo; dens[k] = glow[k]; continue; } // far off the plane: halo only
     // anisotropic coordinates: structure is stretched along the plane, as in a photo
@@ -135,7 +139,7 @@ export function fields(w: number, h: number, p: Place) {
     const fx = Math.min(lw - 1.001, Math.max(0, x / SCALE)), fy = Math.min(lh - 1.001, Math.max(0, y / SCALE)), i = fx | 0, j = fy | 0, u = fx - i, v = fy - j, k = j * lw + i;
     return a[k] * (1 - u) * (1 - v) + a[k + 1] * u * (1 - v) + a[k + lw] * (1 - u) * v + a[k + lw + 1] * u * v;
   };
-  return { lw, lh, glow, dust, warm, edge, dens, at };
+  return { lw, lh, glow, dust, warm, edge, dens, veil, at };
 }
 export type Fields = ReturnType<typeof fields>;
 
@@ -152,17 +156,18 @@ export function bandPixels(w: number, h: number, f: Fields, ink: Ink) {
     const k1 = k + 1, k2 = k + lw, k3 = k2 + 1, du = f.dust, gw = f.glow, wm = f.warm, eg = f.edge;
     const o = (y * w + x) * 4, D = du[k] * w00 + du[k1] * w10 + du[k2] * w01 + du[k3] * w11, gl = gw[k] * w00 + gw[k1] * w10 + gw[k2] * w01 + gw[k3] * w11;
     const wa = wm[k] * w00 + wm[k1] * w10 + wm[k2] * w01 + wm[k3] * w11, ed = eg[k] * w00 + eg[k1] * w10 + eg[k2] * w01 + eg[k3] * w11;
+    const vl = f.veil[k] * w00 + f.veil[k1] * w10 + f.veil[k2] * w01 + f.veil[k3] * w11;
     const g = gl * (1 - 0.9 * D);
     const arm = mix(ink.arm, ink.star, LOOK.neutral), body = mix(arm, ink.rose, LOOK.rose);
     let col = mix(body, arm, smooth(0.2, 0.9, ed));
     col = mix(col, ink.core, wa);
     col = mix(col, mix(ink.rose, ink.core, 0.4), smooth(0.2, 0.55, D) * (1 - smooth(0.6, 0.95, D)) * 0.6); // dust reddens light at its edges (Gaia)
     const r = hash(x, y + 9999), hz = r * r * r * Math.min(1, gl * 1.2) * (1 - 0.8 * D) * ink.haze * LOOK.haze; // haze grain
-    const la = Math.min(1, g * ink.band + hz);
+    const l0 = Math.min(1, g * ink.band + hz), la = l0 * (1 - (1 - ink.hole) * vl); // behind the graph: less light, same dark and hue
     const da = 1 - (1 - ink.outside * ed) * (1 - ink.lane * D * Math.min(1, gl * 2)); // the dark: navy outside, dust lanes inside
     const a = la + da * (1 - la);
     if (a <= 0) continue;
-    const t = la / a, hzT = la > 0 ? hz / la : 0;
+    const t = la / a, hzT = l0 > 0 ? hz / l0 : 0;
     for (let c = 0; c < 3; c++) out[o + c] = ink.deep[c] + ((col[c] + (ink.star[c] - col[c]) * hzT) - ink.deep[c]) * t;
     out[o + 3] = a * 255;
   }
@@ -186,7 +191,7 @@ export function starPixels(w: number, h: number, dpr: number, f: Fields, ink: In
     const m = r() ** 5, k = r(), wa = f.at(f.warm, x, y), inBand = Math.min(1, d * 2); // brightness ~ u^5: most are faint
     const tone = k < 0.1 + 0.55 * wa ? mix(ink.star, ink.core, 0.55) : k > 0.7 - 0.3 * (1 - inBand) ? mix(ink.star, ink.arm, 0.65) : ink.star;
     // the band's own stars are many and faint (its texture); the field stars are few and a little brighter
-    const a = Math.min(1, ink.dust * (0.14 + 0.86 * m) * (1 - 0.75 * D) * (1.15 - 0.35 * inBand));
+    const a = Math.min(1, ink.dust * (0.14 + 0.86 * m) * (1 - 0.75 * D) * (1.15 - 0.35 * inBand)) * (1 - (1 - ink.holeStars) * f.at(f.veil, x, y));
     const X = Math.floor(x * dpr), Y = Math.floor(y * dpr);
     put(X, Y, tone, a);
     if (m > 0.3) { const s = a * 0.45; put(X + 1, Y, tone, s); put(X, Y + 1, tone, s); put(X - 1, Y, tone, s); put(X, Y - 1, tone, s); }
@@ -219,6 +224,7 @@ function inks(): Ink {
     core: rgb("--sky-core"), rose: rgb("--sky-rose"), arm: rgb("--sky-arm"), star: rgb("--text"), deep: rgb("--surface-0"),
     band: num("--sky-band", 0.2), lane: num("--sky-lane", 0.5), outside: num("--sky-outside", 0.3), haze: num("--sky-haze", 0.12),
     dust: num("--sky-star", 0.5), anchor: num("--sky-anchor", 0.7), grain: num("--sky-grain", 0.045),
+    hole: Number(t("--sky-hole")) || 0, holeStars: num("--sky-hole-stars", 0.6),
   };
 }
 function toCanvas(W: number, H: number, data: Uint8ClampedArray) {
@@ -239,65 +245,69 @@ function renderGrain(w: number, h: number, dpr: number, ink: Ink) {
 
 const els = {} as Record<ImageLayer, HTMLDivElement>;
 const urls: Partial<Record<ImageLayer, string>> = {};
-const ready = new Set<ImageLayer>(); // a layer stays at opacity 0 until its image has landed, so it fades in rather than pops
-let root: HTMLDivElement | null = null, size = "", dims = "", timer = 0, place: Place = { side: 1, shift: 0 }, graph: Rect | null = null;
+const pending = new Map<ImageLayer, string>(); // decoded images of the render in progress; swapped in together
+let root: HTMLDivElement | null = null, size = "", dims = "", timer = 0, place: Place = { side: 1, shift: 0 }, zone: Rect | null = null, graph: Rect | null = null;
 export const sizeKey = (w: number, h: number, p: Place = { side: 1, shift: 0 }) => `${w}x${h}:${p.side}:${p.shift}:${p.far ? 1 : 0}`; // all a render depends on (the seed is fixed)
 // The sky is soft: past 1.5x device px nobody sees more detail, and a 2x layer at 2000x1150 is 4000x2300 (37 MB decoded).
 const skyDpr = () => Math.min(1.5, window.devicePixelRatio || 1);
 
-// opacity only: no render, no layout. Measured as "sky-apply".
+// opacity only: no render, no layout. Measured as "sky-apply". Until the first full render the root is at opacity 0.
 export function apply() {
   const t0 = performance.now(), o = layerOpacity(getSky());
-  for (const k of IMAGE_LAYERS) els[k].style.opacity = String(ready.has(k) ? o[k] : 0);
+  for (const k of IMAGE_LAYERS) els[k].style.opacity = String(o[k]);
   performance.measure("sky-apply", { start: t0 });
 }
 
-// The graph's screen box, sent by the map when the camera rests (never during a gesture). It moves the CSS mask that
-// hides the band behind the graph. `settled` marks the fitted view after load or a resize: only then, and only once per
-// window size, is the band placed on the graph's far side and rendered.
+// The graph's screen box, sent by the map when the camera rests. It changes nothing on screen: `settled` marks the
+// fitted view after load or a resize, and only then, once per window size, is the band placed on the graph's far side,
+// dimmed behind it and rendered.
 export function skyGraph(r: Rect, settled: boolean) {
   graph = r;
-  if (root) {
-    const s = root.style, pad = 24; // the layers are inset -24px
-    s.setProperty("--hole-x", `${r.x + r.w / 2 + pad}px`); s.setProperty("--hole-y", `${r.y + r.h / 2 + pad}px`);
-    s.setProperty("--hole-rx", `${r.w * 0.75 + 80}px`); s.setProperty("--hole-ry", `${r.h * 0.75 + 80}px`);
-  }
   if (settled) { clearTimeout(timer); timer = window.setTimeout(renderAll, 400); } // a window being dragged renders once, when it stops
 }
 
 const idle = (f: () => void) => ("requestIdleCallback" in window ? requestIdleCallback(f, { timeout: 600 }) : setTimeout(f, 30));
+// all or nothing: a layer's image waits, decoded, until every layer of the same render has one; then all four swap in
+// one task and the root fades in once (--t-slow), so nothing appears piece by piece
 function show(k: ImageLayer, c: HTMLCanvasElement, key: string) {
   c.toBlob((b) => {
     if (!b || key !== size) return;
     const url = URL.createObjectURL(b), img = new Image();
-    img.onload = () => { // decoded off the main thread first, so the swap itself costs no frame
-      if (key !== size) return URL.revokeObjectURL(url);
-      if (urls[k]) URL.revokeObjectURL(urls[k]!);
-      urls[k] = url;
-      els[k].style.backgroundImage = `url(${url})`;
-      if (!ready.has(k)) { ready.add(k); apply(); }
-    };
     img.src = url;
-    void img.decode?.().catch(() => {});
+    void img.decode().catch(() => {}).then(() => { // decoded off the main thread first, so the swap itself costs no frame
+      if (key !== size) return URL.revokeObjectURL(url);
+      pending.set(k, url);
+      if (pending.size < IMAGE_LAYERS.length) return;
+      for (const [l, u] of pending) {
+        if (urls[l]) URL.revokeObjectURL(urls[l]!);
+        urls[l] = u;
+        els[l].style.backgroundImage = `url(${u})`;
+      }
+      pending.clear();
+      requestAnimationFrame(() => root!.setAttribute("data-ready", ""));
+    });
   });
 }
 
-// Render every layer for the window size, cheap ones first, the band in idle time; each step is its own task. The
-// placement is decided once per size from the graph box known at that time, so a later pan or refit never moves the band.
+// Render every layer for the window size, cheap ones first, the band in idle time; each step is its own task, and none
+// shows until all are done (show). Placement and the dim zone are decided once per size from the graph box known at
+// that time, so a later pan or refit never changes the sky.
 function renderAll() {
   if (!getSky().strength) return; // Off: nothing to show, so nothing is rendered until it is turned on
   const w = innerWidth + 48, h = innerHeight + 48, d = `${w}x${h}`;
-  if (d !== dims) { dims = d; place = placeFor(graph && { ...graph, x: graph.x + 24, y: graph.y + 24 }, w, h); }
+  if (d !== dims) { dims = d; zone = graph && { ...graph, x: graph.x + 24, y: graph.y + 24 }; place = placeFor(zone, w, h); } // the layers are inset -24px
   const key = sizeKey(w, h, place);
   if (key === size) return;
   size = key;
+  for (const u of pending.values()) URL.revokeObjectURL(u);
+  pending.clear();
   const ink = inks(), dpr = skyDpr();
   show("grain", renderGrain(w, h, dpr, ink), key);
   const an = anchorPixels(w, h, dpr, ink);
   show("anchors", toCanvas(an.W, an.H, an.data), key);
   idle(() => {
     if (key !== size) return;
-    const t0 = performance.now(), f = fields(w, h, place), st = starPixels(w, h, dpr, f, ink);
+    const t0 = performance.now(), f = fields(w, h, place, zone), st = starPixels(w, h, dpr, f, ink);
     show("dust", toCanvas(st.W, st.H, st.data), key);
     performance.measure("sky-render-stars", { start: t0 });
     idle(() => {

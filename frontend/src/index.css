@@ -43,7 +43,7 @@
   /* canvas ink */
   --edge: rgb(150 168 235 / 0.2);
   --edge-alt: rgb(236 228 204 / 0.34);
-  --halo: rgb(120 130 255 / 0.075);
+  --halo: rgb(214 218 228 / 0.03); /* cluster nebulae in neutral starlight: the old indigo (120 130 255) read as purple dust over the band */
   --halo-name: #c9cdf0;
   --dust: rgb(200 210 255 / 0.5);
   --fade: 0.1;
@@ -60,7 +60,7 @@
   --sky-haze: 0.18; /* unresolved-star haze in the band, --text */
   --sky-star: 0.5; /* star dust peak, --text with some --sky-core and --sky-arm */
   --sky-anchor: 0.7; /* the dozen bright stars */
-  --sky-hole: 0; /* band opacity left behind the graph's box: none, so no tint gathers around the stars */
+  --sky-hole: 0.2; /* band light left behind the graph's fitted box (sky.ts scales light only: darker, never tinted) */
   --sky-hole-stars: 0.6; /* star dust left behind it (white points, no tint) */
   --sky-grain: 0.03; /* film grain peak, --text */
   --sky-ring: 0.1; /* chart rings and ticks, --halo-name (canvas, map-anchored, scaled by strength) */
@@ -195,12 +195,11 @@
   }
   /* sky layers: one fixed element per layer under #root (z -1), each an image rendered once per window size by
      graph/sky.ts; a setting change fades opacity only (--t, 0 under reduced motion); the compositor runs the opt-in drift */
-  .sky-layers { position: fixed; inset: -24px; z-index: -1; pointer-events: none; contain: strict; }
+  /* the whole sky waits at opacity 0 over the navy body until every layer is rendered, then fades in once (sky.ts show) */
+  .sky-layers { position: fixed; inset: -24px; z-index: -1; pointer-events: none; contain: strict; opacity: 0; transition: opacity var(--t-slow) var(--ease-out); }
+  .sky-layers[data-ready] { opacity: 1; }
   .sky-layer { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity var(--t) var(--ease-out); will-change: opacity; } /* each its own compositor layer: the map's frames never repaint it */
-  /* the band and its stars dim behind the graph's live screen box (sky.ts skyGraph sets --hole-*); unset, the ellipse is
-     empty and the layer shows whole */
-  .sky-layer[data-layer="band"] { mask-image: radial-gradient(var(--hole-rx, 0px) var(--hole-ry, 0px) at var(--hole-x, 50%) var(--hole-y, 50%), rgb(0 0 0 / var(--sky-hole)) 50%, #000 100%); }
-  .sky-layer[data-layer="dust"] { mask-image: radial-gradient(var(--hole-rx, 0px) var(--hole-ry, 0px) at var(--hole-x, 50%) var(--hole-y, 50%), rgb(0 0 0 / var(--sky-hole-stars)) 50%, #000 100%); }
+  /* no mask: the dim behind the graph is baked into the band and star renders (light only), so a pan changes nothing here */
   [data-drift] .sky-layers { animation: sky-drift 180s ease-in-out infinite alternate; }
   @media (prefers-reduced-motion: reduce) { [data-drift] .sky-layers { animation: none; } }
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }

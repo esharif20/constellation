@@ -21,6 +21,12 @@ Candidates: `screenshots/sky/r6-candidate-{a-photograph,b-starfield,c-ribbon}.pn
 
 **Purple dust around the graph.** It had two sources: the band left at 22% inside the graph mask, and the #60 indigo `--nebula` tint lying under the band. The band is now fully hidden behind the graph (`--sky-hole: 0`, stars at 0.6), and the nebula is removed. The soft bluish glows that remain are the cluster halos (`--halo`, unchanged). Crops: `r6-dust-before.png` and `r6-dust-after.png`. Behind a centred graph (lab, Subtle), p95 went from **1.09 to 1.03**.
 
+**Round 7: render-in and the purple smear** (headless WebKit, demo-250, 1440x900 and 2000x1150). Crops: `screenshots/sky/fix-pan-before.jpg` and `fix-pan-after.jpg` (last drag frame, then 1.35 s after release), `fix-zone-before-after.jpg` (sky only, levels stretched).
+
+- *Render-in.* Each layer faded in as soon as its own image landed: grain and bright stars at 2.21 s, star dust at 2.23 s, the band at 2.78 s. Now `show()` holds each decoded image until the whole set of four is ready, swaps them in one task, and the `.sky-layers` root fades from 0 to 1 once (`--t-slow`, instant under reduced motion). The navy body shows meanwhile. A resize swaps the new set in the same way, over the old one.
+- *Purple smear.* The CSS radial mask on the band removed its light and its dark navy veil together inside a soft ellipse around the graph. The band's rift and clouds dissolved into a blurred patch of the lighter indigo body gradient. The mask moved only once the camera rested, so during a drag it stayed at the old spot, then jumped: 13.2% of pixels changed between the last drag frame and 1.35 s later. The mask is gone. `fields(w, h, place, zone)` adds a `veil` for the fitted graph box (same ellipse), and the band render scales only its light by it (`--sky-hole` 0.2; star dust 0.6). Behind the graph the band fades toward its own dark: structure kept, no tint, and nothing changes on a pan (0.46% of pixels, all canvas easing). Behind-graph p95 is 1.04 to 1.06 at Subtle.
+- *Halos.* The cluster nebulae were indigo (`--halo` 120 130 255 at 0.075), +6,+6,+12 over the sky near a cluster. They are now neutral starlight at 0.03.
+
 **Glitches, measured** (headless Chrome, production build, a synthetic 251-Item setup, 2000x1150 at 2x):
 
 | | before | after |
@@ -56,7 +62,7 @@ Round 4's blurred domain-warped noise made shapeless violet clouds: no band, no 
 4. **Haze:** per-pixel cubed grain weighted by density, not a blur.
 5. **Colour:** near-black navy outside, salmon core (`--sky-core`), dusty rose, lavender-blue at the edges (`--sky-arm`).
 
-**Placement follows the graph.** `StarMap` sends the graph's screen box (node bounds through `graph2ScreenCoords`) to `skyGraph()` at most every 120 ms while the camera moves and once when it rests. That only moves a CSS radial mask on the band (to 0.22) and star dust (to 0.45) layers. At the fitted view (load, resize, reset) `placeFor()` may also move the plane to the graph's far side and the bulge to the far end, in coarse steps, so a pan never re-renders.
+**Placement follows the graph.** `StarMap` sends the graph's screen box (node bounds through `graph2ScreenCoords`) to `skyGraph()` at most every 120 ms while the camera moves and once when it rests. (Superseded in round 7: there is no mask. The fitted box sets a light-only dim baked into the band and star renders, and a pan changes nothing in the sky.) At the fitted view (load, resize, reset) `placeFor()` may also move the plane to the graph's far side and the bulge to the far end, in coarse steps, so a pan never re-renders.
 
 The renderers are pure (numbers in, RGBA out). `node scripts/sky-render.ts out.png [w] [h] [subtle|rich] [x,y,w,h]` draws them to a PNG with the contrast behind a box. That loop (8 rounds, `milkyway-lab-rich.png`) replaced guessing.
 
@@ -102,7 +108,7 @@ Chart rings stay on the canvas (a cached `Path2D`) and now fade in and out too (
 
 - Strength and the layer switches only set each layer element's `opacity`. The layers are rendered at Rich, so Subtle is opacity 1/1.55 (0.645) and Off is 0. CSS fades the change with `transition: opacity var(--t) var(--ease-out)` (240ms, 0 under reduced motion).
 - `apply()` is the only `onSky` handler for the image layers, and it never calls a renderer. `sky:check` asserts this in the source and asserts `layerOpacity`. The render key is the window size alone (`sizeKey`).
-- Rendering is progressive. Grain renders on start, stars and bright stars at the first idle moment (`requestIdleCallback`), the band at the next one, each as its own task. All layers are pre-warmed, so turning one on later is instant.
+- Rendering is split into tasks: grain and bright stars at once, stars at the first idle moment (`requestIdleCallback`), the band at the next one. Nothing shows until all four are decoded; then they swap in together and the sky fades in once. All layers are pre-warmed, so turning one on later is instant.
 - **Measured** at 1440, demo-250, headless Chrome:
   - a switch click handler takes **1.1 ms** in total (React update included); `apply()` reads 0 ms
   - during the 240ms fade, 38 frames with the longest at **16.7 ms**: no dropped frames
