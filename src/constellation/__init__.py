@@ -7,7 +7,7 @@ from .cluster import item_vectors
 from .models import LLM, Cluster, Constellation, Embedder, ProjectUsage, TokenCounter
 from .redact import ProviderError, guarded, guarded_count, guarded_embed
 from .scan_graph import Context, run
-from .usage import read_usage
+from .usage import connector_items, read_usage
 
 
 def scan(
@@ -48,6 +48,7 @@ def scan(
         read_usage(config_dir, items, relations, project, Path.home()) if usage else ({}, None, [], ProjectUsage())
     )
     warnings += usage_warnings
+    items += connector_items(usages)  # before labels and clusters, so a connector seen only in transcripts has a place on the map
     # The only place providers are called from: all are wrapped here, so everything they receive is redacted first.
     secrets = read_secrets(config_dir, project) if llm or embedder or counter or verifier or offline else set()
     vectors: dict[str, list[float]] = {}  # stays empty without an embedder, or when it fails

@@ -1,7 +1,6 @@
 """On-demand MCP tool discovery. Connection settings are ephemeral and never returned."""
 
 import hmac
-import json
 import logging
 import os
 import re
@@ -114,16 +113,16 @@ def _registrations(config_dir: Path) -> Iterator[tuple[str, dict[str, Any], Path
         add(state.get("mcpServers"), "user/")
         projects = state.get("projects")
         if claude_code.LOCAL_SCOPE and isinstance(projects, dict):
-            having = [p for p in sorted(projects) if isinstance(projects[p], dict) and projects[p].get("mcpServers")]
-            for number, project in enumerate(having, 1):
-                add(projects[project]["mcpServers"], f"local/{number}/")
+            for number, project in enumerate(claude_code.numbered_projects(projects), 1):
+                add(projects[project].get("mcpServers") or {}, f"local/{number}/")
     add(claude_code._json_or_empty(config_dir / _MCP_FILE), "")
     plugins: set[str] = set()
     enabled = claude_code._json_or_empty(config_dir / _SETTINGS_FILE).get("enabledPlugins")
     keys = claude_code._installed(config_dir)[0]
-    for manifest in claude_code._plugin_manifests(config_dir):
-        meta = json.loads(manifest.read_text())
-        name, root = meta["name"], manifest.parent.parent
+    for root in claude_code._plugin_roots(config_dir):
+        if (meta := claude_code._manifest(root, [])) is None:
+            continue
+        name = meta["name"]
         if name in plugins:
             continue
         plugins.add(name)

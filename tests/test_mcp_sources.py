@@ -283,3 +283,202 @@ def test_planted_secrets_reach_no_provider_input_and_not_the_report(tmp_path):
     assert sent and "PLANTED" not in sent
     for each in (result, offline):
         assert "PLANTED" not in render_report(json.loads(json.dumps(asdict(each))), top=10, color=False, width=100, show_all=True)
+
+
+def project_setup(tmp_path, projects, settings=None, user=None):
+    """Invented config and project folders: `projects` maps a folder to (its .mcp.json servers or None, its .claude.json entry)."""
+    config = tmp_path / "cfg"
+    config.mkdir()
+    state = {"projects": {}, "mcpServers": user or {}}
+    for name, (servers, entry) in projects.items():
+        folder = tmp_path / name
+        folder.mkdir()
+        if servers is not None:
+            (folder / ".mcp.json").write_text(json.dumps({"mcpServers": servers}))
+        state["projects"][str(folder)] = entry
+    (config / ".claude.json").write_text(json.dumps(state))
+    if settings is not None:
+        (config / "settings.json").write_text(json.dumps(settings))
+    return config
+
+
+def servers_of(result):
+    return {i.id.removeprefix("claude-code:mcp_server:"): i for i in result.items if i.kind == "mcp_server"}
+
+
+def test_a_plugin_without_a_manifest_is_found_by_its_folder_name(tmp_path):
+    root = tmp_path / "plugins" / "cache" / "mkt" / "bare" / "1.0.0"
+    (root / "commands").mkdir(parents=True)
+    (root / "commands" / "go.md").write_text("Go.\n")
+    (root / ".mcp.json").write_text('{"mcpServers": {"srv": {"command": "run"}}}')
+    (tmp_path / "plugins" / "cache" / "mkt" / "stray").mkdir()  # no plugin folders: not a plugin
+
+    result = scan(tmp_path)
+
+    assert {i.id for i in result.items} == {
+        "claude-code:plugin:bare",
+        "claude-code:mcp_server:bare/srv",
+        "claude-code:command:bare/go",
+    }
+    assert {(r.source, r.target, r.kind) for r in result.relations} == {
+        ("claude-code:plugin:bare", "claude-code:mcp_server:bare/srv", "contains"),
+        ("claude-code:plugin:bare", "claude-code:command:bare/go", "contains"),
+    }
+    (tmp_path / "settings.json").write_text('{"enabledPlugins": {"bare@mkt": false}}')
+    assert all(i.disabled for i in scan(tmp_path).items)
+
+
+def test_a_malformed_or_nameless_plugin_manifest_is_a_warning_not_a_crash(tmp_path):
+    cache = tmp_path / "plugins" / "cache" / "mkt"
+    for name, text in (("bad", "{PLANTED broken"), ("nameless", '{"description": "d"}'), ("listy", "[1]"), ("numbered", '{"name": 5}')):
+        (cache / name / "1.0.0" / ".claude-plugin").mkdir(parents=True)
+        (cache / name / "1.0.0" / ".claude-plugin" / "plugin.json").write_text(text)
+
+    result = scan(tmp_path)
+
+    assert result.items == []
+    assert result.warnings == ["skipped a plugin: its plugin.json is unreadable, not valid JSON or has no name"] * 4
+
+
+def test_project_mcp_json_of_every_listed_project_gets_a_local_index_and_project_scope(tmp_path):
+    enable = {"enableAllProjectMcpServers": True}
+    config = project_setup(
+        tmp_path,
+        {
+            "PLANTEDZ": ({"zeta": {"command": "z"}}, enable),
+            "PLANTEDA": ({"alpha": {"type": "http", "url": "https://h.example.com/x"}}, enable),
+        },
+    )
+
+    result = scan(config)
+    found = servers_of(result)
+
+    assert sorted(found) == ["local/1/alpha", "local/2/zeta"]  # sorted path order, not insertion order
+    assert {i.scope for i in found.values()} == {"project"}
+    assert found["local/1/alpha"].description == "remote http: https://h.example.com"
+    assert "PLANTED" not in json.dumps(asdict(result)) + repr(result.warnings)
+
+
+def test_an_unapproved_project_server_is_off_and_approval_comes_from_either_place(tmp_path):
+    servers = {n: {"command": "x"} for n in ("plain", "yes", "no", "viaset")}
+    entry = {"enabledMcpjsonServers": ["yes", "no", 5], "disabledMcpjsonServers": ["no"]}
+    config = project_setup(tmp_path, {"p": (servers, entry)}, settings={"enabledMcpjsonServers": ["viaset"]})
+
+    off = {n.removeprefix("local/1/"): i.disabled for n, i in servers_of(scan(config)).items()}
+
+    assert off == {"plain": True, "yes": False, "no": True, "viaset": False}
+
+
+def test_enable_all_in_settings_or_the_project_turns_every_server_on_but_a_disabled_one_stays_off(tmp_path):
+    servers = {"a": {"command": "x"}, "b": {"command": "x"}}
+
+    def off(name, entry, settings=None):
+        (tmp_path / name).mkdir()
+        config = project_setup(tmp_path / name, {"p": (servers, entry)}, settings=settings)
+        return {i.name: i.disabled for i in servers_of(scan(config)).values()}
+
+    assert off("one", {"disabledMcpjsonServers": ["b"]}, {"enableAllProjectMcpServers": True}) == {"a": False, "b": True}
+    assert off("two", {"enableAllProjectMcpServers": True}) == {"a": False, "b": False}
+    assert off("three", {"enableAllProjectMcpServers": "yes"}) == {"a": True, "b": True}  # only a real true counts
+
+
+def test_disabled_mcp_servers_switch_off_a_local_server_and_a_user_server_only_when_every_project_does(tmp_path):
+    local = {"loc": {"command": "x"}, "keep": {"command": "x"}}
+    config = project_setup(
+        tmp_path,
+        {
+            "a": (None, {"mcpServers": local, "disabledMcpServers": ["loc", "everywhere"]}),
+            "b": (None, {"disabledMcpServers": ["everywhere", "one"]}),
+        },
+        user={"everywhere": {"command": "x"}, "one": {"command": "x"}},
+    )
+
+    off = {n: i.disabled for n, i in servers_of(scan(config)).items()}
+
+    assert off == {"user/everywhere": True, "user/one": False, "local/1/loc": True, "local/1/keep": False}
+
+
+def test_a_project_without_an_existing_folder_or_with_a_relative_key_adds_nothing(tmp_path):
+    config = tmp_path / "cfg"
+    config.mkdir()
+    (tmp_path / "rel").mkdir()
+    (tmp_path / "rel" / ".mcp.json").write_text('{"mcpServers": {"s": {"command": "x"}}}')
+    projects = {str(tmp_path / "gone"): {}, "rel": {"enableAllProjectMcpServers": True}, "bad": 5}
+    (config / ".claude.json").write_text(json.dumps({"projects": projects}))
+
+    result = scan(config)
+
+    assert result.items == [] and result.warnings == []
+
+
+def test_a_symlinked_or_malformed_project_mcp_json_warns_without_the_path(tmp_path):
+    config = project_setup(tmp_path, {"PLANTEDLINK": (None, {}), "PLANTEDBAD": (None, {})})
+    outside = tmp_path / "outside.json"
+    outside.write_text('{"mcpServers": {"leak": {"command": "x"}}}')
+    (tmp_path / "PLANTEDLINK" / ".mcp.json").symlink_to(outside)
+    (tmp_path / "PLANTEDBAD" / ".mcp.json").write_text("{PLANTED broken")
+
+    result = scan(config)
+
+    assert result.items == []
+    assert sorted(result.warnings) == [
+        "could not read local/1/.mcp.json: unreadable or not valid JSON",
+        "skipped .mcp.json in project: it is a symlink pointing outside it",
+    ]
+    assert "PLANTED" not in repr(result.warnings)
+
+
+def test_the_project_passed_with_dash_dash_project_is_read_once_and_labelled_by_approval(tmp_path):
+    config = project_setup(
+        tmp_path, {"repo": ({"srv": {"command": "x"}}, {"enabledMcpjsonServers": ["srv"], "mcpServers": {"mine": {"command": "y"}}})}
+    )
+
+    result = scan(config, project=tmp_path / "repo")
+    found = servers_of(result)
+
+    assert sorted(found) == ["local/1/mine", "project/srv"]
+    assert not found["project/srv"].disabled
+    (config / ".claude.json").write_text("{}")
+    assert servers_of(scan(config, project=tmp_path / "repo"))["project/srv"].disabled  # not approved anywhere
+
+
+def test_a_project_with_only_a_mcp_json_still_takes_a_local_index(tmp_path):
+    config = project_setup(tmp_path, {"a": (None, {"mcpServers": {"s": {"command": "x"}}}), "b": ({"t": {"command": "y"}}, {})})
+
+    assert sorted(servers_of(scan(config))) == ["local/1/s", "local/2/t"]
+
+
+def test_a_copied_config_dir_warns_that_user_scope_was_skipped_only_when_a_claude_json_sits_beside_it(tmp_path):
+    (tmp_path / "copy").mkdir()
+    assert scan(tmp_path / "copy").warnings == []
+
+    (tmp_path / ".claude.json").write_text('{"mcpServers": {"x": {"command": "y"}}}')
+    result = scan(tmp_path / "copy")
+
+    assert result.items == []
+    assert result.warnings == [
+        "user-scope MCP servers were not read: the config dir is not named .claude and has no .claude.json inside it"
+    ]
+
+
+def test_planted_secrets_in_project_mcp_json_survive_nowhere(tmp_path):
+    from constellation.claude_code import read_secrets
+
+    server = {
+        "type": "http",
+        "url": "https://PLANTED_USER:PLANTED_PW@host.example.com:8443/PLANTED_PATH?k=PLANTED_QUERY",
+        "headers": {"Authorization": "Bearer PLANTED_HEADER"},
+        "env": {"TOKEN": "PLANTED_PROJECT_ENV"},
+        "args": ["--key", "PLANTED_ARG"],
+    }
+    config = project_setup(
+        tmp_path,
+        {"p": ({"PLANTED_PROJECT_ENV": server, "ok": {"command": "/x/PLANTED_PROJECT_ENV"}}, {"enableAllProjectMcpServers": True})},
+    )
+
+    result = scan(config)
+    everything = json.dumps(asdict(result)) + repr(result.warnings)
+
+    assert "PLANTED" not in everything
+    assert "host.example.com" in everything  # the host is shape, kept
+    assert "PLANTED_PROJECT_ENV" in read_secrets(config)
