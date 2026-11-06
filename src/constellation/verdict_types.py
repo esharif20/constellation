@@ -70,6 +70,17 @@ class ItemHabits:  # per-Item output of profile() (§3.3)
     co_used: tuple[tuple[str, float], ...] = ()  # (partner id, lift)
     projects_used: int = 0
     top_project_share: float = 0.0
+    # Additive learner outputs (habits.profile). Probabilities are P(used in a given active session), recency-weighted.
+    use_prob: float = 0.0  # Beta-Binomial posterior mean
+    prob_low: float = 0.0  # 90% credible interval; wide when there is little history
+    prob_high: float = 1.0
+    prior_prob: float | None = None  # mean borrowed from neighbours; a prior, never evidence
+    prior_from: Literal["group", "kind"] | None = None
+    typical_gap: float | None = None  # median gap between use days, in active days; None below 3 use days
+    idle_active_days: int | None = None  # active days since the last use; None when never used
+    overdue: bool = False  # idle for more than OVERDUE_MULT typical gaps
+    needs: tuple[tuple[str, float], ...] = ()  # (partner id, P(partner used | this used)) for one-way dependencies
+    project_shares: tuple[tuple[str, float], ...] = ()  # (project hash, share of this Item's uses), largest first
 
 
 @dataclass(frozen=True)

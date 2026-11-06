@@ -48,6 +48,7 @@ def private_default_caches(tmp_path_factory, monkeypatch):
         ("overlaps", "verdicts"),
         ("retrieve", "embeddings"),
         ("history", "history"),
+        ("habits", "habits"),
     ):
         # import_module: `constellation.classify` as an attribute is the re-exported function, not the module
         monkeypatch.setattr(importlib.import_module(f"constellation.{module}"), "DEFAULT_CACHE", root / f"{name}.json")
@@ -71,6 +72,13 @@ def no_real_transcripts(monkeypatch):
         return original(config_dir, items, relations, project, home)
 
     monkeypatch.setattr(usage, "read_usage", guarded)
+    fresh = usage.read_fresh
+
+    def guarded_fresh(config_dir, items, relations, salt):
+        assert not Path(config_dir).resolve().is_relative_to(forbidden), "real transcripts forbidden"
+        return fresh(config_dir, items, relations, salt)
+
+    monkeypatch.setattr(usage, "read_fresh", guarded_fresh)
     monkeypatch.setattr(constellation, "read_usage", guarded)
 
 

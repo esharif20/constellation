@@ -1,12 +1,14 @@
 """Local streaming transcript reader. Only indexed Item ids, counts and digit dates escape."""
 
 import hashlib
+import hmac
 import json
 import os
 import re
 import stat
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any, BinaryIO
@@ -20,6 +22,22 @@ PROJECTS = "projects"
 SUBAGENTS = "subagents"
 TRACKED = {"skill", "agent", "mcp_server", "connector"}
 LABEL_CAP = 60
+SKey = tuple[str, str]  # (project folder, session): a main transcript and its subagent files share one
+
+
+@dataclass(frozen=True)
+class Fresh:
+    """What one scan saw per day, for the habit ledger. Item ids are raw (the ledger hashes them); project folders arrive hashed.
+    Only ids, counts, hashes and digit dates: no names, paths or text."""
+
+    sessions: dict[str, int]  # day -> sessions with a dated record that day
+    projects: dict[str, dict[str, int]]  # day -> project hash -> sessions
+    items: dict[str, dict[str, tuple[int, int, dict[str, int]]]]  # Item id -> day -> (invocations, sessions, project hash -> invocations)
+    co: list[tuple[str, tuple[str, ...]]]  # per session using 2+ Items: (its last invocation day, sorted Item ids)
+
+
+def mac(salt: str, text: str, length: int) -> str:
+    return hmac.new(salt.encode(), text.encode(), hashlib.sha256).hexdigest()[:length]
 
 
 def _encode(path: Path) -> str:
@@ -198,7 +216,7 @@ def _directory(name: str | Path, parent: int | None = None) -> Iterator[int]:
         os.close(fd)
 
 
-def _walk(parent: int, depth: int, folder: str) -> Iterator[tuple[int, str, str] | str | None]:
+def _walk(parent: int, depth: int, folder: str, session: str = "") -> Iterator[tuple[int, str, str, str] | str | None]:
     """Only project/main files (depth 1) and session/subagents files (depth 3)."""
     try:
         with os.scandir(parent) as stream:
@@ -208,21 +226,21 @@ def _walk(parent: int, depth: int, folder: str) -> Iterator[tuple[int, str, str]
                 if entry.is_symlink():
                     yield "symlink"
                 elif depth in {1, 3} and entry.name.endswith(".jsonl") and _is_file(entry):
-                    yield parent, entry.name, folder
+                    yield parent, entry.name, folder, session or entry.name.removesuffix(".jsonl")
                 elif depth < 3 and _is_dir(entry):
                     if depth == 1 and entry.name in {"memory", "tool-results"}:
                         continue
                     if depth == 2 and entry.name != SUBAGENTS:
                         continue
                     with _directory(entry.name, parent) as child:
-                        yield from _walk(child, depth + 1, entry.name if depth == 0 else folder)
+                        yield from _walk(child, depth + 1, entry.name if depth == 0 else folder, entry.name if depth == 1 else session)
             except OSError:
                 yield None
     except OSError:
         yield None
 
 
-def _transcripts(config_dir: Path) -> Iterator[tuple[int, str, str] | str | None]:
+def _transcripts(config_dir: Path) -> Iterator[tuple[int, str, str, str] | str | None]:
     # Keep every ancestor pinned; subsequent opens resolve only one child component.
     with _directory(config_dir) as config:
         with _directory(PROJECTS, config) as projects:
@@ -235,21 +253,62 @@ def _drain(stream: BinaryIO) -> None:
             return
 
 
+def _fresh(
+    salt: str,
+    active: dict[str, set[SKey]],
+    cells: dict[tuple[str, str], tuple[list[int], set[SKey], dict[str, int]]],
+    bundles: dict[SKey, dict[str, str]],
+) -> Fresh:
+    """The raw tallies of one read as per-day records; project folders are hashed here with the ledger's salt."""
+    projects: dict[str, dict[str, int]] = {}
+    for day, keys in active.items():
+        per = projects.setdefault(day, {})
+        for folder, _ in keys:
+            key = mac(salt, folder, 6)
+            per[key] = per.get(key, 0) + 1  # pragma: no mutate  (the sum only matters when two folders share a 24-bit hash)
+    items: dict[str, dict[str, tuple[int, int, dict[str, int]]]] = {}
+    for (id_, day), (n, keys, folders) in cells.items():
+        per_project: dict[str, int] = {}
+        for folder, count in folders.items():
+            key = mac(salt, folder, 6)
+            per_project[key] = per_project.get(key, 0) + count  # pragma: no mutate  (as above)
+        items.setdefault(id_, {})[day] = (n[0], len(keys), per_project)
+    co = sorted((max(days.values()), tuple(sorted(days))) for days in bundles.values() if len(days) > 1)
+    return Fresh({d: len(k) for d, k in active.items()}, projects, items, co)
+
+
 def read_usage(
     config_dir: Path, items: list[Item], relations: list[Relation], project: Path | None = None, home: Path | None = None
 ) -> tuple[dict[str, Usage], UsageWindow, list[str], ProjectUsage]:
+    return _read(config_dir, items, relations, project, home, None)[:4]
+
+
+def read_fresh(config_dir: Path, items: list[Item], relations: list[Relation], salt: str) -> tuple[Fresh, UsageWindow]:
+    """The per-day record for the habit ledger (habits.py). Reads the same transcripts as read_usage, nothing more."""
+    _, window, _, _, fresh = _read(config_dir, items, relations, None, None, salt)  # scan() already reported the warnings
+    return fresh, window
+
+
+def _read(
+    config_dir: Path, items: list[Item], relations: list[Relation], project: Path | None, home: Path | None, salt: str | None
+) -> tuple[dict[str, Usage], UsageWindow, list[str], ProjectUsage, Fresh]:
+    empty = Fresh({}, {}, {}, [])
     usage = {i.id: Usage(0, None) for i in items if i.kind in TRACKED}
     config_dir = config_dir.resolve()  # a symlinked config dir is the user's choice; pin its real target once
     projects = config_dir / PROJECTS
     if projects.is_symlink():
-        return usage, UsageWindow(0, None, None, 1), ["usage: projects folder is a symlink; not read"], ProjectUsage()
+        return usage, UsageWindow(0, None, None, 1), ["usage: projects folder is a symlink; not read"], ProjectUsage(), empty
     if not projects.exists():
-        return usage, UsageWindow(0, None, None, 0), [], ProjectUsage()
+        return usage, UsageWindow(0, None, None, 0), [], ProjectUsage(), empty
     index = _index(items, relations)
     seen: set[bytes] = set()
     folders: set[str] = set()
     credited: dict[str, dict[str, Usage]] = {}  # Item id -> project folder -> Usage; folders become opaque keys at the end
     ambiguous: set[tuple[str, ...]] = set()
+    sessions: set[SKey] = set()
+    active: dict[str, set[SKey]] = {}  # day -> sessions with a dated record
+    cells: dict[tuple[str, str], tuple[list[int], set[SKey], dict[str, int]]] = {}  # (Item id, day) -> invocations, sessions, per folder
+    bundles: dict[SKey, dict[str, str]] = {}  # session -> Item id -> last day used
     files = skipped = malformed = oversize = big = symlinks = 0
     first = last = None
     try:
@@ -259,7 +318,7 @@ def read_usage(
                 symlinks += path == "symlink"
                 continue
             try:
-                parent, name, folder = path
+                parent, name, folder, session = path
                 fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
                 with os.fdopen(fd, "rb") as stream:
                     info = os.fstat(stream.fileno())
@@ -269,6 +328,8 @@ def read_usage(
                         continue
                     files += 1
                     folders.add(folder)
+                    skey = (folder, session)
+                    sessions.add(skey)
                     while line := stream.readline(LINE_CAP + 1):
                         if len(line) > LINE_CAP and not line.endswith(b"\n"):
                             _drain(stream)
@@ -280,6 +341,7 @@ def read_usage(
                         if used_day:
                             first = min(first, used_day) if first else used_day
                             last = max(last, used_day) if last else used_day
+                            active.setdefault(used_day, set()).add(skey)
                         by_key: dict[bytes, dict[str, tuple[str, ...]]] = {}
                         for id_, key, group in invocations:
                             by_key.setdefault(key, {})[id_] = group
@@ -292,6 +354,13 @@ def read_usage(
                                 usage[id_] = _bump(usage[id_], used_day)
                                 per = credited.setdefault(id_, {})
                                 per[folder] = _bump(per.get(folder, Usage(0, None)), used_day)
+                                if used_day:
+                                    count, keys, by_folder = cells.setdefault((id_, used_day), ([0], set(), {}))
+                                    count[0] += 1
+                                    keys.add(skey)
+                                    by_folder[folder] = by_folder.get(folder, 0) + 1
+                                    bundle = bundles.setdefault(skey, {})
+                                    bundle[id_] = max(bundle.get(id_, used_day), used_day)
                         del line
             except OSError:
                 skipped += 1
@@ -305,4 +374,6 @@ def read_usage(
         )
     if ambiguous:
         warnings.append(f"usage: {len(ambiguous)} invocation names matched more than one Item; each was credited")
-    return usage, UsageWindow(files, first, last, skipped), warnings, _projects(credited, folders, project, home)
+    window = UsageWindow(files, first, last, skipped, len(sessions))
+    fresh = _fresh(salt, active, cells, bundles) if salt is not None else empty
+    return usage, window, warnings, _projects(credited, folders, project, home), fresh
