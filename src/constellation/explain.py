@@ -3,8 +3,9 @@ from typing import Any
 
 from .report import _known_costs, _never_used, _ranked
 from .snapshot import snapshot
-from .suggestions import suggest
+from .suggestions import Suggestion, suggest
 
+MAX_ACTIONS, TEXT_ACTIONS = 8, 3
 PUBLIC_FOOTER = "Shared from Constellation (public summary: no usage dates, paths or ids)."
 
 
@@ -38,7 +39,21 @@ def explain(data: dict[str, Any], public: bool = False) -> dict[str, Any]:
         "costs": [{"name": i["name"], "kind": i["kind"], "always_on": known[i["id"]]} for i in _ranked(data, known)[:5]],
         "unused": unused,
         "window": {"files": window["files"], "days": days} if window else None,
-        "actions": [{"reason": s.reason, "tokens_saved": s.tokens_saved} for s in suggest(data)[:3]],
+        "scanned_at": data.get("scanned_at"),  # a Snapshot drops it, so public mode is always null
+        "actions": [_action(data, s, window) for s in suggest(data)[:MAX_ACTIONS]],
+    }
+
+
+def _action(data: dict[str, Any], s: Suggestion, window: dict[str, Any] | None) -> dict[str, Any]:
+    """Dates come only from the scan (usage, window); a Snapshot has neither, so public actions carry none."""
+    usage = data.get("usage") or {}
+    seen = [u["last_used"] for i in s.item_ids if (u := usage.get(i)) and u.get("count") and u.get("last_used")]
+    return {
+        "kind": s.kind,
+        "reason": s.reason,
+        "tokens_saved": s.tokens_saved,
+        "last_used": max(seen) if seen else None,
+        "since": window.get("first") if window and s.kind == "remove_unused" else None,
     }
 
 
@@ -63,7 +78,7 @@ def render_explain(summary: dict[str, Any]) -> str:
         lines += [f"Checked {w['files']} transcripts over {w['days']} days.", ""]
         lines += [f"- {u['name']} ({u['kind']}): {_tokens(u['always_on'])}" for u in summary["unused"]] or ["- None."]
     lines += ["", "## Three suggested actions", ""]
-    lines += [f"- {a['reason']} (saves {_tokens(a['tokens_saved'])})" for a in summary["actions"]] or ["- None."]
+    lines += [f"- {a['reason']} (saves {_tokens(a['tokens_saved'])})" for a in summary["actions"][:TEXT_ACTIONS]] or ["- None."]
     if summary["public"]:
         lines += ["", PUBLIC_FOOTER]
     return "\n".join(lines) + "\n"

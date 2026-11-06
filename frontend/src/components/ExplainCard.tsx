@@ -12,8 +12,30 @@ export type Summary = {
   costs: { name: string; kind: string; always_on: number }[];
   unused: { name: string; kind: string; always_on: number | null }[] | null;
   window: { files: number; days: number } | null;
-  actions: { reason: string; tokens_saved: number | null }[];
+  scanned_at?: string | null; // private only; public copies carry no dates
+  actions: Action[];
 };
+export type Action = { reason: string; tokens_saved: number | null; kind?: string; last_used?: string | null; since?: string | null };
+
+const KIND: Record<string, string> = {
+  remove_duplicate: "Duplicate", use_underlying: "Wrapper", remove_unused: "Unused", review_cost: "Cost",
+  move_to_project: "Move", disable_plugin: "Disable", fix_description: "Describe", wait: "Wait",
+};
+export const kindLabel = (k?: string) => (k && KIND[k]) || "Tidy";
+// Dates come from the scan only. Anything that is not a plain day is dropped, never guessed.
+export function fmtDay(v?: string | null): string | null {
+  const m = typeof v === "string" ? /^(\d{4})-(\d{2})-(\d{2})/.exec(v) : null;
+  const d = m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
+  return m && d && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3] ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : null;
+}
+// Plain-English "what" is the first sentence; the rest is the quiet "why".
+export const splitReason = (r: string): [string, string] => { const i = r.search(/\.\s/); return i < 0 ? [r, ""] : [r.slice(0, i + 1), r.slice(i + 2)]; };
+export function dateNote(a: Action, scannedAt?: string | null): string {
+  const bits = [fmtDay(a.last_used) && `last used ${fmtDay(a.last_used)}`, !a.last_used && fmtDay(a.since) && `unused since ${fmtDay(a.since)}`, fmtDay(scannedAt) && `based on your last scan, ${fmtDay(scannedAt)}`];
+  const t = bits.filter(Boolean).join(" · ");
+  return t && t[0].toUpperCase() + t.slice(1);
+}
+const SHOWN = 4;
 
 const SEEN = "constellation.explain";
 const LIMIT = "No usage dates, paths or ids. Item names may still contain dates.";
@@ -41,6 +63,7 @@ export function ExplainCard({ model, onCluster, onItem }: { model: Model; onClus
   const [note, setNote] = useState("");
   const [copied, setCopied] = useState<"" | "local" | "public">("");
   const [fallback, setFallback] = useState("");
+  const [all, setAll] = useState(false);
 
   const load = () => { setError(false); setData(null); };
   useEffect(() => {
@@ -109,8 +132,30 @@ export function ExplainCard({ model, onCluster, onItem }: { model: Model; onClus
                   <ul>{data.unused.map((u) => { const n = item(u.name, u.kind); return row(u.name + u.kind, <span className="text-foreground">{u.name}</span>, tok(u.always_on), n ? () => onItem(n) : null); })}</ul>
                 </>
               )}
-              <h3 className={h}>Three suggested actions</h3>
-              <ul className="flex flex-col gap-2 px-2">{data.actions.length ? data.actions.map((a, i) => <li key={i}>{a.reason} <span className="font-mono text-xs text-text-3">(saves {tok(a.tokens_saved)})</span></li>) : <li className="italic">None.</li>}</ul>
+              <h3 className={h}>Free suggestions</h3>
+              {data.actions.length ? (
+                <>
+                  <p className="px-2 pb-2">{data.actions.length === 1 ? "1 free suggestion" : `${data.actions.length} free suggestions`}, most tokens saved first. Nothing changes until you act.</p>
+                  <ol id="explain-actions" className="flex flex-col gap-1">
+                    {(all ? data.actions : data.actions.slice(0, SHOWN)).map((a, i) => {
+                      const [what, why] = splitReason(a.reason);
+                      const note = dateNote(a, data.scanned_at);
+                      return (
+                        <li key={i} className="flex flex-col gap-1 rounded-md border border-border/60 px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[11px] tracking-wide text-text-2 uppercase">{kindLabel(a.kind)}</span>
+                            <span className="font-mono text-xs text-text-3 tabular-nums">{a.tokens_saved == null ? "saving unknown" : `saves ${tok(a.tokens_saved)}`}</span>
+                          </div>
+                          <p className="text-foreground">{what}</p>
+                          {why && <p className="text-text-3">{why}</p>}
+                          {note && <p className="text-xs text-text-3">{note}</p>}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                  {data.actions.length > SHOWN && <Button variant="ghost" className="mt-2 h-11 px-2 text-[13px]" aria-expanded={all} aria-controls="explain-actions" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${data.actions.length}`}</Button>}
+                </>
+              ) : <p className="px-2 italic">None. Nothing to suggest for this scan.</p>}
               {fallback && <textarea readOnly aria-label="Summary text" value={fallback} onFocus={(e) => e.currentTarget.select()} className="mt-4 h-32 w-full rounded-md border bg-surface-2 p-2 font-mono text-xs" />}
             </>
           )}
