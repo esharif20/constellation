@@ -30,7 +30,9 @@ class Row(NamedTuple):
 
 def rows_from(cost: dict[str, Any], scan: dict[str, Any]) -> list[Row]:
     """The measured Items of `cost --json`, biggest first, with the source file each came from."""
-    source = {i["id"]: i.get("source") or "" for i in scan.get("items", [])}
+    source = {
+        i["id"]: i.get("source") or "" for i in scan.get("items", []) if "/" in (i.get("source") or "")
+    }  # else it names the tool, not a file
     return [Row(r["id"], r["name"], r["tokens"], source.get(r["id"], "")) for r in cost["top"] if r["tokens"] is not None]
 
 

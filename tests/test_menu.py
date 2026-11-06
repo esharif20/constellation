@@ -131,10 +131,10 @@ def test_render_more_page_groups_and_selection():
     rows = lines[lines.index("") + 1 :]
     first = next(i for i, line in enumerate(lines) if line.startswith(("    1. ", "  ➤ 1. ")))
     assert lines[first : first + 2] == [
-        "    1. Doctor          Look · One-screen health check",
-        "    2. Cost            Look · What loads at session start",
+        "    1.  Doctor          Look · One-screen health check",
+        "    2.  Cost            Look · What loads at session start",
     ]
-    assert lines[first + 5] == "  ➤ 6. Remove preview  Look · What breaks if you remove an Item"
+    assert lines[first + 5] == "  ➤ 6.  Remove preview  Look · What breaks if you remove an Item"
     assert any(line.endswith("Act · Write a public-safe snapshot") for line in lines)
     assert any(line.endswith("Manage · Items only used by idle projects") for line in lines) and rows
     assert lines[-1] == "  ↑↓ | Enter | Esc Back | Q Quit"
@@ -151,7 +151,7 @@ def test_render_narrow_cuts_every_line_to_the_width():
     assert lines[4] == "    1. Scan     Read ~/.claude, build o…"
     assert lines[5].startswith("  ➤ 2. Open")
     assert all(len(line) <= 40 for line in lines)
-    assert lines[-1] == "  ↑↓ | Enter | M More | V Version | U U…"
+    assert lines[-1] == "  ↑↓ | Enter | M More | Q Quit"
 
 
 def test_render_colours_the_selected_row_teal_and_the_footer_dim():

@@ -1,11 +1,13 @@
 """The menu's thin I/O layer: pages, the commands they start, and the pause before coming back (logic lives in menu, analyze, cleanup)."""
 
 import contextlib
+import dataclasses
 import importlib.metadata
 import io
 import json
 import os
 import select
+import shutil
 import signal
 import sys
 import threading
@@ -16,11 +18,11 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from . import analyze, cleanup, frontdoor, next_step, scanfile
+from . import analyze, banner, cleanup, frontdoor, next_step, scanfile
 from . import pins as pin_file
 from .cli_reports import ReportError, Scan, Style, style_for_stdout
 from .cli_reports import load as load_scan
-from .keys import Action, Cancel, edit, key_stream, parse_key, split_keys
+from .keys import RESIZE, Action, Cancel, edit, key_stream, parse_key, split_keys
 from .menu import CLEAR, DAY, DIM, HIDE, OLIVE, SHOW, _c, choose, numbered, raw_mode, render, scan_age, step
 from .menu import MORE as MORE_ENTRIES
 
@@ -61,7 +63,7 @@ class Session:
         self.keys = None if keys is None else iter(keys)
 
     def write(self, text: str) -> None:
-        sys.stdout.write(text)
+        sys.stdout.write(banner.ascii_safe(text, sys.stdout.encoding))
         sys.stdout.flush()
 
     def page(
@@ -80,9 +82,22 @@ class Session:
             return numbered(self.confirm, self.write, lines_for, count, words)
         self.write(CLEAR + HIDE)
         with (self.raw or contextlib.nullcontext)():
-            action = choose(self.keys, self.write, lines_for, stepper, index)
+            action = choose(self.sized(self.keys), self.write, lines_for, stepper, index)
         self.write(SHOW + CLEAR)
         return action
+
+    def sized(self, keys: Iterator[str]) -> Iterator[str]:
+        """The keys, with the page width following the window: a resize re-reads the width before the page redraws."""
+        for key in keys:
+            if key == "resize":
+                self.st = dataclasses.replace(self.st, width=style_for_stdout().width)
+            yield key
+
+    def framed(self, view: analyze.View | cleanup.View) -> Callable[[int], list[str]]:
+        return lambda i: view.lines(i, st=self.st)  # reads the width at draw time, so a resize reaches it
+
+    def height(self) -> int | None:
+        return shutil.get_terminal_size().lines if self.keys is not None and sys.stdout.isatty() else None
 
     def say(self, text: str, code: int = 0) -> int:
         self.write(text)
@@ -228,7 +243,7 @@ class Session:
         index = 0
         while state is not None:
             view = analyze.View(*state)
-            action = self.page(partial(view.lines, st=self.st), view.key, len(view.rows), {}, index)
+            action = self.page(self.framed(view), view.key, len(view.rows), {}, index)
             index = action.choice
             if action.kind in ("back", "quit"):
                 return
@@ -257,7 +272,7 @@ class Session:
             return
         index = 0
         while True:
-            action = self.page(partial(view.lines, st=self.st), view.key, len(view.props), {}, index)
+            action = self.page(self.framed(view), view.key, len(view.props), {}, index)
             index = action.choice
             if action.kind in ("back", "quit"):
                 return
@@ -302,7 +317,7 @@ class Session:
         entries = MORE_ENTRIES
         while True:
             action = self.page(
-                lambda i: render(i, self.st, self.version, entries, False),
+                lambda i: render(i, self.st, self.version, entries, False, height=self.height()),
                 lambda i, k: step(i, k, len(entries), False),
                 len(entries),
                 {"b": "back", "q": "quit"},
@@ -332,8 +347,11 @@ class Session:
             self.analyze()
         elif choice == 3:
             query = self.prompt("What does the skill do?")
-            if query:  # TODO(find_view): show the hits as cards when find_view.py is on main
-                self.commands("Find", [["find", query, "--config-dir", self.cfg]], scan=False)
+            if query:
+                cards = (
+                    ["--limit", str((height - 6) // 5)] if (height := self.height()) and height < 46 else []
+                )  # a card is 5 lines; keep the top in view
+                self.commands("Find", [["find", query, "--config-dir", self.cfg, *cards]], scan=False)
         elif choice == 4:
             self.clean()
         else:
@@ -342,7 +360,14 @@ class Session:
     def main_frame(self, index: int) -> list[str]:
         """The main menu; with no saved scan it says so and Scan explains itself."""
         first_run = not self.scan_file.is_file()
-        return render(index, self.st, self.version, frontdoor.main_entries(first_run), note=frontdoor.NO_SCAN if first_run else "")
+        return render(
+            index,
+            self.st,
+            self.version,
+            frontdoor.main_entries(first_run),
+            note=frontdoor.NO_SCAN if first_run else "",
+            height=self.height(),
+        )
 
     def loop(self) -> int:
         words = {"q": "quit", "m": "more", "v": "version", "u": "update"}
@@ -462,17 +487,27 @@ def terminal() -> tuple[Callable[[], AbstractContextManager[None]], Iterable[str
     def raw() -> AbstractContextManager[None]:
         return raw_mode(fd, termios, tty)
 
-    typed = key_stream(lambda: os.read(fd, 64), fold=False)
+    def read() -> bytes:
+        """Bytes typed, or RESIZE when the window changed size while waiting."""
+        size = shutil.get_terminal_size()
+        while not select.select([fd], [], [], 0.2)[0]:
+            if shutil.get_terminal_size() != size:
+                return RESIZE
+        return os.read(fd, 64)
+
+    typed = key_stream(read, fold=False)
 
     def write(text: str) -> None:
         sys.stdout.write(text)
         sys.stdout.flush()
 
-    return raw, key_stream(lambda: os.read(fd, 64)), line_reader(typed, raw, write), partial(watch_keys, fd, termios, tty)
+    return raw, key_stream(read), line_reader(typed, raw, write), partial(watch_keys, fd, termios, tty)
 
 
 def open_menu(run: Callable[[list[str]], int]) -> int:
     """Entry point used by cli.main when stdin and stdout are both a TTY. Ctrl-C exits 130 with the terminal restored."""
+    with contextlib.suppress(AttributeError, ValueError):  # a replaced stdout may not reconfigure
+        sys.stdout.reconfigure(errors="replace")  # type: ignore[union-attr]  # command output with a symbol this terminal lacks must not crash the menu
     raw, keys, confirm, watch = terminal() or (None, None, input, None)
     try:
         return launch(run, st=style_for_stdout(), raw=raw, keys=keys, confirm=confirm, watch=watch)

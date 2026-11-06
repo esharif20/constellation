@@ -10,6 +10,8 @@ class Action(NamedTuple):
     choice: int = 0
 
 
+RESIZE = b"\x1b[8;0;0t"  # what the terminal reader says when the window changed size (no real key sends it)
+
 _NAMED = {
     b"": "q",  # EOF
     b"\x1b[A": "up",
@@ -23,6 +25,7 @@ _NAMED = {
     b"\n": "enter",
     b"\x03": "ctrl-c",
     b"\x04": "q",
+    RESIZE: "resize",
 }
 
 

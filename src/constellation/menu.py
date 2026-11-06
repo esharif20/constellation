@@ -15,8 +15,9 @@ from .keys import Action
 
 ENTRIES = main_entries(False)
 MORE = more_entries()
-FOOTER = "↑↓ | Enter | M More | V Version | U Update | Q Quit"
-MORE_FOOTER = "↑↓ | Enter | Esc Back | Q Quit"
+FOOTERS = ("↑↓ | Enter | M More | V Version | U Update | Q Quit", "↑↓ | Enter | M More | Q Quit", "Enter | M | Q Quit")
+MORE_FOOTERS = ("↑↓ | Enter | Esc Back | Q Quit", "Enter | Esc Back | Q Quit")
+FOOTER, MORE_FOOTER = FOOTERS[0], MORE_FOOTERS[0]
 URL = "github.com/esharif20/constellation"
 DAY = 86400
 PORT = 8765
@@ -56,23 +57,35 @@ def _fit(text: str, width: int) -> str:
     return text if len(text) <= width else text[: width - 1] + "…"
 
 
+def _footer(variants: tuple[str, ...], width: int) -> str:
+    """The longest key hint that fits, so a narrow terminal never cuts off `Q Quit`."""
+    return next((v for v in variants if len(v) <= width), variants[-1])
+
+
 def render(
-    index: int, st: Style, version: str, entries: tuple[tuple[str, str], ...] = ENTRIES, top: bool = True, note: str = ""
+    index: int,
+    st: Style,
+    version: str,
+    entries: tuple[tuple[str, str], ...] = ENTRIES,
+    top: bool = True,
+    note: str = "",
+    height: int | None = None,
 ) -> list[str]:
+    """The menu frame. With a `height`, a long list shows a window around the selection, so the frame never scrolls the screen."""
     name_w = max(len(name) for name, _ in entries) + 1
+    num_w = len(str(len(entries)))
     rows = []
     for i, (name, hint) in enumerate(entries):
-        row = _fit(f"{'➤' if i == index else ' '} {i + 1}. {name:<{name_w}} {hint}", st.width - 2)
+        row = _fit(f"{'➤' if i == index else ' '} {f'{i + 1}.'.ljust(num_w + 1)} {name:<{name_w}} {hint}", st.width - 2)
         rows.append("  " + (_c(st, TEAL, row) if i == index else row))
-    return [
-        "",
-        *banner.render(st, version),
-        "",
-        *(["  " + _c(st, DIM, _fit(note, st.width - 2)), ""] if note else []),
-        *rows,
-        "",
-        "  " + _c(st, DIM, _fit(FOOTER if top else MORE_FOOTER, st.width - 2)),
-    ]
+    head = ["", *banner.render(st, version), "", *(["  " + _c(st, DIM, _fit(note, st.width - 2)), ""] if note else [])]
+    foot = ["", "  " + _c(st, DIM, _fit(_footer(FOOTERS if top else MORE_FOOTERS, st.width - 2), st.width - 2))]
+    room = None if height is None else height - 1 - len(head) - len(foot)  # the last screen row stays free: the frame ends in a newline
+    if room is not None and room < len(rows):
+        room = max(room, 3)
+        start = max(0, min(index - room // 2, len(rows) - room))
+        rows = rows[start : start + room]
+    return [*head, *rows, *foot]
 
 
 def choose(
@@ -86,6 +99,10 @@ def choose(
     first = lines_for(index)
     write("\r\n".join(first) + "\r\n")
     for key in keys:
+        if key == "resize":  # the old frame has been re-wrapped by the terminal, so draw a new one from the top
+            first = lines_for(index)
+            write(CLEAR + "\r\n".join(first) + "\r\n")
+            continue
         result = stepper(index, key)
         if isinstance(result, Action):
             return result
