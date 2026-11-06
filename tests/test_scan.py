@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from fakes import own
 
 from constellation import scan
 
@@ -82,8 +83,8 @@ def test_skill_without_description_is_skipped_with_a_warning():
     constellation = scan(FIXTURE)
 
     assert "nodesc" not in {i.name for i in constellation.items}
-    assert len(constellation.warnings) == 1
-    assert "nodesc" in constellation.warnings[0]
+    assert len(own(constellation.warnings)) == 1
+    assert "nodesc" in own(constellation.warnings)[0]
 
 
 def _skill_file(root, name, text):
@@ -99,7 +100,7 @@ def test_a_description_with_an_unquoted_colon_is_read_leniently_with_a_warning(t
 
     [item] = constellation.items
     assert item.description == "Use when asked: draw a diagram. Triggers: plot, figure"
-    assert any("tikz" in w and "leniently" in w for w in constellation.warnings)
+    assert any("tikz" in w and "leniently" in w for w in own(constellation.warnings))
 
 
 @pytest.mark.parametrize("text", ["just markdown, no frontmatter\n", "---\n---\nbody\n"], ids=["no-frontmatter", "empty-frontmatter"])
@@ -109,7 +110,7 @@ def test_a_skill_file_with_no_usable_frontmatter_is_skipped_with_a_warning_not_a
     constellation = scan(tmp_path)
 
     assert constellation.items == []
-    assert any("broken" in w for w in constellation.warnings)
+    assert any("broken" in w for w in own(constellation.warnings))
 
 
 def _plugin_version(config, version, skill_text):

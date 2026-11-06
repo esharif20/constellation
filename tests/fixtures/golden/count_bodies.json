@@ -1,7 +1,45 @@
 {
   "on_verify": [],
   "result": {
-    "clusters": [],
+    "clusters": [
+      {
+        "category": "Agents & orchestration",
+        "item_ids": [
+          "claude-code:agent:demo/helper",
+          "claude-code:mcp_server:demo/pserver",
+          "claude-code:plugin:demo"
+        ],
+        "name": "Demo"
+      },
+      {
+        "category": "Code review & testing",
+        "item_ids": [
+          "claude-code:agent:reviewer",
+          "claude-code:skill:alpha",
+          "claude-code:skill:beta"
+        ],
+        "name": "reviewer"
+      },
+      {
+        "category": "Writing & docs",
+        "item_ids": [
+          "claude-code:hook:PostToolUse:Edit|Write:8",
+          "claude-code:hook:PostToolUse:Write:9",
+          "claude-code:hook:PreToolUse:Bash:7",
+          "claude-code:hook:demo/PostToolUse:Read:14"
+        ],
+        "name": "Posttooluse Write"
+      },
+      {
+        "category": "Other",
+        "item_ids": [
+          "claude-code:hook:SessionStart:5",
+          "claude-code:hook:Stop:10",
+          "claude-code:hook:UserPromptSubmit:6"
+        ],
+        "name": "SessionStart"
+      }
+    ],
     "costs": {
       "claude-code:agent:demo/helper": {
         "always_on": 5,
@@ -324,7 +362,8 @@
       "skipped": 0
     },
     "warnings": [
-      "skipped skill 'nodesc': no description (<fixtures>/claude_config/skills/nodesc/SKILL.md)"
+      "skipped skill 'nodesc': no description (<fixtures>/claude_config/skills/nodesc/SKILL.md)",
+      "Clusters were built from words and plugin structure; install the local model for better groups: uv sync --extra local"
     ]
   },
   "traffic": {

@@ -105,3 +105,10 @@ class FakeVerifier:
 
 def verdict(kind: str, reason: str = "because", **extra: str) -> str:
     return json.dumps({"verdict": kind, "reason": reason, **extra})
+
+
+def own(warnings):
+    """A scan's warnings without the note that clusters were built from words only (no local model in tests)."""
+    from constellation.grouping import WORDS_ONLY_WARNING
+
+    return [w for w in warnings if not w.startswith(WORDS_ONLY_WARNING)]

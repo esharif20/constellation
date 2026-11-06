@@ -1,7 +1,7 @@
 import json
 from dataclasses import asdict
 
-from fakes import FakeEmbedder, FakeLLM
+from fakes import FakeEmbedder, FakeLLM, own
 
 from constellation import scan
 from constellation.receipt import receipt
@@ -38,7 +38,7 @@ def test_a_claude_ai_call_makes_one_connector_item_counted_like_any_usage(tmp_pa
     )  # fmt: skip
     assert found["claude-code:connector:claude.ai/Google_Calendar"].name == "Google Calendar"
     assert result.usage[gmail.id].count == 2 and result.usage[gmail.id].last_used == "2026-11-02"
-    assert len(found) == 2 and result.warnings == []
+    assert len(found) == 2 and own(result.warnings) == []
     assert scan(tmp_path, usage=False).items == []  # no transcripts read, so no connector is known
 
 
@@ -57,10 +57,10 @@ def test_an_unmatched_non_connector_prefix_gives_one_count_only_warning(tmp_path
     result = scan(tmp_path)
 
     assert result.items == []
-    assert result.warnings == ["usage: 3 MCP servers were called in transcripts but not in your config"]
+    assert own(result.warnings) == ["usage: 3 MCP servers were called in transcripts but not in your config"]
     calls_one = tmp_path / "projects" / "invented" / "s.jsonl"
     calls_one.write_text(calls_one.read_text().splitlines()[0] + "\n")
-    assert scan(tmp_path).warnings == ["usage: 1 MCP server was called in transcripts but not in your config"]
+    assert own(scan(tmp_path).warnings) == ["usage: 1 MCP server was called in transcripts but not in your config"]
 
 
 def test_a_config_server_and_a_connector_with_the_same_name_stay_apart(tmp_path):
@@ -83,11 +83,11 @@ def test_only_the_server_segment_is_kept_never_inputs_and_names_are_redacted(tmp
     )
 
     result = scan(tmp_path)
-    everything = json.dumps(asdict(result)) + repr(result.warnings)
+    everything = json.dumps(asdict(result)) + repr(own(result.warnings))
 
     assert "PLANTED" not in everything and "abcdefghijklmnop" not in everything
     assert "search" not in everything.replace("seen only in transcripts", "")  # the tool segment is dropped
-    assert result.warnings == [
+    assert own(result.warnings) == [
         "usage: 1 MCP server was called in transcripts but not in your config"
     ]  # a name with spaces is not a connector
 

@@ -62,3 +62,14 @@ def test_unknown_option_is_rejected(tmp_path):
 
     assert result.returncode == 1
     assert "unknown option" in result.stderr
+
+
+def test_better_clustering_is_off_by_default_and_adds_the_model_when_asked(tmp_path):
+    plain, _ = run_script(tmp_path / "a", ["uv"], "--dry-run")
+    assert "fastembed" not in plain.stdout
+
+    uv, _ = run_script(tmp_path / "b", ["uv"], "--dry-run", "--better-clustering")
+    assert "would run: uv tool install --force constellation-cli --with fastembed" in uv.stdout
+
+    pipx, _ = run_script(tmp_path / "c", ["pipx", "python3.13"], "--dry-run", "--method", "pipx", "--better-clustering")
+    assert "would run: pipx inject constellation-cli fastembed" in pipx.stdout

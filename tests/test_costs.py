@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fakes import FakeCounter, write_skill
+from fakes import FakeCounter, own, write_skill
 
 from constellation import scan
 from constellation.anthropic_llm import anthropic_counter
@@ -101,7 +101,7 @@ def test_a_planted_secret_never_reaches_the_counter(tmp_path):
 def test_a_failing_counter_gives_a_warning_and_unknown_costs(tmp_path):
     result = scan(FIXTURE, counter=FakeCounter(fail_with="boom"), cost_cache=tmp_path / "c.json")
 
-    assert "could not count context cost: ConnectionError: boom" in result.warnings
+    assert "could not count context cost: ConnectionError: boom" in own(result.warnings)
     assert cost_of(result, "skill", "alpha") == Cost(None, None)
     assert not (tmp_path / "c.json").exists()
 
@@ -131,7 +131,7 @@ def test_an_unwritable_cache_is_a_warning_and_the_counts_are_kept(tmp_path):
     result = scan(FIXTURE, counter=FakeCounter(), cost_cache=blocker / "c.json")
 
     assert cost_of(result, "skill", "alpha").always_on is not None
-    assert any("could not save the token-count cache" in w for w in result.warnings)
+    assert any("could not save the token-count cache" in w for w in own(result.warnings))
 
 
 def test_by_default_no_skill_body_is_counted_so_none_leaves_the_machine_and_on_use_is_unknown(tmp_path):
@@ -170,6 +170,6 @@ def test_scan_keeps_counts_and_returns_a_text_warning_when_cache_cannot_be_saved
     result = scan(config, counter=lambda texts: [23], cost_cache=blocked)
 
     assert cost_of(result, "skill", "invented") == Cost(23, None)
-    assert len(result.warnings) == 1
-    assert isinstance(result.warnings[0], str)
-    assert result.warnings[0].startswith("could not save the token-count cache:")
+    assert len(own(result.warnings)) == 1
+    assert isinstance(own(result.warnings)[0], str)
+    assert own(result.warnings)[0].startswith("could not save the token-count cache:")

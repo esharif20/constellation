@@ -41,6 +41,7 @@ from .claude_code import read_items, read_secrets
 from .diff import diff_scans, render_diff
 from .env import load_env
 from .expansion import Query, expand
+from .grouping import WORDS_ONLY_WARNING
 from .idkey import id_key
 from .models import LLM, Constellation, Embedder, Item, Relation, TokenCounter
 from .overlaps import estimate_cost
@@ -317,8 +318,6 @@ def main(
                 file=sys.stderr,
             )
         embedder = embedder or _local_embedder()
-        if embedder is None:
-            print("Clustering skipped: install the local embedder with `uv sync --extra local`.", file=sys.stderr)
     elif args.dry_run:
         # These sit behind scan()'s redaction, so what is printed is exactly what a real run would send.
         local = embedder or _local_embedder()  # the local embedder sends nothing anywhere, so the dry run may really use it
@@ -376,7 +375,7 @@ def main(
         print("would write: " + ", ".join(cli_help.scan_writes(args.out, saves, ledger, wk)))
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
         if local is None and not args.no_verify:
-            print("No similarity-based verifier prompts can be shown: install the local embedder with `uv sync --extra local`.")
+            print("No similarity-based verifier prompts can be shown: install the local embedder with `" + selfcheck.model_hint() + "`.")
         for warning in result.warnings:
             if warning.startswith("could not cluster items"):
                 print(warning, file=sys.stderr)
@@ -388,6 +387,8 @@ def main(
     saved = _write(
         result, args.out, read_secrets(args.config_dir, args.project), args.config_dir, None if args.no_history else history.DEFAULT_CACHE
     )
+    if any(w.startswith(WORDS_ONLY_WARNING) for w in result.warnings):
+        print(selfcheck.words_only_note(), file=sys.stderr)
     if not (args.no_usage or args.no_habits or args.no_history):  # smarter-verdict 3.2: the habit ledger, local only
         # Built from the redacted scan: nothing derived from a raw id, name or description is written to the cache.
         items, relations = [Item(**i) for i in saved["items"]], [Relation(**r) for r in saved["relations"]]

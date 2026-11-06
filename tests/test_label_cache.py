@@ -3,7 +3,7 @@ import json
 import stat
 
 import pytest
-from fakes import FakeLLM, write_skill
+from fakes import FakeLLM, own, write_skill
 
 from constellation import scan
 
@@ -139,7 +139,7 @@ def test_an_unwritable_cache_is_a_warning_and_the_labels_still_come_out(config, 
     constellation = run(config, FakeLLM({}), blocker / "labels.json")
 
     assert len(constellation.labels) == 2
-    assert len(constellation.warnings) == 1 and constellation.warnings[0].startswith("could not save the label cache: ")
+    assert len(own(constellation.warnings)) == 1 and own(constellation.warnings)[0].startswith("could not save the label cache: ")
 
 
 def test_nothing_is_written_when_nothing_was_labelled(config, tmp_path):
@@ -148,7 +148,7 @@ def test_nothing_is_written_when_nothing_was_labelled(config, tmp_path):
 
     constellation = run(config, FakeLLM({}, fail_for={"alpha": "down", "beta": "down"}), blocker / "labels.json")
 
-    assert len(constellation.warnings) == 2 and not any("cache" in w for w in constellation.warnings)
+    assert len(own(constellation.warnings)) == 2 and not any("cache" in w for w in own(constellation.warnings))
 
 
 def test_without_a_path_the_default_cache_location_is_used(config):

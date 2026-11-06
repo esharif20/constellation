@@ -8,12 +8,14 @@
   "result": {
     "clusters": [
       {
+        "category": "Other",
         "item_ids": [
           "claude-code:skill:bake-bread"
         ],
-        "name": "topic"
+        "name": "topic Baking"
       },
       {
+        "category": "Other",
         "item_ids": [
           "claude-code:skill:deep-read",
           "claude-code:skill:pdf-reader",
@@ -22,11 +24,12 @@
         "name": "topic"
       },
       {
+        "category": "Writing & docs",
         "item_ids": [
           "claude-code:skill:stop-slop",
           "claude-code:skill:tidy-prose"
         ],
-        "name": "topic"
+        "name": "topic 2"
       }
     ],
     "costs": {

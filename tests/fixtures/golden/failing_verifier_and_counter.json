@@ -8,25 +8,28 @@
   "result": {
     "clusters": [
       {
+        "category": "Other",
         "item_ids": [
           "claude-code:skill:bake-bread"
         ],
-        "name": "bake-bread"
+        "name": "Bake Bread"
       },
       {
+        "category": "Other",
         "item_ids": [
           "claude-code:skill:deep-read",
           "claude-code:skill:pdf-reader",
           "claude-code:skill:pdf-viewer"
         ],
-        "name": "pdf"
+        "name": "Pdf Read"
       },
       {
+        "category": "Writing & docs",
         "item_ids": [
           "claude-code:skill:stop-slop",
           "claude-code:skill:tidy-prose"
         ],
-        "name": "stop-slop"
+        "name": "Prose Writing"
       }
     ],
     "costs": {

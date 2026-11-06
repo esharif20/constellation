@@ -32,6 +32,7 @@ class Relation:
 class Cluster:
     name: str  # the free-text label of the member nearest the cluster centre
     item_ids: tuple[str, ...]
+    category: str = ""  # coarse group (Design & UI, Git & PRs, ...) assigned locally by grouping.py; empty on older scans
 
 
 @dataclass(frozen=True)

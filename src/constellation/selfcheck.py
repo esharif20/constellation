@@ -1,5 +1,6 @@
 """Self-management: install-method detection, `update` advice, `uninstall` and `doctor --env`. It never runs an installer."""
 
+import importlib.util
 import os
 import shutil
 import stat
@@ -43,6 +44,22 @@ def detect_method(prefix: str) -> str:
     if p.endswith("/.venv"):
         return "dev"
     return "pip"
+
+
+_MODEL = {
+    "uv tool": "uv tool install --force --editable <path to constellation> --with fastembed",
+    "pipx": f"pipx inject {DIST} fastembed",
+    "dev": "uv sync --extra local",
+}
+
+
+def model_hint(prefix: str | None = None) -> str:
+    """The command that adds the optional local embedder for this install method (about 100 MB; it never runs it)."""
+    return _MODEL.get(detect_method(sys.prefix if prefix is None else prefix), "python -m pip install fastembed")
+
+
+def words_only_note(prefix: str | None = None) -> str:
+    return f"Groups: built from words and plugin structure. For better groups add the local model (about 100 MB): {model_hint(prefix)}"
 
 
 def update_text(method: str) -> str:
@@ -110,7 +127,11 @@ def _cache_check(cache: Path) -> Check:
     return Check("Cache dir", "ok", f"{cache} private and writable")
 
 
-def env_checks(prefix: str, version: tuple[int, int], environ: Mapping[str, str], cache: Path) -> list[Check]:
+def _clustering_check(prefix: str, model: bool) -> Check:
+    return Check("Clustering", "ok", "local model" if model else f"words only; for the local model run: {model_hint(prefix)}")
+
+
+def env_checks(prefix: str, version: tuple[int, int], environ: Mapping[str, str], cache: Path, model: bool | None = None) -> list[Check]:
     """Presence only: a key's value is never read into the output."""
     py = ".".join(map(str, version))
     checks = [
@@ -119,7 +140,7 @@ def env_checks(prefix: str, version: tuple[int, int], environ: Mapping[str, str]
         _cache_check(cache),
     ]
     checks += [Check(k, "ok", "set" if environ.get(k) else "not set (offline mode is fine)") for k in KEY_VARS]
-    return checks
+    return [*checks, _clustering_check(prefix, importlib.util.find_spec("fastembed") is not None if model is None else model)]
 
 
 def env_report(out: Callable[[str], None] = print) -> int:

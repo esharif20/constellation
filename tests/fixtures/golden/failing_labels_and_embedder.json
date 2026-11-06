@@ -1,7 +1,45 @@
 {
   "on_verify": [],
   "result": {
-    "clusters": [],
+    "clusters": [
+      {
+        "category": "Agents & orchestration",
+        "item_ids": [
+          "claude-code:agent:demo/helper",
+          "claude-code:mcp_server:demo/pserver",
+          "claude-code:plugin:demo"
+        ],
+        "name": "other 2"
+      },
+      {
+        "category": "Code review & testing",
+        "item_ids": [
+          "claude-code:agent:reviewer",
+          "claude-code:skill:alpha",
+          "claude-code:skill:beta"
+        ],
+        "name": "code review"
+      },
+      {
+        "category": "Writing & docs",
+        "item_ids": [
+          "claude-code:hook:PostToolUse:Edit|Write:8",
+          "claude-code:hook:PostToolUse:Write:9",
+          "claude-code:hook:PreToolUse:Bash:7",
+          "claude-code:hook:demo/PostToolUse:Read:14"
+        ],
+        "name": "other"
+      },
+      {
+        "category": "Other",
+        "item_ids": [
+          "claude-code:hook:SessionStart:5",
+          "claude-code:hook:Stop:10",
+          "claude-code:hook:UserPromptSubmit:6"
+        ],
+        "name": "other 3"
+      }
+    ],
     "costs": {},
     "current_project": null,
     "hook_weights": {
@@ -280,7 +318,8 @@
     "warnings": [
       "skipped skill 'nodesc': no description (<fixtures>/claude_config/skills/nodesc/SKILL.md)",
       "could not label 'alpha': ConnectionError: boom",
-      "could not cluster items: ConnectionError: down"
+      "could not cluster items: ConnectionError: down",
+      "Clusters were built from words and plugin structure; install the local model for better groups: uv sync --extra local"
     ]
   },
   "traffic": {

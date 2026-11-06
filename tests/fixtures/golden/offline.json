@@ -3,94 +3,41 @@
   "result": {
     "clusters": [
       {
+        "category": "Agents & orchestration",
         "item_ids": [
-          "claude-code:agent:demo/helper"
+          "claude-code:agent:demo/helper",
+          "claude-code:mcp_server:demo/pserver",
+          "claude-code:plugin:demo"
         ],
-        "name": "helper"
+        "name": "Demo"
       },
       {
+        "category": "Code review & testing",
         "item_ids": [
-          "claude-code:agent:reviewer"
+          "claude-code:agent:reviewer",
+          "claude-code:skill:alpha",
+          "claude-code:skill:beta"
         ],
         "name": "reviewer"
       },
       {
+        "category": "Writing & docs",
         "item_ids": [
-          "claude-code:hook:PostToolUse:Edit|Write:8"
-        ],
-        "name": "PostToolUse:Edit|Write"
-      },
-      {
-        "item_ids": [
-          "claude-code:hook:PostToolUse:Write:9"
-        ],
-        "name": "PostToolUse:Write"
-      },
-      {
-        "item_ids": [
-          "claude-code:hook:PreToolUse:Bash:7"
-        ],
-        "name": "PreToolUse:Bash"
-      },
-      {
-        "item_ids": [
-          "claude-code:hook:SessionStart:5"
-        ],
-        "name": "SessionStart"
-      },
-      {
-        "item_ids": [
-          "claude-code:hook:Stop:10"
-        ],
-        "name": "Stop"
-      },
-      {
-        "item_ids": [
-          "claude-code:hook:UserPromptSubmit:6"
-        ],
-        "name": "UserPromptSubmit"
-      },
-      {
-        "item_ids": [
+          "claude-code:hook:PostToolUse:Edit|Write:8",
+          "claude-code:hook:PostToolUse:Write:9",
+          "claude-code:hook:PreToolUse:Bash:7",
           "claude-code:hook:demo/PostToolUse:Read:14"
         ],
-        "name": "PostToolUse:Read"
+        "name": "Posttooluse Write"
       },
       {
+        "category": "Other",
         "item_ids": [
-          "claude-code:mcp_server:demo/pserver"
+          "claude-code:hook:SessionStart:5",
+          "claude-code:hook:Stop:10",
+          "claude-code:hook:UserPromptSubmit:6"
         ],
-        "name": "pserver"
-      },
-      {
-        "item_ids": [
-          "claude-code:mcp_server:docs"
-        ],
-        "name": "docs"
-      },
-      {
-        "item_ids": [
-          "claude-code:mcp_server:localdb"
-        ],
-        "name": "localdb"
-      },
-      {
-        "item_ids": [
-          "claude-code:plugin:demo"
-        ],
-        "name": "demo"
-      },
-      {
-        "item_ids": [
-          "claude-code:skill:alpha"
-        ],
-        "name": "alpha"
-      },
-      {
-        "item_ids": [
-          "claude-code:skill:beta"
-        ],
-        "name": "beta"
+        "name": "SessionStart"
       }
     ],
     "costs": {
