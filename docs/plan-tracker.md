@@ -1125,4 +1125,4 @@ No deviation from the plan. Fixed on the demo at 1440x900 and 390px: Ask answer 
 - `profile` names Items from the saved (redacted) scan, so names are redacted and ids match the habit ledger; it needs a saved scan.
 - `~/.cache/constellation` is created 0700 and chmod 0700 (scan folder and pointer).
 - `serve` waits on uvicorn's `server.started`, not a socket connect, so a port squatter is not mistaken for our server. Per-run token skipped (optional).
-- Mutation: `redact.py` per-function zero-survivor runs (see commit report); scanfile, cli, server are glue covered by exact-output tests. No deviation from the plan.
+- Mutation: NOT YET RUN on `redact.py` (`_mask`, `redact`): the shared lock was held by another agent for 25+ minutes. Run per function before merge. scanfile, cli, server are glue covered by exact-output tests. No deviation from the plan.
