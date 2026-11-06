@@ -12,8 +12,8 @@ from langgraph.graph import END, START, StateGraph
 from langsmith import tracing_context
 
 from .answer import (
-    DORMANT_DAYS,
     INSTRUCTION,
+    LATELY_DAYS,
     blocks,
     card,
     comparison,
@@ -30,13 +30,14 @@ from .answer import (
     tokens,
     what_line,
 )
-from .brief import brief, frees, removes
+from .assessment import Assessed, compute
+from .assessment import public as assessment_json
+from .brief import build_brief
 from .compare import parse_compare, parse_keep, parse_what
 from .receipt import receipt
 from .redact import redact
 from .report import _known_costs, _never_used, _ranked
 from .retrieve import Index
-from .suggestions import suggest
 
 _STOP = set("what can help me to do a an the with for please find search show highlight focus filter on items item".split())
 ASK_NEXT = ["What costs the most every session?", "What have I never used?"]
@@ -86,13 +87,13 @@ _NEGATIVE = r"\b(not|never|unused|idle|stale|dormant|haven'?t|hasn'?t|lately|rec
 
 
 def _since(question: str) -> int | None:
-    """N days from "not used in 60 days", "haven't touched in 2 months"; DORMANT_DAYS for "lately"; None when the question has no span."""
+    """N days from "not used in 60 days", "haven't touched in 2 months"; LATELY_DAYS for "lately"; None when the question has no span."""
     q = question.lower().replace("’", "'")
     if not re.search(_NEGATIVE, q):
         return None
     if m := re.search(r"\b(\d{1,4})\s*(day|week|month)s?\b", q):
         return int(m[1]) * {"day": 1, "week": 7, "month": 30}[m[2]] or None
-    return DORMANT_DAYS if re.search(r"\b(lately|recently)\b", q) else None
+    return LATELY_DAYS if re.search(r"\b(lately|recently)\b", q) else None
 
 
 class ChatState(TypedDict):
@@ -306,30 +307,27 @@ def _plugins(state: ChatState) -> dict[str, Any]:
     )
 
 
-def _removal_value(s: Any, id_: str | None, known: dict[str, int], names: dict[str, str]) -> str:
-    shown = id_ or s.item_ids[0]  # the row's Item; when the cheaper twin is unknown it is the first
-    if s.kind == "remove_unused":
-        why = "Not seen"
-    else:
-        other = next(n for i, n in names.items() if i in s.item_ids and i != shown)
-        why = f"Same job as {other}" if s.kind == "remove_duplicate" else f"Only calls {other}"
-    return f"{why}; {'saves ' + format(known[id_], ',') + ' tokens' if id_ in known else 'saving unknown'}"
+def _removal_value(row_: dict[str, Any], names: dict[str, str]) -> str:
+    kind, saves = row_["kind"], row_["saves"]
+    other = next((n for i, n in names.items() if i in row_["item_ids"] and i != row_["removes"]), "")
+    why = {"remove_duplicate": f"Same job as {other}", "use_underlying": f"Only calls {other}", "disable_plugin": "None of its parts used"}
+    return f"{why.get(kind, 'Not seen')}; {'saves ' + format(saves, ',') + ' tokens' if saves is not None else 'saving unknown'}"
 
 
 def _remove(state: ChatState) -> dict[str, Any]:
-    """Removable Items from suggest(), with one deduplicated saving. Moves are scope advice and name projects, so they are left out."""
+    """Removable Items from the shared Assessments (safe wins first), each saving counted once. Moves are scope advice: left out."""
     data = state["data"]
-    known, items = _known_costs(data), _by_id(state)
+    items = _by_id(state)
     off = {i["id"] for i in data["items"] if i.get("disabled")}  # a switched-off plugin costs nothing now
-    found: dict[Any, tuple[Any, str | None]] = {}
-    for s in suggest(data):
-        if s.kind in ("remove_duplicate", "use_underlying", "remove_unused") and not off & set(s.item_ids):
-            found.setdefault(removes(s, known) or s.item_ids, (s, removes(s, known)))
+    found: dict[str, dict[str, Any]] = {}
+    for r in data["removals"]:
+        if not off & set(r["item_ids"]):
+            found.setdefault(r["removes"], r)
     if not found:
         return _response("Nothing in this scan looks safe to remove.", follow_ups=ASK_NEXT)
     chosen = list(found.values())
-    saved = [{"removes": id_, "tokens_saved": s.tokens_saved} for s, id_ in chosen]
-    total, unknown = frees(saved, known), sum(id_ is None or id_ not in known for _, id_ in chosen)
+    known = [r["saves"] for r in chosen if r["saves"] is not None]
+    total, unknown = sum(known), len(chosen) - len(known)
     headline = (
         f"You could remove {len(chosen)}, saving about {total:,} tokens every session."
         if total
@@ -337,19 +335,19 @@ def _remove(state: ChatState) -> dict[str, Any]:
     )
     caveat = "Unused rests on saved transcripts, which Claude Code deletes over time."
     shown = chosen[:5]
-    names = {i: items[i]["name"] for s, _ in shown for i in s.item_ids}
+    names = {i: items[i]["name"] for r in shown for i in r["item_ids"]}
     return _response(
         headline,
-        [id_ or s.item_ids[0] for s, id_ in shown],
-        rows=[row(items[id_ or s.item_ids[0]], _removal_value(s, id_, known, names)) for s, id_ in shown],
+        [r["removes"] for r in shown],
+        rows=[row(items[r["removes"]], _removal_value(r, names)) for r in shown],
         more=len(chosen) - len(shown),
         note=f"Plus {plural(unknown, 'Item')} with an unknown saving, not counted as 0. {caveat}" if unknown else caveat,
         next_="Open one on the map before you decide.",
-        follow_ups=[f"Should I keep {items[chosen[0][1] or chosen[0][0].item_ids[0]]['name']}?", *ASK_NEXT],
+        follow_ups=[f"Should I keep {items[chosen[0]['removes']]['name']}?", *ASK_NEXT],
         handoff={
             "instruction": cut(
                 "Review these in my Claude Code setup as removal candidates: "
-                + ", ".join(f"{kind_label(items[i]['kind'])} {quote(items[i]['name'])}" for i in [x or s.item_ids[0] for s, x in shown])
+                + ", ".join(f"{kind_label(items[r['removes']]['kind'])} {quote(items[r['removes']]['name'])}" for r in shown)
                 + ". Show me each one and wait for my OK before you remove anything.",
                 INSTRUCTION,
             ),
@@ -432,7 +430,7 @@ def _usage(state: ChatState) -> dict[str, Any]:
 
 
 def _since_answer(state: ChatState) -> dict[str, Any]:
-    data, days = state["data"], _since(state["question"]) or DORMANT_DAYS  # pragma: no mutate (routing saw a span)
+    data, days = state["data"], _since(state["question"]) or LATELY_DAYS  # pragma: no mutate (routing saw a span)
     window = data.get("usage_window")
     if not window:
         return _response("Usage was not read in this scan.")
@@ -675,7 +673,12 @@ class LocalChat:
         self._workflow = _graph()
 
     def answer(
-        self, data: dict[str, Any], question: str, selected: list[str], index_for: Callable[[list[dict[str, Any]]], Index]
+        self,
+        data: dict[str, Any],
+        question: str,
+        selected: list[str],
+        index_for: Callable[[list[dict[str, Any]]], Index],
+        assessed: Assessed | None = None,
     ) -> dict[str, Any]:
         clean: dict[str, Any] = {
             "items": [
@@ -704,11 +707,12 @@ class LocalChat:
         clean["memory_bytes"] = data.get("memory_bytes")
         clean["usage"], clean["usage_window"] = data.get("usage"), data.get("usage_window")
         clean["clusters"] = [{"item_ids": c["item_ids"]} for c in data.get("clusters") or []]
-        rows = brief(clean)  # only rows in today's brief can be added to the checklist (POST /api/checklist 404s on the rest)
-        clean["checklist"] = {
-            **{r["item_ids"][0]: r["id"] for r in rows["cost"]["rows"]},
-            **{i: r["id"] for r in rows["pairs"]["rows"] for i in r["item_ids"]},
-        }
+        found = assessed or compute(data)  # the same Assessments the Inspector and the Brief show
+        clean["assessments"] = {id_: assessment_json(a) for id_, a in found.assessments.items() if id_ in ids}
+        rows = build_brief(data, found.assessments, found.evidence)
+        shown = [r for g in ("safe", "look") for r in rows[g]["rows"]]  # only these can be added to the checklist (POST /api/checklist)
+        clean["checklist"] = {i: r["id"] for r in shown for i in r["item_ids"]}
+        clean["removals"] = [{k: r[k] for k in ("kind", "item_ids", "removes", "saves")} for r in shown if r["removes"]]
         index: Index | None = None  # pragma: no mutate (equivalent: unused unless set below)
         if _intent(question) in ("compare", "whatis"):
             index = index_for(data["items"])

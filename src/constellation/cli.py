@@ -15,6 +15,8 @@ from langgraph.types import Command
 
 from . import habits, history, scan, scan_graph
 from . import origins as origin_sources
+from .assessment import compute
+from .assessment import public as assessment_json
 from .classify import FAILED_PREFIX
 from .claude_code import read_secrets
 from .diff import diff_scans, render_diff
@@ -59,6 +61,9 @@ def main(
         help="also count each skill's full text (sends redacted bodies to Anthropic's counting endpoint)",
     )
     scan_command.add_argument("--no-history", action="store_true", help="do not record this scan's counts in the scan history")
+    scan_command.add_argument(
+        "--no-habits", action="store_true", help="do not keep the local habit ledger (per-day usage counts across scans)"
+    )
     scan_command.add_argument("--dry-run", action="store_true", help="print what would be sent to the providers; send nothing")
     scan_command.add_argument(
         "--offline", action="store_true", help="make no paid or network calls: no labels or verifier, cached token costs only"
@@ -84,6 +89,10 @@ def main(
     report_command.add_argument("--all", action="store_true", help="also list distinct pairs")
     report_command.add_argument("--cleanup", type=Path, help="also write a markdown checklist of cleanup candidates to this new file")
     report_command.add_argument("--force", action="store_true", help="let --cleanup overwrite an existing file")
+    assess_command = commands.add_parser(
+        "assess", help="print every Item's verdict from a saved scan as JSON (reads files only, sends nothing)"
+    )
+    assess_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     export_command = commands.add_parser("export", help="write a read-only public Snapshot; does NOT anonymise free text")
     export_command.add_argument("--public", action="store_true", required=True)
     export_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
@@ -123,6 +132,8 @@ def main(
         return _diff(args)  # reads the files only, so it skips load_env
     if args.command == "export":
         return _export(args)
+    if args.command == "assess":
+        return _assess(args)
     if args.command == "expand":
         data = _load_scan(args.file)
         if data is None:
@@ -229,7 +240,7 @@ def main(
     _write(
         result, args.out, read_secrets(args.config_dir, args.project), args.config_dir, None if args.no_history else history.DEFAULT_CACHE
     )
-    if not (args.no_usage or args.no_history):  # smarter-verdict 3.2: the habit ledger; S4 may give it its own flag
+    if not (args.no_usage or args.no_habits):  # smarter-verdict 3.2: the habit ledger, local only
         for warning in habits.update(habits.DEFAULT_CACHE, args.config_dir, result.items, result.relations):
             print(warning, file=sys.stderr)
     return 0
@@ -246,6 +257,19 @@ def _load_scan(file: Path) -> dict[str, Any] | None:
         print(f"{file} is missing or not a constellation scan; run `constellation scan` first.", file=sys.stderr)
         return None
     return data
+
+
+def _assess(args: argparse.Namespace) -> int:
+    data = _load_scan(args.file)
+    if data is None:
+        return 2
+    try:
+        found = compute(data)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        print(f"{args.file} could not be assessed; run `constellation scan` again.", file=sys.stderr)
+        return 2
+    print(json.dumps({"items": {id_: assessment_json(a) for id_, a in found.assessments.items()}}, indent=2))
+    return 0
 
 
 def _export(args: argparse.Namespace) -> int:

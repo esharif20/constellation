@@ -49,6 +49,7 @@ def private_default_caches(tmp_path_factory, monkeypatch):
         ("retrieve", "embeddings"),
         ("history", "history"),
         ("habits", "habits"),
+        ("pins", "pins"),
     ):
         # import_module: `constellation.classify` as an attribute is the re-exported function, not the module
         monkeypatch.setattr(importlib.import_module(f"constellation.{module}"), "DEFAULT_CACHE", root / f"{name}.json")

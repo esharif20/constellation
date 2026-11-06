@@ -16,8 +16,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from . import history as scan_history
+from . import pins as pin_file
 from . import retrieve
-from .brief import append_line, brief, checklist_ids, frees
+from .assessment import Assessed, compute
+from .assessment import public as assessment_json
+from .brief import append_line, build_brief, checklist_ids
 from .chat import LocalChat
 from .conflicts import conflicts
 from .embeddings import fastembed_embedder
@@ -27,7 +30,6 @@ from .explain import explain, render_explain
 from .hook_safety import hook_safety
 from .models import Embedder
 from .receipt import receipt
-from .report import _known_costs
 from .suggestions import Suggestion
 from .triggers import trigger_audit
 
@@ -46,6 +48,11 @@ class ExpansionEntry(BaseModel):
 class ChecklistEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str = Field(pattern=r"^[0-9a-f]{12}$")
+
+
+class PinEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=1, max_length=400)
 
 
 class ChatRequest(BaseModel):
@@ -174,12 +181,12 @@ def _preview_file(path: Path) -> dict[str, Any]:
     }
 
 
-def _checklist_path(checklist: Path, scan_file: Path) -> Path:
+def _checklist_path(checklist: Path, scan_file: Path, what: str = "Checklist") -> Path:
     path = checklist.resolve()
     if ".claude" in path.parts or path.is_relative_to((Path.home() / ".claude").resolve()):
-        raise ValueError(f"Checklist {checklist} must be outside the Claude setup")
+        raise ValueError(f"{what} {checklist} must be outside the Claude setup")
     if path == scan_file.resolve() or (path.exists() and scan_file.exists() and path.samefile(scan_file)):
-        raise ValueError(f"Checklist {checklist} must not replace the scan file")
+        raise ValueError(f"{what} {checklist} must not replace the scan file")
     return path
 
 
@@ -192,9 +199,13 @@ def create_app(
     expansion_query: ExpansionQuery | None = None,
     history: Path | None = None,
     preview: Path | None = None,
+    habits: Path | None = None,
+    pins: Path | None = None,
 ) -> FastAPI:
     checklist = DEFAULT_CHECKLIST if checklist is None else checklist
     _checklist_path(checklist, scan_file)
+    pins_file = pin_file.DEFAULT_CACHE if pins is None else pins
+    _checklist_path(pins_file, scan_file, "Pins file")
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.middleware("http")
@@ -218,14 +229,20 @@ def create_app(
             raise HTTPException(404, f"{scan_file} could not be read") from None
         return Response(text, media_type="application/json")
 
-    def read_brief() -> tuple[dict[str, Any], dict[str, Any]]:
+    def read_scan() -> dict[str, Any]:
         try:
             data = json.loads(scan_file.read_text())
             if not isinstance(data, dict) or not isinstance(data.get("items"), list):
                 raise ValueError
         except (OSError, ValueError):
             raise HTTPException(404, "scan could not be read") from None
-        return data, brief(data)
+        return data
+
+    def assessed(data: dict[str, Any]) -> Assessed:
+        try:
+            return compute(data, habits, pins_file)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            raise HTTPException(404, "The saved scan could not be read") from None
 
     @app.get("/api/preview", dependencies=[Depends(local_only)])
     def get_preview() -> dict[str, Any]:  # the path is fixed at startup; nothing from the request names a file
@@ -242,60 +259,87 @@ def create_app(
 
     @app.get("/api/history", dependencies=[Depends(local_only)])
     def get_history() -> dict[str, Any]:
-        data, _ = read_brief()
+        data = read_scan()
         return scan_history.timeline(scan_history.DEFAULT_CACHE if history is None else history, data)
 
     @app.get("/api/lenses", dependencies=[Depends(local_only)])
     def get_lenses() -> dict[str, Any]:
-        data, _ = read_brief()
+        data = read_scan()
         return {"receipt": receipt(data), "hooks": hook_safety(data), "conflicts": conflicts(data), "triggers": trigger_audit(data)}
 
     @app.get("/api/explain", dependencies=[Depends(local_only)])
     def get_explain(public: bool = False) -> dict[str, Any]:
-        data, _ = read_brief()
+        data = read_scan()
         summary = explain(data, public)
         return {**summary, "text": render_explain(summary)}
 
-    def checklist_state(data: dict[str, Any]) -> dict[str, Any]:
+    def checklist_state(built: dict[str, Any]) -> dict[str, Any]:
         path = _checklist_path(checklist, scan_file)
         try:
             text = path.read_text()
         except FileNotFoundError:
             text = ""
         ids = checklist_ids(text)
-        all_rows = brief(data, top=max(len(data["items"]), len(data.get("overlaps") or [])))
-        rows = [row for group in ("cost", "pairs") for row in all_rows[group]["rows"] if row["id"] in ids]
+        rows = [row for group in ("safe", "look") for row in built[group]["rows"] if row["id"] in ids]
+        removed = {row["removes"]: row["saves"] for row in rows if row["removes"]}  # each Item once, however many rows name it
+        known = [v for v in removed.values() if v is not None]
         return {
             "path": str(checklist),
             "ids": ids,
-            "frees": frees(rows, _known_costs(data)),
-            "unknown_rows": len(ids) - sum(row["tokens_saved"] is not None for row in rows),
+            "frees": sum(known) if known else None,
+            "unknown_rows": len(ids) - sum(row["saves"] is not None for row in rows),
+        }
+
+    def built_brief(data: dict[str, Any]) -> dict[str, Any]:
+        found = assessed(data)
+        built = build_brief(data, found.assessments, found.evidence)
+        built["evidence"]["ledger"] = found.ledger
+        return built
+
+    @app.get("/api/assess", dependencies=[Depends(local_only)])
+    def get_assess() -> dict[str, Any]:
+        found = assessed(read_scan())
+        ev = found.evidence
+        return {
+            "items": {id_: assessment_json(a) for id_, a in found.assessments.items()},
+            "evidence": {"sessions": ev.sessions, "active_days": ev.active_days, "span_days": ev.span_days, "ledger": found.ledger},
         }
 
     @app.get("/api/brief", dependencies=[Depends(local_only)])
     def get_brief() -> dict[str, Any]:
-        data, summary = read_brief()
+        built = built_brief(read_scan())
         try:
             with _CHECKLIST_LOCK:
-                state = checklist_state(data)
+                state = checklist_state(built)
         except (OSError, ValueError) as error:
             raise HTTPException(500, f"Could not read checklist {checklist}: {error}") from None
-        return {**summary, "checklist": state}
+        return {**built, "checklist": state}
 
     @app.post("/api/checklist", dependencies=[Depends(local_only)])
     def add_to_checklist(entry: ChecklistEntry) -> dict[str, Any]:
-        data, summary = read_brief()
-        row = next((row for group in ("cost", "pairs") for row in summary[group]["rows"] if row["id"] == entry.id), None)
+        built = built_brief(read_scan())
+        row = next((row for group in ("safe", "look") for row in built[group]["rows"] if row["id"] == entry.id), None)
         if row is None:
             raise HTTPException(404, "That row is not in the current brief")
-        suggestion = Suggestion(row["id"], row["kind"], tuple(row["item_ids"]), row["reason"], row["tokens_saved"])
+        suggestion = Suggestion(row["id"], row["kind"], tuple(row["item_ids"]), row["reason"], row["saves"])
         try:
             with _CHECKLIST_LOCK:
                 added = append_line(_checklist_path(checklist, scan_file), suggestion)
-                state = checklist_state(data)
+                state = checklist_state(built)
         except (OSError, ValueError) as error:
             raise HTTPException(500, f"Could not write checklist {checklist}: {error}") from None
         return {"added": added, **state}
+
+    @app.post("/api/pin", dependencies=[Depends(local_only)])
+    def pin_item(entry: PinEntry) -> dict[str, Any]:
+        if entry.id not in {i.get("id") for i in read_scan()["items"] if isinstance(i, dict)}:
+            raise HTTPException(404, "That Item is not in the current scan")
+        try:
+            with _CHECKLIST_LOCK:
+                added = pin_file.add(_checklist_path(pins_file, scan_file, "Pins file"), entry.id)
+        except (OSError, ValueError) as error:
+            raise HTTPException(500, f"Could not write the pins file: {error}") from None
+        return {"pinned": True, "added": added}
 
     @app.post("/api/expand", dependencies=[Depends(local_only)])
     async def expand_item(entry: ExpansionEntry) -> Any:
@@ -335,7 +379,7 @@ def create_app(
         if any(id_ not in ids for id_ in entry.selected_ids):
             raise HTTPException(404, "That Item is not in the current scan")
         try:
-            return chat.answer(data, entry.question, entry.selected_ids, index_for)
+            return chat.answer(data, entry.question, entry.selected_ids, index_for, assessed(data))
         except (ValueError, TypeError, KeyError, AttributeError):
             raise HTTPException(404, "The saved scan could not be read") from None
 

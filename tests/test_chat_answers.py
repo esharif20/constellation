@@ -133,18 +133,34 @@ def verdict(client, name):
 
 
 def test_verdicts_come_only_from_local_signals(client):
-    assert verdict(client, "alpha-twin") == {"label": "Keep one", "tone": "remove", "why": "Does the same job as beta-twin"}
-    assert verdict(client, "beta-twin")["why"] == "Does the same job as alpha-twin"
-    assert verdict(client, "gamma-wrap") == {"label": "Keep the wrapped one", "tone": "review", "why": "Wraps delta-core"}
-    assert verdict(client, "delta-core") == {"label": "Keep the wrapped one", "tone": "review", "why": "Is called by gamma-wrap"}
-    assert verdict(client, "epsilon-idle") == {
-        "label": "Could go",
+    assert verdict(client, "alpha-twin") == {
+        "label": "Likely redundant",
         "tone": "remove",
-        "why": "Not seen in 30 days of past sessions and costs 1,468 tokens every session",
+        "why": "Does the same job as beta-twin; neither has been used",
     }
-    assert verdict(client, "zeta-seen") == {"label": "Keep", "tone": "keep", "why": "Used 12 times in 30 days"}
-    assert verdict(client, "theta-free") == {"label": "Review", "tone": "review", "why": "Not seen in 30 days of past sessions"}
-    assert verdict(client, "eta-nodata") == {"label": "Not enough data", "tone": "unknown", "why": "Usage was not read for this Item"}
+    assert verdict(client, "beta-twin") == {"label": "Keep", "tone": "keep", "why": "Its twin alpha-twin could go"}
+    assert verdict(client, "gamma-wrap") == {"label": "Likely redundant", "tone": "remove", "why": "Only hands off to delta-core"}
+    assert verdict(client, "delta-core")["label"] == "Keep"
+    # four saved sessions cannot show that anything is unused: the shared engine says so instead of "Could go"
+    short = {"label": "Not enough history yet", "tone": "review", "why": "Only 4 sessions over 4 active days; check back after ~11 more"}
+    assert verdict(client, "epsilon-idle") == short
+    assert verdict(client, "zeta-seen") == {"label": "Keep", "tone": "keep", "why": "Used 12 times"}
+    assert verdict(client, "theta-free") == short
+    assert verdict(client, "eta-nodata") == short
+
+
+def test_a_long_history_keeps_could_go_for_a_never_seen_costly_item(tmp_path, monkeypatch):
+    window = {"files": 60, "first": "2026-08-30", "last": "2026-10-30", "skipped": 0}
+    client = make(
+        tmp_path,
+        monkeypatch,
+        [item("u", "epsilon-idle", "Drafts and sends the status update email to the whole team every Friday afternoon.")],
+        costs={"u": {"always_on": 1468, "on_use": None}},
+        usage={"u": {"count": 0}},
+        usage_window=window,
+    )
+    assert verdict(client, "epsilon-idle")["label"] == "Could go"
+    assert verdict(client, "epsilon-idle")["tone"] == "remove"
 
 
 def test_a_partial_overlap_does_not_decide_the_verdict(client):
@@ -162,7 +178,7 @@ def test_the_worst_overlap_is_shown_first(client):
 def test_no_usage_read_at_all(tmp_path, monkeypatch):
     client = make(tmp_path, monkeypatch, [item("a", "alpha")])
     card = ask(client, "should I keep alpha")["blocks"]["cards"][0]
-    assert card["verdict"] == {"label": "Not enough data", "tone": "unknown", "why": "Usage was not read in this scan"}
+    assert card["verdict"] == {"label": "Not enough history yet", "tone": "review", "why": "No session history yet"}
     assert (card["always_on"], card["on_use"], card["usage"]) == ("unknown", "unknown", "Usage unknown")
     assert ask(client, "what have I never used")["answer"] == "Usage was not read in this scan."
 
@@ -302,7 +318,7 @@ def test_empty_lists_say_what_was_checked(tmp_path, monkeypatch):
 def test_usage_without_transcripts(tmp_path, monkeypatch):
     client = make(tmp_path, monkeypatch, [item("a", "aa")], usage_window={**WINDOW, "files": 0})
     assert ask(client, "show usage")["answer"] == "No transcripts found."
-    assert ask(client, "should I keep aa")["blocks"]["cards"][0]["verdict"]["why"] == "Usage was not read in this scan"
+    assert ask(client, "should I keep aa")["blocks"]["cards"][0]["verdict"]["why"] == "No session history yet"
 
 
 def test_pairs_and_unused_rows_beyond_five_say_how_many_more(tmp_path, monkeypatch):
@@ -399,7 +415,7 @@ def test_no_span_wording_and_overlap_priority(tmp_path, monkeypatch):
     assert ask(client, "what is zulu")["blocks"]["cards"][0]["overlap"]["with_id"] == "a"
     assert ask(client, "what is custom")["blocks"]["cards"][0]["kind_label"] == "custom thing"
     why = ask(client, "should I keep idle")["blocks"]["cards"][0]["verdict"]["why"]
-    assert why == "Not seen in the saved past sessions and costs 5 tokens every session"
+    assert why == "Only 2 sessions over 0 active days; check back after ~13 more"
     assert ask(client, "never used")["blocks"]["headline"] == "1 Item not seen in the saved past sessions, starting with idle."
 
 

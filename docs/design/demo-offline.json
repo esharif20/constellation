@@ -1565,5 +1565,1656 @@
     "p2": "thesis"
   },
   "current_project": "p1",
-  "usage_by_project": {}
+  "usage_by_project": {},
+  "assessments": {
+    "plugin:lumen": {
+      "id": "plugin:lumen",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:lumen:tune-spacing": {
+      "id": "skill:lumen:tune-spacing",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:lumen:pick-palette": {
+      "id": "skill:lumen:pick-palette",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:lumen:audit-contrast": {
+      "id": "skill:lumen:audit-contrast",
+      "tier": "keep_rare",
+      "label": "Keep (rarely needed)",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "rare_purpose",
+          "text": "Made for audit work; 0 active days can't tell yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 90
+    },
+    "skill:lumen:motion-pass": {
+      "id": "skill:lumen:motion-pass",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:lumen:icon-sweep": {
+      "id": "skill:lumen:icon-sweep",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:lumen:type-scale": {
+      "id": "skill:lumen:type-scale",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:lumen:focus-rings": {
+      "id": "skill:lumen:focus-rings",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:lumen:empty-states": {
+      "id": "skill:lumen:empty-states",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "plugin:quill": {
+      "id": "plugin:quill",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:quill:tighten-prose": {
+      "id": "skill:quill:tighten-prose",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:quill:outline-essay": {
+      "id": "skill:quill:outline-essay",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:quill:cite-sources": {
+      "id": "skill:quill:cite-sources",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:quill:plain-english": {
+      "id": "skill:quill:plain-english",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:quill:release-notes": {
+      "id": "skill:quill:release-notes",
+      "tier": "keep_rare",
+      "label": "Keep (rarely needed)",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "rare_purpose",
+          "text": "Made for release work; 0 active days can't tell yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 90
+    },
+    "skill:quill:changelog-draft": {
+      "id": "skill:quill:changelog-draft",
+      "tier": "keep_rare",
+      "label": "Keep (rarely needed)",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "rare_purpose",
+          "text": "Made for changelog work; 0 active days can't tell yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 90
+    },
+    "plugin:sentinel": {
+      "id": "plugin:sentinel",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:sentinel:review-diff": {
+      "id": "skill:sentinel:review-diff",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 30
+    },
+    "skill:sentinel:spot-regressions": {
+      "id": "skill:sentinel:spot-regressions",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:sentinel:check-naming": {
+      "id": "skill:sentinel:check-naming",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:sentinel:flag-dead-code": {
+      "id": "skill:sentinel:flag-dead-code",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:sentinel:suggest-tests": {
+      "id": "skill:sentinel:suggest-tests",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "plugin:redgreen": {
+      "id": "plugin:redgreen",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:redgreen:write-failing-test": {
+      "id": "skill:redgreen:write-failing-test",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:redgreen:make-it-pass": {
+      "id": "skill:redgreen:make-it-pass",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:redgreen:refactor-safely": {
+      "id": "skill:redgreen:refactor-safely",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:redgreen:mutation-sweep": {
+      "id": "skill:redgreen:mutation-sweep",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:redgreen:fixture-builder": {
+      "id": "skill:redgreen:fixture-builder",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:redgreen:flake-hunter": {
+      "id": "skill:redgreen:flake-hunter",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "plugin:harbour": {
+      "id": "plugin:harbour",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:harbour:cut-release": {
+      "id": "skill:harbour:cut-release",
+      "tier": "keep_rare",
+      "label": "Keep (rarely needed)",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "rare_purpose",
+          "text": "Made for release work; 0 active days can't tell yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 90
+    },
+    "skill:harbour:tag-version": {
+      "id": "skill:harbour:tag-version",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:harbour:deploy-preview": {
+      "id": "skill:harbour:deploy-preview",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 30
+    },
+    "skill:harbour:rollback-plan": {
+      "id": "skill:harbour:rollback-plan",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:harbour:smoke-check": {
+      "id": "skill:harbour:smoke-check",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "plugin:atlas": {
+      "id": "plugin:atlas",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:atlas:map-modules": {
+      "id": "skill:atlas:map-modules",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:atlas:trace-call": {
+      "id": "skill:atlas:trace-call",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:atlas:find-owner": {
+      "id": "skill:atlas:find-owner",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:atlas:explain-file": {
+      "id": "skill:atlas:explain-file",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:atlas:dependency-tour": {
+      "id": "skill:atlas:dependency-tour",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "plugin:margin": {
+      "id": "plugin:margin",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:margin:lecture-notes": {
+      "id": "skill:margin:lecture-notes",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:margin:flashcard-deck": {
+      "id": "skill:margin:flashcard-deck",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:margin:summarise-paper": {
+      "id": "skill:margin:summarise-paper",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:margin:glossary-builder": {
+      "id": "skill:margin:glossary-builder",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "plugin:sieve": {
+      "id": "plugin:sieve",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:sieve:clean-csv": {
+      "id": "skill:sieve:clean-csv",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:sieve:profile-table": {
+      "id": "skill:sieve:profile-table",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:sieve:chart-draft": {
+      "id": "skill:sieve:chart-draft",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:sieve:sql-explain": {
+      "id": "skill:sieve:sql-explain",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:sieve:join-checker": {
+      "id": "skill:sieve:join-checker",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "plugin:bastion": {
+      "id": "plugin:bastion",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:bastion:secret-scan": {
+      "id": "skill:bastion:secret-scan",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:bastion:dependency-audit": {
+      "id": "skill:bastion:dependency-audit",
+      "tier": "keep_rare",
+      "label": "Keep (rarely needed)",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "rare_purpose",
+          "text": "Made for audit work; 0 active days can't tell yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 90
+    },
+    "skill:bastion:threat-sketch": {
+      "id": "skill:bastion:threat-sketch",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "plugin:prism": {
+      "id": "plugin:prism",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:prism:sequence-diagram": {
+      "id": "skill:prism:sequence-diagram",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:prism:architecture-sketch": {
+      "id": "skill:prism:architecture-sketch",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:prism:slide-outline": {
+      "id": "skill:prism:slide-outline",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "hook:format-on-save": {
+      "id": "hook:format-on-save",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "hook:lint-before-commit": {
+      "id": "hook:lint-before-commit",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "hook:block-force-push": {
+      "id": "hook:block-force-push",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "hook:notify-on-finish": {
+      "id": "hook:notify-on-finish",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "hook:log-tool-calls": {
+      "id": "hook:log-tool-calls",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "hook:guard-env-files": {
+      "id": "hook:guard-env-files",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "hook:run-tests-on-stop": {
+      "id": "hook:run-tests-on-stop",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "hook:trim-whitespace": {
+      "id": "hook:trim-whitespace",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "hook:session-banner": {
+      "id": "hook:session-banner",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "hook:warn-large-diff": {
+      "id": "hook:warn-large-diff",
+      "tier": "untracked",
+      "label": "Not tracked",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "hook_weight",
+          "text": "Not judged from usage; its cost is unknown"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "agent:scout": {
+      "id": "agent:scout",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "agent:critic": {
+      "id": "agent:critic",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "agent:scribe": {
+      "id": "agent:scribe",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "agent:pilot": {
+      "id": "agent:pilot",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "agent:auditor": {
+      "id": "agent:auditor",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 30
+    },
+    "agent:cartographer": {
+      "id": "agent:cartographer",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:quick-commit": {
+      "id": "skill:quick-commit",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:explain-error": {
+      "id": "skill:explain-error",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:rename-symbol": {
+      "id": "skill:rename-symbol",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:todo-sweep": {
+      "id": "skill:todo-sweep",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:regex-helper": {
+      "id": "skill:regex-helper",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:unit-convert": {
+      "id": "skill:unit-convert",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:timezone-math": {
+      "id": "skill:timezone-math",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:json-shape": {
+      "id": "skill:json-shape",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:yaml-lint": {
+      "id": "skill:yaml-lint",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:port-finder": {
+      "id": "skill:port-finder",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:branch-tidy": {
+      "id": "skill:branch-tidy",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:screenshot-diff": {
+      "id": "skill:screenshot-diff",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "mcp_server:orrery": {
+      "id": "mcp_server:orrery",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "connector:inkwell": {
+      "id": "connector:inkwell",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "skill:extra:quarterly-ledger-reconciliation-helper": {
+      "id": "skill:extra:quarterly-ledger-reconciliation-helper",
+      "tier": "keep_rare",
+      "label": "Keep (rarely needed)",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "rare_purpose",
+          "text": "Made for quarterly work; 0 active days can't tell yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 90
+    },
+    "agent:extra:lighthouse-lamp-maintenance-scheduler": {
+      "id": "agent:extra:lighthouse-lamp-maintenance-scheduler",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "plugin:extra:idle-beekeeping-bundle": {
+      "id": "plugin:extra:idle-beekeeping-bundle",
+      "tier": "review",
+      "label": "Review",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "children_unclear",
+          "text": "Some of its skills are too new to judge"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": null
+    },
+    "skill:extra:idle-hive-inspector": {
+      "id": "skill:extra:idle-hive-inspector",
+      "tier": "off",
+      "label": "Switched off",
+      "confidence": null,
+      "reasons": [
+        {
+          "code": "off",
+          "text": "Switched off; the scan still counts its cost."
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": null,
+      "recheck_after": null
+    },
+    "skill:proj:cart-checkout-audit": {
+      "id": "skill:proj:cart-checkout-audit",
+      "tier": "keep_rare",
+      "label": "Keep (rarely needed)",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "rare_purpose",
+          "text": "Made for audit work; 0 active days can't tell yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 90
+    },
+    "agent:proj:thesis-citation-checker": {
+      "id": "agent:proj:thesis-citation-checker",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    },
+    "mcp_server:proj:shop-catalog-db": {
+      "id": "mcp_server:proj:shop-catalog-db",
+      "tier": "too_early",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "reasons": [
+        {
+          "code": "too_early",
+          "text": "No session history yet"
+        }
+      ],
+      "action": "none",
+      "saves": null,
+      "risk": 1,
+      "group": "wait",
+      "recheck_after": 15
+    }
+  }
 }

@@ -6,9 +6,11 @@ from typing import Any
 
 HEADLINE, WHAT, WHY, NEXT, NOTE, CHIP, TEXT = 140, 120, 90, 100, 160, 40, 1200
 KINDS = {"mcp_server": "MCP server"}
-DORMANT_DAYS = (
-    30  # "Could go" needs this many idle days; equal to DORMANT_DAYS in frontend/src/lib/verdict.ts (tests/test_chat_ask.py checks)
-)
+LATELY_DAYS = 30  # the span "lately" means in a question; a window for listing, never a verdict threshold (verdict.py decides those)
+TONE = {  # an Assessment tier as Ask's tone; the tier names and labels come from verdict.py
+    "keep": "keep", "keep_rare": "keep", "review": "review", "too_early": "review",
+    "redundant": "remove", "could_go": "remove", "off": "unknown", "untracked": "unknown",
+}  # fmt: skip
 _SKIP = re.compile(r"^(use when|use this|use for|trigger|invoke)", re.I)
 _EXAMPLE = re.compile(r'"[^"]{2,}"|“[^”]{2,}”|(?:^|\s)/[a-z][\w:-]*(?=\s|$)')
 _ABBREVIATION = re.compile(r"(?:^|\s)(?:(?i:e\.g|i\.e|etc|vs)|[A-Z])$")  # a word abbreviation in any case, or one capital letter
@@ -97,44 +99,11 @@ def _overlap(data: dict[str, Any], id_: str) -> dict[str, Any] | None:
 
 
 def verdict(data: dict[str, Any], id_: str) -> dict[str, str]:
-    """A suggestion from local signals only; first match wins."""
-    overlap = _overlap(data, id_)
-    if overlap:
-        names = {i["id"]: i["name"] for i in data["items"]}
-        other = names[overlap["b_id"] if overlap["a_id"] == id_ else overlap["a_id"]]
-        if overlap["verdict"] == "duplicate":
-            return {"label": "Keep one", "tone": "remove", "why": cut(f"Does the same job as {other}", WHY)}
-        if overlap["verdict"] == "wrapper":
-            why = f"Wraps {other}" if overlap["a_id"] == id_ else f"Is called by {other}"
-            return {"label": "Keep the wrapped one", "tone": "review", "why": cut(why, WHY)}
-    line, count = _usage(data, id_)
-    cost = ((data.get("costs") or {}).get(id_) or {}).get("always_on")
-    if count is None:
-        window = data.get("usage_window")
-        where = "in this scan" if not window or not window["files"] else "for this Item"
-        return {"label": "Not enough data", "tone": "unknown", "why": f"Usage was not read {where}"}
-    idle = idle_days(data, id_)
-    if count:
-        if cost and idle and idle[0] >= DORMANT_DAYS:
-            return {
-                "label": "Review",
-                "tone": "review",
-                "why": cut(f"Idle {plural(idle[0], 'day')}; costs {cost:,} tokens every session", WHY),
-            }
-        return {"label": "Keep", "tone": "keep", "why": cut(line.split(", last")[0], WHY)}
-    if cost:
-        if idle and idle[0] < DORMANT_DAYS:  # a short history cannot show 30 idle days
-            return {
-                "label": "Review",
-                "tone": "review",
-                "why": cut(f"Not seen in {plural(idle[0], 'day')} (history is short); costs {cost:,} tokens", WHY),
-            }
-        return {
-            "label": "Could go",
-            "tone": "remove",
-            "why": cut(f"Not seen in {past(data['usage_window'])} and costs {cost:,} tokens every session", WHY),
-        }
-    return {"label": "Review", "tone": "review", "why": cut(f"Not seen in {past(data['usage_window'])}", WHY)}
+    """The Item's Assessment (verdict.assess, shared with the Inspector and the Brief) in Ask's label / tone / why shape."""
+    found = (data.get("assessments") or {}).get(id_)
+    if found is None:
+        return {"label": "Not enough data", "tone": "unknown", "why": "No verdict is available for this Item"}
+    return {"label": found["label"], "tone": TONE[found["tier"]], "why": cut(found["reasons"][0]["text"], WHY)}
 
 
 def kind_label(kind: str) -> str:
@@ -154,28 +123,38 @@ _CONFIRM = " Show me exactly what will change and wait for my OK."
 INSTRUCTION = 400
 
 
-def handoff(data: dict[str, Any], item: dict[str, Any], tone: str, overlap: dict[str, Any] | None) -> dict[str, Any]:
-    """A copyable instruction for Claude Code and the checklist row that can be added for this Item (None when there is none)."""
+def handoff(data: dict[str, Any], item: dict[str, Any], overlap: dict[str, Any] | None) -> dict[str, Any]:
+    """A copyable instruction for Claude Code and the checklist row that can be added for this Item. The Assessment's action decides
+    (like frontend/src/lib/instruction.ts); the Overlap only names the other Item."""
     id_, name, label = item["id"], quote(item["name"]), kind_label(item["kind"])
+    action = ((data.get("assessments") or {}).get(id_) or {}).get("action", "none")
     other = None  # pragma: no mutate (equivalent: only read when there is an overlap)
     if overlap:
         names = {i["id"]: i["name"] for i in data["items"]}
         other = quote(names[overlap["b_id"] if overlap["a_id"] == id_ else overlap["a_id"]])
-    if tone == "keep" or (
-        tone == "unknown" and item["kind"] != "plugin"
-    ):  # usage is not tracked for plugins: unknown is their normal state
-        text = f"Review the {label} {name}: tell me what it does and whether I still need it. Change nothing."
-    elif overlap and overlap["verdict"] == "duplicate":
-        text = f"The {label} {name} and {other} do the same job. Compare them and recommend which to remove; remove nothing until I choose."
-    elif overlap and overlap["a_id"] == id_:
-        text = f"The {label} {name} only calls {other}. Show me how to use {other} directly, then remove {name}."
-    elif overlap:
-        text = f"Keep the {label} {name}; {other} calls it. Change nothing."
-    else:
+
+    def remove() -> str:
         text = _DO.get(item["kind"], "Review the " + label + " {n} and tell me how to remove it.").format(n=name)
         origin = item.get("origin")
-        if origin and item["kind"] in ("skill", "agent", "command", "hook", "mcp_server"):
+        if origin and item["kind"] in ("skill", "agent", "mcp_server"):
             text += f" It came from {quote(origin)}: if that is a plugin or pack, change it there, not inside its folder."
+        return text
+
+    if action == "use_underlying" and other:
+        text = f"The {label} {name} only calls {other}. Show me how to use {other} directly, then remove {name}."
+    elif action == "remove_twin" and other:
+        text = f"{remove()} It does the same job as {other}, which stays."
+    elif action == "move_to_project":
+        text = f"Move the {label} {name} out of my global setup into the one project that uses it. Leave every other project as it is."
+    elif action == "fix_description":
+        text = (
+            f"Rewrite the description of the {label} {name} so Claude knows when to pick it: "
+            "say what it does and when to use it. Keep the rest unchanged."
+        )
+    elif action in ("remove", "disable_plugin", "remove_twin"):
+        text = remove()
+    else:
+        text = f"Review the {label} {name}: tell me what it does and whether I still need it. Change nothing."
     if not text.endswith("Change nothing."):
         text += _CONFIRM
     return {"instruction": cut(text, INSTRUCTION), "checklist_id": (data.get("checklist") or {}).get(id_)}
@@ -201,7 +180,7 @@ def card(data: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
         "usage": _usage(data, id_)[0],
         "overlap": shown,
         "verdict": decided,
-        "handoff": handoff(data, item, decided["tone"], overlap),
+        "handoff": handoff(data, item, overlap),
     }
 
 

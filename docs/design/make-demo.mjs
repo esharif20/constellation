@@ -171,3 +171,15 @@ for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo
   }
   fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
 }
+
+// Last: the verdicts. `constellation assess` (local, read-only, no provider call) reads each demo file and its output is stored as
+// `assessments`, the field the Atlas reads when there is no live /api/assess (the Snapshot-like static case). Idempotent.
+import { execFileSync } from "node:child_process";
+for (const [file, indent] of [["demo.json", 2], ["demo-offline.json", 2], ["demo-250.json", 1]]) {
+  const url = new URL(file, import.meta.url), d = JSON.parse(fs.readFileSync(url, "utf8"));
+  delete d.assessments;
+  fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
+  const out = execFileSync("uv", ["run", "constellation", "assess", url.pathname], { encoding: "utf8", maxBuffer: 64 << 20 });
+  d.assessments = JSON.parse(out).items;
+  fs.writeFileSync(url, JSON.stringify(d, null, indent) + "\n");
+}
