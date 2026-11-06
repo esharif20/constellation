@@ -1,8 +1,17 @@
 [project]
-name = "constellation"
+name = "constellation-cli"
 version = "0.1.0"
 description = "An interactive map of a Claude Code setup"
 readme = "README.md"
+license = "MIT"
+keywords = ["claude-code", "mcp", "skills", "graph", "context"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+]
 authors = [
     { name = "esharif20", email = "eshansharif2004@gmail.com" }
 ]
@@ -11,6 +20,9 @@ dependencies = [
     "langgraph>=1.2.19",
     "langgraph-checkpoint-sqlite>=3.1,<3.1.3",
     "pyyaml>=6.0.3",
+    "fastapi>=0.162.0",
+    "mcp==2.3.0",
+    "uvicorn>=0.54.0",
 ]
 
 [project.optional-dependencies]
@@ -20,11 +32,7 @@ local = [
 llm = [
     "anthropic>=2.4.0",
 ]
-app = [
-    "fastapi>=0.162.0",
-    "mcp==2.3.0",
-    "uvicorn>=0.54.0",
-]
+app = []  # kept so `constellation-cli[app]` and `uv sync --extra app` still resolve; the server is a base dependency now
 
 [project.scripts]
 constellation = "constellation.cli:main"
@@ -32,6 +40,9 @@ constellation = "constellation.cli:main"
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "constellation"
 
 [dependency-groups]
 dev = [
