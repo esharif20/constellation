@@ -110,6 +110,12 @@ def main(
             sub.add_argument("--why", action="store_true", help="with --dry-run, also list each proposed Item with all its reasons")
         if c.name == "share":
             sub.add_argument("--out", type=Path, default=Path("constellation-share"), help="new output directory")
+            sub.add_argument(
+                "--expansions",
+                type=Path,
+                default=None,
+                help="saved `constellation expand` output (one result or a list) whose tool names and one-line descriptions are included",
+            )
     scan_command = commands.add_parser("scan", help="read a Claude Code config directory and write a constellation JSON file")
     scan_command.add_argument("config_dir", type=Path, nargs="?", default=Path.home() / ".claude", help="default ~/.claude")
     scan_command.add_argument("--no-usage", action="store_true", help="skip reading local transcripts")
@@ -174,6 +180,12 @@ def main(
     export_command.add_argument("--public", action="store_true", required=True)
     export_command.add_argument("file", type=Path, nargs="?", default=None)
     export_command.add_argument("--out", type=Path, required=True, help="new output directory; never overwrites or publishes")
+    export_command.add_argument(
+        "--expansions",
+        type=Path,
+        default=None,
+        help="saved `constellation expand` output (one result or a list) whose tool names and one-line descriptions are included",
+    )
     review_command = commands.add_parser(
         "review", help="go through Suggestions one at a time and write the approved ones to a checklist (no network, no cost)"
     )
@@ -494,7 +506,7 @@ def _report_command(args: argparse.Namespace) -> int:
         elif args.command == "clean":
             out = cli_reports.clean(scan, args.out, args.force)
         elif args.command == "share":
-            return _export(argparse.Namespace(file=args.file, out=args.out, dry_run=args.dry_run))
+            return _export(argparse.Namespace(file=args.file, out=args.out, dry_run=args.dry_run, expansions=args.expansions))
         else:
             out = cli_reports.run(args.command, scan, getattr(args, "arg", None), as_json=args.json, st=cli_reports.style_for_stdout())
     except cli_reports.ReportError as error:
@@ -547,10 +559,17 @@ def _export(args: argparse.Namespace) -> int:
     data = _load_scan(args.file)
     if data is None:
         return 2
+    expanded = None
+    if getattr(args, "expansions", None) is not None:
+        try:
+            expanded = json.loads(args.expansions.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            print("Could not read the --expansions file.", file=sys.stderr)
+            return 2
     if args.dry_run:
-        return _export_dry_run(data, args.out)
+        return _export_dry_run(data, args.out, expanded)
     try:
-        write_snapshot(data, args.out)
+        write_snapshot(data, args.out, expanded)
     except FileExistsError:
         print("Output already exists; choose a new directory.", file=sys.stderr)
         return 2
@@ -564,14 +583,14 @@ def _export(args: argparse.Namespace) -> int:
     return 0
 
 
-def _export_dry_run(data: dict[str, Any], out: Path) -> int:
+def _export_dry_run(data: dict[str, Any], out: Path, expanded: object = None) -> int:
     if out.exists():
         print("Output already exists; choose a new directory.", file=sys.stderr)
         return 2
     with tempfile.TemporaryDirectory() as scratch:  # build it somewhere disposable, then only list it
         built = Path(scratch) / "snapshot"
         try:
-            write_snapshot(data, built)
+            write_snapshot(data, built, expanded)
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             print("Could not export: check the saved scan, frontend build and output directory.", file=sys.stderr)
             return 2

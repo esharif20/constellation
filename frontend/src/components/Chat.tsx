@@ -43,7 +43,11 @@ const str = (v: unknown) => typeof v === "string";
 const strs = (v: unknown) => Array.isArray(v) && v.every(str);
 
 // Starter questions come from the loaded scan, so each one can be answered; a starter whose inputs are missing is left out.
+// Set by the shared Snapshot's script: the only questions it can answer, with no server behind them.
+const shared = () => (globalThis as { __SNAPSHOT__?: { note: string; questions: string[] } }).__SNAPSHOT__;
+
 export function starters(model: Model, selected: GNode | null): string[] {
+  if (shared()) return shared()!.questions;
   const out: string[] = [selected ? `Should I keep ${selected.name}?` : "What could I remove?", "What do I pay before I type anything?", "What costs the most every session?", "What have I not used in 30 days?"];
   const costed = model.nodes.filter((n) => n.cost?.always_on != null).sort((x, y) => y.cost!.always_on! - x.cost!.always_on!);
   const subject = selected ?? costed[0];
@@ -269,7 +273,7 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
     text = text.trim();
     setQuestion(text);
     if (pending || unavailable || !text || text.length > 1000) return;
-    if (!["localhost", "127.0.0.1"].includes(location.hostname)) {
+    if (!shared() && !["localhost", "127.0.0.1"].includes(location.hostname)) {
       setAsked(text);
       setUnavailable(true);
       setError(UNAVAILABLE);
@@ -287,6 +291,7 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
         method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
         body: JSON.stringify({ question: text, ...(selected && model.nodes.includes(selected) ? { selected_ids: [selected.id] } : {}) }),
       });
+      if (shared() && response.status === 404) throw new Error(shared()!.note);
       if ([404, 405, 501].includes(response.status) || !response.headers.get("content-type")?.includes("application/json")) {
         setUnavailable(true);
         throw new Error(UNAVAILABLE);
@@ -326,7 +331,7 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 pb-4 sm:px-6">
         {!asked && <>
-          <p className="hidden text-sm leading-[1.55] text-text-2 sm:block">Ask about this setup. Answers are worked out here, for free.</p>
+          <p className={cn("text-sm leading-[1.55] text-text-2", !shared() && "hidden sm:block")}>{shared() ? shared()!.note : "Ask about this setup. Answers are worked out here, for free."}</p>
           <div>
             <h3 className="mb-1 text-xs font-medium text-text-3">What you can ask</h3>
             <div className="-mx-2 flex flex-col items-start">
