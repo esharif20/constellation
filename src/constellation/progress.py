@@ -1,6 +1,7 @@
 """Scan progress: a pure event type and renderer, plus a small stderr reporter. Never writes to stdout."""
 
 import math
+import re
 import sys
 import time
 from collections.abc import Callable
@@ -58,6 +59,15 @@ def render_bar(event: ProgressEvent, width: int, started: float, now: float, col
     return f"[{bar}] {100 * done // total if total else 0}%  {text}"
 
 
+def _cut(line: str, width: int) -> str:
+    """The line cut to `width` visible characters, colour codes kept so they still close."""
+    out, seen = [], 0
+    for part in re.split(r"(\x1b\[[0-9;]*m)", line):
+        out.append(part if part.startswith("\x1b") else part[: width - seen])
+        seen += 0 if part.startswith("\x1b") else len(out[-1])
+    return "".join(out)
+
+
 class Reporter:
     """A TTY gets one redrawn line; anything else gets a plain line each time a phase ends."""
 
@@ -72,6 +82,7 @@ class Reporter:
     ):
         self.title, self.tty, self.color, self.out, self.clock = title, tty, color, out or sys.stderr, clock
         self.width = 16 if columns >= 90 else 8
+        self.columns = columns
         self.last: ProgressEvent | None = None
         self.started = self.drawn = 0.0
 
@@ -101,5 +112,8 @@ class Reporter:
         self.last = event
         if self.tty and (new or now - self.drawn >= REDRAW or event.done >= event.total):
             self.drawn = now
-            self.out.write("\r" + self.title + "  " + render_bar(event, self.width, self.started, now, self.color) + CLEAR_LINE)
+            line = self.title + "  " + render_bar(event, self.width, self.started, now, self.color)
+            self.out.write(
+                "\r" + _cut(line, self.columns - 1) + CLEAR_LINE
+            )  # a wrapped bar would leave a stray line behind on every redraw
             self.out.flush()

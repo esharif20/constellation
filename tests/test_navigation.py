@@ -224,7 +224,7 @@ def test_pty_esc_goes_back_from_every_screen_and_prompt(tmp_path):
             (b"(Esc to cancel)", ESC_KEY),
             (b"U Update | Q Quit", b"m"),  # More, Remove preview: Esc at the question, then Esc back
             (b"Esc Back", b"6"),
-            (b"\xe2\x9e\xa4 6. Remove", b"\r"),
+            (b"\xe2\x9e\xa4 6.  Remove", b"\r"),
             (b"(Esc to cancel)", ESC_KEY),
             (b"Esc Back", ESC_KEY),
             (b"U Update | Q Quit", b"5"),  # Clean: Esc at the checklist question, then back with the left arrow

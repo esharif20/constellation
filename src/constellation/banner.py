@@ -27,6 +27,18 @@ def is_utf8(encoding: str | None) -> bool:
     return encoding is not None and encoding.lower().replace("_", "-") in ("utf-8", "utf8")
 
 
+_PLAIN = str.maketrans(
+    {"➤": ">", "▶": ">", "▸": ">", "·": "-", "…": "...", "█": "#", "░": ".", "✓": "v", "↑": "^", "↓": "v", "→": ">", "│": "|", "—": "-"}
+)
+
+
+def ascii_safe(text: str, encoding: str | None) -> str:
+    """On a terminal that is not UTF-8, swap our symbols for plain ones, and anything else it cannot show for `?`, instead of crashing."""
+    if is_utf8(encoding):
+        return text
+    return text.replace("↑↓", "Up/Dn").translate(_PLAIN).encode(encoding or "ascii", "replace").decode(encoding or "ascii")
+
+
 def _c(st: Style, code: str, text: str) -> str:
     return f"\033[{code}m{text}\033[0m" if st.color else text
 
