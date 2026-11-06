@@ -33,7 +33,9 @@ def test_a_claude_ai_call_makes_one_connector_item_counted_like_any_usage(tmp_pa
     found = {i.id: i for i in result.items}
 
     gmail = found["claude-code:connector:claude.ai/Gmail"]
-    assert (gmail.kind, gmail.name, gmail.description, gmail.origin, gmail.scope) == ("connector", "Gmail", NOTE, "claude.ai", "global")
+    assert (gmail.kind, gmail.name, gmail.description, gmail.origin, gmail.scope, gmail.source) == (
+        "connector", "Gmail", NOTE, "claude.ai", "global", "claude-code"
+    )  # fmt: skip
     assert found["claude-code:connector:claude.ai/Google_Calendar"].name == "Google Calendar"
     assert result.usage[gmail.id].count == 2 and result.usage[gmail.id].last_used == "2026-11-02"
     assert len(found) == 2 and result.warnings == []

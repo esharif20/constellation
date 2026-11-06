@@ -120,13 +120,12 @@ def _stranger(tool: str) -> list[str]:
     return [STRANGER + server[1]] if server else []
 
 
-def connector_items(usage: dict[str, Usage], items: list[Item]) -> list[Item]:
-    """An Item for each claude.ai connector the transcripts called that the config does not hold, so it gets a place on the map."""
-    known = {i.id for i in items}
+def connector_items(usage: dict[str, Usage]) -> list[Item]:
+    """An Item for each claude.ai connector the transcripts called (the config holds none), so it gets a place on the map."""
     return [
         Item(id_, "connector", id_.removeprefix(CONNECTOR).replace("_", " "), DESCRIPTION, SOURCE, origin="claude.ai")
         for id_ in sorted(usage)
-        if id_.startswith(CONNECTOR) and id_ not in known
+        if id_.startswith(CONNECTOR)
     ]
 
 
@@ -371,10 +370,8 @@ def _read(
                                 continue
                             seen.add(key)
                             ambiguous.update(group for group in ids.values() if group)
-                            for id_ in ids:
-                                if id_.startswith(STRANGER):
-                                    strangers.add(id_)
-                                    continue
+                            strangers.update(i for i in ids if i.startswith(STRANGER))
+                            for id_ in (i for i in ids if not i.startswith(STRANGER)):
                                 usage[id_] = _bump(usage.get(id_, Usage(0, None)), used_day)
                                 per = credited.setdefault(id_, {})
                                 per[folder] = _bump(per.get(folder, Usage(0, None)), used_day)
