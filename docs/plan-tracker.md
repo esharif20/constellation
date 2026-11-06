@@ -816,3 +816,10 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 - Backend, additive only: `GET api/explain` now has `scanned_at` and per-action `kind`, `last_used`, `since`; actions cap raised from 3 to 8 (`MAX_ACTIONS`). The copyable text still lists 3 (`TEXT_ACTIONS`), so its headings and exact text are unchanged. Dates come only from the scan (`scanned_at`, usage `last_used`, usage window `first`); the Snapshot has none, so public mode returns them as null. Missing or invalid dates are dropped, never guessed.
 - Notes read like "Unused since 20 Sept" or "Last used 9 Oct", then "based on your last scan, 5 Nov". The public-copy guard (`public === true`) is untouched. No new colours (tokens only). `explain:check` covers the date helpers; `tests/test_explain.py` covers the new fields and public nulls.
 - No deviations from the plan.
+
+## Panel and modal transitions (2026-11-06, branch `claude/transitions`)
+
+- Status: done. Every panel, modal and popover now enters and exits smoothly. Root cause: the shadcn Radix wrappers used base-ui `data-open`/`data-closed` hooks (never set by Radix), so no Radix animation ever ran; hand-built panels had no exit. Fix: Radix uses `data-[state]` + tw-animate with `--m-*` tokens; non-Radix panels use a small CSS `Presence`/`Pane` (`src/components/Motion.tsx`, `src/lib/motion.ts`). Design note: `docs/design/motion.md`.
+- Decision (no deviation, nothing in the plan names a motion library): `motion@14.5.0` was tried (+32 KB gzip on the Atlas chunk) and not adopted; the CSS presence is +0.6 KB. Not in `package.json`.
+- StarMap is `memo` with a stable `onCluster`; no extra renders while a panel animates (2 per toggle, unchanged frame times). `npm run motion:check` (durations, curves, reduced motion, CSS twins) and `npm run motion:perf` added.
+- `chat-cluster-check.mjs` treats `[data-leaving]` as gone. Known and pre-existing: that check fails at 700 px on main too (wrapped header button under the Brief); not changed here.

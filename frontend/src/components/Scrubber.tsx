@@ -1,6 +1,7 @@
 import { XIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Pane } from "@/components/Motion";
 import { absentAt, type HistoryEntry } from "@/graph/history";
 import { day } from "@/graph/model";
 
@@ -12,7 +13,7 @@ export function Scrubber({ entries, nodes, firstSeen, date, onDate, onClose }: {
   const gone = Math.max(0, entries[i].items - here); // on that day but not in today's scan: counted, never drawn (their names are not kept)
   const text = `${here} of ${nodes.length} Items${gone ? ` · ${gone} since removed` : ""}`;
   return (
-    <section aria-labelledby="scrub-title" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}
+    <Pane as="section" from="bottom" aria-labelledby="scrub-title" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}
       className="glass fixed bottom-4 left-4 z-10 flex h-14 w-[calc(100vw-2rem)] items-center gap-3 rounded-lg border border-line-1 px-4 sm:bottom-6 sm:left-1/2 sm:w-[min(560px,calc(100vw-2rem))] sm:-translate-x-1/2">
       <h2 id="scrub-title" className="sr-only">Time travel</h2>
       <span className="w-[88px] shrink-0 font-mono text-[12px] text-foreground tabular-nums">{day(date)}</span>
@@ -21,6 +22,6 @@ export function Scrubber({ entries, nodes, firstSeen, date, onDate, onClose }: {
       <span className="hidden w-[216px] shrink-0 text-[13px] text-text-2 sm:inline" aria-hidden>{text}</span>
       <Button variant="ghost" size="icon" aria-label="Close time travel" onClick={onClose}><XIcon aria-hidden /></Button>
       <span className="sr-only" aria-live="polite">{text}</span>
-    </section>
+    </Pane>
   );
 }

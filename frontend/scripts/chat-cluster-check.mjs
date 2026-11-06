@@ -8,8 +8,9 @@ const session = execFileSync("agent-browser", ["session", "id", "--scope", "work
 const browser = (...args) => execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8", timeout: 30000 });
 const check = (condition, message) => browser("eval", `if (!(${condition})) throw new Error(${JSON.stringify(message)}); true`);
 const card = 'document.querySelector(\'section[aria-labelledby="cluster-title"]:not([data-leaving])\')';
-const brief = 'document.querySelector(\'section[aria-labelledby="brief-title"]\')';
-const chat = 'document.querySelector("#chat-panel")';
+// A panel plays its exit before it unmounts (data-leaving), so "gone" means "not live"; the final unmount is waited for below.
+const brief = 'document.querySelector(\'section[aria-labelledby="brief-title"]:not([data-leaving])\')';
+const chat = 'document.querySelector("#chat-panel:not([data-leaving])")';
 try {
   for (const width of [1440, 700, 390]) {
     browser("set", "viewport", String(width), "900");

@@ -1,5 +1,6 @@
 import { ArrowRightIcon, CheckIcon, CopyIcon, ListPlusIcon, MessageCircleIcon, RotateCcwIcon, SendIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Pane, Presence } from "@/components/Motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
@@ -303,11 +304,12 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
   }
 
   return <>
-    {open ? <section
+    <Presence>{open && <Pane
+      key="chat" as="section" from="left"
       id="chat-panel"
       aria-labelledby="chat-title"
       style={{ "--chat-bottom": `${bottom}px` } as CSSProperties}
-      className="glass fixed inset-x-0 bottom-0 flex h-[58dvh] max-h-[58dvh] animate-sheet-in flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:h-auto sm:top-[76px] sm:bottom-(--chat-bottom) sm:left-4 sm:max-h-[calc(100dvh-76px-var(--chat-bottom))] sm:w-[340px] sm:animate-panel-in sm:rounded-xl sm:border-b"
+      className="glass fixed inset-x-0 bottom-0 flex h-[58dvh] max-h-[58dvh] flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:h-auto sm:top-[76px] sm:bottom-(--chat-bottom) sm:left-4 sm:max-h-[calc(100dvh-76px-var(--chat-bottom))] sm:w-[340px] sm:rounded-xl sm:border-b"
       onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); collapse(); } }}
     >
       <div aria-hidden className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line-2 sm:hidden" />
@@ -343,7 +345,7 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
           <Button type="submit" disabled={pending || unavailable || !question.trim()} aria-busy={pending} className="h-11 gap-2 sm:h-10"><SendIcon aria-hidden />{pending ? "Looking…" : "Send"}</Button>
         </div>
       </form>
-    </section> : null}
+    </Pane>}</Presence>
   </>;
 }
 

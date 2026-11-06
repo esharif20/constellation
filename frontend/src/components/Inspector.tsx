@@ -1,4 +1,5 @@
 import { ArrowLeftIcon, OrbitIcon, XIcon } from "lucide-react";
+import { Pane } from "@/components/Motion";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { withContents, type BriefData, type Cluster, type GNode, type Model } from "@/graph/model";
@@ -23,10 +24,11 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
 
   const verdict = verdictOf(item, model.overlapsOf.get(item) ?? [], model.links.filter((l) => l.source === item && l.kind === "contains").map((l) => l.target), model.usageWindow);
   return (
-    <aside
+    <Pane
+      as="aside" from="right"
       ref={ref}
       aria-labelledby="i-name"
-      className="glass fixed inset-x-0 bottom-0 flex max-h-[58dvh] animate-sheet-in flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:top-[76px] sm:right-4 sm:bottom-4 sm:max-h-none sm:w-[380px] sm:animate-panel-in sm:rounded-xl sm:border-b"
+      className="glass fixed inset-x-0 bottom-0 flex max-h-[58dvh] flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:top-[76px] sm:right-4 sm:bottom-4 sm:max-h-none sm:w-[380px] sm:rounded-xl sm:border-b"
     >
       <div aria-hidden className="mx-auto mt-2 h-1 w-9 rounded-full bg-line-2 sm:hidden" />
       <Button variant="ghost" size="icon-lg" onClick={onClose} aria-label="Close inspector" className="absolute top-3 right-3 rounded-md text-text-3 hover:text-foreground sm:top-2.5 sm:right-2.5">
@@ -47,7 +49,7 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
       <footer className="shrink-0 border-t border-line-1 px-4 pt-2 pb-[max(8px,env(safe-area-inset-bottom))] sm:px-6 sm:pt-3 sm:pb-4">
         <Actions key={item.id} item={item} instruction={instructionFor(item, model, verdict)} brief={brief} onAsk={onAsk} />
       </footer>
-    </aside>
+    </Pane>
   );
 });
 

@@ -78,16 +78,25 @@
   --font-sans-stack: "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono-stack: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* motion: one curve family, three durations */
+  /* motion: one curve family, three durations (--t*, hovers and canvas fades) */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
   --t-fast: 140ms;
   --t: 240ms;
   --t-slow: 420ms;
+  /* panels, modals and popovers: enter then exit, mirrored in src/lib/motion.ts (npm run motion:check keeps them equal) */
+  --m-panel-in: 220ms;
+  --m-panel-out: 160ms;
+  --m-modal-in: 200ms;
+  --m-modal-out: 140ms;
+  --m-pop-in: 160ms;
+  --m-pop-out: 120ms;
 }
 @media (prefers-reduced-motion: reduce) {
-  :root { --t-fast: 0ms; --t: 0ms; --t-slow: 0ms; }
-  *, *::before, *::after { animation-duration: 0ms !important; animation-delay: 0ms !important; transition-duration: 0ms !important; }
+  /* instant fade only: opacity for a hundred milliseconds, nothing moves or scales */
+  :root { --t-fast: 0ms; --t: 0ms; --t-slow: 0ms; --m-panel-in: 100ms; --m-panel-out: 100ms; --m-modal-in: 100ms; --m-modal-out: 100ms; --m-pop-in: 100ms; --m-pop-out: 100ms; }
+  *:not([data-slot="popover-content"], [data-slot="dialog-content"], [data-slot="dialog-overlay"], [data-pane]), *::before, *::after { animation-duration: 0ms !important; animation-delay: 0ms !important; transition-duration: 0ms !important; }
+  [data-slot="popover-content"], [data-slot="dialog-content"] { --tw-enter-translate-x: 0 !important; --tw-enter-translate-y: 0 !important; --tw-enter-scale: 1 !important; --tw-exit-translate-x: 0 !important; --tw-exit-translate-y: 0 !important; --tw-exit-scale: 1 !important; }
 }
 
 @theme inline {
@@ -137,23 +146,27 @@
   --radius-xl: 12px;
   --radius-2xl: 16px;
   --ease-out-soft: var(--ease-out);
-  --animate-panel-in: panel-in var(--t-slow) var(--ease-out);
-  --animate-sheet-in: sheet-in var(--t-slow) var(--ease-out);
-  --animate-card-in: card-in var(--t) var(--ease-out) 300ms backwards; /* waits for ~30% of the camera flight */
-  --animate-card-out: card-out var(--t-fast) var(--ease-in) forwards;
   --animate-tip-in: tip-in var(--t-fast) var(--ease-out) backwards;
   --animate-fade-in: fade-in var(--t-fast) var(--ease-out) backwards;
   --animate-bar-grow: bar-grow 200ms var(--ease-out) backwards;
 }
 
-@keyframes panel-in { from { opacity: 0; transform: translateX(16px); } }
-@keyframes card-in { from { opacity: 0; transform: translateX(-8px); } }
-@keyframes card-out { to { opacity: 0; transform: translateX(-8px); } }
+/* Panels (Brief, Chat, Inspector, cluster card, chips): enter and exit are CSS, mounted by <Presence> in components/Motion.tsx.
+   Only transform and opacity move. Distances are 14px for side panels, 24px for phone sheets, 8px for chips. */
+[data-pane] { --dx: 0px; --dy: 0px; animation: pane-in var(--m-panel-in) var(--ease-out) var(--pane-delay, 0ms) backwards; }
+[data-pane][data-leaving] { animation: pane-out var(--m-panel-out) var(--ease-in) forwards; }
+[data-pane="left"] { --dx: -14px; }
+[data-pane="right"] { --dx: 14px; }
+[data-pane="top"] { --dy: -8px; }
+[data-pane="bottom"] { --dy: 8px; }
+@media (max-width: 640px) { [data-pane="left"], [data-pane="right"] { --dx: 0px; --dy: 24px; } }
+@media (prefers-reduced-motion: reduce) { [data-pane] { --dx: 0px !important; --dy: 0px !important; } }
+@keyframes pane-in { from { opacity: 0; transform: translate(var(--dx), var(--dy)); } }
+@keyframes pane-out { to { opacity: 0; transform: translate(var(--dx), var(--dy)); } }
 @keyframes tip-in { from { opacity: 0; transform: translateY(2px); } }
 @media (prefers-reduced-motion: reduce) { @keyframes tip-in { from { opacity: 0; } } } /* opacity only; the durations are already 0 */
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes bar-grow { from { transform: scaleX(0); } }
-@keyframes sheet-in { from { transform: translateY(100%); } }
 @keyframes pulse-star { 50% { transform: scale(0.6); opacity: 0.5; } }
 
 @layer base {

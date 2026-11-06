@@ -1,6 +1,7 @@
 import { CheckIcon, PlusIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
+import { Pane, Presence } from "@/components/Motion";
 import { Preview } from "@/components/Preview";
 import { HookSafety } from "@/components/HookSafety";
 import { Conflicts } from "@/components/Conflicts";
@@ -101,10 +102,11 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
   }
 
   return <>
-    {!hidden && (open ? <section
+    <Presence>{!hidden && open && <Pane
+      key="brief" as="section" from="left"
       aria-labelledby="brief-title"
       style={{ "--brief-bottom": `${bottom + footerInset}px` } as CSSProperties}
-      className="glass fixed inset-x-0 bottom-0 flex max-h-[46dvh] animate-sheet-in flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:top-[76px] sm:bottom-auto sm:left-4 sm:max-h-[calc(100dvh-76px-var(--brief-bottom))] sm:w-[340px] sm:animate-panel-in sm:rounded-xl sm:border-b"
+      className="glass fixed inset-x-0 bottom-0 flex max-h-[46dvh] flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:top-[76px] sm:bottom-auto sm:left-4 sm:max-h-[calc(100dvh-76px-var(--brief-bottom))] sm:w-[340px] sm:rounded-xl sm:border-b"
       onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); onOpen(false); requestAnimationFrame(() => pill.current?.focus()); } }}
     >
       <div aria-hidden className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line-2 sm:hidden" />
@@ -166,7 +168,8 @@ export function Brief({ data, model, open, hidden, footerInset = 0, pill, onOpen
         </footer>}
         {error && <p role="alert" className="flex items-start gap-2 text-xs leading-[1.4] text-warn"><TriangleAlertIcon aria-hidden className="size-4 shrink-0" />{error}</p>}
       </div>
-    </section> : <Button ref={pill} variant="outline" className="glass fixed right-4 bottom-24 h-10 gap-2 rounded-full px-4 sm:top-[76px] sm:right-auto sm:bottom-auto sm:left-4" aria-expanded={false} onClick={() => onOpen(true)}>{whatIf ? <>What-if <span className="font-mono text-xs tabular-nums">−{fmt(meter.saved)}</span></> : <>Cleanup brief <span className="font-mono text-xs tabular-nums">{data.pairs.rows.length}</span></>}</Button>)}
+    </Pane>}</Presence>
+    {!hidden && !open && <Button ref={pill} variant="outline" className="glass animate-fade-in fixed right-4 bottom-24 h-10 gap-2 rounded-full px-4 sm:top-[76px] sm:right-auto sm:bottom-auto sm:left-4" aria-expanded={false} onClick={() => onOpen(true)}>{whatIf ? <>What-if <span className="font-mono text-xs tabular-nums">−{fmt(meter.saved)}</span></> : <>Cleanup brief <span className="font-mono text-xs tabular-nums">{data.pairs.rows.length}</span></>}</Button>}
     <p className="sr-only" aria-live="polite">{announcement}</p>
   </>;
 }

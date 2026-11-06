@@ -1,21 +1,19 @@
 import { ArrowLeftIcon } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Pane } from "@/components/Motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { clusterHealth, clusterSummary, kindName, rankMembers, type Cluster, type GNode, type GOverlap, type Model } from "@/graph/model";
-import { cn } from "@/lib/utils";
 
 type Props = {
   cluster: Cluster;
   model: Model;
-  leaving: boolean; // the card plays its exit, then onGone unmounts it
   focusTitle: boolean; // entered by keyboard: move focus to the heading so it is read out
   onBack: () => void;
   onItem: (n: GNode) => void;
   onPreview: (n: GNode | null) => void;
   onPair: (o: GOverlap) => void;
-  onGone: () => void;
   removed?: Set<GNode> | null; // what-if ghosts
 };
 
@@ -26,7 +24,7 @@ const day = (iso: string) => new Date(`${iso}T00:00:00Z`).getTime();
 
 // What one cluster costs: the left card while a cluster is focused (the left slot has one occupant: this, the Brief or the chat).
 // Unknown cost is said as "unknown", never added in and never shown as 0.
-export function ClusterCard({ cluster, model, leaving, focusTitle, onBack, onItem, onPreview, onPair, onGone, removed = null }: Props) {
+export function ClusterCard({ cluster, model, focusTitle, onBack, onItem, onPreview, onPair, removed = null }: Props) {
   const s = clusterSummary(cluster, model);
   const health = clusterHealth(model, removed);
   const hc = health.get(cluster)!;
@@ -69,15 +67,11 @@ export function ClusterCard({ cluster, model, leaving, focusTitle, onBack, onIte
   );
 
   return (
-    <section
+    <Pane
+      as="section" from="left" delay={300} /* waits for ~30% of the camera flight */
       aria-labelledby="cluster-title"
-      data-leaving={leaving || undefined}
       style={{ "--card-bottom": `${bottom}px` } as CSSProperties}
-      onAnimationEnd={(e) => { if (leaving && e.target === e.currentTarget) onGone(); }}
-      className={cn(
-        "glass fixed inset-x-0 bottom-0 flex max-h-[40dvh] flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:top-[76px] sm:bottom-auto sm:left-4 sm:max-h-[calc(100dvh-76px-var(--card-bottom))] sm:w-[340px] sm:rounded-xl sm:border-b",
-        leaving ? "animate-card-out" : "animate-card-in",
-      )}
+      className="glass fixed inset-x-0 bottom-0 flex max-h-[40dvh] flex-col rounded-t-2xl border border-b-0 shadow-(--shadow-float) sm:inset-x-auto sm:top-[76px] sm:bottom-auto sm:left-4 sm:max-h-[calc(100dvh-76px-var(--card-bottom))] sm:w-[340px] sm:rounded-xl sm:border-b"
     >
       <div aria-hidden className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line-2 sm:hidden" />
       <div className="flex shrink-0 items-center gap-1 px-2 pt-2 sm:px-3 sm:pt-3">
@@ -146,6 +140,6 @@ export function ClusterCard({ cluster, model, leaving, focusTitle, onBack, onIte
           </ul>
         </details>
       </div>
-    </section>
+    </Pane>
   );
 }
