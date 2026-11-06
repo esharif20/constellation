@@ -5069,5 +5069,4237 @@
   }
  },
  "setup": "demo",
- "scanned_at": "2026-11-04"
+ "scanned_at": "2026-11-04",
+ "assessments": {
+  "plugin:tidy0": {
+   "id": "plugin:tidy0",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 12 of its 15 skills (fold-canvas-pro, trace-canvas, gather-crate, label-wick, che…"
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 3 cost 112 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:0:mend-gasket-mini": {
+   "id": "hook:0:mend-gasket-mini",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Not judged from usage; its cost is unknown"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:0:fold-canvas-pro": {
+   "id": "skill:0:fold-canvas-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 18 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:0:label-valve": {
+   "id": "agent:0:label-valve",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 11 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:trace-canvas": {
+   "id": "skill:0:trace-canvas",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 7 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:gather-crate": {
+   "id": "skill:0:gather-crate",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 4 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:label-wick": {
+   "id": "skill:0:label-wick",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 1 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:trace-ribbon-pro": {
+   "id": "skill:0:trace-ribbon-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "single_project",
+     "text": "Used 44 times, mostly in one repo; move it there to save 34 elsewhere"
+    }
+   ],
+   "action": "move_to_project",
+   "saves": 34,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:0:check-compass-pro": {
+   "id": "skill:0:check-compass-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of tidy0"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:0:label-crate-lite": {
+   "id": "skill:0:label-crate-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 31 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:sort-lattice-mini": {
+   "id": "skill:0:sort-lattice-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 7 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:mend-gasket": {
+   "id": "skill:0:mend-gasket",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of tidy0"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:0:fold-beacon": {
+   "id": "skill:0:fold-beacon",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of tidy0"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "agent:0:fold-crate-pro": {
+   "id": "agent:0:fold-crate-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 36 times; in your top 4%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:bind-compass": {
+   "id": "skill:0:bind-compass",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 96 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 96,
+   "risk": 1,
+   "group": "safe",
+   "recheck_after": null
+  },
+  "skill:0:mend-canvas": {
+   "id": "skill:0:mend-canvas",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:0:sort-ledger": {
+   "id": "agent:0:sort-ledger",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:0:trace-thread-lite": {
+   "id": "agent:0:trace-thread-lite",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "hook:0:trace-crate-lite": {
+   "id": "hook:0:trace-crate-lite",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 2.7 KB on every trace-crate-lite"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:0:trace-valve": {
+   "id": "skill:0:trace-valve",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:0:sort-crate-pro": {
+   "id": "skill:0:sort-crate-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:sort-lattice-two": {
+   "id": "skill:0:sort-lattice-two",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 93 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 93,
+   "risk": 1,
+   "group": "safe",
+   "recheck_after": null
+  },
+  "skill:0:mend-anvil-two": {
+   "id": "skill:0:mend-anvil-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 25 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:sort-thread": {
+   "id": "skill:0:sort-thread",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:0:sort-tally-lite": {
+   "id": "skill:0:sort-tally-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 13 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:sort-compass-pro": {
+   "id": "skill:0:sort-compass-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 33 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:0:sort-gasket-lite": {
+   "id": "skill:0:sort-gasket-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 5 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:0:bind-crate": {
+   "id": "agent:0:bind-crate",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 17 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "plugin:plan1": {
+   "id": "plugin:plan1",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 11 of its 15 skills (draft-valve, trace-ribbon, draft-valve-mini, scout-ledger, g…"
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 4 cost 63 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:bind-anvil-pro": {
+   "id": "skill:1:bind-anvil-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:1:draft-valve": {
+   "id": "skill:1:draft-valve",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 5 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:polish-beacon": {
+   "id": "skill:1:polish-beacon",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:scout-wick": {
+   "id": "skill:1:scout-wick",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "single_project",
+     "text": "Used 27 times, all in one repo; move it there"
+    }
+   ],
+   "action": "move_to_project",
+   "saves": null,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:1:chart-beacon": {
+   "id": "skill:1:chart-beacon",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "agent:1:polish-tally-lite": {
+   "id": "agent:1:polish-tally-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:trace-ribbon": {
+   "id": "skill:1:trace-ribbon",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of plan1"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:1:draft-valve-mini": {
+   "id": "skill:1:draft-valve-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:draft-canvas": {
+   "id": "skill:1:draft-canvas",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of plan1"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:1:scout-ledger": {
+   "id": "skill:1:scout-ledger",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 47 times; in your top 3%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:gather-wick-two": {
+   "id": "skill:1:gather-wick-two",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of plan1"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:1:tune-valve": {
+   "id": "skill:1:tune-valve",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 23 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:sort-plinth-lite": {
+   "id": "skill:1:sort-plinth-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:sort-valve-lite": {
+   "id": "skill:1:sort-valve-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 49 times; in your top 3%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:draft-beacon": {
+   "id": "skill:1:draft-beacon",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 27 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:1:bind-compass-lite": {
+   "id": "hook:1:bind-compass-lite",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 3.1 KB on every bind-compass-lite"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:1:trace-ledger-pro": {
+   "id": "skill:1:trace-ledger-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 35 times; in your top 10%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:mend-anvil-pro": {
+   "id": "skill:1:mend-anvil-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "hook:1:draft-compass-lite": {
+   "id": "hook:1:draft-compass-lite",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 2.8 KB on every draft-compass-lite"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:1:mend-tally": {
+   "id": "skill:1:mend-tally",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 9 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:1:trace-anvil": {
+   "id": "hook:1:trace-anvil",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 599 bytes on every trace-anvil"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:1:fold-gasket-lite": {
+   "id": "skill:1:fold-gasket-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 33 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:1:gather-stencil": {
+   "id": "skill:1:gather-stencil",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:1:chart-gasket-lite": {
+   "id": "skill:1:chart-gasket-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:1:check-anvil": {
+   "id": "hook:1:check-anvil",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 893 bytes on every check-anvil"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "plugin:hook2": {
+   "id": "plugin:hook2",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 4 of its 9 skills (bind-gasket-lite, draft-wick, trace-anvil-pro, trace-gasket)."
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 5 cost 287 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:2:bind-gasket-lite": {
+   "id": "skill:2:bind-gasket-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 14 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:2:tune-crate-mini": {
+   "id": "skill:2:tune-crate-mini",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of hook2"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:2:sweep-lattice-two": {
+   "id": "skill:2:sweep-lattice-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 37 times in 2 of 2 projects; in your top 8%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:2:draft-wick": {
+   "id": "skill:2:draft-wick",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 12 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:2:weigh-stencil": {
+   "id": "skill:2:weigh-stencil",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:2:sort-tally": {
+   "id": "skill:2:sort-tally",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 23 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:2:scout-beacon-two": {
+   "id": "skill:2:scout-beacon-two",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:2:fold-gasket": {
+   "id": "skill:2:fold-gasket",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of hook2"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:2:mend-ledger-mini": {
+   "id": "skill:2:mend-ledger-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 58 times; in your top 1%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:2:trace-anvil-pro": {
+   "id": "skill:2:trace-anvil-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 10 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:2:chart-plinth-pro": {
+   "id": "agent:2:chart-plinth-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:2:tune-canvas": {
+   "id": "skill:2:tune-canvas",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 25 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:2:label-compass-lite": {
+   "id": "hook:2:label-compass-lite",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 3.0 KB on every label-compass-lite"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:2:trace-gasket": {
+   "id": "skill:2:trace-gasket",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:2:polish-gasket-lite": {
+   "id": "agent:2:polish-gasket-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 1 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:2:sort-beacon": {
+   "id": "skill:2:sort-beacon",
+   "tier": "redundant",
+   "label": "Likely redundant",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "overlap_used",
+     "text": "You use sort-tally for this"
+    }
+   ],
+   "action": "remove",
+   "saves": 87,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "agent:2:scout-tally": {
+   "id": "agent:2:scout-tally",
+   "tier": "redundant",
+   "label": "Likely redundant",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "duplicate_loser",
+     "text": "Does the same job as trace-anvil-pro, which you use more (10 vs 1 times)"
+    }
+   ],
+   "action": "remove_twin",
+   "saves": 72,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:2:gather-lattice": {
+   "id": "skill:2:gather-lattice",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of hook2"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:2:bind-canvas": {
+   "id": "skill:2:bind-canvas",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "plugin:pressing3": {
+   "id": "plugin:pressing3",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 4 of its 5 skills (mend-compass-pro, gather-valve, polish-valve-two, polish-wick)."
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 1 cost 21 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:bind-stencil-lite": {
+   "id": "skill:3:bind-stencil-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:mend-compass-pro": {
+   "id": "skill:3:mend-compass-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 1 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:3:tune-thread": {
+   "id": "agent:3:tune-thread",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 4 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:gather-valve": {
+   "id": "skill:3:gather-valve",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 30 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:trace-ledger": {
+   "id": "skill:3:trace-ledger",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:scout-thread-lite": {
+   "id": "skill:3:scout-thread-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:scout-ribbon": {
+   "id": "skill:3:scout-ribbon",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 10 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:sort-beacon-pro": {
+   "id": "skill:3:sort-beacon-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "twin_both_used",
+     "text": "tune-valve-two does the same job and you use both"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:3:tune-valve-two": {
+   "id": "skill:3:tune-valve-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 49 times; in your top 3%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:trace-crate": {
+   "id": "skill:3:trace-crate",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 34 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:polish-valve-two": {
+   "id": "skill:3:polish-valve-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:3:sort-plinth": {
+   "id": "agent:3:sort-plinth",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:3:scout-compass": {
+   "id": "skill:3:scout-compass",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 69 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 69,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:3:weigh-beacon": {
+   "id": "skill:3:weigh-beacon",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 29 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:3:chart-lattice-lite": {
+   "id": "skill:3:chart-lattice-lite",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:3:polish-wick": {
+   "id": "skill:3:polish-wick",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 40 times; in your top 5%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "plugin:stage4": {
+   "id": "plugin:stage4",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 3 of its 4 skills (draft-ledger, chart-ledger-pro, fold-canvas-two)."
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 1 cost 84 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:4:bind-ledger-pro": {
+   "id": "skill:4:bind-ledger-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:4:bind-ledger": {
+   "id": "skill:4:bind-ledger",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 36 times; in your top 9%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:4:tune-gasket-two": {
+   "id": "skill:4:tune-gasket-two",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 91 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 91,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:4:label-plinth": {
+   "id": "skill:4:label-plinth",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of stage4"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:4:tune-plinth": {
+   "id": "skill:4:tune-plinth",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:4:draft-ledger": {
+   "id": "skill:4:draft-ledger",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:4:gather-beacon": {
+   "id": "agent:4:gather-beacon",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 27 times; in your top 8%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:4:sort-canvas": {
+   "id": "hook:4:sort-canvas",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 470 bytes on every sort-canvas"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:4:bind-beacon": {
+   "id": "skill:4:bind-beacon",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:4:sweep-anvil": {
+   "id": "skill:4:sweep-anvil",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 19 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:4:chart-ledger-pro": {
+   "id": "skill:4:chart-ledger-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 24 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:4:check-tally": {
+   "id": "skill:4:check-tally",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:4:fold-canvas-two": {
+   "id": "skill:4:fold-canvas-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 26 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "plugin:tide5": {
+   "id": "plugin:tide5",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 4 of its 5 skills (trace-compass-lite, trace-plinth, weigh-compass, scout-valve)."
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 1 cost 61 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:5:trace-compass-lite": {
+   "id": "skill:5:trace-compass-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 34 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:5:trace-plinth": {
+   "id": "skill:5:trace-plinth",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 22 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:5:weigh-compass": {
+   "id": "skill:5:weigh-compass",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 9 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:5:weigh-tally": {
+   "id": "agent:5:weigh-tally",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 4 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:5:scout-valve": {
+   "id": "skill:5:scout-valve",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:5:check-wick": {
+   "id": "skill:5:check-wick",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 24 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:5:sort-gasket": {
+   "id": "skill:5:sort-gasket",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 98 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 98,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "agent:5:weigh-beacon-pro": {
+   "id": "agent:5:weigh-beacon-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:5:bind-tally": {
+   "id": "skill:5:bind-tally",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of tide5"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "hook:5:gather-plinth-lite": {
+   "id": "hook:5:gather-plinth-lite",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Not judged from usage; its cost is unknown"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "hook:5:sweep-beacon-two": {
+   "id": "hook:5:sweep-beacon-two",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Not judged from usage; its cost is unknown"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "hook:5:fold-ribbon": {
+   "id": "hook:5:fold-ribbon",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 656 bytes on every fold-ribbon"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "plugin:bread6": {
+   "id": "plugin:bread6",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 6 of its 7 skills (sweep-gasket-mini, tune-ribbon-lite, weigh-anvil, scout-ribbon…"
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 1 cost 80 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:6:sweep-gasket-mini": {
+   "id": "skill:6:sweep-gasket-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 21 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:6:tune-ribbon-lite": {
+   "id": "skill:6:tune-ribbon-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 14 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:6:gather-valve-two": {
+   "id": "hook:6:gather-valve-two",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 1.7 KB on every gather-valve-two"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:6:weigh-anvil": {
+   "id": "skill:6:weigh-anvil",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:6:sweep-canvas-lite": {
+   "id": "skill:6:sweep-canvas-lite",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of bread6"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:6:scout-ribbon-two": {
+   "id": "skill:6:scout-ribbon-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 10 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:6:tune-beacon": {
+   "id": "agent:6:tune-beacon",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 7 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:6:scout-thread-two": {
+   "id": "agent:6:scout-thread-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 21 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:6:weigh-lattice-two": {
+   "id": "skill:6:weigh-lattice-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 8 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:6:mend-lattice-lite": {
+   "id": "hook:6:mend-lattice-lite",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 3.5 KB on every mend-lattice-lite"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:6:mend-ribbon": {
+   "id": "skill:6:mend-ribbon",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 12 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "plugin:orchard7": {
+   "id": "plugin:orchard7",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 4 of its 5 skills (sweep-stencil-two, sort-anvil-two, fold-ledger, scout-ribbon-l…"
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 1 cost 51 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:7:draft-lattice-mini": {
+   "id": "agent:7:draft-lattice-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 13 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:7:sweep-stencil-two": {
+   "id": "skill:7:sweep-stencil-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 10 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:7:sweep-valve-two": {
+   "id": "skill:7:sweep-valve-two",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "referenced",
+     "text": "sort-plinth-pro calls it"
+    },
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 80 tokens every session"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:7:sort-anvil-two": {
+   "id": "skill:7:sort-anvil-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:7:fold-ledger": {
+   "id": "skill:7:fold-ledger",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 13 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:7:sort-plinth-pro": {
+   "id": "skill:7:sort-plinth-pro",
+   "tier": "redundant",
+   "label": "Likely redundant",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "wrapper",
+     "text": "Only hands off to sweep-valve-two"
+    }
+   ],
+   "action": "use_underlying",
+   "saves": 44,
+   "risk": 1,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:7:scout-wick-pro": {
+   "id": "skill:7:scout-wick-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of orchard7"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:7:scout-ribbon-lite": {
+   "id": "skill:7:scout-ribbon-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 21 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:7:fold-beacon-pro": {
+   "id": "skill:7:fold-beacon-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 1 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:7:polish-plinth-lite": {
+   "id": "skill:7:polish-plinth-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 11 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "plugin:kite8": {
+   "id": "plugin:kite8",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 4 of its 4 skills (sweep-canvas, polish-plinth, polish-beacon-pro, label-compass-…"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:8:sweep-canvas": {
+   "id": "skill:8:sweep-canvas",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 1 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:8:polish-plinth": {
+   "id": "skill:8:polish-plinth",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:8:chart-tally-pro": {
+   "id": "agent:8:chart-tally-pro",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 54 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 54,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:8:polish-beacon-pro": {
+   "id": "skill:8:polish-beacon-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 28 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:8:trace-lattice-pro": {
+   "id": "skill:8:trace-lattice-pro",
+   "tier": "redundant",
+   "label": "Likely redundant",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "wrapper",
+     "text": "Only hands off to sweep-canvas"
+    }
+   ],
+   "action": "use_underlying",
+   "saves": null,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "hook:8:gather-compass-pro": {
+   "id": "hook:8:gather-compass-pro",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 921 bytes on every gather-compass-pro"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:8:label-compass-pro": {
+   "id": "skill:8:label-compass-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 11 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:8:scout-plinth-pro": {
+   "id": "agent:8:scout-plinth-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:8:polish-compass": {
+   "id": "skill:8:polish-compass",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "plugin:lantern9": {
+   "id": "plugin:lantern9",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 2 of its 6 skills (gather-compass, bind-lattice)."
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 4 cost 109 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:9:gather-compass": {
+   "id": "skill:9:gather-compass",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 30 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:9:bind-lattice": {
+   "id": "skill:9:bind-lattice",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 4 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:9:chart-anvil": {
+   "id": "skill:9:chart-anvil",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:9:bind-anvil": {
+   "id": "skill:9:bind-anvil",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:9:bind-gasket-pro": {
+   "id": "skill:9:bind-gasket-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of lantern9"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:9:sort-thread-pro": {
+   "id": "skill:9:sort-thread-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:9:gather-ribbon": {
+   "id": "skill:9:gather-ribbon",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 12 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:9:draft-crate": {
+   "id": "skill:9:draft-crate",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "part_of_plugin",
+     "text": "Part of lantern9"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "plugin:map10": {
+   "id": "plugin:map10",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 4 of its 5 skills (mend-thread-pro, label-lattice, draft-plinth-mini, sort-compas…"
+    },
+    {
+     "code": "plugin_cannot_split",
+     "text": "The other 1 cost 85 tokens; the plugin can't be split"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:10:weigh-valve-pro": {
+   "id": "skill:10:weigh-valve-pro",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:10:mend-thread-pro": {
+   "id": "skill:10:mend-thread-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 24 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:10:label-lattice": {
+   "id": "skill:10:label-lattice",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 18 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:10:draft-plinth-mini": {
+   "id": "skill:10:draft-plinth-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 36 times; in your top 9%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:10:scout-crate": {
+   "id": "skill:10:scout-crate",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 7 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:10:sort-compass": {
+   "id": "skill:10:sort-compass",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:10:mend-crate-lite": {
+   "id": "skill:10:mend-crate-lite",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "referenced",
+     "text": "check-lattice calls it"
+    },
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 85 tokens every session"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "plugin:chess11": {
+   "id": "plugin:chess11",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "plugin_partly_used",
+     "text": "You use 3 of its 3 skills (mend-ribbon-lite, polish-stencil, weigh-ribbon-pro)."
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:11:mend-ribbon-lite": {
+   "id": "skill:11:mend-ribbon-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 16 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:11:draft-thread": {
+   "id": "skill:11:draft-thread",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 18 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:11:sweep-lattice-pro": {
+   "id": "skill:11:sweep-lattice-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 39 times; in your top 7%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:11:polish-stencil": {
+   "id": "skill:11:polish-stencil",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 5 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:11:weigh-ribbon-pro": {
+   "id": "skill:11:weigh-ribbon-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 16 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:11:scout-crate-mini": {
+   "id": "hook:11:scout-crate-mini",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 4.6 KB on every scout-crate-mini"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:11:weigh-lattice": {
+   "id": "skill:11:weigh-lattice",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "twin_both_used",
+     "text": "label-crate-lite does the same job and you use both"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:12:draft-anvil-two": {
+   "id": "skill:12:draft-anvil-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 11 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:12:fold-stencil": {
+   "id": "hook:12:fold-stencil",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Not judged from usage; its cost is unknown"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "agent:12:gather-lattice-two": {
+   "id": "agent:12:gather-lattice-two",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 84 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 84,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:12:check-lattice": {
+   "id": "skill:12:check-lattice",
+   "tier": "redundant",
+   "label": "Likely redundant",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "wrapper",
+     "text": "Only hands off to mend-crate-lite"
+    }
+   ],
+   "action": "use_underlying",
+   "saves": 44,
+   "risk": 1,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:12:check-stencil": {
+   "id": "skill:12:check-stencil",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 88 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 88,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:12:tune-gasket": {
+   "id": "skill:12:tune-gasket",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 20 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:12:trace-stencil": {
+   "id": "hook:12:trace-stencil",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 4.5 KB on every trace-stencil"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:13:mend-valve-lite": {
+   "id": "skill:13:mend-valve-lite",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:13:draft-compass-mini": {
+   "id": "skill:13:draft-compass-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 1 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:13:draft-stencil": {
+   "id": "skill:13:draft-stencil",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:13:polish-lattice-lite": {
+   "id": "skill:13:polish-lattice-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 35 times; in your top 10%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:13:gather-tally-two": {
+   "id": "skill:13:gather-tally-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 33 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:13:polish-canvas-two": {
+   "id": "skill:13:polish-canvas-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 11 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:13:label-tally-two": {
+   "id": "skill:13:label-tally-two",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 69 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 69,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:14:chart-canvas": {
+   "id": "skill:14:chart-canvas",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:14:sort-wick-pro": {
+   "id": "skill:14:sort-wick-pro",
+   "tier": "redundant",
+   "label": "Likely redundant",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "duplicate_loser",
+     "text": "Does the same job as label-canvas-pro; you used that 34 times, this one never"
+    }
+   ],
+   "action": "remove_twin",
+   "saves": 76,
+   "risk": 1,
+   "group": "safe",
+   "recheck_after": null
+  },
+  "skill:14:sweep-ribbon-lite": {
+   "id": "skill:14:sweep-ribbon-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:14:gather-crate-pro": {
+   "id": "hook:14:gather-crate-pro",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 1.9 KB on every gather-crate-pro"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:14:label-canvas-pro": {
+   "id": "skill:14:label-canvas-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 34 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:14:sweep-tally": {
+   "id": "hook:14:sweep-tally",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 688 bytes on every sweep-tally"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:15:trace-compass": {
+   "id": "skill:15:trace-compass",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 12 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:15:label-ribbon": {
+   "id": "skill:15:label-ribbon",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:15:weigh-gasket-two": {
+   "id": "skill:15:weigh-gasket-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 42 times; in your top 5%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:15:weigh-canvas": {
+   "id": "skill:15:weigh-canvas",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:15:label-ledger": {
+   "id": "skill:15:label-ledger",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 25 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:15:tune-ledger": {
+   "id": "skill:15:tune-ledger",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:16:weigh-wick": {
+   "id": "skill:16:weigh-wick",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "hook:16:label-compass": {
+   "id": "hook:16:label-compass",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 3.9 KB on every label-compass"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:16:gather-ledger": {
+   "id": "skill:16:gather-ledger",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 73 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 73,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:16:check-canvas-two": {
+   "id": "skill:16:check-canvas-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 31 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:16:tune-beacon-two": {
+   "id": "skill:16:tune-beacon-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 36 times; in your top 9%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:17:chart-wick": {
+   "id": "hook:17:chart-wick",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 1.8 KB on every chart-wick"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:17:tune-tally": {
+   "id": "skill:17:tune-tally",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 16 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:17:gather-lattice-mini": {
+   "id": "skill:17:gather-lattice-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 10 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:17:weigh-valve-lite": {
+   "id": "skill:17:weigh-valve-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 39 times; in your top 7%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:17:tune-ledger-pro": {
+   "id": "skill:17:tune-ledger-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 31 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:18:scout-anvil": {
+   "id": "skill:18:scout-anvil",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 7 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:18:polish-stencil-two": {
+   "id": "skill:18:polish-stencil-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:18:label-crate-mini": {
+   "id": "skill:18:label-crate-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 43 times; in your top 4%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:18:trace-ribbon-mini": {
+   "id": "skill:18:trace-ribbon-mini",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:19:mend-wick-lite": {
+   "id": "skill:19:mend-wick-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 10 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:19:fold-beacon-mini": {
+   "id": "skill:19:fold-beacon-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 19 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:19:polish-compass-lite": {
+   "id": "agent:19:polish-compass-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 5 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:19:bind-tally-pro": {
+   "id": "hook:19:bind-tally-pro",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Not judged from usage; its cost is unknown"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:20:tune-anvil": {
+   "id": "skill:20:tune-anvil",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 1 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:20:check-ledger-lite": {
+   "id": "skill:20:check-ledger-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 38 times; in your top 7%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:20:scout-ledger-pro": {
+   "id": "agent:20:scout-ledger-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "hook:21:trace-gasket-pro": {
+   "id": "hook:21:trace-gasket-pro",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 3.3 KB on every trace-gasket-pro"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:21:polish-crate-two": {
+   "id": "skill:21:polish-crate-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 2 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:21:mend-plinth": {
+   "id": "skill:21:mend-plinth",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:22:check-canvas-pro": {
+   "id": "skill:22:check-canvas-pro",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 12 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:22:draft-ledger-two": {
+   "id": "skill:22:draft-ledger-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 11 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:23:polish-anvil": {
+   "id": "skill:23:polish-anvil",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 55 times; in your top 2%"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:23:chart-stencil": {
+   "id": "skill:23:chart-stencil",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 59 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 59,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "skill:24:check-ribbon-two": {
+   "id": "skill:24:check-ribbon-two",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 6 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:24:tune-thread-lite": {
+   "id": "skill:24:tune-thread-lite",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:25:bind-lattice-mini": {
+   "id": "skill:25:bind-lattice-mini",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "high",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 29 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:26:check-compass": {
+   "id": "skill:26:check-compass",
+   "tier": "could_go",
+   "label": "Could go",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "never_seen",
+     "text": "0 uses in 31 active days (132 sessions); costs 58 tokens every session"
+    }
+   ],
+   "action": "remove",
+   "saves": 58,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "agent:27:mend-ledger": {
+   "id": "agent:27:mend-ledger",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, and its cost is unknown; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:28:chart-thread": {
+   "id": "skill:28:chart-thread",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "costs_little",
+     "text": "Not used, but costs little; no rush"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "hook:29:tune-lattice": {
+   "id": "hook:29:tune-lattice",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 5.1 KB on every tune-lattice"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "hook:29:weigh-anvil-pro": {
+   "id": "hook:29:weigh-anvil-pro",
+   "tier": "untracked",
+   "label": "Not tracked",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "hook_weight",
+     "text": "Adds 5.3 KB on every weigh-anvil-pro"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:29:polish-crate-lite": {
+   "id": "skill:29:polish-crate-lite",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 11 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:extra:quarterly-ledger-reconciliation-helper": {
+   "id": "skill:extra:quarterly-ledger-reconciliation-helper",
+   "tier": "redundant",
+   "label": "Likely redundant",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "duplicate_loser",
+     "text": "Does the same job as bind-gasket-lite, which you use more (14 vs 3 times)"
+    }
+   ],
+   "action": "remove_twin",
+   "saves": 410,
+   "risk": 2,
+   "group": "look",
+   "recheck_after": null
+  },
+  "agent:extra:lighthouse-lamp-maintenance-scheduler": {
+   "id": "agent:extra:lighthouse-lamp-maintenance-scheduler",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 3 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "plugin:extra:idle-beekeeping-bundle": {
+   "id": "plugin:extra:idle-beekeeping-bundle",
+   "tier": "review",
+   "label": "Review",
+   "confidence": "low",
+   "reasons": [
+    {
+     "code": "children_unclear",
+     "text": "Some of its skills are too new to judge"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": "wait",
+   "recheck_after": null
+  },
+  "skill:extra:idle-hive-inspector": {
+   "id": "skill:extra:idle-hive-inspector",
+   "tier": "off",
+   "label": "Switched off",
+   "confidence": null,
+   "reasons": [
+    {
+     "code": "off",
+     "text": "Switched off; the scan still counts its cost."
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "skill:proj:cart-checkout-audit": {
+   "id": "skill:proj:cart-checkout-audit",
+   "tier": "keep_rare",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "rare_purpose",
+     "text": "Used 4 times; made for audit work"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "agent:proj:thesis-citation-checker": {
+   "id": "agent:proj:thesis-citation-checker",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 4 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  },
+  "mcp_server:proj:shop-catalog-db": {
+   "id": "mcp_server:proj:shop-catalog-db",
+   "tier": "keep",
+   "label": "Keep",
+   "confidence": "medium",
+   "reasons": [
+    {
+     "code": "heavy_use",
+     "text": "Used 4 times"
+    }
+   ],
+   "action": "none",
+   "saves": null,
+   "risk": 1,
+   "group": null,
+   "recheck_after": null
+  }
+ }
 }

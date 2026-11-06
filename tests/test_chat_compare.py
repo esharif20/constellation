@@ -144,7 +144,7 @@ def test_headline_and_verdicts_follow_the_overlap(client):
     wrapper = ask(client, "chisel-wrap vs chisel")
     assert wrapper["answer"].startswith("chisel-wrap only calls chisel; you could keep the wrapped one.")
     assert ask(client, "chisel vs chisel-wrap")["answer"].startswith("chisel-wrap only calls chisel;")
-    assert [c["verdict"]["why"] for c in wrapper["blocks"]["cards"]] == ["Wraps chisel", "Is called by chisel-wrap"]
+    assert [c["verdict"]["why"] for c in wrapper["blocks"]["cards"]] == ["You reach chisel through it", "chisel-wrap calls it"]
     assert ask(client, "ponytail vs midway")["answer"].startswith(
         "ponytail and midway partly overlap; keep both only if you need the difference."
     )
@@ -167,8 +167,8 @@ def test_usage_absent_everywhere(tmp_path, monkeypatch):
     rows = {r["label"]: r for r in reply["blocks"]["compare"]["rows"]}
     assert rows["Usage"] == {"label": "Usage", "a": "Usage unknown", "b": "Usage unknown"}
     assert rows["Every session"]["a"] == rows["Every session"]["b"] == "unknown"
-    assert [c["verdict"]["label"] for c in reply["blocks"]["cards"]] == ["Not enough data"] * 2
-    assert reply["blocks"]["cards"][0]["verdict"]["why"] == "Usage was not read in this scan"
+    assert [c["verdict"]["label"] for c in reply["blocks"]["cards"]] == ["Not enough history yet"] * 2
+    assert reply["blocks"]["cards"][0]["verdict"]["why"] == "No session history yet"
 
 
 def test_never_seen_without_a_window_span_and_empty_transcripts(tmp_path, monkeypatch):
@@ -218,7 +218,7 @@ def test_what_is_is_a_card_with_a_verdict(client):
                 "ponytail (skill): Writes the smallest working diff.",
                 "Every session: 1,200 tokens. When used: 3,000 tokens. Used 4 times in 30 days, last used 30 Oct.",
                 "Duplicate with ponytail-copy.",
-                "Keep one: Does the same job as ponytail-copy.",
+                "Keep: Used 4 times.",
                 "Next: Open ponytail on the map to see what it connects to.",
             ]
         ), question
@@ -231,14 +231,17 @@ def test_what_is_is_a_card_with_a_verdict(client):
 def test_keep_and_remove_questions_lead_with_the_verdict(client):
     for question in ("Should I keep chisel?", "can i delete chisel", "get rid of chisel", "should i remove the chisel"):
         reply = ask(client, question)
-        assert reply["blocks"]["headline"] == "chisel: Keep the wrapped one. Is called by chisel-wrap."
+        assert reply["blocks"]["headline"] == "chisel: Keep. chisel-wrap calls it."
         assert reply["actions"] == [{"kind": "highlight", "item_ids": ["ch"]}]
-    assert ask(client, "should I keep ponytail-copy")["blocks"]["headline"] == "ponytail-copy: Keep one. Does the same job as ponytail."
-    assert ask(client, "should I keep chisel-wrap")["blocks"]["headline"] == "chisel-wrap: Keep the wrapped one. Wraps chisel."
+    assert (
+        ask(client, "should I keep ponytail-copy")["blocks"]["headline"]
+        == "ponytail-copy: Likely redundant. Does the same job as ponytail; you used that 4 times, this one never."
+    )
+    assert ask(client, "should I keep chisel-wrap")["blocks"]["headline"] == "chisel-wrap: Keep. You reach chisel through it."
     assert ask(client, "should I keep midway")["blocks"]["cards"][0]["verdict"] == {
-        "label": "Not enough data",
-        "tone": "unknown",
-        "why": "Usage was not read for this Item",
+        "label": "Not enough history yet",
+        "tone": "review",
+        "why": "Only 3 sessions over 3 active days; check back after ~12 more",
     }
     assert ask(client, "should I keep it", selected_ids=["pt"])["blocks"]["cards"][0]["name"] == "ponytail"
     assert ask(client, "should I keep it")["blocks"]["headline"].startswith('I could not find "it"')
@@ -250,24 +253,29 @@ def test_verdict_from_usage_and_cost(tmp_path, monkeypatch):
         "overlaps": [],
         "costs": {"pt": {"always_on": 1200, "on_use": 1}},
         "usage": {"pt": {"count": 0, "last_used": None}, "ch": {"count": 3}},
+        "usage_window": {"files": 60, "first": "2026-09-01", "last": "2026-10-30", "skipped": 0},
     }
+    (tmp_path / "long").mkdir()
+    (tmp_path / "short").mkdir()
     client = make(tmp_path, monkeypatch, data)
-    could_go = ask(client, "should I keep ponytail")["blocks"]["cards"][0]["verdict"]
+    guarded = ask(client, "should I keep ponytail")["blocks"]["cards"][0]["verdict"]
+    assert guarded == {"label": "Review", "tone": "review", "why": "midway calls it"}  # another Item leans on it: never "Could go"
+    data["items"] = [i for i in data["items"] if i["id"] != "mid"]
+    could_go = ask(make(tmp_path / "long", monkeypatch, data), "should I keep ponytail")["blocks"]["cards"][0]["verdict"]
     assert could_go == {
         "label": "Could go",
         "tone": "remove",
-        "why": "Not seen in 30 days of past sessions and costs 1,200 tokens every session",
+        "why": "0 uses in 60 active days (60 sessions); costs 1,200 tokens every session",
     }
-    assert ask(client, "should I keep chisel")["blocks"]["cards"][0]["verdict"] == {
-        "label": "Keep",
-        "tone": "keep",
-        "why": "Used 3 times in 30 days",
-    }
+    assert ask(client, "should I keep chisel")["blocks"]["cards"][0]["verdict"] == {"label": "Keep", "tone": "keep", "why": "Used 3 times"}
+    # the short window of the shared DATA cannot make that call
+    short = ask(make(tmp_path / "short", monkeypatch, {**data, "usage_window": DATA["usage_window"]}), "should I keep ponytail")
+    assert short["blocks"]["cards"][0]["verdict"]["label"] == "Not enough history yet"
 
 
 def test_what_could_i_remove_lists_unused_items(client):
     reply = ask(client, "What could I remove?")
-    assert "chisel" in [r["name"] for r in reply["blocks"]["rows"]] and "ch" in reply["actions"][0]["item_ids"]
+    assert "ponytail-copy" in [r["name"] for r in reply["blocks"]["rows"]] and "dup" in reply["actions"][0]["item_ids"]
 
 
 def test_what_is_weak_or_missing(client):

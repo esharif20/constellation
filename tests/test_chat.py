@@ -151,7 +151,7 @@ def test_chat_preserves_current_scan_usage_coverage_and_skipped_files(chat):
 def test_selected_followup_and_named_explanation(chat):
     expected = (
         "mail-helper (skill): Send email and draft messages\nEvery session: 400 tokens. When used: 800 tokens. Used 2 times in 32 days.\n"
-        "Duplicate with draft.\nKeep one: Does the same job as draft.\nNext: Click a name to see it on the map."
+        "Duplicate with draft.\nKeep: Used 2 times.\nNext: Click a name to see it on the map."
     )
     assert ask(chat, "Explain this", selected_ids=["mail"])["answer"] == expected
     assert ask(chat, "Explain mail-helper")["answer"].startswith(

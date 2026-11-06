@@ -2,7 +2,7 @@ import { ArrowLeftIcon, OrbitIcon, XIcon } from "lucide-react";
 import { Pane } from "@/components/Motion";
 import { forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { withContents, type BriefData, type Cluster, type GNode, type Model } from "@/graph/model";
+import { withContents, type Assessment, type BriefData, type Cluster, type GNode, type Model } from "@/graph/model";
 import { instructionFor } from "@/lib/instruction";
 import { verdictOf } from "@/lib/verdict";
 import { Actions } from "./inspector/Actions";
@@ -13,16 +13,16 @@ import { KindDetails } from "./inspector/KindDetails";
 import { Related } from "./inspector/Related";
 import { VerdictBanner } from "./inspector/Verdict";
 
-type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string; whatIf?: ReadonlySet<GNode> | null; removed?: ReadonlySet<GNode> | null; onToggle?: (n: GNode) => void; brief?: BriefData; onAsk?: (text: string) => void; onCluster?: (c: Cluster) => void }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
+type Props = { model: Model; item: GNode; onSelect: (n: GNode) => void; onPreview: (n: GNode | null) => void; onClose: () => void; backTo?: string; whatIf?: ReadonlySet<GNode> | null; removed?: ReadonlySet<GNode> | null; onToggle?: (n: GNode) => void; brief?: BriefData; assessments?: Record<string, Assessment>; onAsk?: (text: string) => void; onCluster?: (c: Cluster) => void }; // backTo: the focused cluster's name, when the sheet replaces its card (narrow screens)
 
 // Non-modal on purpose: the map stays live beside it. A side panel on desktop, a bottom sheet on phones.
-export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo, whatIf = null, removed = null, onToggle, brief, onAsk, onCluster }, ref) {
+export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ model, item, onSelect, onPreview, onClose, backTo, whatIf = null, removed = null, onToggle, brief, assessments, onAsk, onCluster }, ref) {
   const scroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scroll.current?.scrollTo({ top: 0 });
   }, [item]);
 
-  const verdict = verdictOf(item, model.overlapsOf.get(item) ?? [], model.links.filter((l) => l.source === item && l.kind === "contains").map((l) => l.target), model.usageWindow);
+  const verdict = verdictOf(item, assessments ?? model.assessments);
   return (
     <Pane
       as="aside" from="right"
@@ -37,7 +37,7 @@ export const Inspector = forwardRef<HTMLElement, Props>(function Inspector({ mod
       <div ref={scroll} className="overflow-y-auto overscroll-contain px-4 pt-3 pb-6 sm:px-6 sm:pt-6">
         {backTo && <Button variant="ghost" className="-mx-2 mb-1 h-10 max-w-[calc(100%-3rem)] justify-start gap-2 px-2 text-[13px] text-text-2" onClick={onClose}><ArrowLeftIcon aria-hidden /><span className="truncate">Back to {backTo}</span></Button>}
         <Header item={item} model={model} />
-        <VerdictBanner verdict={verdict} />
+        <VerdictBanner verdict={verdict} item={item} model={model} />
         <Facts model={model} item={item} onSelect={onSelect} onPreview={onPreview} />
 
         <About item={item} />

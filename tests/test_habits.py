@@ -500,9 +500,10 @@ def cli(tmp_path, monkeypatch):
     return scan
 
 
-def test_scan_records_habits_unless_history_or_usage_is_off(config, cli):
-    assert cli("--no-history") == 0 and not habits.DEFAULT_CACHE.exists()
+def test_scan_records_habits_unless_habits_or_usage_is_off(config, cli):
+    assert cli("--no-habits") == 0 and not habits.DEFAULT_CACHE.exists()
     assert cli("--no-usage") == 0 and not habits.DEFAULT_CACHE.exists()
+    assert cli("--no-history") == 0 and not habits.DEFAULT_CACHE.exists()  # no history means no ledger either
     assert cli() == 0
     assert len(load_one(habits.DEFAULT_CACHE)["items"]) == 2
     assert stat.S_IMODE(os.stat(habits.DEFAULT_CACHE).st_mode) == 0o600

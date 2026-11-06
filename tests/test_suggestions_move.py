@@ -1,4 +1,5 @@
-from constellation.brief import brief
+from constellation.assessment import compute
+from constellation.brief import build_brief
 from constellation.report import render_cleanup, render_report
 from constellation.suggestions import suggest
 
@@ -16,6 +17,15 @@ def data(counts, *, window=("2026-10-01", "2026-10-20"), extra_items=(), relatio
         "projects": {"p1": LABEL, "p2": "other", "p3": "third"},
         "usage_by_project": {"s": {k: {"count": n, "last_used": "2026-10-20"} for k, n in counts.items()}},
     }
+
+
+def brief(d):
+    found = compute(d, today="2026-10-21")
+    return build_brief(d, found.assessments, found.evidence)
+
+
+def scope_rows(d):
+    return [r for r in brief(d)["look"]["rows"] if r["kind"] == "move_to_project"]
 
 
 def moves(d):
@@ -39,8 +49,8 @@ def test_fields_and_no_label_anywhere():
     assert LABEL not in text and "p1" not in s.reason
     assert "Used mostly in one project" in render_report(d, top=5, color=False, width=100, show_all=False)
     assert s.reason in render_cleanup(d, top=5)
-    row = brief(d)["scope"]["rows"][0]
-    assert row["project"] == "p1" and row["project_label"] == LABEL and row["confidence"] == "high"
+    row = scope_rows(d)[0]
+    assert row["project"] == "p1" and row["project_label"] == LABEL and row["confidence"] == "medium"
     assert "deletes older ones" in brief(d)["scope"]["caveat"]
 
 
@@ -135,17 +145,16 @@ def test_exact_texts():
     assert "\n      " in wrapped.split("Used mostly")[1]
     clean = render_cleanup(d, top=5)
     assert "\n\n## Used mostly in one project\n\n- [ ] deploy (skill) was used 10 times" in clean
-    assert brief(d)["scope"]["rows"][0] == {
-        "id": moves(d)[0].id,
-        "kind": "move_to_project",
-        "item_ids": ["s"],
-        "removes": None,
-        "reason": moves(d)[0].reason,
-        "tokens_saved": 40,
-        "project": "p1",
-        "confidence": "medium",
-        "project_label": LABEL,
-    }
+    row = scope_rows(d)[0]
+    assert (row["id"], row["item_ids"], row["removes"], row["saves"], row["project"], row["project_label"]) == (
+        moves(d)[0].id,
+        ["s"],
+        None,
+        40,
+        "p1",
+        LABEL,
+    )
+    assert row["reason"] == "deploy (skill): " + row["reasons"][0]["text"] and LABEL not in row["reason"]
 
 
 def test_malformed_window_means_unknown_days():
@@ -170,7 +179,7 @@ def _write_scan(tmp_path, counts=None):
     return path, d
 
 
-def test_scope_rows_cannot_be_added_to_the_checklist(tmp_path, monkeypatch):
+def test_scope_rows_can_be_added_to_the_checklist_without_the_project_label(tmp_path, monkeypatch):
     from constellation import server
 
     (tmp_path / "static").mkdir()
@@ -183,9 +192,9 @@ def test_scope_rows_cannot_be_added_to_the_checklist(tmp_path, monkeypatch):
     path, d = _write_scan(tmp_path)
     checklist = tmp_path / "checklist.md"
     client = TestClient(create_app(path, checklist=checklist), base_url="http://127.0.0.1:8765")
-    row = client.get("/api/brief").json()["scope"]["rows"][0]
-    assert client.post("/api/checklist", json={"id": row["id"]}).status_code == 404
-    assert not checklist.exists() or (LABEL not in checklist.read_text() and "p1" not in checklist.read_text())
+    row = next(r for r in client.get("/api/brief").json()["look"]["rows"] if r["kind"] == "move_to_project")
+    assert client.post("/api/checklist", json={"id": row["id"]}).json()["added"] is True
+    assert LABEL not in checklist.read_text() and "p1" not in checklist.read_text()
 
 
 def test_review_of_an_approved_move_has_no_label_key_or_duplicate(tmp_path, monkeypatch):

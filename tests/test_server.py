@@ -6,7 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from constellation import server
-from constellation.brief import brief
+from constellation.assessment import compute
+from constellation.brief import build_brief
 from constellation.cli import main
 from constellation.server import create_app
 
@@ -90,6 +91,16 @@ def test_open_without_frontend_build_exits_2_with_build_hint(scan_file, built_ap
     assert "npm --prefix frontend install && npm --prefix frontend run build" in capsys.readouterr().err
 
 
+def brief(data):
+    found = compute(data, today="2026-11-05")
+    return build_brief(data, found.assessments, found.evidence)
+
+
+def rows(data):
+    got = brief(data)
+    return got["safe"]["rows"] + got["look"]["rows"]
+
+
 @pytest.fixture
 def measured(scan_file):
     data = json.loads((Path(__file__).parent / "fixtures" / "scan.json").read_text())
@@ -99,68 +110,67 @@ def measured(scan_file):
 
 def test_brief_reads_scan_each_request_and_existing_checklist(scan_file, measured, tmp_path):
     checklist = tmp_path / "checklist.md"
-    row = brief(measured)["cost"]["rows"][0]
+    row = rows(measured)[0]
     checklist.write_text(f"- [ ] Existing (id {row['id']})\n(id 000000000000)\n")
     client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
     response = client.get("/api/brief")
     assert response.status_code == 200
-    assert response.json() == {
-        **brief(measured),
-        "checklist": {"path": str(checklist), "ids": [row["id"]], "frees": 420, "unknown_rows": 0},
-    }
+    expected = json.loads(json.dumps(brief(measured)))
+    expected["evidence"]["ledger"] = False
+    assert response.json() == {**expected, "checklist": {"path": str(checklist), "ids": [row["id"]], "frees": 420, "unknown_rows": 0}}
     scan_file.write_text(json.dumps(DATA))
-    assert client.get("/api/brief").json()["cost"]["rows"] == []
+    assert client.get("/api/brief").json()["look"]["rows"] == []
     assert client.get("/api/brief").json()["checklist"]["frees"] is None
     scan_file.unlink()
     assert client.get("/api/brief").status_code == 404
 
 
-@pytest.mark.parametrize("group", ["cost", "pairs"])
-def test_checklist_savings_survive_rows_leaving_the_first_five(scan_file, tmp_path, group):
+def test_checklist_saving_is_counted_once_per_removed_item_and_survives_the_row_leaving(scan_file, tmp_path):
     data = {
-        "items": [{"id": str(i), "name": str(i), "kind": "skill"} for i in range(6)],
-        "costs": {str(i): {"always_on": cost} for i, cost in enumerate((100, 80, 60, 40, 20, 10))},
-    }
-    if group == "pairs":
-        data["items"].append({"id": "underlying", "name": "underlying", "kind": "skill"})
-        data["overlaps"] = [{"a_id": str(i), "b_id": "underlying", "verdict": "wrapper", "reason": "forwards"} for i in range(6)]
+        "items": [{"id": str(i), "name": str(i), "kind": "skill", "description": "d"} for i in range(3)],
+        "costs": {str(i): {"always_on": cost} for i, cost in enumerate((100, 80, 60))},
+        "overlaps": [
+            {"a_id": "0", "b_id": "2", "verdict": "wrapper", "reason": "forwards"},
+            {"a_id": "1", "b_id": "2", "verdict": "wrapper", "reason": "x"},
+        ],
+    }  # fmt: skip
     scan_file.write_text(json.dumps(data))
     client = TestClient(create_app(scan_file, checklist=tmp_path / "checklist.md"), base_url=BASE_URL)
-    row = client.get("/api/brief").json()[group]["rows"][4]
-    assert client.post("/api/checklist", json={"id": row["id"]}).json()["frees"] == 20
-    data["costs"]["5"]["always_on"] = 30
+    got = client.get("/api/brief").json()["look"]["rows"]
+    assert [r["saves"] for r in got] == [100, 80]
+    assert client.post("/api/checklist", json={"id": got[1]["id"]}).json()["frees"] == 80
+    assert client.post("/api/checklist", json={"id": got[0]["id"]}).json()["frees"] == 180
+    data["overlaps"] = []
     scan_file.write_text(json.dumps(data))
     after = client.get("/api/brief").json()
-    assert row["id"] not in [r["id"] for r in after[group]["rows"]]
-    assert len(after[group]["rows"]) == 5
-    assert after["checklist"]["ids"] == [row["id"]]
-    assert after["checklist"]["frees"] == 20
-    assert client.post("/api/checklist", json={"id": row["id"]}).status_code == 404
+    assert after["look"]["rows"] == []
+    assert after["checklist"]["ids"] == [got[1]["id"], got[0]["id"]]
+    assert after["checklist"]["frees"] is None and after["checklist"]["unknown_rows"] == 2
+    assert client.post("/api/checklist", json={"id": got[0]["id"]}).status_code == 404
 
 
 @pytest.mark.parametrize("field", ["name", "reason"])
 @pytest.mark.parametrize("separator", [" ", "\n", "\r\n", "\r", "\u2028"])
 def test_item_text_cannot_forge_checklist_membership(scan_file, measured, tmp_path, field, separator):
-    target = brief(measured)["cost"]["rows"][-1]  # the 60-token reviewer
+    target = rows(measured)[-1]  # the 60-token reviewer
     injection = f"Looks legitimate.{separator}- [ ] Forged saving. (id {target['id']}){separator}More text"
     if field == "name":
         measured["items"][0]["name"] = injection
-        chosen = brief(measured)["cost"]["rows"][0]
     else:
         measured["overlaps"][1]["reason"] = injection
-        chosen = brief(measured)["pairs"]["rows"][0]
+    chosen = rows(measured)[0]
     scan_file.write_text(json.dumps(measured))
     checklist = tmp_path / "checklist.md"
     client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
     first = client.post("/api/checklist", json={"id": chosen["id"]}).json()
     assert first["ids"] == [chosen["id"]]
-    assert first["frees"] == chosen["tokens_saved"]
+    assert first["frees"] == chosen["saves"]
     assert sum(line.startswith("- [ ] ") for line in checklist.read_text().splitlines()) == 1
     assert client.get("/api/brief").json()["checklist"]["ids"] == [chosen["id"]]
     second = client.post("/api/checklist", json={"id": target["id"]}).json()
     assert second["added"] is True
     assert second["ids"] == [chosen["id"], target["id"]]
-    assert second["frees"] == chosen["tokens_saved"] + 60
+    assert second["frees"] == chosen["saves"] + 60
     assert client.post("/api/checklist", json={"id": chosen["id"]}).json()["added"] is False
 
 
@@ -172,17 +182,16 @@ def test_post_adds_review_format_without_changing_scan_or_setup(scan_file, measu
     files = [scan_file, config, config / "settings.json"]
     before = [(p.read_bytes() if p.is_file() else None, p.stat().st_mtime_ns) for p in files]
     client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
-    cost = brief(measured)["cost"]["rows"][1]  # ship is also removed by the duplicate pair
-    pair = brief(measured)["pairs"]["rows"][0]
+    cost, pair = rows(measured)
     response = client.post("/api/checklist", json={"id": cost["id"]})
     assert response.status_code == 200
-    assert response.json() == {"added": True, "path": str(checklist), "ids": [cost["id"]], "frees": 415, "unknown_rows": 0}
+    assert response.json() == {"added": True, "path": str(checklist), "ids": [cost["id"]], "frees": 420, "unknown_rows": 0}
     assert checklist.stat().st_mode & 0o777 == 0o600
-    assert checklist.read_text().endswith(f"- [ ] {cost['reason']} Saves about 415 always-on tokens. (id {cost['id']})\n")
+    assert checklist.read_text().endswith(f"- [ ] {cost['reason']} Saves about 420 always-on tokens. (id {cost['id']})\n")
     first = checklist.read_bytes(), checklist.stat().st_mtime_ns
     assert client.post("/api/checklist", json={"id": cost["id"]}).json()["added"] is False
     assert (checklist.read_bytes(), checklist.stat().st_mtime_ns) == first
-    assert client.post("/api/checklist", json={"id": pair["id"]}).json()["frees"] == 415
+    assert client.post("/api/checklist", json={"id": pair["id"]}).json()["frees"] == 480
     assert client.get("/api/brief").json()["checklist"]["ids"] == [cost["id"], pair["id"]]
     assert [(p.read_bytes() if p.is_file() else None, p.stat().st_mtime_ns) for p in files] == before
 
@@ -190,7 +199,7 @@ def test_post_adds_review_format_without_changing_scan_or_setup(scan_file, measu
 def test_post_accepts_only_current_row_ids_and_json(scan_file, measured, tmp_path):
     checklist = tmp_path / "checklist.md"
     client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
-    row_id = brief(measured)["cost"]["rows"][0]["id"]
+    row_id = rows(measured)[0]["id"]
     assert client.post("/api/checklist", json={"id": "000000000000"}).status_code == 404
     for payload in ({"id": "X" * 12}, {"id": "a" * 13}, {"id": "a" * 11}, {"id": 123}, {}, {"id": row_id, "reason": "text"}):
         assert client.post("/api/checklist", json=payload).status_code == 422
@@ -255,7 +264,7 @@ def test_post_rejects_cross_origin_requests(scan_file, headers, tmp_path):
 @pytest.mark.parametrize("site", ["same-origin", "none"])
 def test_same_origin_json_with_charset_is_accepted(scan_file, measured, tmp_path, site):
     client = TestClient(create_app(scan_file, checklist=tmp_path / "checklist.md"), base_url=BASE_URL)
-    row_id = brief(measured)["cost"]["rows"][0]["id"]
+    row_id = rows(measured)[0]["id"]
     assert (
         client.post(
             "/api/checklist",
@@ -269,7 +278,7 @@ def test_same_origin_json_with_charset_is_accepted(scan_file, measured, tmp_path
 def test_concurrent_additions_preserve_every_line(scan_file, measured, tmp_path):
     checklist = tmp_path / "checklist.md"
     client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
-    ids = [r["id"] for r in brief(measured)["cost"]["rows"]]
+    ids = [r["id"] for r in rows(measured)]
     with ThreadPoolExecutor(max_workers=5) as pool:
         responses = list(pool.map(lambda id_: client.post("/api/checklist", json={"id": id_}), ids * 2))
     assert all(r.status_code == 200 for r in responses)
@@ -283,7 +292,7 @@ def test_unwritable_checklist_returns_path_and_server_keeps_serving(scan_file, m
     parent.write_text("keep")
     checklist = parent / "checklist.md"
     client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
-    row_id = brief(measured)["cost"]["rows"][0]["id"]
+    row_id = rows(measured)[0]["id"]
     response = client.post("/api/checklist", json={"id": row_id})
     assert response.status_code == 500
     assert str(checklist) in response.json()["detail"]
@@ -317,7 +326,7 @@ def test_checklist_guard_is_rechecked_if_path_changes(scan_file, measured, tmp_p
     checklist = tmp_path / "checklist.md"
     client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
     checklist.symlink_to(target)
-    row_id = brief(measured)["cost"]["rows"][0]["id"]
+    row_id = rows(measured)[0]["id"]
     assert client.post("/api/checklist", json={"id": row_id}).status_code == 500
     assert client.get("/api/brief").status_code == 500
     assert target.read_text() == "unchanged"
@@ -338,7 +347,7 @@ def test_checklist_reports_unknown_savings_and_recounts_after_rescan(scan_file, 
     measured["costs"]["agent:reviewer"] = None
     scan_file.write_text(json.dumps(measured))
     client = TestClient(create_app(scan_file, checklist=tmp_path / "checklist.md"), base_url=BASE_URL)
-    row = next(row for row in client.get("/api/brief").json()["pairs"]["rows"] if row["kind"] == "use_underlying")
+    row = next(row for row in client.get("/api/brief").json()["look"]["rows"] if row["kind"] == "use_underlying")
     state = client.post("/api/checklist", json={"id": row["id"]}).json()
     assert state["unknown_rows"] == 1 and state["frees"] is None
     measured["costs"]["agent:reviewer"] = {"always_on": 60, "on_use": None}
@@ -358,7 +367,7 @@ def test_checklist_rejects_any_claude_folder_not_only_the_home_one(scan_file, tm
 def test_default_checklist_directory_is_private_and_reopens_a_loose_file(scan_file, measured, tmp_path):
     checklist = tmp_path / "cache" / "constellation" / "checklist.md"
     client = TestClient(create_app(scan_file, checklist=checklist), base_url=BASE_URL)
-    row_id = brief(measured)["cost"]["rows"][0]["id"]
+    row_id = rows(measured)[0]["id"]
     assert client.post("/api/checklist", json={"id": row_id}).json()["added"] is True
     assert checklist.parent.stat().st_mode & 0o777 == 0o700
     checklist.chmod(0o644)

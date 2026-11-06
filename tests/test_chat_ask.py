@@ -8,14 +8,19 @@ import pytest
 from fastapi.testclient import TestClient
 
 from constellation import server
-from constellation.answer import DORMANT_DAYS
 
-WINDOW = {"files": 9, "first": "2026-09-20", "last": "2026-10-30", "skipped": 0}  # 41 days
+WINDOW = {"files": 60, "first": "2026-09-20", "last": "2026-10-30", "skipped": 0}  # 41 days, 60 sessions: enough for NEED.high
 NEVER = {"count": 0, "last_used": None}
 
 
 def item(id_, name, kind="skill", **extra):
-    return {"id": id_, "name": name, "kind": kind, "description": f"{name} does a thing.", **extra}
+    return {
+        "id": id_,
+        "name": name,
+        "kind": kind,
+        "description": f"{name} does one particular thing for the people who use this setup.",
+        **extra,
+    }
 
 
 def cost(n):
@@ -46,12 +51,12 @@ def ask(client, question, **body):
     return response.json()
 
 
-def test_dormant_days_matches_the_frontend_constant():
+def test_the_frontend_reader_defines_no_day_threshold():
     path = Path(__file__).parents[1] / "frontend/src/lib/verdict.ts"
     if not path.exists():  # mutmut runs tests from a copy without the frontend
         pytest.skip("frontend sources are not in this checkout")
     source = path.read_text()
-    assert int(re.search(r"export const DORMANT_DAYS = (\d+)", source)[1]) == DORMANT_DAYS == 30
+    assert not re.search(r"const\s+\w*DAYS\w*\s*=\s*\d", source)  # verdict.py decides; verdict.ts only maps tiers to words
 
 
 # --- #54: what could I remove ---------------------------------------------------------------------------------------------------
@@ -103,14 +108,14 @@ def test_remove_lists_removable_items_with_one_deduplicated_saving(tmp_path, mon
     items, extra = removal_scan()
     reply = ask(make(tmp_path, monkeypatch, items, **extra), "What could I remove?")
     blocks = reply["blocks"]
-    # alpha 500 + beta 300 + wrapper 400 (also listed as unused: counted once) + the cheaper duplicate dup-two 100; sleeper is disabled
-    assert blocks["headline"] == "You could remove 5, saving about 1,300 tokens every session."
-    assert [r["name"] for r in blocks["rows"]] == ["alpha", "wrapper", "beta", "dup-two", "mystery"]
-    assert blocks["rows"][3]["value"] == "Same job as dup-one; saves 100 tokens"
-    assert blocks["rows"][4]["value"] == "Not seen; saving unknown"
-    assert blocks["note"].startswith("Plus 1 Item with an unknown saving, not counted as 0.")
+    # alpha 500 + beta 300 + wrapper 400; dup-two is used too (Review, not removable), mystery has no cost, sleeper is disabled
+    assert blocks["headline"] == "You could remove 3, saving about 1,200 tokens every session."
+    assert [r["name"] for r in blocks["rows"]] == ["wrapper", "alpha", "beta"]
+    assert blocks["rows"][0]["value"] == "Only calls core; saves 400 tokens"
+    assert blocks["rows"][1]["value"] == "Not seen; saves 500 tokens"
+    assert not blocks["note"].startswith("Plus")
     assert "sleeper" not in reply["answer"]
-    assert reply["actions"] == [{"kind": "highlight", "item_ids": ["a", "w", "b", "d2", "u"]}]
+    assert reply["actions"] == [{"kind": "highlight", "item_ids": ["w", "a", "b"]}]
 
 
 def test_remove_with_nothing_to_remove_and_with_unknown_savings_only(tmp_path, monkeypatch):
@@ -123,17 +128,29 @@ def test_remove_with_nothing_to_remove_and_with_unknown_savings_only(tmp_path, m
         usage_window=WINDOW,
     )
     assert ask(nothing, "what can I get rid of")["blocks"]["headline"] == "Nothing in this scan looks safe to remove."
-    blind = make(tmp_path, monkeypatch, [item("a", "alpha"), item("b", "beta")], usage={"a": NEVER, "b": NEVER}, usage_window=WINDOW)
+    uncosted = make(tmp_path, monkeypatch, [item("a", "alpha"), item("b", "beta")], usage={"a": NEVER, "b": NEVER}, usage_window=WINDOW)
+    assert ask(uncosted, "clean up my setup")["blocks"]["headline"] == "Nothing in this scan looks safe to remove."  # no cost, no reason
+    blind = make(
+        tmp_path,
+        monkeypatch,
+        [item("a", "alpha"), item("b", "beta")],
+        usage={"a": NEVER, "b": NEVER},
+        usage_window=WINDOW,
+        overlaps=[{"a_id": "a", "b_id": "b", "verdict": "wrapper", "reason": "Calls it."}],
+    )
     blocks = ask(blind, "clean up my setup")["blocks"]
-    assert blocks["headline"] == "You could remove 2 Items, but the saving is unknown."
+    assert blocks["headline"] == "You could remove 1 Item, but the saving is unknown."
     assert "0 tokens" not in blocks["headline"]
+    assert blocks["note"] == (
+        "Plus 1 Item with an unknown saving, not counted as 0. Unused rests on saved transcripts, which Claude Code deletes over time."
+    )
 
 
 def test_remove_shows_five_and_counts_the_rest(tmp_path, monkeypatch):
     items = [item(f"s{n}", f"skill-{n}") for n in range(7)]
-    extra = {"costs": {f"s{n}": cost(10 * (n + 1)) for n in range(7)}, "usage": {f"s{n}": NEVER for n in range(7)}, "usage_window": WINDOW}
+    extra = {"costs": {f"s{n}": cost(100 * (n + 1)) for n in range(7)}, "usage": {f"s{n}": NEVER for n in range(7)}, "usage_window": WINDOW}
     blocks = ask(make(tmp_path, monkeypatch, items, **extra), "what could I remove")["blocks"]
-    assert blocks["headline"] == "You could remove 7, saving about 280 tokens every session."
+    assert blocks["headline"] == "You could remove 7, saving about 2,800 tokens every session."
     assert len(blocks["rows"]) == 5 and blocks["more"] == 2
 
 
@@ -145,10 +162,10 @@ def test_could_go_needs_idle_days_and_cost(tmp_path, monkeypatch):
     client = make(tmp_path, monkeypatch, items, costs=costs, usage=usage, usage_window=WINDOW)
     label = lambda name: ask(client, f"Should I keep {name}?")["blocks"]["cards"][0]["verdict"]  # noqa: E731
     assert label("alpha")["label"] == "Could go"
-    assert label("beta") == {"label": "Review", "tone": "review", "why": "Idle 35 days; costs 100 tokens every session"}
+    assert label("beta") == {"label": "Review", "tone": "review", "why": "Not used in 35 active days"}
     assert label("zero")["label"] == "Review"
     client = make(tmp_path, monkeypatch, items, costs=costs, usage=usage, usage_window=short)
-    assert label("alpha")["label"] == "Review" and "history is short" in label("alpha")["why"]
+    assert label("alpha")["label"] == "Not enough history yet"
 
 
 # --- #55: session-start total --------------------------------------------------------------------------------------------------
@@ -349,7 +366,7 @@ def test_refusals_hand_off_a_copyable_instruction_and_change_nothing(tmp_path, m
         ),
         "What does tune-spacing say in full?": (
             "Constellation does not read or show file contents. Claude Code can open the file for you.",
-            'Open the file (the skill "tune-spacing") and tell me what it says, in full. Do not change anything.',
+            "Open the file (the skill `tune-spacing`) and tell me what it says, in full. Do not change anything.",
         ),
         "Why did my hook fail?": (
             "Constellation sees how your setup is shaped, not how it ran. Claude Code can look at the failure.",
@@ -427,27 +444,30 @@ def test_every_card_ends_in_a_per_kind_instruction(tmp_path, monkeypatch):
         for name in ("skill-5", "pdf-tools", "mailbox", "scribe", "twin-one", "shim", "core", "geo-helper")
     }
     confirm = " Show me exactly what will change and wait for my OK."
-    assert said["skill-5"] == 'Remove the skill "skill-5": find its folder (under ~/.claude/skills) and delete only that folder.' + confirm
-    assert said["pdf-tools"] == 'Disable the plugin "pdf-tools" in my user settings.json enabledPlugins; do not delete files.' + confirm
-    assert said["mailbox"] == 'Remove the MCP server "mailbox" from my Claude Code config, in the scope where it is defined.' + confirm
+    assert said["skill-5"] == "Remove the skill `skill-5`: find its folder (under ~/.claude/skills) and delete only that folder." + confirm
+    review = "tell me what it does and whether I still need it. Change nothing."
+    assert said["pdf-tools"] == f"Review the plugin `pdf-tools`: {review}"  # a plugin with no verdict to act on
+    assert said["mailbox"] == f"Review the MCP server `mailbox`: {review}"  # costs too little to be worth removing
     assert (
         said["twin-one"]
-        == 'The skill "twin-one" and "twin-two" do the same job. Compare them and recommend which to remove; remove nothing until I choose.'
+        == "Remove the skill `twin-one`: find its folder (under ~/.claude/skills) and delete only that folder. "
+        + "It does the same job as `twin-two`, which stays."
         + confirm
     )
-    assert said["shim"] == 'The skill "shim" only calls "core". Show me how to use "core" directly, then remove "shim".' + confirm
-    assert said["core"] == 'Keep the skill "core"; "shim" calls it. Change nothing.'
-    assert said["geo-helper"] == 'Review the skill "geo-helper": tell me what it does and whether I still need it. Change nothing.'
-    assert said["scribe"] == 'Review the agent "scribe": tell me what it does and whether I still need it. Change nothing.'
+    assert said["shim"] == "The skill `shim` only calls `core`. Show me how to use `core` directly, then remove `shim`." + confirm
+    assert said["core"] == f"Review the skill `core`: {review}"
+    assert said["geo-helper"].startswith("Move the skill `geo-helper` out of my global setup")
+    assert said["scribe"] == "Review the agent `scribe`: tell me what it does and whether I still need it. Change nothing."
     assert "my-private-project" not in str(ask(client, "What is geo-helper?"))
 
 
 def test_origin_is_named_so_a_plugins_files_are_not_edited_in_place(tmp_path, monkeypatch):
     items, extra = handoff_scan()
     extra["usage"]["ag"] = NEVER
+    extra["costs"]["ag"] = cost(300)
     text = card_handoff(make(tmp_path, monkeypatch, items, **extra), "scribe")["instruction"]
     assert (
-        text.startswith('Remove the agent "scribe"') and 'It came from "acme/tools": if that is a plugin or pack, change it there' in text
+        text.startswith("Remove the agent `scribe`") and "It came from `acme/tools`: if that is a plugin or pack, change it there" in text
     )
 
 
@@ -455,18 +475,17 @@ def test_checklist_ids_are_exactly_the_rows_the_checklist_accepts(tmp_path, monk
     items, extra = handoff_scan()
     client = make(tmp_path, monkeypatch, items, **extra)
     summary = client.get("/api/brief").json()
-    addable = {r["item_ids"][0]: r["id"] for r in summary["cost"]["rows"]}
+    rows = summary["safe"]["rows"] + summary["look"]["rows"]
+    addable = {r["item_ids"][0]: r["id"] for r in rows}
     ids = {
         name: card_handoff(client, name)["checklist_id"]
         for name in ("skill-5", "skill-4", "skill-0", "twin-one", "geo-helper", "pdf-tools")
     }
-    assert ids["skill-5"] == addable["s5"] and ids["skill-4"] == addable["s4"]
-    assert ids["skill-0"] is None  # a sixth costed Item is not in the brief, so the checklist would answer 404
-    assert ids["geo-helper"] is None and ids["pdf-tools"] is None
-    scope_row = summary["scope"]["rows"][0]
-    assert client.post("/api/checklist", json={"id": scope_row["id"]}).status_code == 404  # remember-scope rows are not addable
-    assert scope_row["id"] not in ids.values()
-    pair = next(r for r in summary["pairs"]["rows"] if r["item_ids"] == ["t1", "t2"])
+    assert ids["skill-5"] == addable["s5"] and ids["skill-4"] == addable["s4"] and ids["skill-0"] == addable["s0"]
+    assert ids["pdf-tools"] is None  # a wait row is not addable
+    move = next(r for r in rows if r["kind"] == "move_to_project")
+    assert ids["geo-helper"] == move["id"] and "my-private-project" not in str(summary["look"]["rows"][0])
+    pair = next(r for r in rows if r["item_ids"] == ["t1", "t2"])
     assert ids["twin-one"] == pair["id"]
     for name in ("skill-5", "twin-one"):
         row_id = ids[name]
@@ -481,7 +500,7 @@ def test_the_remove_list_ends_in_one_instruction_for_its_rows(tmp_path, monkeypa
     blocks = ask(make(tmp_path, monkeypatch, items, **extra), "what could I remove")["blocks"]
     hand = blocks["handoff"]
     assert hand["checklist_id"] is None
-    assert hand["instruction"].startswith('Review these in my Claude Code setup as removal candidates: skill "skill-5", ')
+    assert hand["instruction"].startswith("Review these in my Claude Code setup as removal candidates: skill `skill-5`, ")
     assert hand["instruction"].endswith("Show me each one and wait for my OK before you remove anything.")
 
 
@@ -503,11 +522,9 @@ def test_remove_exact_fields_and_row_limits(tmp_path, monkeypatch):
     reply = ask(make(tmp_path, monkeypatch, items, **extra), "What could I remove?")
     blocks = reply["blocks"]
     assert blocks["next"] == "Open one on the map before you decide."
-    assert blocks["follow_ups"] == ["Should I keep alpha?", *FOLLOW]
+    assert blocks["follow_ups"] == ["Should I keep wrapper?", *FOLLOW]
     assert blocks["more"] == 0
-    assert blocks["note"] == (
-        "Plus 1 Item with an unknown saving, not counted as 0. Unused rests on saved transcripts, which Claude Code deletes over time."
-    )
+    assert blocks["note"] == "Unused rests on saved transcripts, which Claude Code deletes over time."
     for count, more in ((5, 0), (6, 1)):
         many = [sk(n) for n in range(count)]
         costs = {i["id"]: cost(1500) for i in many}
@@ -516,7 +533,7 @@ def test_remove_exact_fields_and_row_limits(tmp_path, monkeypatch):
         assert len(reply["actions"][0]["item_ids"]) == 5
         assert reply["blocks"]["rows"][0]["value"] == "Not seen; saves 1,500 tokens"
         assert reply["blocks"]["note"] == "Unused rests on saved transcripts, which Claude Code deletes over time."
-        assert len(reply["blocks"]["handoff"]["instruction"].split('skill "')) == 6  # five names
+        assert len(reply["blocks"]["handoff"]["instruction"].split("skill `")) == 6  # five names
     empty = ask(make(tmp_path, monkeypatch, [item("a", "alpha")]), "what could I remove")["blocks"]
     assert empty["follow_ups"] == FOLLOW and empty["handoff"] is None
 
@@ -525,7 +542,7 @@ def test_remove_wrapper_and_unknown_duplicate_rows(tmp_path, monkeypatch):
     items = [item("w", "shim"), item("c", "core")]
     extra = {
         "costs": {"w": cost(40), "c": cost(5)},
-        "usage": {"w": {"count": 2, "last_used": "2026-10-29"}, "c": {"count": 2, "last_used": "2026-10-29"}},
+        "usage": {"w": NEVER, "c": {"count": 2, "last_used": "2026-10-29"}},
         "usage_window": WINDOW,
         "overlaps": [{"a_id": "w", "b_id": "c", "verdict": "wrapper", "reason": "Calls."}],
     }
@@ -537,10 +554,10 @@ def test_remove_wrapper_and_unknown_duplicate_rows(tmp_path, monkeypatch):
     reply = ask(make(tmp_path, monkeypatch, pair, **extra), "what could I remove")
     assert reply["blocks"]["rows"][0]["name"] == "dup-one" and reply["blocks"]["follow_ups"][0] == "Should I keep dup-one?"
     assert reply["blocks"]["rows"][0]["value"] == "Same job as dup-two; saving unknown"
-    assert reply["actions"][0]["item_ids"] == ["d1"] and 'skill "dup-one"' in reply["blocks"]["handoff"]["instruction"]
+    assert reply["actions"][0]["item_ids"] == ["d1"] and "skill `dup-one`" in reply["blocks"]["handoff"]["instruction"]
     costed = {"costs": {"d1": cost(200), "d2": cost(100)}, **extra}
     reply = ask(make(tmp_path, monkeypatch, pair, **costed), "what could I remove")
-    assert reply["blocks"]["rows"][0]["name"] == "dup-two" and reply["blocks"]["follow_ups"][0] == "Should I keep dup-two?"
+    assert reply["blocks"]["rows"][0]["name"] == "dup-one" and reply["blocks"]["follow_ups"][0] == "Should I keep dup-one?"  # dearer goes
 
 
 def test_start_exact_fields_and_limits(tmp_path, monkeypatch):
@@ -742,16 +759,12 @@ def test_verdict_boundaries_and_short_history_wording(tmp_path, monkeypatch):
     usage = {"a": {"count": 1, "last_used": "2026-09-30"}, "b": {"count": 1, "last_used": "2026-10-01"}}  # 30 and 29 days idle
     client = make(tmp_path, monkeypatch, items, costs={"a": cost(100), "b": cost(100)}, usage=usage, usage_window=WINDOW)
     verdict = lambda name: ask(client, f"Should I keep {name}?")["blocks"]["cards"][0]["verdict"]  # noqa: E731
-    assert verdict("alpha") == {"label": "Review", "tone": "review", "why": "Idle 30 days; costs 100 tokens every session"}
+    assert verdict("alpha") == {"label": "Review", "tone": "review", "why": "Not used in 30 active days"}
     assert verdict("beta")["label"] == "Keep"
     short = {"files": 2, "first": "2026-10-20", "last": "2026-10-30", "skipped": 0}
     client = make(tmp_path, monkeypatch, [item("a", "alpha")], costs={"a": cost(100)}, usage={"a": NEVER}, usage_window=short)
-    assert ask(client, "Should I keep alpha?")["blocks"]["cards"][0]["verdict"] == {
-        "label": "Review",
-        "tone": "review",
-        "why": "Not seen in 11 days (history is short); costs 100 tokens",
-    }
-    thirty = {"files": 2, "first": "2026-10-01", "last": "2026-10-30", "skipped": 0}
+    assert ask(client, "Should I keep alpha?")["blocks"]["cards"][0]["verdict"]["label"] == "Not enough history yet"
+    thirty = {"files": 60, "first": "2026-10-01", "last": "2026-10-30", "skipped": 0}
     client = make(tmp_path, monkeypatch, [item("a", "alpha")], costs={"a": cost(100)}, usage={"a": NEVER}, usage_window=thirty)
     assert ask(client, "Should I keep alpha?")["blocks"]["cards"][0]["verdict"]["label"] == "Could go"
 
@@ -770,7 +783,7 @@ def test_refusal_fields_and_wording_edges(tmp_path, monkeypatch):
 
 
 def test_origin_sentence_per_kind(tmp_path, monkeypatch):
-    for kind in ("skill", "agent", "command", "hook", "mcp_server"):
+    for kind in ("skill", "agent", "mcp_server"):
         client = make(
             tmp_path,
             monkeypatch,
@@ -779,7 +792,7 @@ def test_origin_sentence_per_kind(tmp_path, monkeypatch):
             **{"usage": {"a": NEVER}, "usage_window": WINDOW},
         )
         text = ask(client, "Should I keep alpha?")["blocks"]["cards"][0]["handoff"]["instruction"]
-        assert 'It came from "acme/tools": if that is a plugin or pack' in text, kind
+        assert "It came from `acme/tools`: if that is a plugin or pack" in text, kind
     client = make(
         tmp_path,
         monkeypatch,
@@ -797,9 +810,28 @@ def test_unknown_kinds_and_quoted_names_in_instructions(tmp_path, monkeypatch):
     client = make(tmp_path, monkeypatch, items, **extra)
     confirm = " Show me exactly what will change and wait for my OK."
     memory = ask(client, "Should I keep notes?")["blocks"]["cards"][0]["handoff"]["instruction"]
-    assert memory == 'Review the memory "notes" and tell me how to remove it.' + confirm
+    assert memory == "Review the memory `notes` and tell me how to remove it." + confirm
     quoted = ask(client, "what is this", selected_ids=["q"])["blocks"]["cards"][0]["handoff"]["instruction"]
-    assert quoted.startswith("Remove the skill \"say 'hi'\": find its folder")
+    assert quoted.startswith('Remove the skill `say "hi"`: find its folder')
     hook = ask(client, "Should I keep pre-hook?")["blocks"]["cards"][0]
-    assert hook["verdict"]["label"] == "Not enough data"
-    assert hook["handoff"]["instruction"] == 'Review the hook "pre-hook": tell me what it does and whether I still need it. Change nothing.'
+    assert hook["verdict"]["label"] == "Not tracked"
+    assert hook["handoff"]["instruction"] == "Review the hook `pre-hook`: tell me what it does and whether I still need it. Change nothing."
+
+
+def test_remove_leaves_out_a_pair_whose_twin_is_switched_off(tmp_path, monkeypatch):
+    items = [item("x", "xray", disabled=True), item("y", "yank"), item("o", "other")]
+    extra = {
+        "costs": {"x": cost(500), "y": cost(300), "o": cost(200)},
+        "usage": {"x": {"count": 3, "last_used": "2026-10-29"}, "y": NEVER, "o": NEVER},
+        "usage_window": WINDOW,
+        "overlaps": [{"a_id": "x", "b_id": "y", "verdict": "duplicate", "reason": "same"}],
+    }
+    client = make(tmp_path, monkeypatch, items, **extra)
+    assert [r["kind"] for g in ("safe", "look") for r in client.get("/api/brief").json()[g]["rows"]] == [
+        "remove_duplicate",
+        "remove_unused",
+    ]
+    blocks = ask(client, "What could I remove?")["blocks"]
+    assert [r["name"] for r in blocks["rows"]] == ["other"] and blocks[
+        "headline"
+    ] == "You could remove 1, saving about 200 tokens every session."
