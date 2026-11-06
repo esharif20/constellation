@@ -43,7 +43,7 @@ def test_more_page_taller_than_the_screen_never_scrolls_and_keeps_the_selection_
     screen = term.send(DOWN, quiet=0.2)
     term.close()
     assert term.screen.scrolled == 0
-    assert "➤ 28." in screen and "Doctor --env" in screen
+    assert "➤ 29." in screen and "Doctor --env" in screen
     assert len(term.screen.lines()) <= 23
 
 
