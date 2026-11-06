@@ -1,0 +1,50 @@
+{
+  "files": 3,
+  "rows": [
+    {
+      "id": "skill:sieve:chart-draft",
+      "name": "chart-draft",
+      "count": 0,
+      "last_used": "2026-03-01",
+      "flags": [
+        "never"
+      ]
+    },
+    {
+      "id": "skill:redgreen:make-it-pass",
+      "name": "make-it-pass",
+      "count": 0,
+      "last_used": "2026-03-01",
+      "flags": [
+        "never"
+      ]
+    },
+    {
+      "id": "skill:lumen:pick-palette",
+      "name": "pick-palette",
+      "count": 0,
+      "last_used": "2026-03-01",
+      "flags": [
+        "never"
+      ]
+    },
+    {
+      "id": "skill:redgreen:refactor-safely",
+      "name": "refactor-safely",
+      "count": 0,
+      "last_used": "2026-03-01",
+      "flags": [
+        "never"
+      ]
+    },
+    {
+      "id": "skill:lumen:tune-spacing",
+      "name": "tune-spacing",
+      "count": 0,
+      "last_used": "2026-03-01",
+      "flags": [
+        "never"
+      ]
+    }
+  ]
+}

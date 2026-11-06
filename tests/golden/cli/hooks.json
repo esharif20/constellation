@@ -1,0 +1,114 @@
+{
+  "hooks": [
+    {
+      "id": "hook:block-force-push",
+      "name": "block-force-push",
+      "event": "block-force-push",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "shell",
+      "bytes": null,
+      "tokens": null
+    },
+    {
+      "id": "hook:format-on-save",
+      "name": "format-on-save",
+      "event": "format-on-save",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "shell",
+      "bytes": null,
+      "tokens": null
+    },
+    {
+      "id": "hook:guard-env-files",
+      "name": "guard-env-files",
+      "event": "guard-env-files",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "shell",
+      "bytes": null,
+      "tokens": null
+    },
+    {
+      "id": "hook:lint-before-commit",
+      "name": "lint-before-commit",
+      "event": "lint-before-commit",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "mcp_tool",
+      "bytes": null,
+      "tokens": null
+    },
+    {
+      "id": "hook:log-tool-calls",
+      "name": "log-tool-calls",
+      "event": "log-tool-calls",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "shell",
+      "bytes": null,
+      "tokens": null
+    },
+    {
+      "id": "hook:notify-on-finish",
+      "name": "notify-on-finish",
+      "event": "notify-on-finish",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "shell",
+      "bytes": null,
+      "tokens": null
+    },
+    {
+      "id": "hook:run-tests-on-stop",
+      "name": "run-tests-on-stop",
+      "event": "run-tests-on-stop",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "mcp_tool",
+      "bytes": null,
+      "tokens": null
+    },
+    {
+      "id": "hook:session-banner",
+      "name": "session-banner",
+      "event": "session-banner",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "shell",
+      "bytes": null,
+      "tokens": null
+    },
+    {
+      "id": "hook:trim-whitespace",
+      "name": "trim-whitespace",
+      "event": "trim-whitespace",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "shell",
+      "bytes": null,
+      "tokens": null
+    },
+    {
+      "id": "hook:warn-large-diff",
+      "name": "warn-large-diff",
+      "event": "warn-large-diff",
+      "matcher": null,
+      "phase": "other",
+      "can_block": false,
+      "runs": "shell",
+      "bytes": null,
+      "tokens": null
+    }
+  ]
+}

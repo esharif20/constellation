@@ -1,0 +1,17 @@
+Constellation doctor
+
+  ✓ Session start: 5,503 tokens, 2.8% of a 200k window
+  ! Could be reclaimed: 0 to 410 tokens per session
+
+Top findings
+  - quarterly-ledger-reconciliation-helper (skill): Does the same job as review-diff; neither has been used (saves 410)
+
+Hooks and triggers
+  ✓ No clashes
+  ✓ 10 hooks, 0 able to block a prompt
+  ✓ 0 skills never fire, 0 fire greedily
+
+MCP and connectors
+  2 MCP servers, 1 connector (tool schemas are not measured)
+
+  ! 2 scan warnings in the saved scan

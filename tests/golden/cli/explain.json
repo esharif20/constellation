@@ -1,0 +1,77 @@
+{
+  "public": false,
+  "items": 97,
+  "known": 5723,
+  "unknown": 22,
+  "clusters": [
+    {
+      "name": "Test-first development",
+      "items": 12,
+      "always_on": 773
+    },
+    {
+      "name": "Exploring a codebase",
+      "items": 11,
+      "always_on": 661
+    },
+    {
+      "name": "Notes and study cards",
+      "items": 11,
+      "always_on": 625
+    }
+  ],
+  "costs": [
+    {
+      "name": "quarterly-ledger-reconciliation-helper",
+      "kind": "skill",
+      "always_on": 410
+    },
+    {
+      "name": "lighthouse-lamp-maintenance-scheduler",
+      "kind": "agent",
+      "always_on": 150
+    },
+    {
+      "name": "flashcard-deck",
+      "kind": "skill",
+      "always_on": 136
+    },
+    {
+      "name": "focus-rings",
+      "kind": "skill",
+      "always_on": 134
+    },
+    {
+      "name": "motion-pass",
+      "kind": "skill",
+      "always_on": 123
+    }
+  ],
+  "unused": null,
+  "window": null,
+  "scanned_at": null,
+  "actions": [
+    {
+      "kind": "remove_duplicate",
+      "reason": "Remove one of these two: quarterly-ledger-reconciliation-helper (skill) and review-diff (skill). Same steps and trigger wording; one could go.",
+      "tokens_saved": 98,
+      "last_used": null,
+      "since": null
+    },
+    {
+      "kind": "use_underlying",
+      "reason": "refactor-safely (skill) only calls make-it-pass (skill); consider using make-it-pass (skill) directly. Mostly a thin call into make-it-pass followed by a cleanup.",
+      "tokens_saved": 36,
+      "last_used": null,
+      "since": null
+    },
+    {
+      "kind": "remove_duplicate",
+      "reason": "Remove one of these two: changelog-draft (skill) and release-notes (skill). Same steps and trigger wording; one could go.",
+      "tokens_saved": 25,
+      "last_used": null,
+      "since": null
+    }
+  ],
+  "text": "# My Claude Code setup\n\n97 items, 5,723 always-on tokens known, 22 with unknown cost.\n\n## Largest clusters\n\n- Test-first development: 12 items, 773 tokens\n- Exploring a codebase: 11 items, 661 tokens\n- Notes and study cards: 11 items, 625 tokens\n\n## Costliest always-on\n\n- quarterly-ledger-reconciliation-helper (skill): 410 tokens\n- lighthouse-lamp-maintenance-scheduler (agent): 150 tokens\n- flashcard-deck (skill): 136 tokens\n- focus-rings (skill): 134 tokens\n- motion-pass (skill): 123 tokens\n\n## Not used lately\n\nUsage was not read in this scan.\n\n## Three suggested actions\n\n- Remove one of these two: quarterly-ledger-reconciliation-helper (skill) and review-diff (skill). Same steps and trigger wording; one could go. (saves 98 tokens)\n- refactor-safely (skill) only calls make-it-pass (skill); consider using make-it-pass (skill) directly. Mostly a thin call into make-it-pass followed by a cleanup. (saves 36 tokens)\n- Remove one of these two: changelog-draft (skill) and release-notes (skill). Same steps and trigger wording; one could go. (saves 25 tokens)\n"
+}

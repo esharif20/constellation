@@ -1,0 +1,9 @@
+quarterly-ledger-reconciliation-helper costs the most: 410 tokens every session.
+- quarterly-ledger-reconciliation-helper: 410 tokens every session
+- lighthouse-lamp-maintenance-scheduler: 150 tokens every session
+- flashcard-deck: 136 tokens every session
+- focus-rings: 134 tokens every session
+- motion-pass: 123 tokens every session
+70 more. Ask a narrower question.
+Plus 22 Items with unknown cost, not counted as 0.
+Next: Check whether you still use quarterly-ledger-reconciliation-helper.

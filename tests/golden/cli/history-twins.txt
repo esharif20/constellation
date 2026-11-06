@@ -1,0 +1,25 @@
+Twins
+
+  ! audit-contrast and focus-rings (overlap)
+      Both check colour and focus states on the same screens.
+      You use: audit-contrast
+
+  ! changelog-draft and release-notes (duplicate)
+      Same steps and trigger wording; one could go.
+      You use: release-notes
+
+  ! smoke-check and suggest-tests (overlap)
+      Both propose quick checks before a change goes out.
+      You use: both about equally
+
+  ! refactor-safely and make-it-pass (wrapper)
+      Mostly a thin call into make-it-pass followed by a cleanup.
+      You use: neither yet
+
+  ! explain-file and summarise-paper (overlap)
+      Both summarise a long document into a few lines.
+      You use: both about equally
+
+  ! review-diff and quarterly-ledger-reconciliation-helper (duplicate)
+      Same steps and trigger wording; one could go.
+      You use: both about equally

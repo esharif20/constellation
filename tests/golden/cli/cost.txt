@@ -1,0 +1,28 @@
+Session-start bill
+
+  Total: 5,503 tokens (3 Items unmeasured)
+
+Biggest first
+  quarterly-ledger-reconciliation-helper  skill  410
+  lighthouse-lamp-maintenance-scheduler   agent  150
+  flashcard-deck                          skill  136
+  focus-rings                             skill  134
+  motion-pass                             skill  123
+  flake-hunter                            skill  122
+  dependency-tour                         skill  117
+  yaml-lint                               skill  116
+  critic                                  agent  115
+  port-finder                             skill  112
+
+By plugin
+  (not in a plugin)  22 Items  1,971
+  lumen              8 Items   575
+  atlas              5 Items   471
+  sentinel           5 Items   395
+  redgreen           6 Items   392
+  harbour            5 Items   385
+  sieve              5 Items   383
+  margin             4 Items   326
+  quill              6 Items   294
+  bastion            3 Items   164
+  prism              3 Items   147
