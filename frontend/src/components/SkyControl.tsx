@@ -16,7 +16,7 @@ export const SkyControl = memo(function SkyControl() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" aria-label="Sky settings" className="pointer-events-auto size-11 rounded-lg p-0 text-text-2 sm:order-last sm:size-10">
+        <Button variant="ghost" aria-label="Sky settings" title="Sky settings" className="pointer-events-auto size-11 rounded-lg p-0 text-text-2 sm:order-last sm:size-10">
           <TelescopeIcon aria-hidden />
         </Button>
       </PopoverTrigger>

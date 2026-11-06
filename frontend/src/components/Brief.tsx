@@ -30,9 +30,10 @@ type Props = {
   onWhatIf?: (on: boolean) => void;
   onToggle?: (n: GNode) => void;
   onReset?: () => void;
+  lensed?: boolean; // a lens other than All is on: the Brief still counts the whole setup
 };
 
-export function Brief({ data, model, assessments, open, hidden, footerInset = 0, pill, onOpen, onItem, onPair, whatIf = null, removed = null, onWhatIf, onToggle, onReset }: Props) {
+export function Brief({ data, model, assessments, open, hidden, footerInset = 0, pill, onOpen, onItem, onPair, whatIf = null, removed = null, onWhatIf, onToggle, onReset, lensed = false }: Props) {
   const [checklist, setChecklist] = useState(data.checklist);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -142,7 +143,7 @@ export function Brief({ data, model, assessments, open, hidden, footerInset = 0,
         <Preview onItem={onItem} />
         {!actionable && !data.wait.rows.length && <p className="text-[13px] leading-[1.4] text-text-2">Nothing to clean up yet. Run <code className="font-mono text-xs">constellation scan</code> with a key to measure cost.</p>}
         {meter.measured && actionable > 0 && <Meter b={meter} whatIf={!!whatIf} onReset={onReset} onExit={() => onWhatIf?.(false)} />}
-        {data.range.high > 0 && <Headline range={data.range} evidence={data.evidence} />}
+        {data.range.high > 0 && <Headline range={data.range} evidence={data.evidence} lensed={lensed} />}
         {data.safe.rows.length > 0 && <div>
           <h3 className="text-sm font-medium">Safe wins</h3>
           <p className="mt-1 text-xs leading-[1.4] text-text-3">Not used, or doing the same job as something you use, and we are confident. {data.safe.saves != null && `Removing these ${data.safe.rows.length} frees ~${data.safe.saves.toLocaleString()} tokens per session (estimate).`}</p>
@@ -197,7 +198,7 @@ export function Brief({ data, model, assessments, open, hidden, footerInset = 0,
         {error && <p role="alert" className="flex items-start gap-2 text-xs leading-[1.4] text-warn"><TriangleAlertIcon aria-hidden className="size-4 shrink-0" />{error}</p>}
       </div>
     </Pane>}</Presence>
-    {!hidden && !open && <Button ref={pill} variant="outline" className="glass animate-fade-in fixed right-4 bottom-24 h-10 gap-2 rounded-full px-4 sm:top-[76px] sm:right-auto sm:bottom-auto sm:left-4" aria-expanded={false} onClick={() => onOpen(true)}>{whatIf ? <>What-if <span className="font-mono text-xs tabular-nums">−{fmt(meter.saved)}</span></> : <>Cleanup brief <span className="font-mono text-xs tabular-nums">{actionable}</span></>}</Button>}
+    {!hidden && !open && <Button ref={pill} variant="outline" className="glass animate-fade-in fixed right-4 bottom-[calc(var(--legend-h,4rem)+1.5rem)] h-10 gap-2 rounded-full px-4 sm:top-[76px] sm:right-auto sm:bottom-auto sm:left-4" aria-expanded={false} onClick={() => onOpen(true)}>{whatIf ? <>What-if <span className="font-mono text-xs tabular-nums">−{fmt(meter.saved)}</span></> : <>Cleanup brief <span className="font-mono text-xs tabular-nums">{actionable}</span></>}</Button>}
     <p className="sr-only" aria-live="polite">{announcement}</p>
   </>;
 }
@@ -205,13 +206,15 @@ export function Brief({ data, model, assessments, open, hidden, footerInset = 0,
 const WAIT: Record<string, string> = { too_early: "not enough history yet", keep_rare: "made for occasional work, too early to tell", untracked: "cannot be measured from your history", low_confidence: "not sure enough to suggest" };
 const dash = (c: number) => c.toLocaleString();
 
-function Headline({ range, evidence }: { range: BriefData["range"]; evidence: BriefData["evidence"] }) {
+export function Headline({ range, evidence, lensed }: { range: BriefData["range"]; evidence: BriefData["evidence"]; lensed: boolean }) {
   const span = range.low === range.high ? dash(range.low) : `${dash(range.low)} to ${dash(range.high)}`;
   return <div>
     <p className="text-[13px] leading-[1.45]">You could free <b className="font-mono font-medium tabular-nums">{span}</b> tokens at the start of every session (estimate).</p>
-    {range.per_day && <p className="mt-1 text-xs leading-[1.4] text-text-2">About {dash(range.per_day[0])} to {dash(range.per_day[1])} a day at your pace.</p>}
+    {lensed && <p className="mt-1 text-xs leading-[1.4] text-text-3">These numbers cover your whole setup, not only the lens you picked.</p>}
+    {range.per_day && (range.per_day[0] > 0 || range.per_day[1] > 0) && <p className="mt-1 text-xs leading-[1.4] text-text-2">About {dash(range.per_day[0])} to {dash(range.per_day[1])} a day at your pace.</p>}
     {range.unknown > 0 && <p className="mt-1 text-xs leading-[1.4] text-text-3">+ {range.unknown} with unknown cost, not counted</p>}
-    {evidence && <p className="mt-1 text-xs leading-[1.4] text-text-3">Based on {evidence.sessions} sessions over {evidence.active_days} days you used Claude Code.{evidence.ledger === false && " Claude Code keeps transcripts for 30 days by default; Constellation keeps counts across scans, so verdicts sharpen as you rescan."}</p>}
+    {evidence && evidence.sessions === 0 && <p className="mt-1 text-xs leading-[1.4] text-text-3">No usage history yet, so there is no daily pace to show.</p>}
+    {evidence && evidence.sessions > 0 && <p className="mt-1 text-xs leading-[1.4] text-text-3">Based on {evidence.sessions} sessions over {evidence.active_days} days you used Claude Code.{evidence.ledger === false && " Claude Code keeps transcripts for 30 days by default; Constellation keeps counts across scans, so verdicts sharpen as you rescan."}</p>}
   </div>;
 }
 

@@ -289,12 +289,12 @@ export default function Atlas({ model }: { model: Model }) {
         explain={brief ? <ExplainCard model={model} onCluster={(c) => enter(c, true)} onItem={(n) => selectById(n.id)} /> : undefined}
       />
       <Presence>{cluster && !chatOpen && !(narrow && selected) && <ClusterCard key="card" cluster={cluster} model={model} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} removed={removed} />}</Presence>
-      {brief && <Brief data={brief} model={model} assessments={assessments} open={showBrief} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}
+      {brief && <Brief data={brief} lensed={scope !== "all"} model={model} assessments={assessments} open={showBrief} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}
       <Chat model={model} selected={selected} open={chatOpen} onOpen={openChat} onActions={applyChatActions} onReset={() => setChatMatches(null)} onItem={chatItem} draft={draft} />
       <Presence>{highlight && <HighlightChip key="highlight" highlight={highlight} onClear={clearHighlight} />}</Presence>
       </div>
       <StarMap ref={map} model={model} selected={selected} preview={preview} matches={matches} scope={scoped} panelWidth={phone || (narrow && chatOpen) ? 0 : PANEL} leftPanel={chatOpen ? "chat" : showBrief ? "brief" : null} cluster={cluster} onSelect={select} onCluster={onCluster} removed={removed} absent={absent} />
-      {!scrub && <Legend model={model} hidden={!!selected || showBrief || chatOpen} pack={pack} onPack={(o) => { setPack((p) => (p === o ? null : o)); setChatMatches(null); }} />}
+      {!scrub && <Legend model={model} hidden={!!selected || showBrief || chatOpen} selected={!!selected} pack={pack} onPack={(o) => { setPack((p) => (p === o ? null : o)); setChatMatches(null); }} />}
       <Presence>{scrub && timeline && <Scrubber key="scrub" entries={timeline.entries} nodes={model.nodes} firstSeen={timeline.first_seen} date={scrub} onDate={setScrub} onClose={() => setScrub(null)} />}</Presence>
       {!selected && <p className="pointer-events-none fixed right-6 bottom-6 hidden text-xs text-text-3 sm:block">Drag to move, scroll to zoom, arrows to step</p>}
       <Presence>{selected && showInspector && (

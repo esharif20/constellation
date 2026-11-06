@@ -1,19 +1,33 @@
+import { useEffect, useRef } from "react";
 import { costRadius, kindName, relName, type Model } from "@/graph/model";
 import { cn } from "@/lib/utils";
 
 // Colour never carries identity alone: every kind is named here, with its count and the glyph the map uses.
-export function Legend({ model, hidden, pack, onPack }: { model: Model; hidden: boolean; pack: string | null; onPack: (origin: string) => void }) {
+export function Legend({ model, hidden, selected, pack, onPack }: { model: Model; hidden: boolean; selected?: boolean; pack: string | null; onPack: (origin: string) => void }) {
   const counts = new Map<string, number>();
   for (const n of model.nodes) counts.set(n.kind, (counts.get(n.kind) ?? 0) + 1);
   const kinds = [...counts].sort((a, b) => b[1] - a[1]);
   const edges = [...new Set(model.links.map((l) => l.kind))];
   const hasOverlaps = model.overlaps.length > 0;
   const sizes = [model.costRef / 9, model.costRef / 4, model.costRef];
+  const list = useRef<HTMLUListElement>(null);
+  // The phone's Cleanup brief pill stacks above the legend, which wraps to a different height per setup.
+  useEffect(() => {
+    const el = list.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty("--legend-h", `${el.offsetHeight}px`);
+    set();
+    const observer = new ResizeObserver(set);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   return (
     <ul
+      ref={list}
       aria-label="Legend"
       className={cn(
         "pointer-events-none fixed bottom-4 left-4 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text-2 transition-opacity duration-(--t) sm:bottom-6 sm:left-6 sm:gap-x-6 sm:text-[13px]",
+        selected && "sm:max-w-[calc(100vw-3rem-396px)]",
         hidden && "opacity-0 sm:opacity-100",
       )}
     >

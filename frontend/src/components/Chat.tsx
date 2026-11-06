@@ -184,9 +184,9 @@ export function Answer({ reply, copied, onCopy, onItem, onAsk }: { reply: Reply;
     <div className="flex items-start justify-between gap-2"><p role="status" aria-live="polite" aria-atomic="true" className="text-[15px] leading-[1.45] font-medium text-foreground [overflow-wrap:anywhere]">{b.headline}</p>{copy}</div>
     {(b.cards.length > 0 || b.rows.length > 0) && <div className="mt-4 flex flex-col gap-3">
       {b.compare ? <Compare b={b} onItem={onItem} /> : b.cards.map((c) => <ItemCard key={c.id} c={c} onItem={onItem} />)}
-      {b.rows.length > 0 && <ul className="-mx-2 flex flex-col">{b.rows.map((r) => <li key={r.id} className="flex items-center justify-between gap-3">
-        <div className="min-w-0"><Name id={r.id} name={r.name} onItem={onItem} /><p className="-mt-1 truncate px-2 pb-1 text-xs text-text-3" title={r.what}>{r.what}</p></div>
-        <span className="shrink-0 pr-2 text-right font-mono text-xs"><Value v={r.value} /></span>
+      {b.rows.length > 0 && <ul className="-mx-2 flex flex-col">{b.rows.map((r) => <li key={r.id} className="flex flex-wrap items-center justify-between gap-x-3">
+        <div className="min-w-[12rem] flex-1"><Name id={r.id} name={r.name} onItem={onItem} /><p className="-mt-1 truncate px-2 pb-1 text-xs text-text-3" title={r.what}>{r.what}</p></div>
+        <span className="max-w-full px-2 pb-1 text-right font-mono text-xs [overflow-wrap:anywhere]"><Value v={r.value} /></span>
       </li>)}</ul>}
       {b.more > 0 && <p className="text-xs text-text-3">{b.more.toLocaleString()} more. Ask a narrower question.</p>}
     </div>}

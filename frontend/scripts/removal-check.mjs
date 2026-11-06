@@ -25,6 +25,22 @@ try {
   assert.match(closed, /If you remove this/);
   assert.match(closed, /aria-expanded="false"/);
   assert.doesNotMatch(closed, /Safe to remove|Checking/); // closed: nothing fetched, nothing shown
+  // A covering Item the Inspector already lists under "Does the same job" is named once, there.
+  const covered = { ...base, covered_by: [row("b", "beta", "same steps")] };
+  const deduped = renderToStaticMarkup(createElement(RemovalBody, { data: covered, model: { nodes }, onSelect() {}, listed: new Set(["b"]) }));
+  assert.doesNotMatch(deduped, /<h4|<button|same steps/);
+  assert.match(deduped, /Still covered by beta, listed below/);
+  assert.match(renderToStaticMarkup(createElement(RemovalBody, { data: covered, model: { nodes }, onSelect() {} })), /Still covered by/); // not listed elsewhere: the group stays
+  // Brief headline with no usage history: no "0 to 0 a day", no "0 sessions"; a lens is named as not scoping the numbers.
+  const { Headline } = await vite.ssrLoadModule("/src/components/Brief.tsx");
+  const range = { low: 0, high: 410, unknown: 0, per_day: [0, 0] };
+  const none = renderToStaticMarkup(createElement(Headline, { range, evidence: { sessions: 0, active_days: 0 }, lensed: false }));
+  assert.match(none, /No usage history yet/);
+  assert.doesNotMatch(none, /a day at your pace|0 sessions/);
+  const some = renderToStaticMarkup(createElement(Headline, { range: { ...range, per_day: [1, 5] }, evidence: { sessions: 3, active_days: 2 }, lensed: true }));
+  assert.match(some, /About 1 to 5 a day/);
+  assert.match(some, /Based on 3 sessions/);
+  assert.match(some, /whole setup/);
   console.log("Removal preview passes.");
 } finally {
   await vite.close();
