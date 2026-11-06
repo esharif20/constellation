@@ -27,6 +27,7 @@
     "expand:check": "node scripts/expand-check.mjs",
     "weekly:check": "node scripts/weekly-check.mjs",
     "chat:cluster:check": "node scripts/chat-cluster-check.mjs",
+    "presence:check": "node scripts/presence-check.mjs",
     "motion:check": "node scripts/motion-check.ts",
     "motion:perf": "node scripts/motion-perf.mjs",
     "sky:check": "node scripts/sky-check.ts",

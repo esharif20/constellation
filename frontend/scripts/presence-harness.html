@@ -1,0 +1,35 @@
+<!doctype html>
+<!-- Test page for `npm run presence:check` (served by vite, never built): Presence/Pane and two real Inspector disclosures under forced re-renders. Invented data only. -->
+<html lang="en"><head><meta charset="utf-8"><title>presence harness</title></head><body><div id="root"></div>
+<script type="module">
+  if (location.search.includes("reduced")) { const mm = window.matchMedia.bind(window); window.matchMedia = (q) => (q.includes("prefers-reduced-motion") ? { matches: true, media: q, addEventListener() {}, removeEventListener() {} } : mm(q)); }
+  const removal = { id: "a", name: "alpha", kind: "skill", safe: true, verdict: "Safe to remove", reasons: ["Nothing refers to it."], loses_coverage: false, covered_by: [], cluster: null, referenced_by: [], hooks: [], contains: [], used: null, last_used: null };
+  const realFetch = window.fetch.bind(window);
+  window.fetch = (u, o) => (String(u).includes("api/removal") ? new Promise((r) => setTimeout(() => r(new Response(JSON.stringify(removal))), 30)) : realFetch(u, o));
+  const { createElement: h, useState, StrictMode } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { Presence, Pane } = await import("/src/components/Motion.tsx");
+  const { RemovalPreview } = await import("/src/components/inspector/Removal.tsx");
+  const { ToolsSection } = await import("/src/components/inspector/Tools.tsx");
+  let api = {}, inner = {};
+  // Like the Inspector: a Presence/Pane whose own content holds state that changes on scroll, with a disclosure inside.
+  function Panel() {
+    const [n, setN] = useState(0);
+    inner = { bump: () => setN((x) => x + 1) };
+    return h("div", { "data-n": n }, h("p", null, "panel ", n), h(RemovalPreview, { item: { id: "a" }, model: { nodes: [] }, onSelect() {} }));
+  }
+  function Host() {
+    const [open, setOpen] = useState(false), [tick, setTick] = useState(0), [mounted, setMounted] = useState(true), [nest, setNest] = useState(false);
+    api = { toggle: () => setOpen((o) => !o), set: setOpen, tick: () => setTick((t) => t + 1), nest: setNest, bump: () => inner.bump?.(), unmount: () => setMounted(false), mount: () => setMounted(true) };
+    if (!mounted) return h("p", { id: "gone" }, "unmounted");
+    return h("div", { "data-tick": tick },
+      h("section", { id: "bare" }, h(Presence, null, open ? h(Pane, { from: "top", "data-probe": "bare" }, h("p", null, "bare ", tick)) : null)),
+      h("section", { id: "real" }, h(RemovalPreview, { item: { id: "a" }, model: { nodes: [] }, onSelect() {} })),
+      h("section", { id: "nested" }, h(Presence, null, nest ? h(Pane, { from: "right", "data-probe": "nested" }, h(Panel)) : null)),
+      h("section", { id: "plain" }, h(Presence, null, open ? h("aside", { "data-probe": "plain" }, "no pane here") : null)),
+      h("section", { id: "tools" }, h(ToolsSection, { item: { id: "t", kind: "connector" } })));
+  }
+  createRoot(document.getElementById("root")).render(h(StrictMode, null, h(Host)));
+  window.h = { get api() { return api; } };
+  window.harnessReady = true;
+</script></body></html>
