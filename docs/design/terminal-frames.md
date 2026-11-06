@@ -76,7 +76,7 @@ What loads at the start of every session, biggest first:  10 Items
    9. ███████                    2% | critic                     115 tok
   10. ███████                    2% | port-finder                112 tok
 
-↑↓→ | Enter | R Refresh | O Open | P Preview | F File | Esc/Q Quit
+↑↓→ | Enter | R Refresh | O Open | P Preview | F File | Esc/Q Back
 ```
 
 While scanning the same page shows `Scanning…` in the header with an empty list.
@@ -124,8 +124,42 @@ Could free ~2,032 tokens per session (0 to 2,442; 1 unmeasured)
 ## After any command
 
 ```
-  Press Enter to return (q to quit)
+  Press Enter or Esc to return (q to quit)
 ```
+
+While a command runs the title carries a dim hint (real terminal only), and Esc or Ctrl-C stops just that command:
+
+```
+  ▸ Status
+  Esc to cancel
+
+  Cancelled
+```
+
+## Prompts (Find, Remove preview, the scan question, the checklist question)
+
+Every prompt reads keys itself, so Esc cancels it and does nothing. y/N questions say so, and anything but `y` means no:
+
+```
+  What does the skill do? (Esc to cancel)
+  No fresh scan. Run `constellation scan ~/.claude --offline` (reads ~/.claude locally, sends nothing)? [y/N, Esc to cancel]
+```
+
+## 1 Open (one key from the menu)
+
+```
+  ▸ Open
+
+  Press Esc or q to stop the server and go back.
+  Serving at http://127.0.0.1:8765/
+  http://127.0.0.1:8765/
+```
+
+The first URL is an OSC-8 clickable link in terminals that support them (iTerm2, WezTerm, kitty, VS Code, ghostty, VTE 0.50+), plain
+text otherwise; the second line is always plain. The server runs in a thread; the browser is opened only once the port accepts
+connections (polled for up to 5 s) with `open` (macOS), `xdg-open` (Linux), `os.startfile` (Windows), falling back to
+`webbrowser`. If every launcher fails it says `Could not open a browser; open <url> yourself.` Esc or q stops the server and returns
+straight to the menu. `constellation open` uses the same opener and says `Press Ctrl-C to stop the server.`
 
 ## constellation clean --dry-run --why
 
@@ -155,4 +189,8 @@ skill  (13 Items, ~1,168 tokens)
   ...
 ```
 
-Keys: Up/Down move, 1-5 jump, Enter runs, M More, V Version, U Update, Q quit; Ctrl-C quits from anywhere (cursor and terminal mode restored, exit 130).
+Keys: Up/Down move, 1-5 jump, Enter runs, M More, V Version, U Update, Q quit. Ctrl-C at the main menu quits (cursor and terminal mode
+restored, exit 130). Everywhere else there is a way back: Esc, Left or B return from More, Analyze and Clean (Q also leaves Analyze and
+Clean; Ctrl-C there goes back too); Esc cancels any prompt; Enter or Esc leaves a command's output. Ctrl-C (or Esc, where the
+terminal can watch for it) during a running command cancels only that command, prints `Cancelled` and returns to the menu. A scan
+writes its file whole into place, so a cancelled one leaves no partial file.

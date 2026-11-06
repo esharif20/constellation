@@ -16,7 +16,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import cleanup, cli_help, cli_reports, completion, habits, history, menu, scan, scan_graph, selfcheck, session, status, weekly
+from . import cleanup, cli_help, cli_reports, completion, habits, history, scan, scan_graph, selfcheck, session, status, weekly
 from . import origins as origin_sources
 from . import profile as project_profile
 from . import purge as purge_report
@@ -121,6 +121,7 @@ def main(
     open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     open_command.add_argument("--port", type=int, default=8765)
     open_command.add_argument("--no-browser", action="store_true")
+    open_command.add_argument("--menu", action="store_true", help=argparse.SUPPRESS)  # the menu stops the server with Esc or q
     open_command.add_argument("--history", type=Path, help="scan history file to chart (default ~/.cache/constellation/history.json)")
     open_command.add_argument("--preview", type=Path, help="saved `preview --out` file to show in the Brief (read-only)")
     open_command.add_argument("--config-dir", type=Path, help="enable live MCP tool listing from this config root")
@@ -634,6 +635,7 @@ def _serve_scan(args: argparse.Namespace, scan_file: Path, sandbox: Path | None,
     except (OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 2
+    print("  Press Esc or q to stop the server and go back." if args.menu else "  Press Ctrl-C to stop the server.")
     (serve or server.serve)(app, args.port, not args.no_browser)
     return 0
 
@@ -688,10 +690,16 @@ def _write(result: Constellation, path: Path, secrets: set[str], config_dir: Pat
     ids = unique_ids((i.id for i in result.items), secrets, id_key(history.DEFAULT_CACHE.with_name("id-key")))
     data: dict[str, Any] = redact_tree(asdict(result), secrets, ids)
     text = json.dumps(data, indent=2)  # serialise first: a failure must not leave an empty file behind
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.chmod(path, 0o600)  # open() keeps the mode of a file that already existed
-    with os.fdopen(fd, "w") as f:
-        f.write(text)
+    temp = path.with_name(path.name + ".tmp")  # written whole, then moved into place: a cancelled scan leaves no partial file
+    try:
+        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.chmod(temp, 0o600)  # open() keeps the mode of a file that already existed
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+        os.replace(temp, path)
+    except BaseException:
+        temp.unlink(missing_ok=True)
+        raise
     if history_path is not None:
         try:
             history.record(history_path, history.entry(data, setup, day))

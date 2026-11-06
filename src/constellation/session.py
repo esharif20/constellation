@@ -5,21 +5,27 @@ import importlib.metadata
 import io
 import json
 import os
+import select
+import signal
 import sys
+import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import AbstractContextManager
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 from . import analyze, cleanup
 from . import pins as pin_file
 from .cli_reports import ReportError, Scan, Style, style_for_stdout
 from .cli_reports import load as load_scan
-from .keys import Action, key_stream
-from .menu import CLEAR, DAY, ENTRIES, HIDE, MORE, OLIVE, SHOW, _c, choose, numbered, raw_mode, render, scan_age, step
+from .keys import Action, Cancel, edit, key_stream, parse_key, split_keys
+from .menu import CLEAR, DAY, DIM, ENTRIES, HIDE, MORE, OLIVE, SHOW, _c, choose, numbered, raw_mode, render, scan_age, step
 
 PORT = 8765
+CANCELLED = 130  # what a command that Esc or Ctrl-C stopped returns
+Watch = Callable[[tuple[str, ...]], AbstractContextManager[None]]
 
 
 class Exit(Exception):
@@ -45,8 +51,9 @@ class Session:
         version: str,
         load: Callable[[Path], Scan] = load_scan,
         pins: Path = pin_file.DEFAULT_CACHE,
+        watch: Watch | None = None,
     ):
-        self.load, self.pins = load, pins
+        self.load, self.pins, self.watch = load, pins, watch
         self.run, self.scan_file, self.cfg, self.st, self.confirm, self.raw, self.now, self.version = (
             run, scan_file, config_dir, st, confirm, raw, now, version,
         )  # fmt: skip
@@ -80,10 +87,18 @@ class Session:
         self.write(text)
         return code
 
-    def call(self, argv: list[str]) -> int:
-        with contextlib.suppress(SystemExit):  # argparse exits after --help and --version
-            return self.run(argv)
+    def call(self, argv: list[str], stop: tuple[str, ...] = ("esc",)) -> int:
+        """Run a subcommand; Ctrl-C (or a key in `stop`, where the terminal can watch for one) cancels just this command."""
+        try:
+            with self.watch(stop) if self.watch else contextlib.nullcontext(), contextlib.suppress(SystemExit):
+                # argparse exits after --help and --version
+                return self.run(argv)
+        except KeyboardInterrupt:
+            return CANCELLED
         return 0
+
+    def stopped(self, code: int) -> str:
+        return _c(self.st, "31", "\n  Cancelled" if code == CANCELLED else f"\n  Stopped: exit code {code}") + "\n"
 
     def quiet(self, argv: list[str]) -> tuple[int, str]:
         """Run a subcommand with its output captured."""
@@ -94,19 +109,23 @@ class Session:
 
     def pause(self) -> None:
         try:
-            back = self.confirm("\n  Press Enter to return (q to quit) ")
+            back = self.confirm("\n  Press Enter or Esc to return (q to quit) ")
+        except Cancel:
+            return
         except EOFError:
             raise Exit(0) from None
         if back.strip().lower() == "q":
             raise Exit(0)
 
-    def show(self, title: str, work: Callable[[], int]) -> None:
-        """A command's screen: its title, its output, a note if it stopped, then wait for Enter."""
-        self.write((CLEAR if self.keys is not None else "") + _c(self.st, "1;" + OLIVE, f"  ▸ {title}") + "\n\n")
+    def show(self, title: str, work: Callable[[], int], hint: str = "Esc to cancel", wait: bool = True) -> None:
+        """A command's screen: its title, its output, a note if it stopped, then wait for Enter (`wait` False: only after a failure)."""
+        note = _c(self.st, DIM, f"  {hint}") + "\n" if self.watch and hint else ""
+        self.write((CLEAR if self.keys is not None else "") + _c(self.st, "1;" + OLIVE, f"  ▸ {title}") + "\n" + note + "\n")
         code = work()
         if code:
-            self.write(_c(self.st, "31", f"\n  Stopped: exit code {code}") + "\n")
-        self.pause()
+            self.write(self.stopped(code))
+        if code or wait:
+            self.pause()
 
     def commands(self, title: str, steps: list[list[str]], scan: bool = True) -> None:
         if scan and not self.ensure_scan():
@@ -117,9 +136,15 @@ class Session:
         age = scan_age(self.scan_file, self.now())
         return age is not None and age < DAY
 
+    def yes(self, ask: str) -> bool:
+        """A y/N question: only "y" says yes; Esc, Enter or anything else says no and does nothing."""
+        try:
+            return self.confirm(ask + ("[y/N, Esc to cancel] " if self.watch else "[y/N] ")).strip().lower() == "y"
+        except Cancel:
+            return False
+
     def confirm_scan(self) -> bool:
-        ask = f"No fresh scan. Run `constellation scan {self.cfg} --offline` (reads {self.cfg} locally, sends nothing)? [y/N] "
-        return self.confirm(ask).strip().lower() == "y"
+        return self.yes(f"No fresh scan. Run `constellation scan {self.cfg} --offline` (reads {self.cfg} locally, sends nothing)? ")
 
     def ensure_scan(self) -> bool:
         """True when a scan from the last day exists, or the user agreed to make one and it worked."""
@@ -130,15 +155,15 @@ class Session:
         self.write("  Scanning your setup (offline, nothing is sent)...\n")
         code, text = self.quiet(["scan", self.cfg, "--offline"])
         if code:
-            self.write(text + _c(self.st, "31", f"\n  Stopped: exit code {code}") + "\n")
+            self.write(text + self.stopped(code))
             self.pause()
         return not code
 
     def prompt(self, question: str) -> str:
-        self.write(("" if self.keys is None else CLEAR) + f"\n  {question} ")
+        self.write(("" if self.keys is None else CLEAR) + f"\n  {question} " + (_c(self.st, DIM, "(Esc to cancel) ") if self.watch else ""))
         try:
             return self.confirm("").strip()
-        except EOFError:
+        except (EOFError, Cancel):
             return ""
 
     def open_graph(self) -> None:
@@ -147,26 +172,23 @@ class Session:
         def serve() -> int:
             if demo:
                 self.write("  No scan of your setup, so this shows the packaged demo (invented data).\n")
-            self.write(f"  Serving at http://127.0.0.1:{PORT}, Ctrl-C to stop\n")
-            try:
-                return self.call(["open", "demo" if demo else str(self.scan_file), "--port", str(PORT)])
-            except KeyboardInterrupt:
-                self.write("\n  Stopped.\n")
-                return 0
+            argv = ["open", "demo" if demo else str(self.scan_file), "--port", str(PORT)]
+            code = self.call(argv + ["--menu"] if self.watch else argv, ("esc", "q"))
+            return 0 if code == CANCELLED else code  # Ctrl-C is how the server stops
 
-        self.show("Open", serve)
+        self.show("Open", serve, hint="", wait=False)
 
     def collect(self, rescan: bool) -> tuple[list[analyze.Row], int | None] | None:
         if rescan:
             self.write(CLEAR + "\r\n".join(analyze.render([], 0, self.st, None, "Scanning…")) + "\r\n")
             code, text = self.quiet(["scan", self.cfg, "--offline"])
             if code:
-                self.write(text + "\n")
+                self.write(text + self.stopped(code))
                 self.pause()
                 return None
         code, text = self.quiet(["cost", "--json"])
         if code:
-            self.write(text + "\n")
+            self.write(text + self.stopped(code))
             self.pause()
             return None
         try:
@@ -185,8 +207,6 @@ class Session:
             index = action.choice
             if action.kind in ("back", "quit"):
                 return
-            if action.kind == "interrupt":
-                raise Exit(130)
             if action.kind == "refresh":
                 state = self.collect(True)
                 index = 0
@@ -216,8 +236,6 @@ class Session:
             index = action.choice
             if action.kind in ("back", "quit"):
                 return
-            if action.kind == "interrupt":
-                raise Exit(130)
             if not view.props:
                 continue
             item = view.props[index]
@@ -236,12 +254,7 @@ class Session:
     def write_checklist(self, chosen: list[cleanup.Prop]) -> None:
         path = self.scan_file.parent / "cleanup.md"
         self.write(("" if self.keys is None else CLEAR) + "\n")
-        if (
-            self.confirm(f"  Write a checklist of {len(chosen)} Items to {path.resolve()} (new file, deletes nothing)? [y/N] ")
-            .strip()
-            .lower()
-            != "y"
-        ):
+        if not self.yes(f"  Write a checklist of {len(chosen)} Items to {path.resolve()} (new file, deletes nothing)? "):
             return
 
         def work() -> int:
@@ -270,8 +283,6 @@ class Session:
                 return
             if action.kind == "quit":
                 raise Exit(0)
-            if action.kind == "interrupt":
-                raise Exit(130)
             name, argv = MORE[action.choice][0], [["twins"], ["weekly"], None, ["share"], ["doctor", "--env"]][action.choice]
             if argv is None:
                 target = self.prompt("Which Item?")
@@ -330,6 +341,7 @@ def launch(
     now: Callable[[], float] = time.time,
     load: Callable[[Path], Scan] = load_scan,
     pins: Path | None = None,
+    watch: Watch | None = None,
 ) -> int:
     """Show the menu and run the chosen entries through `run` (cli.main) until the user quits. Returns the exit code."""
     version = importlib.metadata.version("constellation-cli")
@@ -345,24 +357,85 @@ def launch(
         version,
         load,
         pins or pin_file.DEFAULT_CACHE,
+        watch,
     ).loop()
 
 
-def terminal() -> tuple[Callable[[], AbstractContextManager[None]], Iterable[str]] | None:
-    """Raw-mode context and the stream of keys for the real terminal, or None where termios is missing."""
+def line_reader(
+    typed: Iterator[str], raw: Callable[[], AbstractContextManager[None]], write: Callable[[str], object]
+) -> Callable[[str], str]:
+    """A prompt that reads keys itself, so Esc can cancel it (raises Cancel); Enter returns the text."""
+
+    def read(prompt: str) -> str:
+        write(prompt)
+        text = ""
+        with raw():
+            for key in typed:
+                new, status = edit(text, key)
+                if status:
+                    write("\r\n")
+                    if status == "cancel":
+                        raise Cancel
+                    return text
+                write(key if len(new) > len(text) else "\b \b" if len(new) < len(text) else "")
+                text = new
+        raise EOFError
+
+    return read
+
+
+@contextlib.contextmanager
+def watch_keys(
+    fd: int, termios: Any, tty: Any, stop: tuple[str, ...], interrupt: Callable[[], object] = lambda: os.kill(os.getpid(), signal.SIGINT)
+) -> Iterator[None]:
+    """While a command runs: Ctrl-C still works, and any key in `stop` (Esc) interrupts the main thread as Ctrl-C would."""
+    saved = termios.tcgetattr(fd)
+    done = threading.Event()
+
+    def listen() -> None:
+        while not done.is_set():
+            if select.select([fd], [], [], 0.1)[0]:
+                data = os.read(fd, 64)
+                if not data or any(parse_key(k) in stop for k in split_keys(data)):
+                    interrupt()
+                    return
+
+    tty.setcbreak(fd)
+    watcher = threading.Thread(target=listen, daemon=True)
+    watcher.start()
+    try:
+        yield
+    finally:
+        done.set()
+        watcher.join()
+        termios.tcsetattr(fd, termios.TCSADRAIN, saved)
+
+
+def terminal() -> tuple[Callable[[], AbstractContextManager[None]], Iterable[str], Callable[[str], str], Watch] | None:
+    """Raw-mode context, the stream of keys, a text prompt and a key watcher for the real terminal, or None where termios is missing."""
     try:
         import termios
         import tty
     except ImportError:
         return None
     fd = sys.stdin.fileno()
-    return (lambda: raw_mode(fd, termios, tty)), key_stream(lambda: os.read(fd, 64))
+
+    def raw() -> AbstractContextManager[None]:
+        return raw_mode(fd, termios, tty)
+
+    typed = key_stream(lambda: os.read(fd, 64), fold=False)
+
+    def write(text: str) -> None:
+        sys.stdout.write(text)
+        sys.stdout.flush()
+
+    return raw, key_stream(lambda: os.read(fd, 64)), line_reader(typed, raw, write), partial(watch_keys, fd, termios, tty)
 
 
 def open_menu(run: Callable[[list[str]], int]) -> int:
     """Entry point used by cli.main when stdin and stdout are both a TTY. Ctrl-C exits 130 with the terminal restored."""
-    term = terminal()
+    raw, keys, confirm, watch = terminal() or (None, None, input, None)
     try:
-        return launch(run, st=style_for_stdout(), raw=term[0] if term else None, keys=term[1] if term else None)
+        return launch(run, st=style_for_stdout(), raw=raw, keys=keys, confirm=confirm, watch=watch)
     except KeyboardInterrupt:
         return 130
