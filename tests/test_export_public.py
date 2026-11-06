@@ -452,3 +452,49 @@ def test_expansions_file_must_be_readable_json(rich, capsys):
     saved, out, _ = rich
     assert main(["export", "--public", str(saved), "--out", str(out), "--expansions", str(saved.with_name("missing.json"))]) == 2
     assert not out.exists()
+
+
+def test_canned_answers_have_exact_shape_and_no_checklist_target(rich):
+    from constellation.public_export import NOT_SHARED, QUESTIONS, canned
+    from constellation.snapshot import snapshot
+
+    saved, _, _ = rich
+    answers = canned(snapshot(json.loads(saved.read_text())))
+    for q in QUESTIONS[3:]:
+        assert answers[q] == {"answer": NOT_SHARED, "blocks": None, "actions": [], "mode": "local", "cached": False}
+    for q in QUESTIONS[:3]:
+        assert set(answers[q]) == {"answer", "blocks", "actions", "mode", "cached"}
+        assert answers[q]["blocks"]["cards"] == []
+    remove = answers["What could I remove?"]
+    assert remove["blocks"]["handoff"]["checklist_id"] is None
+    assert remove["blocks"]["handoff"]["instruction"]
+    assert answers["What costs the most every session?"]["actions"] == [{"kind": "highlight", "item_ids": ["item-2", "item-3"]}]
+
+
+def test_expansions_keep_later_entries_after_a_bad_one_and_cap_names_at_80(rich):
+    from constellation.snapshot import expansions
+
+    saved, _, _ = rich
+    data = json.loads(saved.read_text())
+    good = {"item_id": "m1", "status": "expanded", "items": [{"name": "n" * 100, "description": "d"}]}
+    assert expansions(data, ["junk", good]) == {"item-1": [{"name": "n" * 80, "description": "d"}]}
+
+
+def test_canned_clears_a_checklist_target_from_the_handoff(rich, monkeypatch):
+    from constellation import public_export
+    from constellation.snapshot import snapshot
+
+    saved, _, _ = rich
+
+    def answer(self, data, question, selected, index_for, assessed):
+        return {
+            "answer": "a",
+            "blocks": {"handoff": {"instruction": "do", "checklist_id": "row-1"}},
+            "actions": [],
+            "mode": "local",
+            "cached": False,
+        }
+
+    monkeypatch.setattr(public_export.LocalChat, "answer", answer)
+    out = public_export.canned(snapshot(json.loads(saved.read_text())))
+    assert out["What could I remove?"]["blocks"]["handoff"] == {"instruction": "do", "checklist_id": None}

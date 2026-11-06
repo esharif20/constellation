@@ -76,17 +76,15 @@ def _scrub(value: Any) -> Any:
 
 def canned(public: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Answers to the fixed questions, from the already-public data only (no usage, habits, history or weekly data exist there)."""
-    chat, found = LocalChat(), compute(public, None, None)
+    chat, found = LocalChat(), compute(public)
     out: dict[str, dict[str, Any]] = {}
     for question in QUESTIONS:
         if question in QUESTIONS[3:]:  # usage questions: that data is never exported
             reply: dict[str, Any] = {"answer": NOT_SHARED, "blocks": None, "actions": [], "mode": "local", "cached": False}
         else:
-            reply = {**chat.answer(public, question, [], lambda _: None, found), "cached": False}  # type: ignore[arg-type,return-value]
-            blocks: dict[str, Any] = reply.get("blocks") or {}
-            for h in [blocks.get("handoff"), *(c.get("handoff") for c in blocks.get("cards") or [])]:
-                if h:
-                    h["checklist_id"] = None  # no server to add to
+            reply = chat.answer(public, question, [], lambda _: None, found)  # type: ignore[arg-type,return-value]  # pragma: no mutate  (selected and index are unused by these questions)
+            if handoff := (reply["blocks"] or {}).get("handoff"):
+                handoff["checklist_id"] = None  # no server to add to
         out[question] = _scrub(reply)
     return out
 
