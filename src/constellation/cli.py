@@ -19,6 +19,7 @@ from langgraph.types import Command
 from . import cli_help, cli_reports, completion, habits, history, menu, scan, scan_graph, selfcheck, weekly
 from . import origins as origin_sources
 from . import profile as project_profile
+from . import purge as purge_report
 from .assessment import compute
 from .assessment import public as assessment_json
 from .classify import FAILED_PREFIX
@@ -190,6 +191,11 @@ def main(
         "--habits", type=Path, default=habits.DEFAULT_CACHE, help="habit ledger (default ~/.cache/constellation/habits.json)"
     )
     profile_command.add_argument("--json", action="store_true")
+    purge_command = commands.add_parser("purge", help="Items only used by long-idle projects (read-only)")
+    purge_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    purge_command.add_argument("--habits", type=Path, default=habits.DEFAULT_CACHE)
+    purge_command.add_argument("--json", action="store_true")
+    purge_command.add_argument("--dry-run", action="store_true", help="accepted for symmetry; purge never deletes")
     completion_command = commands.add_parser("completion")
     completion_command.add_argument("shell", choices=completion.SHELLS)
     cli_help.decorate(parser, commands.choices)
@@ -206,6 +212,8 @@ def main(
         return 0
     if args.command == "profile":
         return _profile(args)
+    if args.command == "purge":
+        return purge_report.command(args.habits, args.json, _load_scan(args.file))
     if args.command == "update":
         print(selfcheck.update_text(selfcheck.detect_method(sys.prefix)))
         return 0
@@ -385,6 +393,7 @@ _SCAN_COMMANDS = {
     "weekly": "what changed since the last scan, what went quiet",
     "find": "find an installed skill by what it does",
     "profile": "which global Items one project uses and which are noise there",
+    "purge": "Items only used by long-idle projects",
     "export": "write a read-only public Snapshot",
     "review": "go through Suggestions one at a time into a checklist",
     "diff": "Items added, removed or changed between two scans",
