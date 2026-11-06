@@ -4,7 +4,7 @@ import json
 from itertools import combinations
 from pathlib import Path
 
-from constellation.grouping import group_items
+from constellation.grouping import FILLER, group_items
 from constellation.models import Item, Relation
 
 # (group, kind, name, description, origin)
@@ -107,3 +107,18 @@ def test_demo_250_has_no_giant_cluster():
     assert 11 <= len(clusters) <= 35
     assert min(sizes) >= 3
     assert sum(sizes) >= 0.95 * len(items)
+
+
+def _demo_clusters():
+    data = json.loads((Path(__file__).parents[2] / "docs/design/demo-250.json").read_text())
+    items = [Item(**{k: v for k, v in i.items() if k in Item.__dataclass_fields__}) for i in data["items"]]
+    return group_items(items, [Relation(**r) for r in data["relations"]], {})
+
+
+def test_names_have_no_filler_and_distinct_heads():
+    for clusters in (group_items(ITEMS, [], {}), _demo_clusters()):
+        named = [c.name for c in clusters]
+        words = [w.lower() for n in named for w in n.split()]
+        assert not [w for w in words if w in FILLER], named
+        heads = [n.split()[0] for n in named]
+        assert len(set(heads)) >= 0.9 * len(heads), heads
