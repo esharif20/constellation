@@ -1,5 +1,6 @@
 """Private local skill-content discovery. This module has no provider or export path."""
 
+import difflib
 import json
 import os
 import re
@@ -10,7 +11,7 @@ from . import history
 from .claude_code import SOURCE, _frontmatter, _manifest, _plugin_roots, read_items, read_secrets
 from .idkey import id_key
 from .redact import _ASSIGNMENT, _FLAG, redact, unique_ids
-from .retrieve import Index
+from .retrieve import LIMIT, Index
 
 DEFAULT_CACHE = Path.home() / ".cache" / "constellation" / "skill-content.json"
 FIRST_LINES = 3
@@ -100,7 +101,7 @@ def _references(config_dir: Path) -> dict[str, list[str]]:
     return found
 
 
-def find_skills(query: str, config_dir: Path, *, cache: Path | None = None) -> tuple[list[dict[str, str]], list[str]]:
+def find_skills(query: str, config_dir: Path, *, cache: Path | None = None, limit: int = LIMIT) -> tuple[list[dict[str, str]], list[str]]:
     """Offline search with local evidence; content never becomes an Item field or embedding input."""
     items, warnings, relations, bodies = read_items(config_dir)
     known = read_secrets(config_dir)
@@ -153,7 +154,15 @@ def find_skills(query: str, config_dir: Path, *, cache: Path | None = None) -> t
     by_id = {i["id"]: i for i in metadata}
     index = Index(metadata, skill_content=content)
     try:
-        results = [{**by_id[hit["id"]], **hit} for hit in index.query(query)]
+        results = [{**by_id[hit["id"]], **hit} for hit in index.query(query, limit)]
     finally:
         index.close()
     return results, [_safe(w, known) for w in warnings]
+
+
+def closest_names(query: str, config_dir: Path) -> list[str]:
+    """The skill names nearest to a query that matched nothing, for the 'No match' hint."""
+    items, _, _, _ = read_items(config_dir)
+    known = read_secrets(config_dir)
+    names = {n.lower(): n for i in items if i.kind == "skill" and (n := _safe(i.name, known))}
+    return [names[n] for n in difflib.get_close_matches(query.lower(), list(names), n=3, cutoff=0)]

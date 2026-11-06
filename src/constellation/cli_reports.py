@@ -30,7 +30,7 @@ from .triggers import trigger_audit
 
 WINDOW = 200_000  # the context window session-start tokens are compared with
 OK, WARN, BAD = "✓", "!", "✗"
-_ANSI = {"bold": "1", OK: "32", WARN: "33", BAD: "31"}
+_ANSI = {"bold": "1", "dim": "2", OK: "32", WARN: "33", BAD: "31"}
 TOP = 10
 
 
