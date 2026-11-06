@@ -34,11 +34,11 @@ export function applyForces(link: ForceLink<LNode, LLink>, set: Setter) {
   const same = (l: LLink) => !!l.source.cluster && l.source.cluster === l.target.cluster;
   link
     .distance((l) => (!same(l) ? 120 : l.kind === "contains" ? 28 : 44))
-    .strength((l) => (!same(l) ? 0.02 : l.kind === "contains" ? 0.6 : 0.3));
+    .strength((l) => (!same(l) ? 0.02 : l.kind === "contains" ? 0.03 : 0.02)); // weak: a stronger pull empties the outer slots of a big cluster into a dense core with a gap ring
   set("charge", forceManyBody<LNode>().strength(-14).distanceMax(40));
   set("collide", forceCollide<LNode>((n) => n.r + 2.5).strength(0.8).iterations(2));
-  set("x", forceX<LNode>((n) => n.sx).strength((n) => (n.degree > 0 ? 0.25 : 0.35)));
-  set("y", forceY<LNode>((n) => n.sy).strength((n) => (n.degree > 0 ? 0.25 : 0.35)));
+  set("x", forceX<LNode>((n) => n.sx).strength((n) => (n.degree > 0 ? 0.4 : 0.35)));
+  set("y", forceY<LNode>((n) => n.sy).strength((n) => (n.degree > 0 ? 0.4 : 0.35)));
   // keep every Item inside its own halo
   let nodes: LNode[] = [];
   const contain = (alpha: number) => {

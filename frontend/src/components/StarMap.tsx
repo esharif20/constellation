@@ -71,6 +71,7 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
   const [size, setSize] = useState({ w: innerWidth, h: innerHeight });
   const [ready, setReady] = useState(false); // the first fit is done: the camera may fly
   const [data, setData] = useState<{ nodes: GNode[]; links: GLink[] }>({ nodes: [], links: [] });
+  const rest = useRef<{ x: number; y: number } | null>(null);
   const dragging = useRef(false); // a node drag keeps its star lit even when the pointer strays off the canvas
   const nameClick = useRef(false); // pointerup already entered a cluster; the rAF click force-graph fires after it must not act
   const onClusterRef = useRef(onCluster);
@@ -470,11 +471,27 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
         onRenderFramePre={painter.pre}
         onRenderFramePost={painter.post}
         onNodeHover={(n) => {
+          if (n && !dragging.current) rest.current = { x: n.x!, y: n.y! }; // a drag always starts with a hover: this is the home it eases back to
           if (tipRef.current.touch) { focus.hover = n ?? null; tipRef.current.raw = n ?? null; wake(); return; } // a finger's tooltip comes from its taps (onNodeClick)
           settle(n ?? null);
         }}
-        onNodeDrag={(n) => { dragging.current = true; focus.hover = n; hideTip(); setCool(Infinity); }}
-        onNodeDragEnd={() => { dragging.current = false; focus.hover = null; setCool(150); wake(); }}
+        onNodeDrag={(n) => { // the star follows the pointer; the engine never runs, so no neighbour is pushed and the layout keeps its shape
+          dragging.current = true; focus.hover = n; hideTip();
+        }}
+        onNodeDragEnd={(n) => {
+          dragging.current = false; focus.hover = null;
+          const to = rest.current, from = { x: n.x!, y: n.y! };
+          n.fx = n.fy = undefined;
+          if (!to) return wake();
+          const t0 = performance.now(), ms = reduced() ? 0 : 260;
+          const step = (now: number) => { // ease back to the home slot
+            const p = ms ? Math.min(1, (now - t0) / ms) : 1, e = 1 - (1 - p) ** 3;
+            n.x = from.x + (to.x - from.x) * e; n.y = from.y + (to.y - from.y) * e;
+            wake();
+            if (p < 1 && !dragging.current) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        }}
         onNodeClick={(n) => {
           if (nameClick.current) { nameClick.current = false; return; }
           const t = tipRef.current;
