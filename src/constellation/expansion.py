@@ -228,7 +228,7 @@ def _tool_items(item_id: str, tools: list[tuple[str, str | None]], config_dir: P
         if name in unique and unique[name] != description:
             raise ValueError
         unique[name] = description
-    # Treat every explicit argument value as private, including short and --name=value forms.
+    # Treat every explicit argument value as private, including --name=value forms; redact() ignores pieces under 8 chars.
     argument_values = []
     for arg in args:
         argument_values += [arg, *re.split(r"[=:\s/@?&#]+", unquote(arg))]

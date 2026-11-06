@@ -21,6 +21,8 @@ HINT_KINDS = {"heading", "first line", "file"}
 HEADINGS = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.MULTILINE)
 UNDERLINE = re.compile(r"(?:=+|-+)")
 CONTROLS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+# A body's "auth: required" or "--api-key your-key-here" is prose, not a credential: plain words never become redaction needles.
+ORDINARY = re.compile(r"[\s._:/-]*[A-Z]?[a-z]+(?:[\s._:/-]+[A-Z]?[a-z]+)*[\s._:/-]*")
 SKILL_LAYOUTS = (("skills/*/SKILL.md", ""), ("skills/synced/*/*/SKILL.md", "synced/"))
 
 
@@ -110,7 +112,7 @@ def find_skills(query: str, config_dir: Path, *, cache: Path | None = None, limi
         for body in bodies.values()
         for pattern in (_ASSIGNMENT, _FLAG)
         for match in pattern.finditer(body)
-        if (value := match["v"].strip("\"'"))
+        if not ORDINARY.fullmatch(value := match["v"].strip("\"'"))
     }
     references = _references(config_dir)
     # The name is equivalent when changed in case on a case-insensitive file system.
