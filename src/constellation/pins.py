@@ -20,8 +20,7 @@ def load(path: Path) -> dict[str, str]:
     pins = raw.get("pins") if isinstance(raw, dict) and raw.get("version") == 1 else None
     if not isinstance(pins, dict) or len(pins) > MAX_PINS:
         return {}
-    ok = {k: v for k, v in pins.items() if isinstance(k, str) and len(k) <= MAX_ID and isinstance(v, str)}
-    return ok
+    return {k: v for k, v in pins.items() if isinstance(k, str) and len(k) <= MAX_ID and isinstance(v, str)}
 
 
 def add(path: Path, id_: str, day: str | None = None) -> bool:

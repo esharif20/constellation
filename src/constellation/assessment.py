@@ -121,8 +121,8 @@ def _days(first: str, last: str) -> int:
 
 def _skipped(data: dict[str, Any]) -> float:
     window = data.get("usage_window") or {}
-    total = (window.get("files") or 0) + (window.get("skipped") or 0)
-    return (window.get("skipped") or 0) / total if total else 0.0
+    skipped = window.get("skipped") or 0
+    return skipped / ((window.get("files") or 0) + skipped) if skipped else 0.0
 
 
 def _from_ledger(data: dict[str, Any], ledger: dict[str, Any], today: str, keys: dict[str, str]) -> tuple[Habits, Evidence]:
