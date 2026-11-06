@@ -16,7 +16,7 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import cli_help, cli_reports, completion, habits, history, menu, scan, scan_graph, selfcheck, weekly
+from . import cli_help, cli_reports, completion, habits, history, menu, scan, scan_graph, selfcheck, status, weekly
 from . import origins as origin_sources
 from . import profile as project_profile
 from . import purge as purge_report
@@ -176,6 +176,9 @@ def main(
     weekly_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     weekly_command.add_argument("--json", action="store_true", help="print the summary as JSON")
     weekly_command.add_argument("--since", help="compare with the newest scan on or before this date (YYYY-MM-DD)")
+    status_command = commands.add_parser("status", help="one screen of setup health: session-start cost, verdicts, this week (local, free)")
+    status_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
+    status_command.add_argument("--json", action="store_true", help="print the status as JSON")
     commands.add_parser("update", help="print the upgrade command for how this was installed (no network, runs nothing)")
     uninstall_command = commands.add_parser(
         "uninstall", help="explain how to remove Constellation; deletes its cache only after you type a confirmation"
@@ -224,6 +227,9 @@ def main(
     if args.command == "weekly":
         data = _load_scan(args.file)
         return 2 if data is None else weekly.command(data, args.json, args.since)
+    if args.command == "status":
+        data = _load_scan(args.file)
+        return 2 if data is None else status.command(data, args.json, cli_reports.style_for_stdout())
     if args.command in {c.name for c in cli_reports.COMMANDS}:
         return _report_command(args)
     if args.command == "preview":
@@ -391,6 +397,7 @@ _SCAN_COMMANDS = {
     "report": "print a plain-text report of a saved scan",
     "assess": "print every Item's verdict as JSON",
     "weekly": "what changed since the last scan, what went quiet",
+    "status": "one screen of setup health",
     "find": "find an installed skill by what it does",
     "profile": "which global Items one project uses and which are noise there",
     "purge": "Items only used by long-idle projects",

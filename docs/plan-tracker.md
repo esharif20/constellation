@@ -1033,3 +1033,9 @@ No deviation from the plan. Fixed on the demo at 1440x900 and 390px: Ask answer 
 - Wiring: one parser block and one dispatch line in `cli.py`, a `_VERBS` entry (Manage) in `cli_help.py`; `menu.py` untouched.
 - No deviation from the plan.
 - Mutation: `purge.py` only, 227/227 killed, zero survivors (run with `tests/test_install_script.py` deselected via a temporary pyproject edit, restored).
+## `constellation status` (2026-11-06, branch `claude/status`)
+
+- Built: `constellation status [file] [--json]`, the setup-health counterpart of Mole's `mo status`, in the Look group. New pure module `status.py` (in `only_mutate`): `build(data, found, week, pins, today) -> Status` and `render(status, style)` using the same `Style` (colour, NO_COLOR) as `cli_reports.py`; `command()` is the glue. One screen: session-start always-on tokens with a proportional bar per plugin (or per kind for Items outside a plugin, top 8), verdict counts by tier (Keep, Review, Likely redundant, Could go, Not enough history), "this week" delta and what went quiet (reuses `weekly.build`; says so when there is no earlier scan), pins count, last scan age, and a one-line health summary. `cli.py` gained one verb and one dispatch; `menu.py` is untouched (the menu calls `status.render`).
+- Local and free: no provider call, no transcript read, nothing written. Names only in output (redacted); no hash or path.
+- Mutation: `status.py` only, zero survivors (run with `tests/test_install_script.py` ignored: it fails inside mutmut's copy for lack of `uv`; pyproject restored).
+- No deviation from the plan.
