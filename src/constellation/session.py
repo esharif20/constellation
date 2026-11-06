@@ -12,12 +12,13 @@ from contextlib import AbstractContextManager
 from functools import partial
 from pathlib import Path
 
-from . import analyze, cleanup
+from . import analyze, cleanup, frontdoor, next_step
 from . import pins as pin_file
 from .cli_reports import ReportError, Scan, Style, style_for_stdout
 from .cli_reports import load as load_scan
 from .keys import Action, key_stream
-from .menu import CLEAR, DAY, ENTRIES, HIDE, MORE, OLIVE, SHOW, _c, choose, numbered, raw_mode, render, scan_age, step
+from .menu import CLEAR, DAY, HIDE, OLIVE, SHOW, _c, choose, numbered, raw_mode, render, scan_age, step
+from .menu import MORE as MORE_ENTRIES
 
 PORT = 8765
 
@@ -118,6 +119,8 @@ class Session:
         return age is not None and age < DAY
 
     def confirm_scan(self) -> bool:
+        if not self.scan_file.is_file():
+            return self.confirm("Scan first? (y/N) ").strip().lower() == "y"
         ask = f"No fresh scan. Run `constellation scan {self.cfg} --offline` (reads {self.cfg} locally, sends nothing)? [y/N] "
         return self.confirm(ask).strip().lower() == "y"
 
@@ -127,17 +130,38 @@ class Session:
             return True
         if not self.confirm_scan():
             return False
+        return self.run_scan()
+
+    def run_scan(self, hint: bool = False) -> bool:
+        """Scan offline with a progress line, then say what was found; True when it worked."""
         self.write("  Scanning your setup (offline, nothing is sent)...\n")
         code, text = self.quiet(["scan", self.cfg, "--offline"])
         if code:
             self.write(text + _c(self.st, "31", f"\n  Stopped: exit code {code}") + "\n")
             self.pause()
-        return not code
+            return False
+        try:
+            data = json.loads(self.scan_file.read_text())
+        except (OSError, ValueError):
+            data = None
+        self.write("  " + frontdoor.done_line(data) + "\n")
+        if hint and (line := next_step.hint_line(self.st, "scan", None)):
+            self.write("  " + line + "\n")
+        return True
+
+    def scan_entry(self) -> None:
+        """Entry 1: say what the scan reads and writes, ask, then scan."""
+        self.write(("" if self.keys is None else CLEAR) + _c(self.st, "1;" + OLIVE, "  ▸ Scan") + "\n\n")
+        self.write("\n".join(frontdoor.scan_intro(self.cfg, str(self.scan_file))) + "\n\n")
+        if frontdoor.clean_answer(self.confirm("  Scan now? (y/N, Esc to cancel) ")).lower() != "y":
+            return
+        if self.run_scan(hint=True):
+            self.pause()
 
     def prompt(self, question: str) -> str:
         self.write(("" if self.keys is None else CLEAR) + f"\n  {question} ")
         try:
-            return self.confirm("").strip()
+            return frontdoor.clean_answer(self.confirm(""))
         except EOFError:
             return ""
 
@@ -251,17 +275,22 @@ class Session:
                 return self.say(f"  {path} already exists, so nothing was written. Move it aside and try again.\n", 1)
             except OSError as error:
                 return self.say(f"  Could not write {path}: {error}\n", 1)
-            return self.say(f"  Wrote {path.resolve()}\n  Constellation never edits your config; make each change by hand.\n")
+            hint = next_step.hint_line(self.st, "clean", None)
+            return self.say(
+                f"  Wrote {path.resolve()}\n  Constellation never edits your config; make each change by hand.\n"
+                + (f"  {hint}\n" if hint else "")
+            )
 
         self.show("Clean", work)
 
     def more(self) -> None:
         index = 0
+        entries = MORE_ENTRIES
         while True:
             action = self.page(
-                lambda i: render(i, self.st, self.version, MORE, False),
-                lambda i, k: step(i, k, len(MORE), False),
-                len(MORE),
+                lambda i: render(i, self.st, self.version, entries, False),
+                lambda i, k: step(i, k, len(entries), False),
+                len(entries),
                 {"b": "back", "q": "quit"},
                 index,
             )
@@ -272,34 +301,41 @@ class Session:
                 raise Exit(0)
             if action.kind == "interrupt":
                 raise Exit(130)
-            name, argv = MORE[action.choice][0], [["twins"], ["weekly"], None, ["share"], ["doctor", "--env"]][action.choice]
-            if argv is None:
-                target = self.prompt("Which Item?")
-                if target:
-                    self.commands(name, [["remove-preview", target]])
-            else:
-                self.commands(name, [argv], scan=action.choice != 4)
+            cmd = frontdoor.MORE[action.choice]
+            answer = ""
+            if cmd.ask:
+                answer = self.prompt(cmd.ask)
+                if not answer:
+                    continue
+            self.commands(cmd.name, [frontdoor.argv_for(cmd, self.cfg, answer)], scan=cmd.scan)
 
     def entry(self, choice: int) -> None:
         if choice == 0:
-            self.open_graph()
+            self.scan_entry()
         elif choice == 1:
-            self.analyze()
+            self.open_graph()
         elif choice == 2:
-            query = self.prompt("What does the skill do?")
-            if query:
-                self.commands("Find", [["find", query, "--config-dir", self.cfg]], scan=False)
+            self.analyze()
         elif choice == 3:
+            query = self.prompt("What does the skill do?")
+            if query:  # TODO(find_view): show the hits as cards when find_view.py is on main
+                self.commands("Find", [["find", query, "--config-dir", self.cfg]], scan=False)
+        elif choice == 4:
             self.clean()
         else:
             self.commands("Status", [["doctor"], ["weekly"]])
+
+    def main_frame(self, index: int) -> list[str]:
+        """The main menu; with no saved scan it says so and Scan explains itself."""
+        first_run = not self.scan_file.is_file()
+        return render(index, self.st, self.version, frontdoor.main_entries(first_run), note=frontdoor.NO_SCAN if first_run else "")
 
     def loop(self) -> int:
         words = {"q": "quit", "m": "more", "v": "version", "u": "update"}
         index = 0
         try:
             while True:
-                action = self.page(lambda i: render(i, self.st, self.version), step, len(ENTRIES), words, index)
+                action = self.page(self.main_frame, step, 6, words, index)
                 index = action.choice if action.kind == "run" else index
                 if action.kind == "quit":
                     return 0

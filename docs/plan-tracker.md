@@ -1052,3 +1052,11 @@ No deviation from the plan. Fixed on the demo at 1440x900 and 390px: Ask answer 
 - No or one blob cluster: `buildModel` regroups by pack origin, else by kind (needs at least 2 groups covering half the Items). Checked in `layout:check`.
 - Chart-ring declination captions are skipped where a star sits under them (decoration never over data).
 - **Not built (deviation to approve):** the proposed angular-sector (wedge) layout and Clusters/Rings switch. There is no separate "ring layout" in the code: the rings are the faint chart graticule behind the circle-packed cluster layout, which already gives each cluster its own non-overlapping circle (`circleClash` check). Sectors would not help a setup with one "Other" cluster, which is the likely cause of the owner's view.
+
+### Front door (claude/frontdoor, 2026-11-06)
+- Menu now mirrors the command map: 1 Scan, 2 Open, 3 Analyze, 4 Find, 5 Clean, 6 Status, M More. Scan shows what it reads and writes ("offline, nothing is sent"), asks y/N (Esc cancels), shows a progress line, then "Done: N Items, M clusters" and a next step. More lists all other CLI commands grouped Look/Act/Map/Manage; each one that needs an argument asks first (Why, Remove preview, Ask, Profile, Diff, Delta, Preview, Expand, Completion). Write-capable commands run as dry runs from More except Share (as before).
+- First run: no saved scan puts "No scan yet. Start with 1 Scan." in the header, Scan highlighted with a one-line explanation, and Open/Analyze/Clean/Status ask "Scan first? (y/N)".
+- Next-step hints: pure `next_step.next_step(command, result)` plus `hint_line`; printed by `cli.py` only when stdout is a TTY and not `--json`, so the menu gets them too.
+- Find: prompt "What does the skill do?" kept; **TODO** call-sites in `cli.py` and `session.py` for `find_view` cards (that module is not on main yet).
+- Esc in a typed prompt cancels (small edit in `Session.prompt`); real Esc/back navigation is the `claude/nav` branch's job.
+- New modules `frontdoor.py`, `next_step.py`; small edits to `menu.py`, `session.py`, `cli.py`. No mutation run (terminal UI/glue); covered by exact-frame, flow, CLI-level and pty tests. No new dependency, no network or model call. No deviation from the plan.
