@@ -4,9 +4,9 @@
 
 ## Largest clusters
 
-- Test-first development: 12 items, 773 tokens
-- Exploring a codebase: 11 items, 661 tokens
-- Notes and study cards: 11 items, 625 tokens
+- Test-first development: 12 items, 773 tokens (14% of always-on)
+- Exploring a codebase: 11 items, 661 tokens (12% of always-on)
+- Notes and study cards: 11 items, 625 tokens (11% of always-on)
 
 ## Costliest always-on
 

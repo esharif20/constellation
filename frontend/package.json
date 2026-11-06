@@ -16,6 +16,7 @@
     "badge:check": "node scripts/badge-check.mjs",
     "labels:check": "node scripts/labels-check.mjs",
     "explain:check": "node scripts/explain-check.mjs",
+    "explain2:check": "node scripts/explain2-check.mjs",
     "preview:check": "node scripts/preview-check.mjs",
     "whatif:check": "node scripts/whatif-check.mjs",
     "hooks:check": "node scripts/hooks-check.mjs",

@@ -286,7 +286,7 @@ export default function Atlas({ model }: { model: Model }) {
         onScope={setScope}
         extra={<History timeline={timeline} onTimeTravel={() => setScrub(timeline?.entries.at(-1)?.date ?? null)} />}
         ask={<AskTrigger open={chatOpen} onOpen={openChat} />}
-        explain={brief ? <ExplainCard model={model} onCluster={(c) => enter(c, true)} onItem={(n) => selectById(n.id)} /> : undefined}
+        explain={brief ? <ExplainCard model={model} habits={habits} onCluster={(c) => enter(c, true)} onItem={(n) => selectById(n.id)} /> : undefined}
       />
       <Presence>{cluster && !chatOpen && !(narrow && selected) && <ClusterCard key="card" cluster={cluster} model={model} focusTitle={byKeyboard} onBack={back} onItem={(n) => { select(n); map.current?.focusCanvas(); }} onPreview={setPreview} onPair={(o: GOverlap) => framePair(o.a, o.b)} removed={removed} />}</Presence>
       {brief && <Brief data={brief} model={model} assessments={assessments} open={showBrief} hidden={chatOpen || (phone && !!selected) || !!cluster} pill={pill} onOpen={openBrief} onItem={selectById} onPair={selectPair} whatIf={whatIf} removed={removed} onWhatIf={startWhatIf} onToggle={toggleRemove} onReset={() => { setWhatIf(new Set()); setLive("What-if reset"); }} />}

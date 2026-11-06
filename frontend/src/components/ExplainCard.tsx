@@ -3,12 +3,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import type { Cluster, GNode, Model } from "@/graph/model";
+import type { Cluster, GNode, Habits, Model } from "@/graph/model";
 
 // Shape of GET api/explain (src/constellation/explain.py): names only, no ids.
 export type Summary = {
   public: boolean; items: number; known: number | null; unknown: number; text: string;
-  clusters: { name: string; items: number; always_on: number | null }[];
+  clusters: { name: string; items: number; always_on: number | null; share?: number | null }[]; // share: whole % of known always-on tokens, null when unmeasured
   costs: { name: string; kind: string; always_on: number }[];
   unused: { name: string; kind: string; always_on: number | null }[] | null;
   window: { files: number; days: number } | null;
@@ -37,6 +37,22 @@ export function dateNote(a: Action, scannedAt?: string | null): string {
 }
 const SHOWN = 4;
 
+// Pay = always-on tokens of every measured Item; used = the part sitting in Items the habit counts say you ran at least once.
+// Unmeasured Items are left out, never counted as zero. Private only: it reads habits, so the public text never has it.
+export type UseVsPay = { pay: number; used: number; usedItems: number; paidItems: number; unmeasured: number; sessions: number };
+export function useVsPay(nodes: readonly GNode[], habits: Habits | null): UseVsPay | null {
+  if (!habits || !habits.sessions) return null;
+  let pay = 0, used = 0, usedItems = 0, paidItems = 0, unmeasured = 0;
+  for (const n of nodes) {
+    const t = n.cost?.always_on;
+    if (t == null) { unmeasured++; continue; }
+    paidItems++; pay += t;
+    if ((habits.items[n.id]?.sessions_used ?? 0) > 0) { used += t; usedItems++; }
+  }
+  return paidItems ? { pay, used, usedItems, paidItems, unmeasured, sessions: habits.sessions } : null;
+}
+export const pct = (part: number, whole: number) => (whole > 0 ? Math.round((100 * part) / whole) : 0);
+
 const SEEN = "constellation.explain";
 const LIMIT = "No usage dates, paths or ids. Item names may still contain dates.";
 const tok = (n: number | null) => (n == null ? "cost unknown" : `${n.toLocaleString("en-US")} tokens`);
@@ -56,7 +72,16 @@ export async function copyPublic(fetcher: typeof fetch = fetch, write: (t: strin
   } catch { return { result: "failed", text: "" }; }
 }
 
-export function ExplainCard({ model, onCluster, onItem }: { model: Model; onCluster: (c: Cluster) => void; onItem: (n: GNode) => void }) {
+// One thin bar, length = share of a whole. Colour is the single indigo token; the number beside it carries the value, so colour alone is never the signal.
+function Bar({ value, label }: { value: number; label: string }) {
+  return (
+    <div role="img" aria-label={label} className="mx-2 mb-1.5 h-1 overflow-hidden rounded-full bg-surface-3">
+      <div className="h-full rounded-full bg-indigo-bright motion-safe:transition-[width] motion-safe:duration-300" style={{ width: `${Math.min(100, Math.max(value, value > 0 ? 2 : 0))}%` }} />
+    </div>
+  );
+}
+
+export function ExplainCard({ model, habits = null, onCluster, onItem }: { model: Model; habits?: Habits | null; onCluster: (c: Cluster) => void; onItem: (n: GNode) => void }) {
   const [open, setOpen] = useState(() => !seen() && !navigator.webdriver); // first visit only; browser automation is never blocked
   const [data, setData] = useState<Summary | null>(null);
   const [error, setError] = useState(false);
@@ -89,14 +114,16 @@ export function ExplainCard({ model, onCluster, onItem }: { model: Model; onClus
   const go = (fn: () => void) => { onOpenChange(false); fn(); };
   const cluster = (name: string) => model.clusters.find((c) => c.name === name);
   const item = (name: string, kind: string) => model.nodes.find((n) => n.name === name && n.kind === kind);
-  const row = (key: string, label: ReactNode, detail: string, act: (() => void) | null) => (
+  const row = (key: string, label: ReactNode, detail: string, act: (() => void) | null, share?: number | null) => (
     <li key={key}>
       <button type="button" disabled={!act} onClick={() => act && go(act)} className="flex min-h-11 w-full cursor-pointer items-baseline justify-between gap-3 rounded-md px-2 text-left hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default disabled:hover:bg-transparent">
         <span className="min-w-0 truncate">{label}</span>
         <span className="shrink-0 font-mono text-xs text-text-3 tabular-nums">{detail}</span>
       </button>
+      {share != null && <Bar value={share} label={`${share}% of always-on tokens`} />}
     </li>
   );
+  const uvp = useVsPay(model.nodes, habits);
   const h = "mt-5 mb-1 px-2 text-xs font-medium tracking-wide text-text-3";
 
   return (
@@ -122,7 +149,16 @@ export function ExplainCard({ model, onCluster, onItem }: { model: Model; onClus
           ) : (
             <>
               <h3 className={h}>Largest clusters</h3>
-              <ul>{data.clusters.map((c) => { const m = cluster(c.name); return row(c.name, <span className="font-serif text-[15px] text-foreground italic">{c.name}</span>, `${c.items} Items · ${tok(c.always_on)}`, m ? () => onCluster(m) : null); })}</ul>
+              <ul>{data.clusters.map((c) => { const m = cluster(c.name); return row(c.name, <span className="font-serif text-[15px] text-foreground italic">{c.name}</span>, `${c.items} Items · ${tok(c.always_on)}${c.share == null ? "" : ` · ${c.share}%`}`, m ? () => onCluster(m) : null, c.share); })}</ul>
+              {data.clusters.some((c) => c.share != null) && <p className="px-2 pt-1 text-xs text-text-3">Share of the always-on tokens measured in this scan.</p>}
+              {uvp && !data.public && (
+                <>
+                  <h3 className={h}>What you use vs what you pay</h3>
+                  <p className="px-2 text-foreground">You pay {tok(uvp.pay)} every session. {uvp.used === uvp.pay ? "All of it sits in Items you have used." : `${tok(uvp.used)} (${pct(uvp.used, uvp.pay)}%) sits in the ${uvp.usedItems} of ${uvp.paidItems} Items you have used.`}</p>
+                  <Bar value={pct(uvp.used, uvp.pay)} label={`${pct(uvp.used, uvp.pay)}% of always-on tokens are in Items you have used`} />
+                  <p className="px-2 text-xs text-text-3">Counted over {uvp.sessions} {uvp.sessions === 1 ? "session" : "sessions"} of recorded use.{uvp.unmeasured ? ` ${uvp.unmeasured} Items with unmeasured cost are left out.` : ""} Not in the public version.</p>
+                </>
+              )}
               <h3 className={h}>Costliest always-on</h3>
               {data.costs.length ? <ul>{data.costs.map((c) => { const n = item(c.name, c.kind); return row(c.name + c.kind, <span className="text-foreground">{c.name}</span>, tok(c.always_on), n ? () => onItem(n) : null); })}</ul> : <p className="px-2 italic">Cost was not measured in this scan.</p>}
               <h3 className={h}>Not used lately</h3>
