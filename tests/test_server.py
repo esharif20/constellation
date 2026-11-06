@@ -117,7 +117,11 @@ def test_brief_reads_scan_each_request_and_existing_checklist(scan_file, measure
     assert response.status_code == 200
     expected = json.loads(json.dumps(brief(measured)))
     expected["evidence"]["ledger"] = False
-    assert response.json() == {**expected, "checklist": {"path": str(checklist), "ids": [row["id"]], "frees": 420, "unknown_rows": 0}}
+    assert response.json() == {
+        **expected,
+        "checklist": {"path": str(checklist), "ids": [row["id"]], "frees": 420, "unknown_rows": 0},
+        "weekly": None,
+    }
     scan_file.write_text(json.dumps(DATA))
     assert client.get("/api/brief").json()["look"]["rows"] == []
     assert client.get("/api/brief").json()["checklist"]["frees"] is None

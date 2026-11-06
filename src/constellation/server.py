@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from . import history as scan_history
 from . import pins as pin_file
 from . import retrieve
+from . import weekly as weekly_summary
 from .assessment import Assessed, compute
 from .assessment import public as assessment_json
 from .brief import append_line, build_brief, checklist_ids
@@ -205,6 +206,7 @@ def create_app(
     preview: Path | None = None,
     habits: Path | None = None,
     pins: Path | None = None,
+    weekly: Path | None = None,
 ) -> FastAPI:
     checklist = DEFAULT_CHECKLIST if checklist is None else checklist
     _checklist_path(checklist, scan_file)
@@ -298,8 +300,8 @@ def create_app(
             "unknown_rows": len(ids) - sum(row["saves"] is not None for row in rows),
         }
 
-    def built_brief(data: dict[str, Any]) -> dict[str, Any]:
-        found = assessed(data)
+    def built_brief(data: dict[str, Any], found: Assessed | None = None) -> dict[str, Any]:
+        found = found or assessed(data)
         built = build_brief(data, found.assessments, found.evidence)
         built["evidence"]["ledger"] = found.ledger
         return built
@@ -316,13 +318,20 @@ def create_app(
 
     @app.get("/api/brief", dependencies=[Depends(local_only)])
     def get_brief() -> dict[str, Any]:
-        built = built_brief(read_scan())
+        data = read_scan()
+        found = assessed(data)
+        built = built_brief(data, found)
         try:
             with _CHECKLIST_LOCK:
                 state = checklist_state(built)
         except (OSError, ValueError) as error:
             raise HTTPException(500, f"Could not read checklist {checklist}: {error}") from None
-        return {**built, "checklist": state}
+        # names and counts only; None until a second scan exists so the Brief hides the section
+        try:
+            week = weekly_summary.build(data, found, built, weekly)
+        except (KeyError, ValueError, TypeError, AttributeError):  # the Brief works without it
+            week = {"state": "first"}
+        return {**built, "checklist": state, "weekly": week if week["state"] == "ready" else None}
 
     @app.post("/api/checklist", dependencies=[Depends(local_only)])
     def add_to_checklist(entry: ChecklistEntry) -> dict[str, Any]:

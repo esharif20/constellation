@@ -41,3 +41,20 @@ const brief = {
 fs.writeFileSync(new URL("./demo-assess.json", import.meta.url), JSON.stringify({ ...demo, usage_window: { files: 52, first: "2026-09-14", last: "2026-11-04", skipped: 0 }, assessments }));
 fs.writeFileSync(new URL("./demo-assess-brief.json", import.meta.url), JSON.stringify(brief));
 console.log(Object.keys(assessments).length, "assessments;", safe.length, "safe,", look.length, "look,", wait.length, "wait");
+
+// "This week" (src/constellation/weekly.py shape): invented Items and counts, so the Brief's top section can be looked at on demo data.
+brief.weekly = {
+  state: "ready", since: "2026-10-30", days: 7,
+  headline: "Since 2026-10-30: 2 added, 1 removed; session start 5,640 to 6,310 tokens (+670) counting known costs only; 2 went quiet; you could free 3,500 to 7,400 tokens (was 2,900 to 6,100).",
+  added: [{ kind: "skill", name: skills[0].name }, { kind: "agent", name: "demo-reviewer" }],
+  removed: [{ kind: "skill", name: "old-notes-helper" }],
+  went_quiet: [{ kind: "skill", name: skills[5].name }, { kind: "mcp_server", name: "demo-search" }],
+  session_start: { then: 5640, now: 6310, delta: 670, unknown_then: 1, unknown_now: 2 },
+  verdict_changes: [
+    { kind: "skill", name: skills[5].name, from: "Keep", to: "Review", why: "Used 6 times, none in 74 active days (you used it about every 9)" },
+    { kind: "skill", name: skills[1].name, from: "Review", to: "Could go", why: "0 uses in 34 active days; costs 610 tokens every session" },
+  ],
+  used_most: [{ kind: "skill", name: skills[8].name, uses: 9 }, { kind: "skill", name: skills[4].name, uses: 4 }, { kind: "agent", name: "demo-reviewer", uses: 2 }],
+  reclaim: { now: { low: 3500, high: 7400, unknown: 3, confidence: "high" }, then: { low: 2900, high: 6100, unknown: 3, confidence: "high" } },
+};
+fs.writeFileSync(new URL("./demo-assess-brief.json", import.meta.url), JSON.stringify(brief));

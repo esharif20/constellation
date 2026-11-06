@@ -7,6 +7,7 @@ import { HookSafety } from "@/components/HookSafety";
 import { Conflicts } from "@/components/Conflicts";
 import { Receipt } from "@/components/Receipt";
 import { Triggers } from "@/components/Triggers";
+import { Weekly } from "@/components/Weekly";
 import { useLenses } from "@/components/useLenses";
 import { Separator } from "@/components/ui/separator";
 import { budget, kindName, type Assessment, type Budget, type BriefData, type BriefRow, type Checklist, type GNode, type Model } from "@/graph/model";
@@ -137,6 +138,7 @@ export function Brief({ data, model, assessments, open, hidden, footerInset = 0,
         </div>
       </div>
       <div className="flex flex-col gap-6 overflow-y-auto overscroll-contain px-4 pt-3 pb-[max(24px,env(safe-area-inset-bottom))] sm:px-6">
+        {data.weekly && <><Weekly data={data.weekly} /><Separator /></>}
         <Preview onItem={onItem} />
         {!actionable && !data.wait.rows.length && <p className="text-[13px] leading-[1.4] text-text-2">Nothing to clean up yet. Run <code className="font-mono text-xs">constellation scan</code> with a key to measure cost.</p>}
         {meter.measured && actionable > 0 && <Meter b={meter} whatIf={!!whatIf} onReset={onReset} onExit={() => onWhatIf?.(false)} />}
