@@ -141,6 +141,9 @@ def test_remove_with_nothing_to_remove_and_with_unknown_savings_only(tmp_path, m
     blocks = ask(blind, "clean up my setup")["blocks"]
     assert blocks["headline"] == "You could remove 1 Item, but the saving is unknown."
     assert "0 tokens" not in blocks["headline"]
+    assert blocks["note"] == (
+        "Plus 1 Item with an unknown saving, not counted as 0. Unused rests on saved transcripts, which Claude Code deletes over time."
+    )
 
 
 def test_remove_shows_five_and_counts_the_rest(tmp_path, monkeypatch):
@@ -813,3 +816,22 @@ def test_unknown_kinds_and_quoted_names_in_instructions(tmp_path, monkeypatch):
     hook = ask(client, "Should I keep pre-hook?")["blocks"]["cards"][0]
     assert hook["verdict"]["label"] == "Not tracked"
     assert hook["handoff"]["instruction"] == "Review the hook `pre-hook`: tell me what it does and whether I still need it. Change nothing."
+
+
+def test_remove_leaves_out_a_pair_whose_twin_is_switched_off(tmp_path, monkeypatch):
+    items = [item("x", "xray", disabled=True), item("y", "yank"), item("o", "other")]
+    extra = {
+        "costs": {"x": cost(500), "y": cost(300), "o": cost(200)},
+        "usage": {"x": {"count": 3, "last_used": "2026-10-29"}, "y": NEVER, "o": NEVER},
+        "usage_window": WINDOW,
+        "overlaps": [{"a_id": "x", "b_id": "y", "verdict": "duplicate", "reason": "same"}],
+    }
+    client = make(tmp_path, monkeypatch, items, **extra)
+    assert [r["kind"] for g in ("safe", "look") for r in client.get("/api/brief").json()[g]["rows"]] == [
+        "remove_duplicate",
+        "remove_unused",
+    ]
+    blocks = ask(client, "What could I remove?")["blocks"]
+    assert [r["name"] for r in blocks["rows"]] == ["other"] and blocks[
+        "headline"
+    ] == "You could remove 1, saving about 200 tokens every session."

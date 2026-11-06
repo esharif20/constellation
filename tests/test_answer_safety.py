@@ -4,6 +4,7 @@ import pytest
 
 from constellation import verdict
 from constellation.answer import NAME_MAX, clean_name, handoff, quote
+from constellation.answer import verdict as answer_verdict
 
 
 @pytest.mark.parametrize(
@@ -63,3 +64,38 @@ def test_the_engine_records_the_twin_it_compared():
     got = verdict.assess(setup, ev, habits, frozenset(), TODAY)
     assert got["claude-code:skill:changelog-draft"].twin_id == "claude-code:skill:release-notes"
     assert got["claude-code:skill:release-notes"].twin_id is None
+
+
+def test_a_missing_verdict_says_so():
+    assert answer_verdict({}, "x") == {"label": "Not enough data", "tone": "unknown", "why": "No verdict is available for this Item"}
+    assert answer_verdict({"assessments": {}}, "x")["tone"] == "unknown"
+
+
+def test_each_action_has_its_exact_instruction():
+    items = [item("a", "alpha"), item("b", "bravo", kind="plugin")]
+    confirm = " Show me exactly what will change and wait for my OK."
+
+    def say(action, which=0, overlap=None, **extra):
+        data = {"items": items, "assessments": {items[which]["id"]: {"action": action, **extra}}}
+        return handoff(data, items[which], overlap)["instruction"]
+
+    assert say("fix_description") == (
+        "Rewrite the description of the skill `alpha` so Claude knows when to pick it: say what it does and when to use it. "
+        "Keep the rest unchanged." + confirm
+    )
+    assert say("disable_plugin", 1) == "Disable the plugin `bravo` in my user settings.json enabledPlugins; do not delete files." + confirm
+    assert say("remove_twin") == "Remove the skill `alpha`: find its folder (under ~/.claude/skills) and delete only that folder." + confirm
+    assert say("none").endswith("Change nothing.") and say("none").startswith("Review the skill `alpha`:")
+    assert handoff({"items": items}, items[0], None)["instruction"] == say("none")
+    assert say("move_to_project").startswith("Move the skill `alpha` out of my global setup")
+
+
+def test_the_other_side_of_a_shown_overlap_is_named_whichever_end_the_item_is():
+    items = [item("a", "alpha"), item("c", "charlie")]
+    shown = {"a_id": "c", "b_id": "a", "verdict": "duplicate", "reason": "r"}
+    for action, expected in (
+        ("remove_twin", "It does the same job as `charlie`, which stays."),
+        ("use_underlying", "only calls `charlie`"),
+    ):
+        data = {"items": items, "assessments": {"a": {"action": action}}}
+        assert expected in handoff(data, items[0], shown)["instruction"]

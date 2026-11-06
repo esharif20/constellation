@@ -128,7 +128,7 @@ def handoff(data: dict[str, Any], item: dict[str, Any], overlap: dict[str, Any] 
     """A copyable instruction for Claude Code and the checklist row that can be added for this Item. The Assessment's action decides
     (like frontend/src/lib/instruction.ts); the Overlap only names the other Item."""
     id_, name, label = item["id"], quote(item["name"]), kind_label(item["kind"])
-    action = ((data.get("assessments") or {}).get(id_) or {}).get("action", "none")
+    action = ((data.get("assessments") or {}).get(id_) or {}).get("action")
     other = None  # pragma: no mutate (equivalent: only read when there is an overlap)
     names = {i["id"]: i["name"] for i in data["items"]}
     twin = ((data.get("assessments") or {}).get(id_) or {}).get("twin_id")

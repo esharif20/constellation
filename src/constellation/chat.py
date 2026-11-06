@@ -30,7 +30,7 @@ from .answer import (
     tokens,
     what_line,
 )
-from .assessment import Assessed, compute
+from .assessment import Assessed
 from .assessment import public as assessment_json
 from .brief import build_brief
 from .compare import parse_compare, parse_keep, parse_what
@@ -678,7 +678,7 @@ class LocalChat:
         question: str,
         selected: list[str],
         index_for: Callable[[list[dict[str, Any]]], Index],
-        assessed: Assessed | None = None,
+        assessed: Assessed,
     ) -> dict[str, Any]:
         clean: dict[str, Any] = {
             "items": [
@@ -707,7 +707,7 @@ class LocalChat:
         clean["memory_bytes"] = data.get("memory_bytes")
         clean["usage"], clean["usage_window"] = data.get("usage"), data.get("usage_window")
         clean["clusters"] = [{"item_ids": c["item_ids"]} for c in data.get("clusters") or []]
-        found = assessed or compute(data)  # the same Assessments the Inspector and the Brief show
+        found = assessed  # the same Assessments the Inspector and the Brief show
         clean["assessments"] = {id_: assessment_json(a) for id_, a in found.assessments.items() if id_ in ids}
         rows = build_brief(data, found.assessments, found.evidence)
         shown = [r for g in ("safe", "look") for r in rows[g]["rows"]]  # only these can be added to the checklist (POST /api/checklist)
