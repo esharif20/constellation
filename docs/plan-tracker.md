@@ -804,3 +804,10 @@ Done. `budget()` in `frontend/src/graph/model.ts` and a `Meter` in `Brief.tsx`: 
 
 - Privacy review fixes (Opus, 2026-11-06): retention counts from the newest evidence and a day is replaced only when it will be written back; a read with unreadable transcripts only raises stored counts; `_valid` demands 12-hex Item keys, 6-hex project keys, `hash|hash` pair keys and counts below 2**53; the `needs` division is guarded; load/modify/save runs under a `flock` lock file; `load` uses `O_NOFOLLOW` and a 16 MiB cap; the design note no longer calls the salted hashes unguessable.
 - **For S4:** `ItemHabits.project_shares` carries stable salted project hashes. They must never appear in an API reply, snapshot or export.
+
+## Ask polish (2026-11-06, branch `claude/ask-polish`)
+
+- Status: done. Button label is now just "Ask" (no online option exists yet). Panel header gets a "Local · free" mode chip and a disabled "Smarter (optional)" switch (off) with one plain sentence and "Not connected": a non-functional placeholder for model mode (`docs/design/model-mode.md`, tracked in #45); no network, no settings written.
+- Less crowding: 4 starter questions with "More questions" for the rest; header separated by a rule; sticky input footer with the field label kept for screen readers only; submit reads "Send". On phones the intro line is hidden and the Smarter sentence sits behind "What is Smarter?" so four questions fit.
+- Unchanged: chat API, answers, privacy wording, `A` shortcut, Escape. Check scripts, README and TopBar comment renamed from "Ask locally" to "Ask".
+- No deviations. Screenshots checked by eye at 1440 and 390 on demo-250 (port 8799).

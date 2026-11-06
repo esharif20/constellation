@@ -26,7 +26,7 @@ type Props = {
   onScope: (s: Scope) => void;
   extra?: ReactNode; // sits beside the warnings button (the History button)
   explain?: ReactNode; // the Explain my setup button and dialog
-  ask?: ReactNode; // the Ask locally trigger, kept beside search: both are ways to question the map
+  ask?: ReactNode; // the Ask trigger, kept beside search: both are ways to question the map
 };
 
 export function TopBar({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, cluster, onCluster, scope, onScope, extra, explain, ask }: Props) {

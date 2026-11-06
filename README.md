@@ -33,7 +33,7 @@ npm --prefix frontend run dev
 
 Design language and the refinement checklist: `docs/design/graph-app.md`.
 
-Open **Ask locally** to search the saved scan, explain a selected Item, compare Context costs, or find known duplicates and never-seen Items. Submit a question to highlight matches on the map. Answers are short, cached in memory and free; models stay off, and no model download or API key is needed. Questions work only on the local server, not a published static page. Optional on-device generation is deferred, targeting a 16GB memory baseline.
+Open **Ask** to search the saved scan, explain a selected Item, compare Context costs, or find known duplicates and never-seen Items. Submit a question to highlight matches on the map. Answers are short, cached in memory and free; models stay off, and no model download or API key is needed. Questions work only on the local server, not a published static page. Optional on-device generation is deferred, targeting a 16GB memory baseline.
 
 ## Using it
 

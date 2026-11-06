@@ -77,7 +77,7 @@ try {
 
   // B: chat highlight on the built server
   open(built);
-  ab("find", "role", "button", "click", "--name", "Ask locally");
+  ab("find", "role", "button", "click", "--name", "Ask");
   ab("find", "placeholder", "Ask about this scan…", "fill", "What costs the most?");
   ab("press", "Enter");
   ab("wait", "--fn", "document.body.innerText.includes('from chat')");

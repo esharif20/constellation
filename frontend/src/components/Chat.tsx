@@ -157,6 +157,21 @@ function Chips({ items, onAsk }: { items: { text: string; ask: string }[]; onAsk
   return <ul className="flex flex-wrap gap-2">{items.map((c) => <li key={c.ask}><Button variant="outline" className="h-11 rounded-md px-3 text-[13px] font-normal whitespace-normal sm:h-9" onClick={() => onAsk(c.ask)}>{c.text}</Button></li>)}</ul>;
 }
 
+// Mode chip plus a placeholder for the optional model mode (docs/design/model-mode.md, #45). Nothing here is wired: no network, no settings.
+function ModeRow() {
+  return <div className="mt-2 flex flex-col gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="inline-flex h-6 items-center rounded-full border border-line-2 px-2 text-xs font-medium text-text-2">Local · free</span>
+      <span className="inline-flex items-center gap-2 text-xs text-text-3">
+        <span role="switch" aria-checked="false" aria-disabled="true" aria-labelledby="smarter-label" aria-describedby="smarter-why" className="relative inline-block h-4 w-7 rounded-full border border-line-2 bg-surface-3 opacity-60"><span className="absolute top-0.5 left-0.5 size-2.5 rounded-full bg-text-4" /></span>
+        <span id="smarter-label">Smarter (optional)</span><span>Off</span>
+      </span>
+    </div>
+    <p id="smarter-why" className="hidden text-xs leading-[1.5] text-text-3 sm:block">When you turn it on, a model could write a smarter answer from the same local facts. It is off, and nothing is sent. <span className="text-text-2">Not connected</span> (coming from model mode, #45).</p>
+    <details className="text-xs text-text-3 sm:hidden"><summary className="flex min-h-11 cursor-pointer items-center rounded-xs outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring">What is Smarter?</summary><p className="pb-1 leading-[1.5]">When you turn it on, a model could write a smarter answer from the same local facts. It is off, and nothing is sent. <span className="text-text-2">Not connected</span> (coming from model mode, #45).</p></details>
+  </div>;
+}
+
 // The live region holds only the headline, so a five-row answer is not read aloud in full.
 export function Answer({ reply, copied, onCopy, onItem, onAsk }: { reply: Reply; copied: boolean; onCopy: () => void; onItem: (id: string) => void; onAsk: (q: string) => void }) {
   const b = reply.blocks;
@@ -192,6 +207,7 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
   const [unavailable, setUnavailable] = useState(false);
   const [slow, setSlow] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [more, setMore] = useState(false);
   const echo = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (!pending) return;
@@ -295,17 +311,21 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
       onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); collapse(); } }}
     >
       <div aria-hidden className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line-2 sm:hidden" />
-      <div className="flex shrink-0 items-start justify-between gap-2 px-4 pt-3 sm:px-6 sm:pt-4">
-        <div className="pt-1"><h2 id="chat-title" className="text-sm font-medium">Ask your Constellation</h2><p className="mt-1 text-xs text-text-3">Local answers · models off</p></div>
-        <Button variant="ghost" size="icon-lg" className="-mr-2 text-text-3" aria-label="Collapse local chat" aria-expanded={true} aria-controls="chat-panel" onClick={collapse}><XIcon aria-hidden /></Button>
+      <div className="shrink-0 border-b border-line-1 px-4 pt-3 pb-3 sm:px-6 sm:pt-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="chat-title" className="text-sm font-medium">Ask your Constellation</h2>
+          <Button variant="ghost" size="icon-lg" className="-mr-2 text-text-3" aria-label="Collapse local chat" aria-expanded={true} aria-controls="chat-panel" onClick={collapse}><XIcon aria-hidden /></Button>
+        </div>
+        <ModeRow />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 sm:px-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 pb-4 sm:px-6">
         {!asked && <>
-          <p className="text-sm leading-[1.55] text-text-2">Ask about this setup. Answers are worked out here, for free.</p>
+          <p className="hidden text-sm leading-[1.55] text-text-2 sm:block">Ask about this setup. Answers are worked out here, for free.</p>
           <div>
             <h3 className="mb-1 text-xs font-medium text-text-3">What you can ask</h3>
             <div className="-mx-2 flex flex-col items-start">
-              {starters(model, selected).slice(0, 5).map((q) => <Button key={q} variant="ghost" className="h-auto min-h-11 w-full justify-start px-2 py-2 text-left text-[13px] font-normal whitespace-normal sm:min-h-10" disabled={pending || unavailable} onClick={() => void ask(q)}>{q}</Button>)}
+              {starters(model, selected).slice(0, more ? 6 : 4).map((q) => <Button key={q} variant="ghost" className="h-auto min-h-11 w-full justify-start px-2 py-2 text-left text-[13px] font-normal whitespace-normal sm:min-h-10" disabled={pending || unavailable} onClick={() => void ask(q)}>{q}</Button>)}
+              {starters(model, selected).length > 4 && <Button variant="ghost" className="h-auto min-h-11 w-full justify-start px-2 py-2 text-left text-[13px] font-normal text-text-3 sm:min-h-10" aria-expanded={more} onClick={() => setMore(!more)}>{more ? "Fewer questions" : "More questions"}</Button>}
             </div>
           </div>
         </>}
@@ -314,13 +334,13 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
         {reply && <div><Answer reply={reply} copied={copied} onCopy={() => void copy()} onItem={onItem} onAsk={(q) => void ask(q)} /></div>}
         {error && <p role="alert" className="flex items-start gap-2 text-[13px] leading-[1.4] text-warn"><TriangleAlertIcon aria-hidden className="size-4 shrink-0" />{error}</p>}
       </div>
-      <form onSubmit={(e) => { e.preventDefault(); void ask(question); }} className="mt-4 flex shrink-0 flex-col gap-2 border-t px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
+      <form onSubmit={(e) => { e.preventDefault(); void ask(question); }} className="flex shrink-0 flex-col gap-2 border-t border-line-1 px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 sm:pb-4">
         {selected && <p className="truncate text-xs text-text-3" title={selected.name}>Selected: {selected.name}</p>}
-        <label htmlFor="chat-question" className="text-xs font-medium text-text-3">Your question</label>
+        <label htmlFor="chat-question" className="sr-only">Your question</label>
         <Input ref={input} id="chat-question" value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={1000} autoComplete="off" placeholder="Ask about this scan…" disabled={pending || unavailable} className="h-11 text-sm" />
         <div className="flex items-center justify-between gap-2">
           <Button type="button" variant="ghost" disabled={!asked && !question} className="h-11 gap-2 px-2 text-text-3 sm:h-10" onClick={reset}><RotateCcwIcon aria-hidden />Reset</Button>
-          <Button type="submit" disabled={pending || unavailable || !question.trim()} aria-busy={pending} className="h-11 gap-2 sm:h-10"><SendIcon aria-hidden />{pending ? "Looking…" : "Ask locally"}</Button>
+          <Button type="submit" disabled={pending || unavailable || !question.trim()} aria-busy={pending} className="h-11 gap-2 sm:h-10"><SendIcon aria-hidden />{pending ? "Looking…" : "Send"}</Button>
         </div>
       </form>
     </section> : null}
@@ -329,9 +349,9 @@ export function Chat({ model, selected, open, onOpen, onActions, onReset, onItem
 
 // Lives in the top bar beside search (docs/design/ask-placement.md), so it never competes with the Legend or a sheet for the bottom-left corner.
 export function AskTrigger({ open, onOpen }: { open: boolean; onOpen: (open: boolean) => void }) {
-  return <Button id="ask-trigger" variant="outline" aria-expanded={open} aria-controls={open ? "chat-panel" : undefined} aria-keyshortcuts="A" title="Ask locally (A)" onClick={() => onOpen(!open)}
+  return <Button id="ask-trigger" variant="outline" aria-expanded={open} aria-controls={open ? "chat-panel" : undefined} aria-keyshortcuts="A" title="Ask (A)" onClick={() => onOpen(!open)}
     className="glass h-11 shrink-0 gap-2 rounded-lg border-indigo-bright/40 px-3 text-[13px] text-foreground hover:border-indigo-bright/70 aria-expanded:bg-indigo-bright/20 sm:h-10">
     {/* the label folds to an icon where the one-row desktop bar is full (641-1379px); it stays on phones, where the button has its own row */}
-    <MessageCircleIcon aria-hidden /><span className="sm:max-[1379px]:sr-only">Ask locally</span><Kbd aria-hidden className="hidden lg:inline-flex">A</Kbd>
+    <MessageCircleIcon aria-hidden /><span className="sm:max-[1379px]:sr-only">Ask</span><Kbd aria-hidden className="hidden lg:inline-flex">A</Kbd>
   </Button>;
 }

@@ -24,13 +24,13 @@ try {
     if (width <= 640) {
       check(`document.querySelector("#ask-trigger").getBoundingClientRect().bottom <= ${card}.getBoundingClientRect().top`, "Phone Chat trigger clears the cluster sheet");
     }
-    browser("find", "role", "button", "click", "--name", "Ask locally");
+    browser("find", "role", "button", "click", "--name", "Ask");
     browser("wait", "--fn", `!!${chat} && ${chat}.getBoundingClientRect().bottom <= innerHeight + 1`);
     check(`!${card} && !${brief}`, "Opening Chat releases the cluster card and Brief slot");
     check('!location.hash.includes("cluster=")', "Opening Chat exits cluster focus without a stale history entry");
     browser("find", "role", "button", "click", "--name", "Collapse local chat");
     browser("wait", "--fn", `!!${brief}`);
-    browser("find", "role", "button", "click", "--name", "Ask locally");
+    browser("find", "role", "button", "click", "--name", "Ask");
     browser("find", "role", "button", "click", "--name", "24 clusters");
     browser("find", "role", "option", "click", "--name", "Tidy the changelog 28");
     browser("wait", "--fn", `!!${card}`);
@@ -40,7 +40,7 @@ try {
       browser("eval", `${card}.querySelector('section[aria-labelledby="card-top"] button').click()`);
       browser("wait", "--fn", '!!document.querySelector("aside") && document.querySelector("aside").getAnimations().every(a => a.playState === "finished")');
       check(`!${card} && !${chat}`, "Narrow Inspector replaces the cluster card");
-      browser("find", "role", "button", "click", "--name", "Ask locally");
+      browser("find", "role", "button", "click", "--name", "Ask");
       browser("wait", "--fn", `!!${chat} && ${chat}.getBoundingClientRect().bottom <= innerHeight + 1`);
       check('!document.querySelector("aside")', "Narrow Chat replaces the selected Inspector");
       browser("find", "role", "button", "click", "--name", "Collapse local chat");
