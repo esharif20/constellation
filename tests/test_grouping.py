@@ -410,3 +410,19 @@ def test_two_plugin_clusters_with_the_same_name_get_spare_words():
     (i1, r1), (i2, r2) = bundle("p1", "a"), bundle("p2", "b")
     clusters = named(i1 + i2, [[0, 1, 2, 6], [3, 4, 5, 7]], r1 + r2)  # ids sort as a0 a1 a2 b0 b1 b2 p1 p2
     assert [c.name for c in clusters] == ["Kit Alpha", "Kit Alpha Beta"]
+
+
+# ---- naming: filler words and bigrams ----
+def test_stems_keep_ss_us_as_is_endings():
+    assert g._words("compass canvas status basis tests") == ["compass", "canvas", "status", "basis", "test"]
+
+
+def test_bigram_needs_half_the_members_three_members_and_skips_banned():
+    its = [item(n, id_=n) for n in ("sort-tally-a", "sort-tally-b", "sort-lattice-c", "sort-tally-d")]
+    assert g._bigram([0, 1, 2, 3], its, set()) == "Sort Tally"
+    assert g._bigram([0, 1, 2, 3], its, {"tally"}) is None  # banned words form no pair; 'sort lattice' has one of four
+    assert g._bigram([0, 1], its, set()) is None  # fewer than three members
+    half = [item(n, id_=n) for n in ("sort-tally", "sort-tally", "x-y", "p-q")]
+    assert g._bigram([0, 1, 2, 3], half, set()) == "Sort Tally"  # exactly half is enough
+    third = [item(n, id_=n) for n in ("sort-tally", "sort-tally", "x-y", "p-q", "u-v")]
+    assert g._bigram([0, 1, 2, 3, 4], third, set()) is None  # two of five is under half

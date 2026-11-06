@@ -7,6 +7,7 @@ words and filed under a coarse category. Pure and deterministic: sorted by id, t
 import math
 import re
 from collections import Counter
+from collections.abc import Collection
 
 from .cluster import dot
 from .models import Cluster, Item, Relation
@@ -18,6 +19,7 @@ SAME_OWNER = 0.35  # bonus: both live in one plugin, or share an origin
 SAME_PREFIX = 0.3  # bonus: names start with the same word, e.g. firecrawl-*
 RELATED = 0.2  # bonus: joined by a relation other than "contains"
 SAME_FAMILY = 0.03  # bonus: same kind family
+EMBED_THRESHOLD = 0.35  # merge threshold when embeddings ran (bge cosines sit high, so the word-only 0.15 over-merges)
 EMBED_WEIGHT = 0.4  # embedding cosine (clipped at 0) added to the word cosine when a local embedder ran
 NAME_WEIGHT = 2  # a name word counts like this many description words
 MAX_SHARE = 0.2  # no cluster may hold more than this share of the Items (but at least MIN_CAP)
@@ -31,6 +33,13 @@ _STOP = {
     "any", "not", "into", "its", "has", "have", "how", "out", "skill", "skills", "claude", "code", "tool", "tools", "user", "files",
     "setup", "plugin", "bundle", "helper", "agent", "agents", "mcp", "server", "new", "more", "also", "than", "then", "each", "one",
 }  # fmt: skip
+# words that make a poor cluster name; only the naming step skips them (similarity still uses them)
+FILLER = {
+    "involve", "involves", "help", "helps", "task", "tasks", "work", "works", "keep", "keeps", "small", "lite", "mini", "pro", "two",
+    "plus", "make", "makes", "get", "gets", "set", "run", "runs", "needs", "need", "want", "like", "thing", "things", "way",
+    "good", "best", "well", "just", "some", "other", "about", "should", "would", "could", "which", "their", "there", "been", "was",
+}  # fmt: skip
+FILLER_SHARE = 0.8  # a word used by more than this share of the clusters (at least 4 of them) names none of them
 _FAMILY = {"skill": "prompt", "command": "prompt", "agent": "prompt", "mcp_server": "server", "connector": "server"}
 CATEGORIES = {
     "Design & UI": "design ui ux frontend css layout typography palette figma component shadcn tailwind visual animation style font brand",
@@ -46,7 +55,10 @@ CATEGORIES = {
 
 
 def _words(text: str) -> list[str]:
-    found = (w[:-1] if w.endswith("s") and len(w) > 4 else w for w in re.findall(r"[a-z0-9]+", text.lower()))
+    found = (
+        w[:-1] if w.endswith("s") and not w.endswith(("ss", "us", "as", "is")) and len(w) > 4 else w
+        for w in re.findall(r"[a-z0-9]+", text.lower())
+    )
     return [w for w in found if (len(w) >= 3 or w in ("ai", "ui")) and w not in _STOP]
 
 
@@ -172,7 +184,7 @@ def group_items(
         return []
     docs = _docs(items)
     base = _similarities(items, relations, _tfidf(docs), vectors)
-    groups = _agglomerate(base, len(items), THRESHOLD if threshold is None else threshold)
+    groups = _agglomerate(base, len(items), (EMBED_THRESHOLD if vectors else THRESHOLD) if threshold is None else threshold)
     return _name(items, groups, docs, relations, base, labels)
 
 
@@ -181,10 +193,20 @@ def _central(group: list[int], base: dict[tuple[int, int], float]) -> int:
     return max(group, key=lambda a: (sum(base[_key(a, b)] for b in group if b != a), -a))
 
 
-def _distinctive(group: list[int], docs: list[Counter[str]], spread: Counter[str], k: int) -> list[str]:
+def _bigram(group: list[int], items: list[Item], banned: set[str]) -> str | None:
+    """The adjacent word pair, from item names, that at least half the members share (e.g. 'sort tally'); commonest, then alphabetical."""
+    names = [_words(items[a].name) for a in group]
+    pairs = Counter(p for w in names for p in set(zip(w, w[1:], strict=False)) if p[0] not in banned and p[1] not in banned)
+    best = min(pairs, key=lambda p: (-pairs[p], p), default=None)
+    return f"{_title(best[0])} {_title(best[1])}" if best and len(group) >= 3 and pairs[best] * 2 >= len(group) else None
+
+
+def _distinctive(group: list[int], docs: list[Counter[str]], spread: Counter[str], k: int, banned: Collection[str] = ()) -> list[str]:
     """Words of the group ranked by how often its members use them, discounted by how many of the k groups use them at all.
-    A word must be in at least two members (one, for a group of one)."""
+    A word must be in at least two members (one, for a group of one); banned filler words never qualify unless nothing else does."""
     words = Counter(w for a in group for w in docs[a])
+    if any(w not in banned for w in words):
+        words = Counter({w: c for w, c in words.items() if w not in banned})
     score = {
         w: sum(docs[a][w] for a in group) * (math.log((1 + k) / (1 + spread[w])) + 1)  # a constant factor of len(group) cannot reorder
         for w, c in words.items()
@@ -213,19 +235,21 @@ def _name(
     """Name each group (a model label if a member has one, else its plugin and most distinctive words), file it under a category,
     and return the clusters ordered by their first member."""
     spread = Counter(w for g in groups for w in {w for a in g for w in docs[a]})
+    banned = FILLER | {w for w, c in spread.items() if len(groups) >= 6 and c >= 4 and c > FILLER_SHARE * len(groups)}
     owner = {r.target: r.source for r in relations if r.kind == "contains"}
     plugin_name = {i.id: i.name for i in items if i.kind == "plugin"}
     clusters: list[Cluster] = []
     used: set[str] = set()
     for g in sorted(groups, key=lambda g: (-len(g), g[0])):  # bigger groups claim a name first
         centre = _central(g, base)
-        terms = _distinctive(g, docs, spread, len(groups))
+        terms = _distinctive(g, docs, spread, len(groups), banned)
         shared = {owner.get(items[a].id, items[a].id) for a in g}  # the plugin holding each member (a plugin or a loner: itself)
         plugin = plugin_name.get(next(iter(shared)), "") if len(shared) == 1 else ""  # one plugin holds the whole cluster
         head = [w.capitalize() for w in re.split(r"[-_ .:/]+", plugin) if w]
         terms = [w for w in terms if _title(w) not in head]
         chosen = next((labels[items[a].id] for a in sorted(g, key=lambda a: a != centre) if items[a].id in labels), None)
-        name = chosen or " ".join(head + [_title(w) for w in terms[: 1 if head else 2]]) or items[centre].name
+        pair = None if head else _bigram(g, items, banned)
+        name = chosen or pair or " ".join(head + [_title(w) for w in terms[: 1 if head else 2]]) or items[centre].name
         name = _unique(name, terms[1 if head else 2 :], used)
         used.add(name)
         category = category_of(Counter({w: c for a in g for w, c in docs[a].items()}))
