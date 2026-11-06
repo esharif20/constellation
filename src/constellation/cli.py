@@ -9,7 +9,7 @@ import shutil
 import sys
 import tempfile
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from difflib import get_close_matches
 from pathlib import Path
 from typing import Any
@@ -29,7 +29,7 @@ from .models import LLM, Constellation, Embedder, TokenCounter
 from .overlaps import estimate_cost
 from .preview import delta, preview, render_delta, render_preview
 from .public_export import LIMITS, NOTICE, write_snapshot
-from .redact import redact
+from .redact import redact_tree
 from .report import render_cleanup, render_report, write_private
 from .review import build_review_graph, open_checkpointer, thread_id
 from .skill_search import find_skills
@@ -628,15 +628,16 @@ def _delta(args: argparse.Namespace) -> int:
 def _write(result: Constellation, path: Path, secrets: set[str], config_dir: Path, history_path: Path | None) -> None:
     day, setup = history._today(), history.key(str(config_dir.resolve()))
     result.scanned_at, result.setup = day, setup
-    result.items = [replace(i, description=redact(i.description, secrets)) for i in result.items]  # the Items hold raw text
-    text = json.dumps(asdict(result), indent=2)  # serialise first: a failure must not leave an empty file behind
+    # One redaction of everything saved (names, ids, warnings, paths, descriptions), not per field: the Items hold raw text.
+    data = redact_tree(asdict(result), secrets)
+    text = json.dumps(data, indent=2)  # serialise first: a failure must not leave an empty file behind
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     os.chmod(path, 0o600)  # open() keeps the mode of a file that already existed
     with os.fdopen(fd, "w") as f:
         f.write(text)
     if history_path is not None:
         try:
-            history.record(history_path, history.entry(asdict(result), setup, day))
+            history.record(history_path, history.entry(data, setup, day))
         except OSError as error:
             print(f"could not save scan history: {error}", file=sys.stderr)
 

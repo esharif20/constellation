@@ -247,3 +247,23 @@ def test_a_provider_error_message_has_known_secrets_redacted():
         guarded(failing, ["hunter2-plain"])("hello")
     assert "hunter2-plain" not in str(caught.value)
     assert str(caught.value).startswith("RuntimeError:")
+
+
+def test_redact_tree_cleans_every_string_key_and_nested_value():
+    from constellation.redact import redact_tree
+
+    secret = "ZZQ-INVENTED-TREE-SECRET-1"
+    tree = {"id": f"skill:{secret}", "n": 3, "ok": True, "none": None, "w": [f"a {secret}", ("t", secret)], secret: {"k": secret}}
+    out = redact_tree(tree, [secret])
+    assert secret not in json.dumps(out)
+    assert out["n"] == 3 and out["ok"] is True and out["none"] is None
+    assert out["w"][1] == ["t", "[REDACTED]"]
+
+
+def test_the_demo_scan_round_trips_through_redaction_with_stable_ids():
+    import importlib.resources
+
+    from constellation.redact import redact_tree
+
+    demo = json.loads((importlib.resources.files("constellation") / "demo" / "demo.json").read_text())
+    assert redact_tree(demo) == demo
