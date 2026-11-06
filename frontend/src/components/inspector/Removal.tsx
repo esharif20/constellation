@@ -22,24 +22,30 @@ function Row({ row, model, onSelect }: { row: RemovalRow; model: Pick<Model, "no
 }
 
 // The answer, split out of the disclosure so it renders without a fetch.
-export function RemovalBody({ data, model, onSelect }: { data: Removal; model: Pick<Model, "nodes">; onSelect: (n: GNode) => void }) {
+// `listed`: ids the Inspector already shows under "Does the same job" / "Wraps"; a covering Item in that list is named once, there.
+export function RemovalBody({ data, model, onSelect, listed = new Set() }: { data: Removal; model: Pick<Model, "nodes">; onSelect: (n: GNode) => void; listed?: ReadonlySet<string> }) {
+  const dup = data.covered_by.filter((r) => listed.has(r.id));
   const Icon = data.safe ? CheckIcon : TriangleAlertIcon;
   return <div className="mt-2">
     <p className={cn("flex items-start gap-2 text-[13px] leading-[1.45]", data.safe ? "text-indigo-bright" : "text-warn")}>
       <Icon aria-hidden className="mt-0.5 size-4 shrink-0" /><b className="font-semibold">{data.verdict}</b>
     </p>
     <ul className="mt-1 list-disc pl-5 text-[13px] leading-[1.45] text-text-2">{data.reasons.map((t) => <li key={t}>{t}</li>)}</ul>
-    {GROUPS.map(([key, title]) => data[key].length > 0 && <section key={key} className="mt-3">
-      <h4 className="text-xs font-medium text-text-3">{title} <span className="ml-1 font-mono tabular-nums">{data[key].length}</span></h4>
-      <ul className="flex flex-col">{data[key].map((r) => <Row key={r.id} row={r} model={model} onSelect={onSelect} />)}</ul>
-    </section>)}
+    {dup.length > 0 && <p className="mt-3 text-xs leading-[1.45] text-text-3">Still covered by {dup.map((r) => r.name).join(", ")}, listed below.</p>}
+    {GROUPS.map(([key, title]) => {
+      const rows = key === "covered_by" ? data[key].filter((r) => !listed.has(r.id)) : data[key];
+      return rows.length > 0 && <section key={key} className="mt-3">
+      <h4 className="text-xs font-medium text-text-3">{title} <span className="ml-1 font-mono tabular-nums">{rows.length}</span></h4>
+      <ul className="flex flex-col">{rows.map((r) => <Row key={r.id} row={r} model={model} onSelect={onSelect} />)}</ul>
+    </section>;
+    })}
     {data.cluster && <p className="mt-3 text-xs leading-[1.45] text-text-3">Same group, {data.cluster.name}: {data.cluster.others.join(", ")}{data.cluster.more > 0 && ` and ${data.cluster.more} more`}.</p>}
     <p className="mt-3 text-xs text-text-3">Nothing is changed here. Remove it by hand.</p>
   </div>;
 }
 
 // "If you remove this": closed until asked, then one local request to /api/removal. A failed request says so and offers no guess.
-export function RemovalPreview({ item, model, onSelect }: { item: GNode; model: Pick<Model, "nodes">; onSelect: (n: GNode) => void }) {
+export function RemovalPreview({ item, model, onSelect, listed }: { item: GNode; model: Pick<Model, "nodes">; onSelect: (n: GNode) => void; listed?: ReadonlySet<string> }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Removal | "error" | null>(null);
   useEffect(() => {
@@ -59,7 +65,7 @@ export function RemovalPreview({ item, model, onSelect }: { item: GNode; model: 
     <Presence>{open ? <Pane from="top">
       {data === null ? <p role="status" className="mt-2 text-xs text-text-3">Checking your setup...</p>
         : data === "error" ? <p role="status" className="mt-2 text-xs text-text-3">The preview is not available here.</p>
-        : <RemovalBody data={data} model={model} onSelect={onSelect} />}
+        : <RemovalBody data={data} model={model} onSelect={onSelect} listed={listed} />}
     </Pane> : null}</Presence>
   </section>;
 }

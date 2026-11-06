@@ -34,6 +34,10 @@ try {
   const live = [...html.matchAll(/<p[^>]*role="status"[^>]*>(.*?)<\/p>/g)];
   assert.equal(live.length, 1);
   assert.equal(live[0][1], blocks.headline, "the live region holds only the headline");
+  // An answer row wraps its value under the name instead of squeezing the name to a letter per line (a shrink-0 value did that).
+  const row = html.match(/<li class="([^"]*)"><div class="([^"]*)">/);
+  assert.ok(row && /\bflex-wrap\b/.test(row[1]) && /min-w-\[12rem\]/.test(row[2]), "rows wrap, name column keeps a minimum width");
+  assert.doesNotMatch(html, /shrink-0 pr-2 text-right font-mono/);
   assert.match(html, /aria-label="Copy answer"/);
   assert.match(html, /2 more\. Ask a narrower question\./);
   const plain = renderToStaticMarkup(createElement(Answer, { reply: { answer: "plain text", blocks: null, actions: [], mode: "local", cached: false }, copied: false, onCopy() {}, onItem() {}, onAsk() {} }));
