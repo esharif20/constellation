@@ -6,6 +6,7 @@ import re
 from collections import Counter
 from collections.abc import Callable, Iterable
 from itertools import pairwise
+from typing import Any
 from urllib.parse import quote, quote_plus
 
 from .models import LLM, Embedder, TokenCounter
@@ -70,6 +71,18 @@ def redact(text: str, known: Iterable[str] = ()) -> str:
     for pattern in (_FLAG, _ASSIGNMENT):
         text = pattern.sub(lambda m: m["k"] + REDACTED, text)
     return _CANDIDATE.sub(lambda m: REDACTED if _looks_random(m[0]) else m[0], text)
+
+
+def redact_tree(value: Any, known: Iterable[str] = ()) -> Any:
+    """Redact every string (and dict key) in a JSON-like value: the one pass applied to whatever is written to disk."""
+    known = tuple(known)
+    if isinstance(value, str):
+        return redact(value, known)
+    if isinstance(value, dict):
+        return {redact_tree(k, known): redact_tree(v, known) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [redact_tree(v, known) for v in value]
+    return value
 
 
 class ProviderError(Exception):

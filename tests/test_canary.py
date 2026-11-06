@@ -268,11 +268,6 @@ def test_canary_is_absent_from_each_api_reply(canary_scan, tmp_path, caplog, met
 
 
 @pytest.mark.parametrize("surface", ["saved-scan", "api"])
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="claude_code.py:284 puts raw secret folder paths in warnings; cli.py:467 scrubs only Item descriptions",
-)
 def test_a_bad_skill_warning_does_not_publish_its_secret_folder(canary_setup, tmp_path, surface):
     config, project = canary_setup
     # A malformed but readable file exercises the warning path, independently of valid setup outputs.
@@ -314,7 +309,6 @@ def test_an_interrupted_scan_checkpoint_has_no_body_or_secret(canary_setup, tmp_
         assert_clean(path.read_bytes())
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="cli.py:467 redacts Item descriptions but writes raw secret names and ids")
 def test_a_secret_in_a_skill_name_does_not_reach_the_saved_scan(canary_setup, tmp_path):
     config, _ = canary_setup
     path = config / "skills" / TOKENS["folder"] / "SKILL.md"
