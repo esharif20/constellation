@@ -36,7 +36,8 @@
     "find:check": "node scripts/find-check.ts",
     "cmdk:check": "node scripts/cmdk-check.ts",
     "dismiss:browser": "node scripts/dismiss-browser-check.mjs",
-    "dragrest:browser": "node scripts/drag-rest-check.mjs"
+    "dragrest:browser": "node scripts/drag-rest-check.mjs",
+    "dragelastic:browser": "node scripts/drag-elastic-check.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",

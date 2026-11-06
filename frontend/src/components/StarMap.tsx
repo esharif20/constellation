@@ -104,7 +104,7 @@ export const StarMap = memo(forwardRef<StarMapHandle, Props>(function StarMap({ 
     const tick = () => {
       const g = fg.current;
       if (!g) return void (loop.current = 0);
-      if (pressed.current) return void (loop.current = requestAnimationFrame(tick)); // repaint resumes on release
+      if (pressed.current && !dragging.current) return void (loop.current = requestAnimationFrame(tick)); // repaint resumes on release; a node drag has no click to lose, and its springs must repaint while the pointer is still
       g.zoom(g.zoom());
       quiet = painter.busy() ? 2 : quiet - 1;
       loop.current = quiet >= 0 ? requestAnimationFrame(tick) : 0;
