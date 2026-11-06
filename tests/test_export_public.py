@@ -269,7 +269,7 @@ def test_export_disk_failure_is_an_error_and_partial_output_is_not_replaced(expo
         return original(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "open", fail)
-    assert main(["export", "--public", str(saved), "--out", str(out)]) == 2
+    assert main(["export", "--public", str(saved), "--out", str(out)]) == 1
     captured = capsys.readouterr()
     assert "Could not export" in captured.err and "invented-private-disk-error" not in captured.err
     assert "does NOT anonymise" not in captured.out
