@@ -3,9 +3,9 @@ import json
 import os
 import re
 import stat
+import sys
 import threading
 import unicodedata
-import webbrowser
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -16,8 +16,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from . import history as scan_history
+from . import opener, retrieve
 from . import pins as pin_file
-from . import retrieve
 from . import weekly as weekly_summary
 from .assessment import Assessed, compute
 from .assessment import public as assessment_json
@@ -456,10 +456,34 @@ def create_app(
 
 
 def serve(app: FastAPI, port: int, open_browser: bool) -> None:
+    """Run the app until Ctrl-C (or the menu's Esc, which raises the same), opening the browser once it accepts connections."""
+    import socket
+
     import uvicorn
 
-    if open_browser:
-        threading.Timer(1.0, webbrowser.open, [f"http://{HOST}:{port}/"]).start()
-    uvicorn.run(
-        app, host=HOST, port=port, log_level="warning", timeout_graceful_shutdown=2
-    )  # Ctrl-C must not wait on open browser connections
+    server = uvicorn.Server(uvicorn.Config(app, host=HOST, port=port, log_level="warning", timeout_graceful_shutdown=2))
+    thread = threading.Thread(target=server.run, daemon=True)  # a thread, so the main thread can hear Ctrl-C and Esc
+    thread.start()
+    url = f"http://{HOST}:{port}/"
+
+    def can_connect() -> bool:
+        try:
+            socket.create_connection((HOST, port), timeout=0.2).close()
+        except OSError:
+            return False
+        return True
+
+    try:
+        if not opener.wait_ready(can_connect, thread.is_alive):
+            print(f"  Could not start the server on port {port} (is it already in use?).", file=sys.stderr)
+            return
+        print(f"  Serving at {opener.hyperlink(url, os.environ, sys.stdout.isatty())}\n  {url}", flush=True)
+        if open_browser and not opener.open_url(url):
+            print(f"  Could not open a browser; open {url} yourself.", flush=True)
+        while thread.is_alive():
+            thread.join(0.2)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.should_exit = True
+        thread.join(5)

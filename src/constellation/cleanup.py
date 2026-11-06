@@ -12,7 +12,17 @@ from .verdict import totals
 TIERS = ("redundant", "could_go", "review")
 RED, AMBER, BLUE, MAGENTA, DIM = "38;5;167", "38;5;179", "38;5;110", "38;5;139", "2"
 _SHADE = {"redundant": RED, "could_go": AMBER}
-_ACTIONS = {"enter": "why", "right": "why", " ": "toggle", "p": "pin", "a": "write", "esc": "back", "q": "back"}
+_ACTIONS = {
+    "enter": "why",
+    "right": "why",
+    " ": "toggle",
+    "p": "pin",
+    "a": "write",
+    "esc": "back",
+    "left": "back",
+    "b": "back",
+    "q": "back",
+}
 FOOTER = "↑↓ | Enter Why | Space Toggle | P Pin | A Write checklist | Esc/Q Back"
 PROTECTED = "Protected (pinned)"
 HEADER = "Constellation never edits your config. Every change below is yours to make by hand."
@@ -66,7 +76,7 @@ def step(index: int, key: str, count: int) -> int | Action:
     if key == "down":
         return min(count - 1, index + 1)
     if key == "ctrl-c":
-        return Action("interrupt")
+        return Action("back")
     if key in _ACTIONS and (count or _ACTIONS[key] == "back"):
         return Action(_ACTIONS[key], index)
     return index

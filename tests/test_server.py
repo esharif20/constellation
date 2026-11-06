@@ -408,3 +408,31 @@ def test_find_is_local_only_and_bounds_the_query(scan_file, tmp_path):
     client = TestClient(create_app(scan_file, config_dir=tmp_path), base_url=BASE_URL)
     assert client.get("/api/find", params={"q": "x" * 5000}).status_code == 422
     assert TestClient(create_app(scan_file), base_url="http://evil.example").get("/api/find", params={"q": "a"}).status_code >= 400
+
+
+def test_open_says_how_to_stop_the_server(scan_file, capsys):
+    main(["open", str(scan_file), "--no-browser"], serve=lambda *a: None)
+    assert capsys.readouterr().out == "  Press Ctrl-C to stop the server.\n"
+    main(["open", str(scan_file), "--no-browser", "--menu"], serve=lambda *a: None)
+    assert capsys.readouterr().out == "  Press Esc or q to stop the server and go back.\n"
+
+
+def test_a_scan_that_dies_while_saving_leaves_no_partial_file(tmp_path, monkeypatch):
+    from constellation import cli
+
+    (tmp_path / "o").mkdir()
+    out = tmp_path / "o" / "scan.json"
+    out.write_text("old")
+
+    def die(*args):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli.os, "replace", die)
+    monkeypatch.setattr(cli, "unique_ids", lambda *a, **k: {})
+    monkeypatch.setattr(cli, "id_key", lambda *a, **k: b"k")
+    monkeypatch.setattr(cli, "redact_tree", lambda tree, *a, **k: tree)
+    result = type("R", (), {"items": [], "scanned_at": "", "setup": ""})()
+    monkeypatch.setattr(cli, "asdict", lambda r: {"items": []})
+    with pytest.raises(KeyboardInterrupt):
+        cli._write(result, out, set(), tmp_path, None)
+    assert out.read_text() == "old" and sorted(p.name for p in out.parent.iterdir()) == ["scan.json"]

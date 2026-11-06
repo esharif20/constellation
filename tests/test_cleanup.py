@@ -78,7 +78,9 @@ def test_reclaimable_uses_the_verdict_totals():
 def test_step_keys():
     assert cleanup.step(0, "up", 3) == 0 and cleanup.step(2, "up", 3) == 1
     assert cleanup.step(2, "down", 3) == 2 and cleanup.step(0, "down", 3) == 1
-    assert cleanup.step(1, "ctrl-c", 3) == Action("interrupt")
+    assert cleanup.step(1, "ctrl-c", 3) == Action("back")
+    assert cleanup.step(1, "left", 3) == Action("back", 1) and cleanup.step(1, "b", 3) == Action("back", 1)
+    assert cleanup.step(0, "left", 0) == Action("back", 0) and cleanup.step(0, "b", 0) == Action("back", 0)
     for key, kind in [("enter", "why"), ("right", "why"), (" ", "toggle"), ("p", "pin"), ("a", "write"), ("esc", "back"), ("q", "back")]:
         assert cleanup.step(1, key, 3) == Action(kind, 1)
     assert cleanup.step(0, "q", 0) == Action("back", 0)

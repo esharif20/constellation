@@ -6,8 +6,19 @@ from .cli_reports import Style
 from .keys import Action
 
 RED, BLUE, GREEN, MAGENTA, DIM = "38;5;167", "38;5;110", "38;5;143", "38;5;139", "2"
-FOOTER = "↑↓→ | Enter | R Refresh | O Open | P Preview | F File | Esc/Q Quit"
-_ACTIONS = {"enter": "why", "right": "why", "r": "refresh", "o": "open", "p": "preview", "f": "file", "esc": "back", "q": "back"}
+FOOTER = "↑↓→ | Enter | R Refresh | O Open | P Preview | F File | Esc/Q Back"
+_ACTIONS = {
+    "enter": "why",
+    "right": "why",
+    "r": "refresh",
+    "o": "open",
+    "p": "preview",
+    "f": "file",
+    "esc": "back",
+    "left": "back",
+    "b": "back",
+    "q": "back",
+}
 
 
 class Row(NamedTuple):
@@ -29,7 +40,7 @@ def step(index: int, key: str, count: int) -> int | Action:
     if key == "down":
         return min(count - 1, index + 1)
     if key == "ctrl-c":
-        return Action("interrupt")
+        return Action("back")
     if key in _ACTIONS and (count or _ACTIONS[key] in ("refresh", "back")):
         return Action(_ACTIONS[key], index)
     return index

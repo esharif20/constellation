@@ -4,6 +4,7 @@ import json
 import os
 import signal
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ from test_cleanup import fake_scan
 from constellation import cli, menu, session
 from constellation import pins as pin_file
 from constellation.cli_reports import ReportError, Style
-from constellation.keys import Action
+from constellation.keys import Action, Cancel
 
 PLAIN = Style(False, 80)
 VERSION = importlib.metadata.version("constellation-cli")
@@ -73,6 +74,10 @@ def test_step_actions():
     assert menu.step(2, "u") == Action("update")
     assert menu.step(2, "esc") == 2
     assert menu.step(2, "esc", 5, False) == Action("back")
+    assert menu.step(2, "left", 5, False) == Action("back") and menu.step(2, "b", 5, False) == Action("back")
+    assert menu.step(2, "ctrl-c", 5, False) == Action("back")
+    for key in ("left", "b"):
+        assert menu.step(2, key) == 2
     for key in ("m", "v", "u"):
         assert menu.step(2, key, 5, False) == 2
 
@@ -274,6 +279,9 @@ COST = {
 SCAN = {"items": [{"id": "i1", "source": "/s/big/SKILL.md"}, {"id": "i2"}]}
 
 
+CANCEL = object()  # an answer that stands for pressing Esc at a prompt
+
+
 class Runner:
     """Stands in for cli.main: records argv, prints a body for `cost --json`, returns configured codes."""
 
@@ -298,7 +306,11 @@ class Runner:
 class Session:
     """Drives session.launch with scripted keys and answers; `out` collects everything written."""
 
-    def __init__(self, tmp_path, *keys, age=None, runner=None, say=("y",), pause=(), typed=(), load=None, pins=None, interactive=True):
+    def __init__(
+        self, tmp_path, *keys, age=None, runner=None, say=("y",), pause=(), typed=(), load=None, pins=None, interactive=True, watching=False
+    ):
+        self.watched = []
+        self.watching = watching
         self.tmp = tmp_path
         tmp_path.mkdir(exist_ok=True)
         self.scan = tmp_path / "c.json"
@@ -318,10 +330,19 @@ class Session:
     def confirm(self, prompt):
         self.asked.append(prompt)
         if prompt.startswith("\n  Press Enter"):
-            return next(self.pause, "")
-        if prompt.startswith("No fresh scan") or prompt.startswith("  Write a checklist"):
-            return next(self.say, "n")
-        return next(self.typed)
+            answer = next(self.pause, "")
+        elif prompt.startswith("No fresh scan") or prompt.startswith("  Write a checklist"):
+            answer = next(self.say, "n")
+        else:
+            answer = next(self.typed)
+        if answer is CANCEL:
+            raise Cancel
+        return answer
+
+    @contextlib.contextmanager
+    def watch(self, stop):
+        self.watched.append(stop)
+        yield
 
     @contextlib.contextmanager
     def raw(self):
@@ -343,6 +364,7 @@ class Session:
             now=lambda: self.now,
             load=self.load,
             pins=self.pins,
+            watch=self.watch if self.watching else None,
         )
 
 
@@ -363,17 +385,17 @@ def test_quit_and_interrupt_restore_the_cursor(tmp_path, capsys):
 
 
 def test_ctrl_c_while_a_command_runs_restores_the_cursor(tmp_path, capsys):
-    s = Session(tmp_path, "down", "down", "down", "down", "enter", age=0, runner=Runner(boom={"doctor": KeyboardInterrupt()}))
-    with pytest.raises(KeyboardInterrupt):
-        s.run()
-    assert capsys.readouterr().out.endswith(menu.SHOW)
+    s = go(tmp_path, "5", "enter", "q", age=0, runner=Runner(boom={"doctor": KeyboardInterrupt()}), capsys=capsys)
+    assert s.code == 0 and s.runner.calls == [["doctor"]]  # cancelled: the rest of the chain is skipped, the menu stays up
+    assert "\n  Cancelled\n" in s.out and "Stopped" not in s.out and s.out.endswith(menu.SHOW)
+    assert len(s.asked) == 1 and s.asked[0].startswith("\n  Press Enter or Esc")
 
 
 def test_status_runs_doctor_then_weekly_and_returns_to_the_menu(tmp_path, capsys):
     s = go(tmp_path, "5", "enter", "q", age=0, capsys=capsys)
     assert (s.code, s.runner.calls, s.entered) == (0, [["doctor"], ["weekly"]], ["in", "out", "in", "out"])
     assert menu.CLEAR + "  ▸ Status\n\n" in s.out
-    assert "Press Enter to return (q to quit) " in s.asked[0]
+    assert "Press Enter or Esc to return (q to quit) " in s.asked[0]
     assert s.out.count("➤ 5. Status") >= 2
 
 
@@ -437,13 +459,14 @@ def test_a_failing_scan_is_shown_and_stops_there(tmp_path, capsys):
 def test_open_serves_the_latest_scan_and_names_the_address(tmp_path, capsys):
     s = go(tmp_path, "enter", "q", age=menu.DAY * 9, capsys=capsys)
     assert s.runner.calls == [["open", str(s.scan), "--port", "8765"]]
-    assert "  ▸ Open\n\n  Serving at http://127.0.0.1:8765, Ctrl-C to stop\n" in s.out and "demo" not in s.out
+    assert "  ▸ Open\n\n" in s.out and "demo" not in s.out and "Ctrl-C" not in s.out
+    assert s.asked == []  # the server ended normally, so there is nothing to press Enter for
 
 
 def test_open_without_a_scan_offers_one_then_falls_back_to_the_demo(tmp_path, capsys):
     s = go(tmp_path, "enter", "q", say=("n",), capsys=capsys)
     assert s.runner.calls == [["open", "demo", "--port", "8765"]]
-    assert "  No scan of your setup, so this shows the packaged demo (invented data).\n  Serving at" in s.out
+    assert "  No scan of your setup, so this shows the packaged demo (invented data).\n" in s.out
     s = go(tmp_path / "y", "enter", "q", say=("y",), runner=Runner({"scan": 2}), capsys=capsys)
     assert s.runner.calls == [["scan", "/cfg", "--offline"], ["open", "demo", "--port", "8765"]]
     assert "boom from scan" in s.out
@@ -466,7 +489,8 @@ def test_open_after_a_successful_scan_serves_that_scan(tmp_path):
 
 def test_ctrl_c_in_the_server_returns_to_the_menu(tmp_path, capsys):
     s = go(tmp_path, "enter", "q", age=0, runner=Runner(boom={"open": KeyboardInterrupt()}), capsys=capsys)
-    assert s.code == 0 and "\n  Stopped.\n" in s.out and s.runner.calls == [["open", str(s.scan), "--port", "8765"]]
+    assert s.code == 0 and "Cancelled" not in s.out and s.asked == []
+    assert s.runner.calls == [["open", str(s.scan), "--port", "8765"]]
 
 
 def test_find_asks_what_the_skill_does_and_runs_find(tmp_path, capsys):
@@ -503,7 +527,9 @@ def test_more_remove_preview_asks_for_the_item(tmp_path, capsys):
 
 def test_more_quit_and_interrupt_end_the_menu(tmp_path):
     assert go(tmp_path, "m", "q").code == 0
-    assert go(tmp_path / "c", "m", "ctrl-c").code == 130
+    s = go(tmp_path / "c", "m", "ctrl-c", "ctrl-c")  # the first only goes back; the main menu is what quits
+    assert s.code == 130
+    assert go(tmp_path / "e", "m", "left", "q").code == 0 and go(tmp_path / "f", "m", "b", "q").code == 0
     assert go(tmp_path / "b", "m", "esc", "q").code == 0
 
 
@@ -512,7 +538,7 @@ def test_analyze_draws_the_ranked_list_and_goes_back(tmp_path, capsys):
     assert s.runner.calls == [["cost", "--json"]] and s.code == 0
     assert "Analyze Setup  (1,500 tokens at session start)" in s.out and "2 Items" in s.out
     assert "▶  1. " in s.out and "▶  2. " in s.out and "1,000 tok" in s.out and "unmeasured" not in s.out
-    assert "Esc/Q Quit" in s.out
+    assert "Esc/Q Back" in s.out
 
 
 def test_analyze_enter_o_p_f_act_on_the_selected_row(tmp_path, capsys):
@@ -551,7 +577,8 @@ def test_analyze_failures_show_the_output_and_return(tmp_path, capsys):
 
 
 def test_analyze_ctrl_c_and_quit(tmp_path):
-    assert go(tmp_path, "2", "enter", "ctrl-c", age=0).code == 130
+    assert go(tmp_path, "2", "enter", "ctrl-c", "ctrl-c", age=0).code == 130
+    assert go(tmp_path / "l", "2", "enter", "left", "q", age=0).code == 0 and go(tmp_path / "b", "2", "enter", "b", "q", age=0).code == 0
     assert go(tmp_path / "q", "2", "enter", "q", "q", age=0).code == 0
 
 
@@ -670,7 +697,8 @@ def test_clean_with_nothing_proposed_still_goes_back(tmp_path):
     empty.found.assessments.clear()
     s = go(tmp_path, "4", "enter", "enter", "p", "a", "esc", "q", age=0, load=lambda p: empty)
     assert s.code == 0 and s.runner.calls == []
-    assert go(tmp_path / "c", "4", "enter", "ctrl-c", age=0).code == 130
+    assert go(tmp_path / "c", "4", "enter", "ctrl-c", "ctrl-c", age=0).code == 130
+    assert go(tmp_path / "l", "4", "enter", "left", "q", age=0).code == 0 and go(tmp_path / "b", "4", "enter", "b", "q", age=0).code == 0
     assert go(tmp_path / "q", "4", "enter", "q", "q", age=0).code == 0
 
 
@@ -732,7 +760,7 @@ def test_terminal_streams_keys_from_stdin_including_unknown_ones(monkeypatch):
     term = session.terminal()
     assert term is not None
     keys = iter(term[1])
-    assert [next(keys) for _ in range(4)] == ["", "down", "down", "q"]
+    assert [next(keys) for _ in range(4)] == ["left", "down", "down", "q"]
     assert reads == [(9, 64), (9, 64)]
 
 
@@ -766,14 +794,14 @@ def test_open_menu_ctrl_c_exits_130(monkeypatch):
 def test_open_menu_passes_the_terminal_hooks(monkeypatch):
     seen = {}
     runner = Runner()
-    monkeypatch.setattr(session, "terminal", lambda: ("RAW", "KEYS"))
+    monkeypatch.setattr(session, "terminal", lambda: ("RAW", "KEYS", "TYPE", "WATCH"))
     monkeypatch.setattr(session, "launch", lambda run, **k: seen.update(k, run=run) or 7)
     assert session.open_menu(runner) == 7
-    assert (seen["raw"], seen["keys"], seen["run"]) == ("RAW", "KEYS", runner)
+    assert (seen["raw"], seen["keys"], seen["confirm"], seen["watch"], seen["run"]) == ("RAW", "KEYS", "TYPE", "WATCH", runner)
     assert isinstance(seen["st"], Style)
     monkeypatch.setattr(session, "terminal", lambda: None)
     session.open_menu(runner)
-    assert (seen["raw"], seen["keys"]) == (None, None)
+    assert (seen["raw"], seen["keys"], seen["watch"], seen["confirm"]) == (None, None, None, input)
 
 
 class Tty:
@@ -800,7 +828,7 @@ def test_main_without_args_opens_the_menu_only_on_a_tty(monkeypatch, capsys):
         assert opened == []
 
 
-def pty_session(tmp_path, steps):
+def pty_session(tmp_path, steps, program="import sys; from constellation import cli; sys.exit(cli.main())", path_first=""):
     """Run the real entry point in a pseudo-terminal in tmp_path (HOME too, demo scan as constellation.json); for each
     (wait_for, send) read until wait_for appears, then send. Returns everything printed and the exit code."""
     import pty
@@ -808,11 +836,11 @@ def pty_session(tmp_path, steps):
     import shutil
 
     shutil.copy(Path(__file__).parent.parent / "docs" / "design" / "demo-assess.json", tmp_path / "constellation.json")
-    env = {"HOME": str(tmp_path), "TERM": "xterm", "NO_COLOR": "1", "PATH": os.environ["PATH"], "COLUMNS": "80"}
+    env = {"HOME": str(tmp_path), "TERM": "xterm", "NO_COLOR": "1", "PATH": path_first + os.environ["PATH"], "COLUMNS": "80"}
     pid, fd = pty.fork()
     if pid == 0:  # child: the pty is its terminal
         os.chdir(tmp_path)
-        os.execve(sys.executable, [sys.executable, "-c", "import sys; from constellation import cli; sys.exit(cli.main())"], env)
+        os.execve(sys.executable, [sys.executable, "-c", program], env)
     out = seen = b""
     try:
         for wait_for, send in steps:
@@ -824,6 +852,7 @@ def pty_session(tmp_path, steps):
             assert wait_for in out, (wait_for, out)
             cut = out.index(wait_for) + len(wait_for)
             seen, out = seen + out[:cut], out[cut:]
+            time.sleep(0.2)  # a key sent while a prompt is still switching to raw mode would be echoed instead
             os.write(fd, send)
         while select.select([fd], [], [], 5)[0]:
             try:
@@ -849,17 +878,22 @@ DOWN = b"\x1b[B"
 def test_pty_arrows_enter_status_return_and_quit(tmp_path):
     out, code = pty_session(
         tmp_path,
-        [(b"Q Quit", DOWN * 4), (b"\xe2\x9e\xa4 5. Status", b"\r"), (b"Press Enter to return", b"\r"), (b"\xe2\x9e\xa4 5. Status", b"q")],
+        [
+            (b"Q Quit", DOWN * 4),
+            (b"\xe2\x9e\xa4 5. Status", b"\r"),
+            (b"Press Enter or Esc to return", b"\r"),
+            (b"\xe2\x9e\xa4 5. Status", b"q"),
+        ],
     )
     assert code == 0
     assert "\x1b[?25l" in out and "github.com/esharif20/constellation" in out
-    assert "▸ Status" in out and "Constellation doctor" in out and "Press Enter to return (q to quit)" in out
+    assert "▸ Status" in out and "Constellation doctor" in out and "Press Enter or Esc to return (q to quit)" in out
     assert out.endswith("\x1b[2J\x1b[H" + SHOW_CURSOR)
 
 
 @pty_only
 def test_pty_analyze_shows_the_ranked_bars_and_esc_goes_back(tmp_path):
-    out, code = pty_session(tmp_path, [(b"Q Quit", b"2"), (b"\xe2\x9e\xa4 2. Analyze", b"\r"), (b"Esc/Q Quit", b"\x1b"), (b"Q Quit", b"q")])
+    out, code = pty_session(tmp_path, [(b"Q Quit", b"2"), (b"\xe2\x9e\xa4 2. Analyze", b"\r"), (b"Esc/Q Back", b"\x1b"), (b"Q Quit", b"q")])
     assert code == 0 and "Analyze Setup  (5,503 tokens at session start)" in out
     assert "▶  1. " in out and "█" in out and " tok" in out
 
@@ -873,13 +907,13 @@ def test_pty_clean_toggle_then_write_a_new_private_checklist(tmp_path):
             (b"\xe2\x9e\xa4 4. Clean", b"\r"),
             (b"A Write checklist", b" "),
             (b"[ ] quarterly", b"a"),
-            (b"[y/N]", b"y\r"),
-            (b"Press Enter to return", b"\r"),
+            (b"Esc to cancel] ", b"y\r"),
+            (b"Press Enter or Esc to return", b"\r"),
             (b"A Write checklist", b"q"),
             (b"Q Quit", b"q"),
         ],
     )
-    assert code == 0 and "Clean  (dry run: nothing is deleted)" in out and "(new file, deletes nothing)? [y/N]" in out
+    assert code == 0 and "Clean  (dry run: nothing is deleted)" in out and "(new file, deletes nothing)? [y/N, Esc to cancel]" in out
     checklist = tmp_path / "cleanup.md"
     assert "quarterly-ledger" not in checklist.read_text() and "yaml-lint" in checklist.read_text()
     assert oct(checklist.stat().st_mode & 0o777) == "0o600"
