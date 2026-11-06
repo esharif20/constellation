@@ -16,7 +16,21 @@ from typing import Any
 
 from langgraph.types import Command
 
-from . import cleanup, cli_help, cli_reports, completion, habits, history, menu, scan, scan_graph, selfcheck, session, status, weekly
+from . import (
+    cleanup,
+    cli_help,
+    cli_reports,
+    completion,
+    find_view,
+    habits,
+    history,
+    scan,
+    scan_graph,
+    selfcheck,
+    session,
+    status,
+    weekly,
+)
 from . import origins as origin_sources
 from . import profile as project_profile
 from . import purge as purge_report
@@ -35,7 +49,7 @@ from .public_export import LIMITS, NOTICE, write_snapshot
 from .redact import redact_tree, unique_ids
 from .report import render_cleanup, render_report, write_private
 from .review import build_review_graph, open_checkpointer, thread_id
-from .skill_search import find_skills
+from .skill_search import closest_names, find_skills
 from .suggestions import Suggestion, suggest
 from .usage import TRACKED
 
@@ -188,6 +202,10 @@ def main(
     find_command = commands.add_parser("find", help="find an installed skill from local names, descriptions and content")
     find_command.add_argument("query")
     find_command.add_argument("--config-dir", type=Path, default=Path.home() / ".claude")
+    find_command.add_argument("--limit", type=int, default=find_view.LIMIT, help="show at most N results (default 8)")
+    find_command.add_argument("--all", action="store_true", help="show every match")
+    find_command.add_argument("--json", action="store_true", help="print structured hits")
+    find_command.add_argument("--verbose", action="store_true", help="list the files read leniently")
     profile_command = commands.add_parser("profile", help="which global Items one project really uses and which are noise there")
     profile_command.add_argument("project", help="the project folder (or its name) you open Claude Code in")
     profile_command.add_argument("--config-dir", type=Path, default=Path.home() / ".claude")
@@ -208,11 +226,18 @@ def main(
         print(completion.render(parser, args.shell), end="")
         return 0
     if args.command == "find":
-        hits, warnings = find_skills(args.query, args.config_dir)
-        for warning in warnings:
-            print(warning, file=sys.stderr)
-        for hit in hits:
-            print(f"{hit['name']}: {hit['description']}\n  {hit['invoke']} — {hit['why']}")
+        hits, warnings = find_skills(args.query, args.config_dir, limit=find_view.FETCH)
+        loose, other = find_view.split_warnings(warnings)
+        if args.json:
+            print(json.dumps(find_view.as_json(hits if args.all else hits[: args.limit], args.query, other), indent=2))
+            return 0
+        for warning in [*other, *(loose if args.verbose else [])]:
+            print(find_view.clean(warning), file=sys.stderr)
+        closest = [] if hits else closest_names(args.query, args.config_dir)
+        style = cli_reports.style_for_stdout()
+        limit = None if args.all else args.limit
+        for line in find_view.render(hits, args.query, len(loose), style, style.width, limit=limit, closest=closest):
+            print(line)
         return 0
     if args.command == "profile":
         return _profile(args)

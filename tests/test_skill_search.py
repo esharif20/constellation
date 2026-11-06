@@ -683,3 +683,73 @@ def test_reader_warnings_redact_opaque_configuration_values(tmp_path):
     hits, warnings = find_skills("typography", root, cache=cache)
     assert hits and warnings and "[REDACTED]" in str(warnings)
     assert secret not in str(warnings) + cache.read_text() + str(hits)
+
+
+def test_find_command_output_is_cards_with_one_warning_line_and_json(tmp_path, monkeypatch, capsys):
+    import json
+
+    from fakes import write_skill
+
+    from constellation import cli, skill_search
+
+    root = tmp_path / "invented-setup"
+    for n in range(10):
+        write_skill(root, f"fonts{n}", "# Website typography", description=f"Typography helper number {n}")
+    bad = root / "skills" / "loose" / "SKILL.md"
+    bad.parent.mkdir(parents=True)
+    bad.write_text("---\nname: loose\ndescription: Typography: loosely quoted\n---\nbody\n")
+    monkeypatch.setattr(skill_search, "DEFAULT_CACHE", tmp_path / "private" / "skill-content.json")
+    assert cli.main(["find", "typography", "--config-dir", str(root)]) == 0
+    out = capsys.readouterr()
+    assert 'Found 11 skills for "typography"' in out.out and "Showing 8 of 11" in out.out
+    assert out.out.rstrip().endswith("1 file had loose frontmatter and was read leniently (--verbose lists them)")
+    assert "not valid YAML" not in out.out + out.err
+    assert cli.main(["find", "typography", "--config-dir", str(root), "--all", "--verbose"]) == 0
+    out = capsys.readouterr()
+    assert "11. " in out.out and "not valid YAML" in out.err
+    assert cli.main(["find", "typography", "--config-dir", str(root), "--json", "--limit", "2"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert len(data["hits"]) == 2 and data["hits"][0]["origin"] == "yours" and data["warnings"] == []
+    assert cli.main(["find", "zzqq", "--config-dir", str(root)]) == 0
+    text = capsys.readouterr().out
+    assert 'No match for "zzqq"' in text and "Closest names: " in text
+
+
+def test_closest_names_returns_three_skill_names(tmp_path):
+    from fakes import write_skill
+
+    from constellation.skill_search import closest_names
+
+    root = tmp_path / "invented-setup"
+    for name in ("alpha", "alphabet", "beta", "gamma"):
+        write_skill(root, name, "# x", description="d")
+    assert closest_names("alpha", root)[:2] == ["alpha", "alphabet"] and len(closest_names("alpha", root)) == 3
+
+
+def test_closest_names_redacts_secret_names_and_limits_to_three(tmp_path):
+    import json
+
+    from fakes import write_skill
+
+    from constellation.skill_search import closest_names
+
+    secret = "ZZQ-INVENTED-SECRET-NAME-81"
+    root = tmp_path / "invented-setup"
+    root.mkdir()
+    (root / "settings.json").write_text(json.dumps({"env": {"INVENTED_TOKEN": secret}}))
+    for name in (secret, "one", "two", "three", "four"):
+        write_skill(root, name, "# x", description="d")
+    names = closest_names(secret, root)
+    assert len(names) == 3 and secret not in " ".join(names) and any("[REDACTED]" in n for n in names)
+
+
+def test_find_skills_limit_caps_the_hits(tmp_path):
+    from fakes import write_skill
+
+    from constellation.skill_search import find_skills
+
+    root = tmp_path / "invented-setup"
+    for n in range(5):
+        write_skill(root, f"fonts{n}", "# Website typography", description="Typography helper")
+    assert len(find_skills("typography", root, cache=tmp_path / "i.json", limit=2)[0]) == 2
+    assert len(find_skills("typography", root, cache=tmp_path / "i.json", limit=4)[0]) == 4
