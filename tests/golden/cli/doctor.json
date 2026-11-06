@@ -1,0 +1,32 @@
+{
+  "session_start": {
+    "tokens": 5503,
+    "window": 200000,
+    "percent": 2.8
+  },
+  "reclaimable": {
+    "low": 0,
+    "high": 410,
+    "unknown": 0
+  },
+  "findings": [
+    {
+      "text": "quarterly-ledger-reconciliation-helper (skill): Does the same job as review-diff; neither has been used",
+      "saves": 410
+    }
+  ],
+  "hooks": {
+    "count": 10,
+    "can_block": 0
+  },
+  "clashes": 0,
+  "triggers": {
+    "greedy": 0,
+    "never": 0
+  },
+  "mcp": {
+    "servers": 2,
+    "connectors": 1
+  },
+  "warnings": 2
+}

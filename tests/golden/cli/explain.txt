@@ -1,0 +1,27 @@
+# My Claude Code setup
+
+97 items, 5,723 always-on tokens known, 22 with unknown cost.
+
+## Largest clusters
+
+- Test-first development: 12 items, 773 tokens
+- Exploring a codebase: 11 items, 661 tokens
+- Notes and study cards: 11 items, 625 tokens
+
+## Costliest always-on
+
+- quarterly-ledger-reconciliation-helper (skill): 410 tokens
+- lighthouse-lamp-maintenance-scheduler (agent): 150 tokens
+- flashcard-deck (skill): 136 tokens
+- focus-rings (skill): 134 tokens
+- motion-pass (skill): 123 tokens
+
+## Not used lately
+
+Usage was not read in this scan.
+
+## Three suggested actions
+
+- Remove one of these two: quarterly-ledger-reconciliation-helper (skill) and review-diff (skill). Same steps and trigger wording; one could go. (saves 98 tokens)
+- refactor-safely (skill) only calls make-it-pass (skill); consider using make-it-pass (skill) directly. Mostly a thin call into make-it-pass followed by a cleanup. (saves 36 tokens)
+- Remove one of these two: changelog-draft (skill) and release-notes (skill). Same steps and trigger wording; one could go. (saves 25 tokens)

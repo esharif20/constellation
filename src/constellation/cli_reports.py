@@ -266,7 +266,8 @@ def _r_doctor(d: dict[str, Any], st: Style) -> str:
     n, t = d["clashes"], tr["greedy"] + tr["never"]
     lines.append(st.head("Hooks and triggers"))
     lines.append(
-        f"  {st.mark(BAD if n else OK)} {_plural(n, 'clash') if n else 'No clashes'}" + (" (run `constellation clashes`)" if n else "")
+        f"  {st.mark(BAD if n else OK)} {'No clashes' if n == 0 else '1 clash' if n == 1 else f'{n:,} clashes'}"
+        + (" (run `constellation clashes`)" if n else "")
     )
     lines.append(f"  {st.mark(OK)} {_plural(hk['count'], 'hook')}, {hk['can_block']} able to block a prompt")
     lines.append(f"  {st.mark(WARN if t else OK)} {tr['never']} skills never fire, {tr['greedy']} fire greedily")

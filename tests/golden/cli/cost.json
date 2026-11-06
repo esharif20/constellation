@@ -1,0 +1,133 @@
+{
+  "total": 5503,
+  "unknown": 3,
+  "top": [
+    {
+      "id": "skill:extra:quarterly-ledger-reconciliation-helper",
+      "kind": "skill",
+      "name": "quarterly-ledger-reconciliation-helper",
+      "tokens": 410,
+      "bytes": null
+    },
+    {
+      "id": "agent:extra:lighthouse-lamp-maintenance-scheduler",
+      "kind": "agent",
+      "name": "lighthouse-lamp-maintenance-scheduler",
+      "tokens": 150,
+      "bytes": null
+    },
+    {
+      "id": "skill:margin:flashcard-deck",
+      "kind": "skill",
+      "name": "flashcard-deck",
+      "tokens": 136,
+      "bytes": null
+    },
+    {
+      "id": "skill:lumen:focus-rings",
+      "kind": "skill",
+      "name": "focus-rings",
+      "tokens": 134,
+      "bytes": null
+    },
+    {
+      "id": "skill:lumen:motion-pass",
+      "kind": "skill",
+      "name": "motion-pass",
+      "tokens": 123,
+      "bytes": null
+    },
+    {
+      "id": "skill:redgreen:flake-hunter",
+      "kind": "skill",
+      "name": "flake-hunter",
+      "tokens": 122,
+      "bytes": null
+    },
+    {
+      "id": "skill:atlas:dependency-tour",
+      "kind": "skill",
+      "name": "dependency-tour",
+      "tokens": 117,
+      "bytes": null
+    },
+    {
+      "id": "skill:yaml-lint",
+      "kind": "skill",
+      "name": "yaml-lint",
+      "tokens": 116,
+      "bytes": null
+    },
+    {
+      "id": "agent:critic",
+      "kind": "agent",
+      "name": "critic",
+      "tokens": 115,
+      "bytes": null
+    },
+    {
+      "id": "skill:port-finder",
+      "kind": "skill",
+      "name": "port-finder",
+      "tokens": 112,
+      "bytes": null
+    }
+  ],
+  "plugins": [
+    {
+      "name": "(not in a plugin)",
+      "tokens": 1971,
+      "items": 22
+    },
+    {
+      "name": "lumen",
+      "tokens": 575,
+      "items": 8
+    },
+    {
+      "name": "atlas",
+      "tokens": 471,
+      "items": 5
+    },
+    {
+      "name": "sentinel",
+      "tokens": 395,
+      "items": 5
+    },
+    {
+      "name": "redgreen",
+      "tokens": 392,
+      "items": 6
+    },
+    {
+      "name": "harbour",
+      "tokens": 385,
+      "items": 5
+    },
+    {
+      "name": "sieve",
+      "tokens": 383,
+      "items": 5
+    },
+    {
+      "name": "margin",
+      "tokens": 326,
+      "items": 4
+    },
+    {
+      "name": "quill",
+      "tokens": 294,
+      "items": 6
+    },
+    {
+      "name": "bastion",
+      "tokens": 164,
+      "items": 3
+    },
+    {
+      "name": "prism",
+      "tokens": 147,
+      "items": 3
+    }
+  ]
+}

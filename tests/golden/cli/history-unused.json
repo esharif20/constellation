@@ -1,0 +1,104 @@
+{
+  "sessions": 3,
+  "active_days": 3,
+  "span_days": 60,
+  "count": 16,
+  "rows": [
+    {
+      "name": "atlas",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "bastion",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "chart-draft",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "saves": null
+    },
+    {
+      "name": "harbour",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "idle-beekeeping-bundle",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "lumen",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "make-it-pass",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "saves": null
+    },
+    {
+      "name": "margin",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "pick-palette",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "saves": null
+    },
+    {
+      "name": "prism",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "quill",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "redgreen",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "refactor-safely",
+      "label": "Review",
+      "confidence": "low",
+      "saves": null
+    },
+    {
+      "name": "sentinel",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "sieve",
+      "label": "Keep",
+      "confidence": "medium",
+      "saves": null
+    },
+    {
+      "name": "tune-spacing",
+      "label": "Not enough history yet",
+      "confidence": "low",
+      "saves": null
+    }
+  ]
+}

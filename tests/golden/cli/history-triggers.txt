@@ -1,0 +1,7 @@
+Triggers
+
+  chart-draft      never  0 uses
+  make-it-pass     never  0 uses
+  pick-palette     never  0 uses
+  refactor-safely  never  0 uses
+  tune-spacing     never  0 uses

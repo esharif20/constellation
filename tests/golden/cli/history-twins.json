@@ -1,0 +1,46 @@
+{
+  "pairs": [
+    {
+      "a": "audit-contrast",
+      "b": "focus-rings",
+      "verdict": "overlap",
+      "reason": "Both check colour and focus states on the same screens.",
+      "you_use": "audit-contrast"
+    },
+    {
+      "a": "changelog-draft",
+      "b": "release-notes",
+      "verdict": "duplicate",
+      "reason": "Same steps and trigger wording; one could go.",
+      "you_use": "release-notes"
+    },
+    {
+      "a": "smoke-check",
+      "b": "suggest-tests",
+      "verdict": "overlap",
+      "reason": "Both propose quick checks before a change goes out.",
+      "you_use": "both about equally"
+    },
+    {
+      "a": "refactor-safely",
+      "b": "make-it-pass",
+      "verdict": "wrapper",
+      "reason": "Mostly a thin call into make-it-pass followed by a cleanup.",
+      "you_use": "neither yet"
+    },
+    {
+      "a": "explain-file",
+      "b": "summarise-paper",
+      "verdict": "overlap",
+      "reason": "Both summarise a long document into a few lines.",
+      "you_use": "both about equally"
+    },
+    {
+      "a": "review-diff",
+      "b": "quarterly-ledger-reconciliation-helper",
+      "verdict": "duplicate",
+      "reason": "Same steps and trigger wording; one could go.",
+      "you_use": "both about equally"
+    }
+  ]
+}

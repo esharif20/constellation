@@ -1,0 +1,20 @@
+Not used lately
+
+  History: 3 sessions over 60 days (3 active)
+
+  atlas               Keep                    medium confidence  saves unknown
+  bastion             Keep                    medium confidence  saves unknown
+  chart-draft         Not enough history yet  low confidence     saves unknown
+  harbour             Keep                    medium confidence  saves unknown
+  idle-beekeeping-b…  Keep                    medium confidence  saves unknown
+  lumen               Keep                    medium confidence  saves unknown
+  make-it-pass        Not enough history yet  low confidence     saves unknown
+  margin              Keep                    medium confidence  saves unknown
+  pick-palette        Not enough history yet  low confidence     saves unknown
+  prism               Keep                    medium confidence  saves unknown
+  quill               Keep                    medium confidence  saves unknown
+  redgreen            Keep                    medium confidence  saves unknown
+  refactor-safely     Review                  low confidence     saves unknown
+  sentinel            Keep                    medium confidence  saves unknown
+  sieve               Keep                    medium confidence  saves unknown
+  tune-spacing        Not enough history yet  low confidence     saves unknown

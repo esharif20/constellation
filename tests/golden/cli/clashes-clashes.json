@@ -1,0 +1,43 @@
+{
+  "clashes": [
+    {
+      "kind": "hook",
+      "key": "format-on-save",
+      "item_ids": [
+        "hook:format-on-save",
+        "hook:format-on-save-twin"
+      ],
+      "reason": "2 hooks run on format-on-save (every match). Claude Code runs them in parallel, so their order is not fixed.",
+      "names": [
+        "format-on-save",
+        "format-on-save"
+      ]
+    },
+    {
+      "kind": "mcp_name",
+      "key": "orrery",
+      "item_ids": [
+        "mcp_server:orrery",
+        "mcp_server:orrery-other"
+      ],
+      "reason": "2 MCP servers are named orrery. Only one is used: local scope wins over project, project over user.",
+      "names": [
+        "orrery",
+        "orrery"
+      ]
+    },
+    {
+      "kind": "trigger",
+      "key": "ship it now",
+      "item_ids": [
+        "skill:lumen:pick-palette",
+        "skill:lumen:tune-spacing"
+      ],
+      "reason": "2 skills claim the phrase \"ship it now\", so either may answer it.",
+      "names": [
+        "pick-palette",
+        "tune-spacing"
+      ]
+    }
+  ]
+}

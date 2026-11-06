@@ -1,0 +1,7 @@
+review-diff (skill)
+
+  Verdict: Keep, medium confidence
+  - Its twin quarterly-ledger-reconciliation-helper could go
+  Removing it frees: unknown
+  Referred to by: critic
+  History: 0 active days

@@ -1,0 +1,16 @@
+{
+  "name": "review-diff",
+  "kind": "skill",
+  "verdict": "Keep",
+  "confidence": "medium",
+  "reasons": [
+    "Used 5 times"
+  ],
+  "frees": null,
+  "referenced_by": [
+    "critic"
+  ],
+  "contains": [],
+  "twin": null,
+  "history_days": 3
+}

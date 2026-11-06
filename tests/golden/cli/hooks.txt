@@ -1,0 +1,12 @@
+Hooks, by phase and weight
+
+  block-force-push    other    shell     unknown
+  format-on-save      other    shell     unknown
+  guard-env-files     other    shell     unknown
+  lint-before-commit  other    mcp_tool  unknown
+  log-tool-calls      other    shell     unknown
+  notify-on-finish    other    shell     unknown
+  run-tests-on-stop   other    mcp_tool  unknown
+  session-banner      other    shell     unknown
+  trim-whitespace     other    shell     unknown
+  warn-large-diff     other    shell     unknown
