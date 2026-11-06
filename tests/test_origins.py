@@ -3,7 +3,7 @@ import json
 import pytest
 from fakes import FakeEmbedder, FakeLLM
 
-from constellation import scan
+from constellation import scan, scanfile
 from constellation.cli import main
 from constellation.snapshot import snapshot
 
@@ -218,12 +218,12 @@ def test_dry_run_output_contains_no_origin_and_the_summary_line_names_the_file(t
     config, lock = _setup(tmp_path)
     _lock(lock, {"pat-one": {"source": "marker/ZZORIGIN"}})
 
-    code = main(["scan", str(config), "--dry-run", "--skill-lock", str(lock), "--out", str(tmp_path / "o.json")])
+    code = main(["scan", "-v", str(config), "--dry-run", "--skill-lock", str(lock), "--out", str(tmp_path / "o.json")])
 
     out, err = capsys.readouterr()
     assert code == 0
     assert "ZZORIGIN" not in out + err
-    assert f"read origin from {lock} (source field only)" in err
+    assert f"read origin from {scanfile.shown(lock)} (source field only)" in err
 
 
 def test_cli_scan_writes_origin_and_no_origins_turns_it_off_and_says_nothing(tmp_path, capsys):
@@ -231,9 +231,9 @@ def test_cli_scan_writes_origin_and_no_origins_turns_it_off_and_says_nothing(tmp
     _lock(lock, {"pat-one": {"source": "pat/skills"}})
     out = tmp_path / "o.json"
 
-    assert main(["scan", str(config), "--offline", "--skill-lock", str(lock), "--out", str(out)]) == 0
+    assert main(["scan", "-v", str(config), "--offline", "--skill-lock", str(lock), "--out", str(out)]) == 0
     assert {i["name"]: i["origin"] for i in json.loads(out.read_text())["items"]}["pat-one"] == "pat/skills"
-    assert f"read origin from {lock} (source field only)" in capsys.readouterr().err
+    assert f"read origin from {scanfile.shown(lock)} (source field only)" in capsys.readouterr().err
 
     assert main(["scan", str(config), "--offline", "--skill-lock", str(lock), "--no-origins", "--out", str(out)]) == 0
     assert {i["origin"] for i in json.loads(out.read_text())["items"]} == {None}

@@ -14,6 +14,7 @@ import yaml
 from .models import Item, Relation
 from .origins import Found, find, read_lock
 from .origins import clean as clean_origin
+from .progress import Progress, ProgressEvent
 from .redact import redact
 
 SOURCE = "claude-code"
@@ -441,7 +442,7 @@ def _read_project(
 
 
 def read_items(
-    config_dir: Path, lockfile: Path | None = None, project: Path | None = None
+    config_dir: Path, lockfile: Path | None = None, project: Path | None = None, progress: Progress | None = None
 ) -> tuple[list[Item], list[str], list[Relation], dict[str, str]]:
     """`lockfile` is the skills CLI's lockfile; None turns origins off (no origin is set and the file is never opened)."""
     items: list[Item] = []
@@ -461,12 +462,17 @@ def read_items(
             warnings.append(f"{CREDENTIALS} is nested unusually deeply; it was read in full but may be malformed")
     # first, so a hook can link to a user-scope server
     entries = _read_claude_json(config_dir, items, warnings, secrets, settings, Path(project) if project is not None else None)
+    notify = progress or (lambda _: None)
+    notify(ProgressEvent("mcp", len(items), len(items)))
     _read_root(config_dir, "", items, warnings, relations, bodies, secrets, lock, config_dir)
     enabled = settings.get("enabledPlugins", {})
     keys, clean = _installed(config_dir)
     if not clean:
         warnings.append("skipped malformed entries in installed_plugins.json")
-    for root in _plugin_roots(config_dir):
+    roots = _plugin_roots(config_dir)
+    notify(ProgressEvent("skills", 1, 1 + len(roots)))
+    for n, root in enumerate(roots, 2):
+        notify(ProgressEvent("skills", n, 1 + len(roots)))
         meta = _manifest(root, warnings)
         if meta is None:
             continue
@@ -483,6 +489,7 @@ def read_items(
         key = keys.get(root) or f"{meta['name']}@{root.parent.parent.name}"
         if isinstance(enabled, dict) and enabled.get(key) is False:  # off in settings: still on the map, flagged, with its contents
             items[first - 1 :] = [replace(i, disabled=True) for i in items[first - 1 :]]
+    notify(ProgressEvent("skills", len(items), len(items)))  # the final count, which is what a plain milestone line shows
     if project is not None:
         _read_project(Path(project), items, warnings, relations, bodies, secrets, entries.get(Path(project).resolve(), {}), settings)
     return items, warnings, relations, bodies

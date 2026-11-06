@@ -20,7 +20,8 @@ uv tool install constellation-cli        # or: pipx install constellation-cli
 uv tool install git+https://github.com/esharif20/constellation
 
 constellation open demo                  # try it on invented data first
-constellation open ~/constellation.json  # your own map, after a scan
+constellation scan                       # reads ~/.claude, no key needed (offline), shows progress
+constellation open                       # your own map: opens the latest scan
 ```
 
 Or run the small installer (no sudo; it only drives uv or pipx and prints what it does). Read it first, it is short:
@@ -110,7 +111,8 @@ Open **Ask** to search the saved scan, explain a selected Item, compare Context 
 ```
 uv sync --extra llm --extra local              # the model and the local embedder are optional extras
 constellation scan ~/.claude --dry-run > prompts.txt   # read-only; prints exactly what would be sent, sends nothing
-constellation scan ~/.claude                   # writes constellation.json (mode 0600, descriptions redacted)
+constellation scan                             # ~/.claude, offline without a key; writes ~/.cache/constellation/scan.json (or ./constellation.json if present); -q quiet, -v verbose
+constellation scan ~/.claude --out my.json     # explicit folder and file (mode 0600, descriptions redacted)
 constellation scan ~/.claude --offline         # no paid or network calls: no labels or verifier, cached token costs only
 constellation scan ~/.claude --no-verify       # skip the stronger model that labels candidate Overlaps
 constellation scan ~/.claude --no-origins      # do not work out where Items came from (no skills lockfile is opened)
@@ -126,7 +128,7 @@ embedder, which may download its model once from the network (it says so first).
 
 ## Terminal commands
 
-Read-only, local and free: each reads a saved scan (default `constellation.json`) and uses the same engine as the app, so the terminal and the map cannot disagree. No provider call, no network. Add `--json` for structured output; colour only on a terminal and never with `NO_COLOR`. A mistyped command suggests the closest; exit code 2 means a usage error or a missing scan.
+Read-only, local and free: each reads a saved scan (default: `./constellation.json` if present, else the latest scan) and uses the same engine as the app, so the terminal and the map cannot disagree. No provider call, no network. Add `--json` for structured output; colour only on a terminal and never with `NO_COLOR`. A mistyped command suggests the closest; exit code 2 means a usage error or a missing scan.
 
 ```
 constellation doctor                      # session-start tokens and % of a 200k window, what could be reclaimed, top findings, hooks, MCP
