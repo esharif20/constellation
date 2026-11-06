@@ -1,6 +1,8 @@
 """Redaction guard: nothing reaches the LLM without passing through redact()."""
 
 import base64
+import hashlib
+import hmac
 import math
 import re
 from collections import Counter
@@ -73,15 +75,25 @@ def redact(text: str, known: Iterable[str] = ()) -> str:
     return _CANDIDATE.sub(lambda m: REDACTED if _looks_random(m[0]) else m[0], text)
 
 
-def redact_tree(value: Any, known: Iterable[str] = ()) -> Any:
-    """Redact every string (and dict key) in a JSON-like value: the one pass applied to whatever is written to disk."""
+def unique_ids(ids: Iterable[str], known: Iterable[str], key: bytes) -> dict[str, str]:
+    """Raw id -> saved id, for every id that redaction changes. Two secret-named Items would otherwise redact to the same id,
+    so each gets a keyed 6-hex suffix: without the per-install key, a guessed secret cannot be checked against the suffix."""
     known = tuple(known)
+    mapped = {i: redact(i, known) for i in ids}
+    return {i: f"{r}~{hmac.new(key, i.encode(), hashlib.sha256).hexdigest()[:6]}" for i, r in mapped.items() if r != i}
+
+
+def redact_tree(value: Any, known: Iterable[str] = (), ids: dict[str, str] | None = None) -> Any:
+    """Redact every string (and dict key) in a JSON-like value: the one pass applied to whatever is written to disk.
+    A string that is exactly an Item id in `ids` becomes its unique saved id; any other string goes through redact()."""
+    known = tuple(known)
+    ids = ids or {}
     if isinstance(value, str):
-        return redact(value, known)
+        return ids[value] if value in ids else redact(value, known)
     if isinstance(value, dict):
-        return {redact_tree(k, known): redact_tree(v, known) for k, v in value.items()}
+        return {redact_tree(k, known, ids): redact_tree(v, known, ids) for k, v in value.items()}
     if isinstance(value, list | tuple):
-        return [redact_tree(v, known) for v in value]
+        return [redact_tree(v, known, ids) for v in value]
     return value
 
 
