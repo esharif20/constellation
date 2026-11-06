@@ -22,15 +22,19 @@ export function instructionFor(item: GNode, model: Pick<Model, "overlapsOf">, ve
   const rank = ["duplicate", "wrapper", "overlap"];
   const o = [...os].sort((x, y) => rank.indexOf(x.verdict) - rank.indexOf(y.verdict))[0];
   const other = o ? quote((o.a === item ? o.b : o.a).name) : "";
+  const remove = () => {
+    let r = (DO[item.kind] ?? `Review the ${label} {n} and tell me how to remove it.`).replace("{n}", name);
+    if (item.origin && ["skill", "agent", "command", "hook", "mcp_server"].includes(item.kind)) r += ` It came from ${quote(item.origin)}: if that is a plugin or pack, change it there, not inside its folder.`;
+    return r;
+  };
   let t: string;
-  if (verdict.tone === "keep" || (verdict.label === "Not enough data" && item.kind !== "plugin")) t = `Review the ${label} ${name}: tell me what it does and whether I still need it. Change nothing.`;
-  else if (o?.verdict === "duplicate") t = `The ${label} ${name} and ${other} do the same job. Compare them and recommend which to remove; remove nothing until I choose.`;
-  else if (o?.verdict === "wrapper" && o.a === item) t = `The ${label} ${name} only calls ${other}. Show me how to use ${other} directly, then remove ${name}.`;
-  else if (o) t = `Keep the ${label} ${name}; ${other} calls it. Change nothing.`;
-  else {
-    t = (DO[item.kind] ?? `Review the ${label} {n} and tell me how to remove it.`).replace("{n}", name);
-    if (item.origin && ["skill", "agent", "command", "hook", "mcp_server"].includes(item.kind)) t += ` It came from ${quote(item.origin)}: if that is a plugin or pack, change it there, not inside its folder.`;
-  }
+  // The server's action decides (smarter-verdict.md 4.4); the Overlap only names the other Item.
+  if (verdict.action === "use_underlying" && o) t = `The ${label} ${name} only calls ${other}. Show me how to use ${other} directly, then remove ${name}.`;
+  else if (verdict.action === "remove_twin" && o) t = `${remove()} It does the same job as ${other}, which stays.`;
+  else if (verdict.action === "move_to_project") t = `Move the ${label} ${name} out of my global setup into the one project that uses it. Leave every other project as it is.`;
+  else if (verdict.action === "fix_description") t = `Rewrite the description of the ${label} ${name} so Claude knows when to pick it: say what it does and when to use it. Keep the rest unchanged.`;
+  else if (["remove", "disable_plugin", "remove_twin"].includes(verdict.action)) t = remove();
+  else t = `Review the ${label} ${name}: tell me what it does and whether I still need it. Change nothing.`;
   if (!t.endsWith("Change nothing.")) t += " Show me exactly what will change and wait for my OK.";
   return cut(t);
 }

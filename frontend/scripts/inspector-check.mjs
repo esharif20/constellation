@@ -6,7 +6,8 @@ import { createServer } from "vite";
 
 const vite = await createServer({ server: { middlewareMode: true, watch: null, ws: false }, appType: "custom" });
 try {
-  const { verdictOf, DORMANT_DAYS } = await vite.ssrLoadModule("/src/lib/verdict.ts");
+  const { verdictOf } = await vite.ssrLoadModule("/src/lib/verdict.ts");
+  const { VerdictBanner } = await vite.ssrLoadModule("/src/components/inspector/Verdict.tsx");
   const { Header } = await vite.ssrLoadModule("/src/components/inspector/Header.tsx");
   const { splitDescription } = await vite.ssrLoadModule("/src/lib/describe.ts");
   const { hookInfo, pluginInfo } = await vite.ssrLoadModule("/src/lib/details.ts");
@@ -15,36 +16,41 @@ try {
   const { About } = await vite.ssrLoadModule("/src/components/inspector/About.tsx");
   const { instructionFor } = await vite.ssrLoadModule("/src/lib/instruction.ts");
   const { Actions, briefRow } = await vite.ssrLoadModule("/src/components/inspector/Actions.tsx");
-  const win = { files: 40, first: "2026-09-04", last: "2026-11-04", skipped: 0 };
   const node = (name, o = {}) => ({ id: name, kind: "skill", name, ...o });
-  const dayBefore = (n) => new Date(Date.parse(win.last) - n * 864e5).toISOString().slice(0, 10);
-  const used = (n) => ({ count: 3, last_used: dayBefore(n) });
-  const cost = { always_on: 840, on_use: null };
-  const run = (item, os = [], kids = [], w = win) => verdictOf(item, os, kids, w);
+  const A = (id, tier, label, confidence, texts, o = {}) => ({ id, tier, label, confidence, reasons: texts.map((text, i) => ({ code: `c${i}`, text })), action: "none", saves: null, risk: 1, group: null, recheck_after: null, ...o });
+  const asm = {};
+  const put = (id, ...r) => { asm[id] = A(id, ...r); return node(id); };
   const other = node("changelog-draft");
+  // The reader maps tier -> tone and passes the server's words through; it decides nothing itself.
+  const tones = { keep: "keep", keep_rare: "keep", review: "warn", too_early: "warn", redundant: "destructive", could_go: "destructive", off: "off", untracked: "none" };
+  for (const [tier, tone] of Object.entries(tones)) assert.equal(verdictOf(put(`t-${tier}`, tier, "L", "high", ["why"]), asm).tone, tone, tier);
+  const me = put("me", "could_go", "Could go", "high", ["0 uses in 34 active days (52 sessions); costs 610 tokens every session", "Written by hand", "Third", "Fourth"], { action: "remove", saves: 610 });
+  const v = verdictOf(me, asm);
+  assert.deepEqual([v.label, v.why, v.more, v.confidence, v.action, v.saves], ["Could go", "0 uses in 34 active days (52 sessions); costs 610 tokens every session", ["Written by hand", "Third"], "high", "remove", 610]);
+  assert.equal(verdictOf(put("long", "keep", "Keep", "high", ["x".repeat(200)]), asm).why.length, 90);
+  const young = verdictOf(put("db", "too_early", "Not enough history yet", "low", ["Added 5 days ago"], { recheck_after: 12 }), asm);
+  assert.deepEqual([young.label, young.recheck, young.tone], ["Not enough history yet", 12, "warn"]);
+  assert.equal(verdictOf(put("u", "untracked", "Not tracked", null, ["Adds 1.2 KB before every prompt"]), asm).confidence, null);
+  for (const miss of [undefined, {}]) {
+    const m = verdictOf(node("nope"), miss);
+    assert.deepEqual([m.label, m.tone, m.tier, m.action], ["Not enough data", "none", null, "none"]); // old server or demo JSON
+  }
+  assert.equal(verdictOf(put("s", "could_go", "Could go", "high", ["Never used", "0 uses in 34 active days"]), asm).basis, false);
+  asm.nv = A("nv", "could_go", "Could go", "high", [], {}); asm.nv.reasons = [{ code: "never_seen", text: "x" }];
+  assert.equal(verdictOf(node("nv"), asm).basis, true);
 
-  assert.equal(DORMANT_DAYS, 30);
-  const off = run(node("a", { disabled: true, usage: used(0), cost }));
-  assert.deepEqual([off.tone, off.label], ["off", "Switched off"]);
-  const me = node("me", { cost, usage: used(0) });
-  assert.deepEqual([run(me, [{ a: me, b: other, verdict: "duplicate" }]).label, run(me, [{ a: me, b: other, verdict: "duplicate" }]).why], ["Keep one", "Does the same job as changelog-draft."]);
-  assert.equal(run(me, [{ a: other, b: me, verdict: "duplicate" }]).why, "Does the same job as changelog-draft.");
-  assert.equal(run(me, [{ a: me, b: other, verdict: "wrapper" }]).label, "Keep the wrapped one");
-  assert.equal(run(me, [{ a: other, b: me, verdict: "wrapper" }]).label, "Keep"); // this is the wrapped one: not flagged
-  assert.equal(run(me, [{ a: me, b: other, verdict: "overlap" }]).label, "Keep"); // plain overlap is no verdict
-  const never = run(node("n", { cost, usage: { count: 0, last_used: null } }));
-  assert.deepEqual([never.label, never.tone, never.basis], ["Could go", "destructive", true]);
-  assert.match(never.why, /Not seen in 62 days of sessions; costs 840 tokens every session\./);
-  for (const [age, label] of [[29, "Keep"], [30, "Review"], [31, "Review"]]) assert.equal(run(node("d", { cost, usage: used(age) })).label, label, `${age} days`);
-  assert.equal(run(node("free", { cost: { always_on: 0, on_use: null }, usage: used(90) })).label, "Keep"); // nothing to save
-  assert.equal(run(node("unk", { cost: { always_on: null, on_use: null }, usage: { count: 0, last_used: null } })).label, "Not enough data");
-  assert.equal(run(node("k", { cost, usage: used(2) })).tone, "keep");
-  assert.equal(run(node("hk", { kind: "hook" })).why, "Usage is not tracked for hooks.");
-  const kids = [node("c1", { cost, usage: { count: 0, last_used: null } }), node("c2", { cost, usage: { count: 0, last_used: null } })];
-  assert.equal(run(node("p", { kind: "plugin" }), [], kids).label, "Could go");
-  assert.equal(run(node("p", { kind: "plugin" }), [], [kids[0], node("c3", { cost, usage: used(1) })]).label, "Not enough data");
-  assert.equal(run(node("p", { kind: "plugin" }), [], []).label, "Not enough data");
-  assert.ok(run(me, [{ a: me, b: node("x".repeat(200)), verdict: "duplicate" }]).why.length <= 90);
+  // Banner markup: label, first reason, a confidence chip, the other reasons, the recheck line, and "If removed" only for a removing action.
+  const bp = node("bp", { kind: "plugin" }), caller = node("deploy-flow");
+  const bl = [{ source: caller, target: me, kind: "uses" }, { source: bp, target: node("x"), kind: "contains" }];
+  const banner = (item, verdict, ls = []) => renderToStaticMarkup(createElement(VerdictBanner, { verdict, item, model: { links: ls } }));
+  assert.match(banner(me, v), /Could go[\s\S]*0 uses in 34 active days[\s\S]*High confidence[\s\S]*Written by hand/);
+  assert.match(banner(me, v), /If removed[\s\S]*Frees about 610 tokens[\s\S]*Nothing else in your setup points at it/);
+  assert.match(banner(me, v, bl), /deploy-flow points at it and would lose it/);
+  assert.match(banner(bp, { ...v, action: "disable_plugin" }, bl), /turns off all 1 of its parts/);
+  assert.match(banner(me, { ...v, saves: null }), /How many tokens it frees is unknown/);
+  assert.doesNotMatch(banner(me, { ...v, action: "none" }), /If removed/);
+  assert.match(banner(node("db"), young), /Not enough history yet[\s\S]*Low confidence[\s\S]*Check back after about 12 more days/);
+  assert.doesNotMatch(banner(node("u"), verdictOf(node("u"), asm)), /confidence/);
 
   const html = (item) => renderToStaticMarkup(createElement(Header, { item, model: { projects: { p1: "dev-constellation" } } }));
   assert.match(html(node("s", { origin: "obra/superpowers", scope: "project", project: "p1" })), /from obra\/superpowers[\s\S]*Project · dev-constellation/);
@@ -102,19 +108,24 @@ try {
   assert.doesNotMatch(ab(node("h", { kind: "hook", description: "Use when x." })), /What it does|When it triggers/);
 
   // Actions (section 5): instruction wording matches answer.py handoff(); Add only for Brief cost/pairs rows; Compare only with onAsk.
-  const noOs = { overlapsOf: new Map() }, V = (label, tone) => ({ label, tone, why: "", basis: false });
-  assert.equal(instructionFor(node("release-notes"), noOs, V("Could go", "destructive")), 'Remove the skill "release-notes": find its folder (under ~/.claude/skills) and delete only that folder. Show me exactly what will change and wait for my OK.');
-  assert.equal(instructionFor(node("pdf-tools", { kind: "plugin" }), noOs, V("Not enough data", "none")), 'Disable the plugin "pdf-tools" in my user settings.json enabledPlugins; do not delete files. Show me exactly what will change and wait for my OK.');
-  assert.equal(instructionFor(node("s"), noOs, V("Keep", "keep")), 'Review the skill "s": tell me what it does and whether I still need it. Change nothing.');
-  assert.match(instructionFor(node("srv", { kind: "mcp_server", origin: "acme" }), noOs, V("Could go", "destructive")), /^Remove the MCP server "srv" from my Claude Code config.*It came from "acme": if that is a plugin or pack/);
+  const noOs = { overlapsOf: new Map() }, V = (action, tone = "destructive") => ({ label: "x", tone, action, why: "", more: [], basis: false });
+  assert.equal(instructionFor(node("release-notes"), noOs, V("remove")), 'Remove the skill "release-notes": find its folder (under ~/.claude/skills) and delete only that folder. Show me exactly what will change and wait for my OK.');
+  assert.equal(instructionFor(node("pdf-tools", { kind: "plugin" }), noOs, V("disable_plugin")), 'Disable the plugin "pdf-tools" in my user settings.json enabledPlugins; do not delete files. Show me exactly what will change and wait for my OK.');
+  assert.equal(instructionFor(node("s"), noOs, V("none", "keep")), 'Review the skill "s": tell me what it does and whether I still need it. Change nothing.');
+  assert.equal(instructionFor(node("pdf-tools", { kind: "plugin" }), noOs, V("none", "none")), 'Review the plugin "pdf-tools": tell me what it does and whether I still need it. Change nothing.'); // untracked: look, do not remove
+  assert.match(instructionFor(node("srv", { kind: "mcp_server", origin: "acme" }), noOs, V("remove")), /^Remove the MCP server "srv" from my Claude Code config.*It came from "acme": if that is a plugin or pack/);
   const dupOs = { overlapsOf: new Map([[me, [{ a: me, b: other, verdict: "duplicate" }]]]) };
-  assert.equal(instructionFor(me, dupOs, V("Keep one", "destructive")), 'The skill "me" and "changelog-draft" do the same job. Compare them and recommend which to remove; remove nothing until I choose. Show me exactly what will change and wait for my OK.');
-  assert.match(instructionFor(me, { overlapsOf: new Map([[me, [{ a: me, b: other, verdict: "wrapper" }]]]) }, V("Keep the wrapped one", "warn")), /only calls "changelog-draft"\. Show me how to use/);
-  assert.ok(instructionFor(node("w".repeat(500)), noOs, V("Could go", "destructive")).length <= 400);
-  const row = { id: "r1", kind: "review_cost", item_ids: ["me"] }, grp = (rows) => ({ rows });
-  const brief = { cost: grp([row]), pairs: grp([]), scope: { rows: [{ id: "s1", kind: "move_to_project", item_ids: ["scoped"] }] }, checklist: { ids: [] } };
-  assert.equal(briefRow(brief, me).id, "r1");
+  assert.match(instructionFor(me, dupOs, V("remove_twin")), /^Remove the skill "me".* It does the same job as "changelog-draft", which stays\. Show me exactly what will change and wait for my OK\.$/);
+  assert.match(instructionFor(me, { overlapsOf: new Map([[me, [{ a: me, b: other, verdict: "wrapper" }]]]) }, V("use_underlying")), /only calls "changelog-draft"\. Show me how to use/);
+  assert.match(instructionFor(me, noOs, V("move_to_project")), /^Move the skill "me" out of my global setup .* wait for my OK\.$/);
+  assert.match(instructionFor(me, noOs, V("fix_description")), /^Rewrite the description of the skill "me".* wait for my OK\.$/);
+  assert.ok(instructionFor(node("w".repeat(500)), noOs, V("remove")).length <= 400);
+  const row = { id: "r1", kind: "remove_unused", item_ids: ["me"] }, grp = (rows) => ({ rows });
+  const brief = { safe: grp([row]), look: grp([{ id: "r2", kind: "remove_duplicate", item_ids: ["me", "changelog-draft"] }]), wait: { summary: [], rows: [{ id: "w1", kind: "wait", item_ids: ["waiting"] }] }, range: { low: 0, high: 0, unknown: 0 }, scope: { rows: [{ id: "s1", kind: "move_to_project", item_ids: ["scoped"] }] }, checklist: { ids: [] } };
+  assert.equal(briefRow(brief, me).id, "r1"); // the row naming this Item alone beats the pair
+  assert.equal(briefRow(brief, other).id, "r2");
   assert.equal(briefRow(brief, node("scoped")), undefined); // scope rows 404: never offered
+  assert.equal(briefRow(brief, node("waiting")), undefined); // wait rows have no checklist button
   const act = (p) => renderToStaticMarkup(createElement(Actions, { item: me, instruction: "x", ...p }));
   assert.match(act({ brief }), /Copy instruction for Claude Code[\s\S]*Add to checklist/);
   assert.doesNotMatch(act({}), /Add to checklist|Compare with/);
@@ -122,7 +133,15 @@ try {
   assert.match(act({ brief: { ...brief, checklist: { ids: ["r1"] } } }), /disabled[^>]*>[\s\S]*On checklist/);
   assert.match(act({ onAsk: () => {} }), /Compare with…/);
 
-  console.log("Inspector verdict rows, the 29/30/31-day edge, header, description split, kind details and Related groups pass.");
+  // briefFrom: the new shape passes through; an older server's cost / pairs becomes one ungrouped list; anything else is no brief.
+  const { briefFrom } = await vite.ssrLoadModule("/src/lib/brief.ts");
+  assert.equal(briefFrom(brief), brief);
+  const old = briefFrom({ cost: { rows: [{ id: "c", kind: "review_cost", item_ids: ["me"], tokens_saved: 40 }], frees: 40 }, pairs: { rows: [{ id: "p", kind: "remove_duplicate", item_ids: ["a", "b"], tokens_saved: null }] }, checklist: { ids: [] } });
+  assert.deepEqual([old.safe.rows.length, old.look.rows.map((r) => [r.id, r.saves]), old.range.high], [0, [["p", null], ["c", 40]], 0]);
+  assert.equal(briefFrom({}), null);
+  assert.equal(briefFrom(null), null);
+
+  console.log("Inspector verdict reader and banner, instructions by action, Brief shapes, header, description split, kind details and Related groups pass.");
 } finally {
   await vite.close();
 }
