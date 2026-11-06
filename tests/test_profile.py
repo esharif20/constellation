@@ -155,6 +155,7 @@ def test_the_cli_profiles_a_project_read_only_and_keeps_hashes_out(tmp_path, mon
     habits.save(path, {history.key(str(config.resolve())): led})
     before = path.read_bytes()
     monkeypatch.setattr(history, "_today", lambda: TODAY)
+    monkeypatch.chdir(tmp_path)  # a stray ./constellation.json in the checkout must not be picked up
     # profile names Items from the saved (already redacted) scan, never from a fresh raw read of the config
     saved = tmp_path / "scan.json"
     rows = [{"id": ids[n], "kind": "skill", "name": n.replace("alpha", "[REDACTED]"), "scope": "global", "disabled": False} for n in ids]
