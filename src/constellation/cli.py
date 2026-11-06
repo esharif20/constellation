@@ -41,7 +41,7 @@ from . import purge as purge_report
 from .assessment import compute
 from .assessment import public as assessment_json
 from .classify import FAILED_PREFIX
-from .claude_code import read_items, read_secrets
+from .claude_code import read_secrets
 from .diff import diff_scans, render_diff
 from .env import load_env
 from .expansion import Query, expand
@@ -419,7 +419,10 @@ def main(
         first = next((w for w in result.warnings if FAILED_PREFIX in w), "unknown")
         print(f"No Item could be labelled. First problem: {first}", file=sys.stderr)
         return 1
-    args.out.parent.mkdir(parents=True, exist_ok=True)
+    if args.out.parent == scanfile.default_out().parent:
+        scanfile.private_dir(args.out.parent)
+    else:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
     saved = _write(
         result, args.out, read_secrets(args.config_dir, args.project), args.config_dir, None if args.no_history else history.DEFAULT_CACHE
     )
@@ -452,8 +455,12 @@ def _profile(args: argparse.Namespace) -> int:
     if folder is None or ledger is None:
         print(error or "No habit ledger yet. Run `constellation scan` first.", file=sys.stderr)
         return 2
-    items = read_items(config)[0]
-    tracked = {i.id: (i.kind, i.name) for i in items if i.kind in TRACKED and i.scope == "global" and not i.disabled}
+    scan_data = _load_scan(scanfile.latest_scan())  # the saved scan is already redacted and carries the ledger's ids
+    if scan_data is None:
+        return 2
+    tracked = {
+        i["id"]: (i["kind"], i["name"]) for i in scan_data["items"] if i["kind"] in TRACKED and i["scope"] == "global" and not i["disabled"]
+    }
     result = project_profile.build(ledger, history._today(), tracked, folder, args.project)
     print(json.dumps(result, indent=2) if args.json else project_profile.render(result))
     return 0
@@ -770,16 +777,7 @@ def _write(result: Constellation, path: Path, secrets: set[str], config_dir: Pat
     ids = unique_ids((i.id for i in result.items), secrets, id_key(history.DEFAULT_CACHE.with_name("id-key")))
     data: dict[str, Any] = redact_tree(asdict(result), secrets, ids)
     text = json.dumps(data, indent=2)  # serialise first: a failure must not leave an empty file behind
-    temp = path.with_name(path.name + ".tmp")  # written whole, then moved into place: a cancelled scan leaves no partial file
-    try:
-        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        os.chmod(temp, 0o600)  # open() keeps the mode of a file that already existed
-        with os.fdopen(fd, "w") as f:
-            f.write(text)
-        os.replace(temp, path)
-    except BaseException:
-        temp.unlink(missing_ok=True)
-        raise
+    scanfile.write_atomic(path, text)
     if history_path is not None:
         try:
             history.record(history_path, history.entry(data, setup, day))

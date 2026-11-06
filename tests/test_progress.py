@@ -69,6 +69,7 @@ def test_latest_scan_prefers_explicit_then_local_then_remembered(tmp_path, monke
     scanfile.remember(saved)
     assert scanfile.latest_scan() == saved.resolve()
     Path("constellation.json").write_text("{}")
+    Path("constellation.json").chmod(0o600)
     assert scanfile.latest_scan() == Path("constellation.json")
     assert scanfile.latest_scan(Path("given.json")) == Path("given.json")
     Path("constellation.json").unlink()

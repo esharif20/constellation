@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import math
-import os
 import textwrap
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from . import scanfile
 from .redact import redact
 
 if TYPE_CHECKING:
@@ -187,10 +187,7 @@ def render_report(data: dict[str, Any], *, top: int, color: bool, width: int, sh
 
 
 def write_private(path: Path, text: str) -> None:
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)  # pragma: no mutate (equivalent: the chmod below fixes the final mode)
-    os.chmod(path, 0o600)  # the mode above applies only to a new file
-    with os.fdopen(fd, "w") as f:
-        f.write(text)
+    scanfile.write_atomic(path, text)
 
 
 def _saving(s: Suggestion) -> str:

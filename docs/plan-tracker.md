@@ -1116,3 +1116,13 @@ No deviation from the plan. Fixed on the demo at 1440x900 and 390px: Ask answer 
 - On release every spring decays to its home, snaps to exactly home and leaves the Map, so nothing runs at rest. Home positions and the force layout are never touched (the engine still does not run; `cooldownTicks` stays 0). One rAF loop in `StarMap.tsx` runs only while a drag is held or a star is displaced.
 - Stretched links brighten and thicken (`focus.stretch` in `paint.ts`). Reduced motion: no neighbour pull, the held star follows and snaps back. Replaced the old one-star 260 ms ease-back in `onNodeDragEnd`.
 - Verified in the browser on demo-250 (dev server, mouse): mid-drag, release and settled screenshots `docs/design/screenshots-review/elastic-*.png`; 1 hop moved 35% of the pull, all positions returned exactly. Not verified: touch hardware, 492-item stress fps, reduced-motion in a browser. No deviation, no new dependency, no mutation run (frontend).
+
+## Privacy-review fixes (2026-11-06, branch `claude/secfix`)
+
+- From an Opus read-only privacy review. `scanfile.write_atomic` (mkstemp in the target folder, O_EXCL 0600, then `os.replace`, no chmod) now writes the scan and `write_private` output, so a planted link at the old `.tmp` name is never followed; `remember()` opens the `latest` pointer with `O_NOFOLLOW`, 0600 from creation.
+- `./constellation.json` is trusted by `latest_scan()` and `target()` only if lstat shows a regular file, owned by the current uid, with no group/world bits (files we write are 0600; a 0644 git checkout is ignored with a one-line stderr note, falling back to the remembered scan). Hand-copied scans need `chmod 600`.
+- `redact()` known-value pass now collects every match span, merges overlaps and replaces each merged span once (no leaked tail of a longer overlapping secret). The 8-char minimum and marker rule are unchanged; its limits (short PINs, word-only passphrases in `find` output, a short password inside a longer env value) are noted in the `shortcut:` comment. No docs privacy page exists, so none was edited.
+- `profile` names Items from the saved (redacted) scan, so names are redacted and ids match the habit ledger; it needs a saved scan.
+- `~/.cache/constellation` is created 0700 and chmod 0700 (scan folder and pointer).
+- `serve` waits on uvicorn's `server.started`, not a socket connect, so a port squatter is not mistaken for our server. Per-run token skipped (optional).
+- Mutation: `redact.py` per-function zero-survivor runs (see commit report); scanfile, cli, server are glue covered by exact-output tests. No deviation from the plan.
