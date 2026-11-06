@@ -168,22 +168,23 @@ line is the reason text for "never seen" verdicts, and it explains why more hist
 ```python
 @dataclass(frozen=True)
 class Reason:
-    code: str   # stable, e.g. "never_seen", "duplicate_loser", "rare_purpose"; tests and the Snapshot use codes
-    text: str   # plain English, max 90 chars, redacted
+    code: str  # stable, e.g. "never_seen", "duplicate_loser", "rare_purpose"; tests and the Snapshot use codes
+    text: str  # plain English, max 90 chars, redacted
+
 
 @dataclass(frozen=True)
 class Assessment:
     id: str
     tier: Literal["keep", "keep_rare", "review", "redundant", "could_go", "too_early", "off", "untracked"]
-    label: str              # "Keep", "Keep (rarely needed)", "Review", "Likely redundant", "Could go",
-                            # "Not enough history yet", "Switched off", "Not tracked"
-    confidence: Literal["high", "medium", "low"] | None   # None for off / untracked
-    reasons: tuple[Reason, ...]   # 1-3, most important first
+    label: str  # "Keep", "Keep (rarely needed)", "Review", "Likely redundant", "Could go",
+    # "Not enough history yet", "Switched off", "Not tracked"
+    confidence: Literal["high", "medium", "low"] | None  # None for off / untracked
+    reasons: tuple[Reason, ...]  # 1-3, most important first
     action: Literal["none", "remove", "disable_plugin", "remove_twin", "use_underlying", "move_to_project", "fix_description"]
-    saves: int | None       # always-on tokens per session start if the action is taken; None = unknown, never 0
-    risk: int               # 1 low, 2 medium, 4 high (§5.1)
+    saves: int | None  # always-on tokens per session start if the action is taken; None = unknown, never 0
+    risk: int  # 1 low, 2 medium, 4 high (§5.1)
     group: Literal["safe", "look", "wait"] | None
-    recheck_after: int | None   # active days of extra history that would settle a too_early / keep_rare verdict
+    recheck_after: int | None  # active days of extra history that would settle a too_early / keep_rare verdict
 ```
 
 Tone mapping for the UI: keep, keep_rare -> `keep`; review, too_early -> `warn`; redundant, could_go -> `destructive`;
