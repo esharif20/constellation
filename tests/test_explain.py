@@ -154,7 +154,7 @@ def test_render_explain_exact_text_local_and_empty(tmp_path):
     assert out == (
         "# My Claude Code setup\n\n"
         "8 items, 210 always-on tokens known, 2 with unknown cost.\n\n"
-        "## Largest clusters\n\n- Delta: 1 items, 10 tokens\n\n"
+        "## Largest clusters\n\n- Delta: 1 items, 10 tokens (5% of always-on)\n\n"
         "## Costliest always-on\n\n- gizmo-5 (skill): 60 tokens\n- gizmo-4 (skill): 50 tokens\n"
         "- gizmo-3 (skill): 40 tokens\n- gizmo-2 (skill): 30 tokens\n- gizmo-1 (skill): 20 tokens\n\n"
         "## Not used lately\n\nChecked 4 transcripts over 10 days.\n\n"
@@ -231,3 +231,27 @@ def test_explain_action_dates_come_from_the_scan_and_never_leak_publicly():
     pub = explain(data, public=True)
     assert pub["scanned_at"] is None and all(a["last_used"] is None and a["since"] is None for a in pub["actions"])
     assert explain(scan())["scanned_at"] is None
+
+
+def test_explain_cluster_share_is_a_rounded_percent_of_known_always_on_and_public_too(tmp_path):
+    for q in ("", "?public=1"):
+        body = get(tmp_path, scan(), q).json()
+        # costs 10..60 (total 210): Charlie 60 -> 29%, Alpha 40+50 -> 43%, Bravo 20+30 -> 24%
+        assert [(c["name"], c["share"]) for c in body["clusters"]] == [("Charlie", 29), ("Alpha", 43), ("Bravo", 24)]
+        assert "- Alpha: 2 items, 90 tokens (43% of always-on)" in body["text"]
+    none = scan(costs={})
+    body = get(tmp_path, none).json()
+    assert [c["share"] for c in body["clusters"]] == [None, None, None]
+    assert "% of always-on" not in body["text"]
+
+
+def test_cluster_share_edges_unmeasured_cluster_zero_cost_and_zero_total():
+    from constellation.explain import explain
+
+    data = scan(clusters=[{"name": "Echo", "item_ids": IDS[6:8]}, {"name": "Free", "item_ids": [IDS[0]]}])
+    data["costs"][IDS[0]]["always_on"] = 0
+    assert [(c["name"], c["share"]) for c in explain(data)["clusters"]] == [("Echo", None), ("Free", 0)]
+    data["costs"] = {IDS[0]: {"always_on": 0, "on_use": None}}
+    assert [c["share"] for c in explain(data)["clusters"]] == [None, None]  # 0 known tokens: no division, no fake percent
+    data["costs"] = {IDS[0]: {"always_on": 10, "on_use": None}, IDS[6]: {"always_on": 20, "on_use": None}}
+    assert [(c["name"], c["share"]) for c in explain(data)["clusters"]] == [("Echo", 67), ("Free", 33)]  # 1/3 is 33, not 34

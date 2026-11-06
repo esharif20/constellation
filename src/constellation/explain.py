@@ -23,19 +23,19 @@ def explain(data: dict[str, Any], public: bool = False) -> dict[str, Any]:
     days = 0
     if window and window.get("first"):
         days = (date.fromisoformat(window["last"]) - date.fromisoformat(window["first"])).days + 1
+    total = sum(known.values())
+    cl = [
+        {"name": c["name"], "items": len(c["item_ids"]), "always_on": sum(known[i] for i in c["item_ids"] if i in known)}
+        if any(i in known for i in c["item_ids"])
+        else {"name": c["name"], "items": len(c["item_ids"]), "always_on": None}
+        for c in clusters
+    ]
     return {
         "public": public,
         "items": len(items),
         "known": sum(known.values()) if known else None,  # None = nothing measured, never 0
         "unknown": sum(i["id"] not in known for i in items),
-        "clusters": [
-            {
-                "name": c["name"],
-                "items": len(c["item_ids"]),
-                "always_on": sum(known[i] for i in c["item_ids"] if i in known) if any(i in known for i in c["item_ids"]) else None,
-            }
-            for c in clusters
-        ],
+        "clusters": [{**c, "share": _pct(c["always_on"], total)} for c in cl],
         "costs": [{"name": i["name"], "kind": i["kind"], "always_on": known[i["id"]]} for i in _ranked(data, known)[:5]],
         "unused": unused,
         "window": {"files": window["files"], "days": days} if window else None,
@@ -61,11 +61,21 @@ def _tokens(value: int | None) -> str:
     return "cost unknown" if value is None else f"{value:,} tokens"
 
 
+def _pct(part: int | None, whole: int) -> int | None:
+    """Whole percent of the known always-on total; None when the cluster or the scan has no measured cost."""
+    return round(100 * part / whole) if part is not None and whole else None
+
+
+def _share(share: int | None) -> str:
+    return "" if share is None else f" ({share}% of always-on)"
+
+
 def render_explain(summary: dict[str, Any]) -> str:
     lines = ["# My Claude Code setup", ""]
     cost = "cost not measured" if summary["known"] is None else f"{summary['known']:,} always-on tokens known"
     lines += [f"{summary['items']} items, {cost}, {summary['unknown']} with unknown cost.", "", "## Largest clusters", ""]
-    lines += [f"- {c['name']}: {c['items']} items, {_tokens(c['always_on'])}" for c in summary["clusters"]] or ["- None."]
+    lines += [f"- {c['name']}: {c['items']} items, {_tokens(c['always_on'])}{_share(c['share'])}" for c in summary["clusters"]]
+    lines += [] if summary["clusters"] else ["- None."]
     lines += ["", "## Costliest always-on", ""]
     lines += [f"- {c['name']} ({c['kind']}): {_tokens(c['always_on'])}" for c in summary["costs"]] or ["- None measured."]
     lines += ["", "## Not used lately", ""]
