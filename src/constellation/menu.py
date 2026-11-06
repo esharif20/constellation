@@ -1,4 +1,4 @@
-"""No-args menu, in the style of Mole: a pure key -> state machine (`step`), pure frames (`render`, `banner`) and a thin terminal layer.
+"""No-args menu, in the style of Mole: a pure key -> state machine (`step`), pure frames (`render`) and a thin terminal layer.
 
 Every entry just runs an existing subcommand through `cli.main`; nothing here reads your setup except through those commands.
 """
@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
+from . import banner
 from .cli_reports import Style
 from .keys import Action
 
@@ -34,18 +35,6 @@ CLEAR = "\033[2J\033[H"
 HIDE = "\033[?25l"
 SHOW = "\033[?25h"
 OLIVE, STEEL, TEAL, DIM = "38;5;143", "38;5;110", "38;5;109", "2"
-FONT = {
-    "C": (" _ ", "|  ", "|_ "),
-    "O": (" _ ", "| |", "|_|"),
-    "N": ("   ", "|\\|", "| |"),
-    "S": (" _ ", "|_ ", " _|"),
-    "T": ("___", " | ", " | "),
-    "E": (" _ ", "|_ ", "|_ "),
-    "L": ("   ", "|  ", "|_ "),
-    "A": (" _ ", "|_|", "| |"),
-    "I": ("___", " | ", "___"),
-}
-ART = tuple(" ".join(FONT[ch][row] for ch in "CONSTELLATION") for row in range(3))
 _NUMBERS = {str(n): n - 1 for n in range(1, 10)}
 
 
@@ -78,23 +67,13 @@ def _fit(text: str, width: int) -> str:
     return text if len(text) <= width else text[: width - 1] + "…"
 
 
-def banner(st: Style, version: str) -> list[str]:
-    tagline = f"Map your Claude setup · {version}"
-    if st.width < len(ART[0]) + 3:
-        return [_c(st, OLIVE, _fit("  CONSTELLATION", st.width)), _c(st, DIM, _fit(f"  {tagline}", st.width))]
-    art = [_c(st, OLIVE, row) for row in ART]
-    if st.width >= len(ART[0]) + 2 + len(URL):
-        return [art[0], f"{art[1]}  {_c(st, STEEL, URL)}", f"{art[2]}  {_c(st, OLIVE, tagline)}"]
-    return [*art, _c(st, STEEL, _fit(URL, st.width)), _c(st, OLIVE, _fit(tagline, st.width))]
-
-
 def render(index: int, st: Style, version: str, entries: tuple[tuple[str, str], ...] = ENTRIES, top: bool = True) -> list[str]:
     name_w = max(len(name) for name, _ in entries) + 1
     rows = []
     for i, (name, hint) in enumerate(entries):
         row = _fit(f"{'➤' if i == index else ' '} {i + 1}. {name:<{name_w}} {hint}", st.width - 2)
         rows.append("  " + (_c(st, TEAL, row) if i == index else row))
-    return ["", *banner(st, version), "", *rows, "", "  " + _c(st, DIM, _fit(FOOTER if top else MORE_FOOTER, st.width - 2))]
+    return ["", *banner.render(st, version), "", *rows, "", "  " + _c(st, DIM, _fit(FOOTER if top else MORE_FOOTER, st.width - 2))]
 
 
 def choose(

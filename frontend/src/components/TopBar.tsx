@@ -36,7 +36,15 @@ type Props = {
 export function TopBar({ model, query, found, rows, clusterHits, note, pending, onQuery, onChoose, onPreview, cluster, onCluster, scope, onScope, extra, explain, ask }: Props) {
   return (
     <header className="pointer-events-none fixed inset-x-4 top-3 flex flex-wrap items-center gap-x-4 gap-y-2 sm:inset-x-6 sm:top-4 sm:flex-nowrap">
-      <h1 className="font-serif text-[22px] leading-none tracking-[0.01em] italic sm:text-2 [text-shadow:0_0_18px_rgb(150_170_255/0.35)] ">Constellation</h1>
+      <h1 className="flex items-center gap-2 font-serif text-[22px] leading-none tracking-[0.01em] italic sm:text-2 [text-shadow:0_0_18px_rgb(150_170_255/0.35)]">
+        <svg viewBox="0 0 32 32" aria-hidden className="size-7 shrink-0 not-italic">
+          <path d="M4 11 9.5 23 16 15 23 24.5 28.5 9" fill="none" stroke="var(--text)" strokeOpacity=".55" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="16" cy="15" r="5.5" fill="none" stroke="var(--indigo-bright)" strokeOpacity=".55" />
+          <g fill="var(--text)"><circle cx="4" cy="11" r="2" /><circle cx="9.5" cy="23" r="2.2" /><circle cx="23" cy="24.5" r="2" /><circle cx="28.5" cy="9" r="2.4" /></g>
+          <circle cx="16" cy="15" r="3.4" fill="var(--indigo-bright)" />
+        </svg>
+        Constellation
+      </h1>
       {cluster ? (
         <nav aria-label="Breadcrumb" className="pointer-events-auto min-w-0 text-xs text-text-2 sm:text-[13px]">
           <ol className="flex items-center gap-2 whitespace-nowrap">
