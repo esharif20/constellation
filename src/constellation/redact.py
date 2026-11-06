@@ -70,15 +70,30 @@ MIN_NEEDLE = 8
 def _needle(value: str) -> bool:
     """Whether a known value may be matched literally: long enough, and not a piece of the marker (re-redacting one garbles it)."""
     # shortcut: values under 8 chars are never matched so "-" or "want" can't garble text; a short real secret would leak.
+    # Known limits: short PINs, word-only passphrases (shown as words in `find` output) and a short password inside a longer env
+    # value are not caught by value; the shape patterns and key-name rules are the only cover. Upgrade: a per-source allowlist.
     return len(value) >= MIN_NEEDLE and value not in REDACTED
+
+
+def _mask(text: str, needles: list[str]) -> str:
+    """Replace every occurrence of every needle once; overlapping or touching matches merge so no tail of a longer secret is left."""
+    spans = sorted(m.span() for n in needles for m in re.finditer(re.escape(n), text))
+    merged: list[list[int]] = []
+    for start, end in spans:
+        if merged and start < merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    for start, end in reversed(merged):
+        text = text[:start] + REDACTED + text[end:]
+    return text
 
 
 def redact(text: str, known: Iterable[str] = ()) -> str:
     # Encoding and base64 never shorten a value or turn it into a piece of the marker, so checking the value covers its variants.
-    # Reverse order puts a needle before any needle that is its prefix, so the longest match wins at each position.
-    needles = sorted({v for value in known if _needle(value) for v in _variants(value)}, reverse=True)
-    if needles:  # one pass: a secret containing another goes whole, and a marker is never matched again
-        text = re.sub("|".join(map(re.escape, needles)), REDACTED, text)
+    needles = list({v for value in known if _needle(value) for v in _variants(value)})
+    if needles:  # spans found on the original text, so a marker is never matched again
+        text = _mask(text, needles)
     for pattern in _FORMATS:
         text = pattern.sub(REDACTED, text)
     for pattern in (_FLAG, _ASSIGNMENT):

@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 from fakes import write_skill
 
-from constellation import cli, habits, history
+from constellation import cli, habits, history, scanfile
 from constellation import profile as pf
 from constellation.usage import mac
 
@@ -155,12 +155,17 @@ def test_the_cli_profiles_a_project_read_only_and_keeps_hashes_out(tmp_path, mon
     habits.save(path, {history.key(str(config.resolve())): led})
     before = path.read_bytes()
     monkeypatch.setattr(history, "_today", lambda: TODAY)
+    # profile names Items from the saved (already redacted) scan, never from a fresh raw read of the config
+    saved = tmp_path / "scan.json"
+    rows = [{"id": ids[n], "kind": "skill", "name": n.replace("alpha", "[REDACTED]"), "scope": "global", "disabled": False} for n in ids]
+    saved.write_text(json.dumps({"items": rows}))
+    scanfile.remember(saved)
     assert cli.main(["profile", str(project), "--config-dir", str(config), "--habits", str(path)]) == 0
     text = capsys.readouterr().out
-    assert "alpha (skill): 3 here, 0 elsewhere" in text and "beta (skill): not seen in any transcript" in text
+    assert "[REDACTED] (skill): 3 here, 0 elsewhere" in text and "alpha" not in text and "beta (skill): not seen in any transcript" in text
     assert cli.main(["profile", "app", "--config-dir", str(config), "--habits", str(path), "--json"]) == 0
     data = json.loads(capsys.readouterr().out)
-    assert data["project"] == "app" and data["used"][0]["name"] == "alpha"
+    assert data["project"] == "app" and data["used"][0]["name"] == "[REDACTED]"
     assert mac(salt, folder, 6) not in json.dumps(data) and folder not in json.dumps(data)
     assert path.read_bytes() == before
 

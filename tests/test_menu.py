@@ -869,6 +869,7 @@ def pty_session(tmp_path, steps, program="import sys; from constellation import 
     import shutil
 
     shutil.copy(Path(__file__).parent.parent / "docs" / "design" / "demo-assess.json", tmp_path / "constellation.json")
+    (tmp_path / "constellation.json").chmod(0o600)  # a group- or world-readable ./constellation.json is not trusted
     env = {"HOME": str(tmp_path), "TERM": "xterm", "NO_COLOR": "1", "PATH": path_first + os.environ["PATH"], "COLUMNS": "80"}
     pid, fd = pty.fork()
     if pid == 0:  # child: the pty is its terminal

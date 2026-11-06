@@ -478,8 +478,6 @@ def create_app(
 
 def serve(app: FastAPI, port: int, open_browser: bool) -> None:
     """Run the app until Ctrl-C (or the menu's Esc, which raises the same), opening the browser once it accepts connections."""
-    import socket
-
     import uvicorn
 
     server = uvicorn.Server(uvicorn.Config(app, host=HOST, port=port, log_level="warning", timeout_graceful_shutdown=2))
@@ -487,15 +485,8 @@ def serve(app: FastAPI, port: int, open_browser: bool) -> None:
     thread.start()
     url = f"http://{HOST}:{port}/"
 
-    def can_connect() -> bool:
-        try:
-            socket.create_connection((HOST, port), timeout=0.2).close()
-        except OSError:
-            return False
-        return True
-
     try:
-        if not opener.wait_ready(can_connect, thread.is_alive):
+        if not opener.wait_ready(lambda: server.started, thread.is_alive):  # our own server, not whatever holds the port
             print(f"  Could not start the server on port {port} (is it already in use?).", file=sys.stderr)
             return
         print(f"  Serving at {opener.hyperlink(url, os.environ, sys.stdout.isatty())}\n  {url}", flush=True)
