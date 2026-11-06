@@ -31,11 +31,15 @@ def scan(
     project: Path | None = None,
     checkpoint: Path | None = None,
     on_progress: Callable[[str], None] | None = None,
+    ask_pairs: Callable[[str, str], str] | None = None,
 ) -> Constellation:
     """`origins` reads where each Item came from, locally (the lockfile's `source` field only, at `lockfile`, else the skills CLI's own).
     `checkpoint` is a file to save the scan's progress in, so an interrupted scan resumes without repeating paid calls
-    (none: nothing is written); it holds ids, hashes, labels and redacted model replies only, and is emptied when the scan
-    succeeds. `on_progress` gets one line per step.
+    (none: nothing is written); it holds ids, hashes, labels and redacted model replies only. The scan's thread is deleted on
+    success; cached human choices remain for later scans. `on_progress` gets one line per step.
+    `ask_pairs` optionally reviews verifier-eligible pairs while a checkpoint is usable. It receives two redacted Item ids
+    and returns "same", "different" or "skip" (use the verifier). Names and redacted descriptions go to `on_progress` only;
+    the private SQLite file caches human choices by content hash, never storing the question text or file bodies.
     `offline` makes no provider calls: any llm, counter and verifier given are ignored, and costs come from the cache alone."""
     if offline:
         llm = counter = verifier = None
@@ -76,6 +80,7 @@ def scan(
         verifier_model,
         on_verify,
         relations=relations,
+        ask_pairs=ask_pairs,
     )
     state = run(context, checkpoint, on_progress)
     warnings += state["final_warnings"]

@@ -32,6 +32,10 @@ from .suggestions import Suggestion, suggest
 Serve = Callable[[Any, int, bool], None]  # app, port, open the browser
 
 
+class _PairReviewStopped(Exception):
+    """The user stopped at the human prompt; ordinary scan interrupts retain their existing behavior."""
+
+
 def main(
     argv: Sequence[str] | None = None,
     llm: LLM | None = None,
@@ -64,6 +68,9 @@ def main(
         "--offline", action="store_true", help="make no paid or network calls: no labels or verifier, cached token costs only"
     )
     scan_command.add_argument("--no-verify", action="store_true", help="skip the stronger model that labels candidate Overlaps")
+    scan_command.add_argument(
+        "--review-ambiguous", action="store_true", help="pause uncertain pairs for same/different/skip before model verification"
+    )
     open_command = commands.add_parser("open", help="serve a constellation JSON file as a graph in the browser")
     open_command.add_argument("file", type=Path, nargs="?", default=Path("constellation.json"))
     open_command.add_argument("--port", type=int, default=8765)
@@ -140,6 +147,10 @@ def main(
         return _report(args)  # reads the file only, so it skips load_env
     if args.command == "open":
         return _open(args, serve, expansion_query)  # serving never needs the API key, so it skips load_env
+    review_ambiguous = args.review_ambiguous and not args.dry_run
+    if review_ambiguous and not sys.stdin.isatty():
+        print("Ignoring --review-ambiguous: stdin is not a terminal; using the verifier.", file=sys.stderr)
+        review_ambiguous = False
     load_env()  # a .env file in the working directory may hold ANTHROPIC_API_KEY
 
     if not args.config_dir.is_dir():
@@ -193,27 +204,32 @@ def main(
 
     with tempfile.TemporaryDirectory() as scratch:  # a dry run must not write the real token-count cache
         cache = Path(scratch) / "counts.json" if args.dry_run else None  # likewise the label and verdict caches below
-        result = scan(
-            args.config_dir,
-            llm=llm,
-            embedder=embedder,
-            counter=counter,
-            count_bodies=args.count_bodies,
-            cost_cache=cache,
-            verifier=None if args.no_verify else verifier,
-            verdict_cache=Path(scratch) / "verdicts.json" if args.dry_run else None,
-            on_verify=None if args.dry_run else _announce,
-            label_cache=Path(scratch) / "labels.json" if args.dry_run else None,
-            label_model=label_model,
-            verifier_model=verifier_model,
-            offline=offline,
-            usage=not args.no_usage,
-            origins=not args.no_origins,
-            lockfile=args.skill_lock,
-            project=args.project,
-            checkpoint=None if args.dry_run else scan_graph.DEFAULT_CHECKPOINT,  # a dry run writes no file
-            on_progress=None if args.dry_run else lambda line: print(line, file=sys.stderr),
-        )
+        try:
+            result = scan(
+                args.config_dir,
+                llm=llm,
+                embedder=embedder,
+                counter=counter,
+                count_bodies=args.count_bodies,
+                cost_cache=cache,
+                verifier=None if args.no_verify else verifier,
+                verdict_cache=Path(scratch) / "verdicts.json" if args.dry_run else None,
+                on_verify=None if args.dry_run else lambda calls, tokens: _announce(calls, tokens, possible=review_ambiguous),
+                label_cache=Path(scratch) / "labels.json" if args.dry_run else None,
+                label_model=label_model,
+                verifier_model=verifier_model,
+                offline=offline,
+                usage=not args.no_usage,
+                origins=not args.no_origins,
+                lockfile=args.skill_lock,
+                project=args.project,
+                checkpoint=None if args.dry_run else scan_graph.DEFAULT_CHECKPOINT,  # a dry run writes no file
+                on_progress=None if args.dry_run else lambda line: print(line, file=sys.stderr),
+                ask_pairs=_ask_pair_stdin if review_ambiguous else None,
+            )
+        except _PairReviewStopped:
+            print("Scan paused; rerun with --review-ambiguous to resume.", file=sys.stderr)
+            return 130
     if args.dry_run:
         print("\n".join(sorted(sent)))  # parallel calls finish in any order; one sorted print is whole, readable and repeatable
         if local is None and not args.no_verify:
@@ -271,6 +287,17 @@ def _ask_stdin(suggestion: Suggestion) -> str:
         except EOFError:
             return "q"
         if answer in ("a", "s", "q"):
+            return answer
+
+
+def _ask_pair_stdin(_a: str, _b: str) -> str:
+    while True:
+        print("same (duplicate job) / different / skip (use verifier)?", file=sys.stderr)
+        try:
+            answer = input().strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            raise _PairReviewStopped from None
+        if answer in scan_graph.PAIR_CHOICES:
             return answer
 
 
@@ -434,12 +461,13 @@ def _local_embedder() -> Embedder | None:
     return fastembed_embedder()
 
 
-def _announce(calls: int, input_tokens: int) -> None:
+def _announce(calls: int, input_tokens: int, *, possible: bool = False) -> None:
     from .anthropic_llm import VERIFIER_MODEL
 
     pairs = f"{calls} pair" + ("" if calls == 1 else "s")
+    action = "maximum possible cost for" if possible else "verifying"
     print(
-        f"verifying {pairs} with {VERIFIER_MODEL}, about ${estimate_cost(calls, input_tokens):.3f} (cached pairs are free)", file=sys.stderr
+        f"{action} {pairs} with {VERIFIER_MODEL}, about ${estimate_cost(calls, input_tokens):.3f} (cached pairs are free)", file=sys.stderr
     )
 
 
