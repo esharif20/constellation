@@ -55,12 +55,14 @@
   --sky-core: #f4a39a; /* salmon-peach glow of the core bulge */
   --sky-rose: #c47aa6; /* dusty rose between core and arms, and at dust edges */
   --sky-arm: #8e93da; /* lavender blue-violet arms and cool stars */
-  --sky-band: 0.18; /* band glow peak */
+  --sky-band: 0.32; /* band glow peak */
   --sky-lane: 0.5; /* dust over the band, --surface-0 */
   --sky-outside: 0.3; /* near-black navy outside the band, --surface-0 */
-  --sky-haze: 0.09; /* unresolved-star haze in the band, --text */
+  --sky-haze: 0.18; /* unresolved-star haze in the band, --text */
   --sky-star: 0.5; /* star dust peak, --text with some --sky-core and --sky-arm */
   --sky-anchor: 0.7; /* the dozen bright stars */
+  --sky-hole: 0.22; /* band opacity left behind the graph's box */
+  --sky-hole-stars: 0.45; /* star dust left behind it */
   --sky-grain: 0.03; /* film grain peak, --text */
   --sky-ring: 0.1; /* chart rings and ticks, --halo-name (canvas, map-anchored, scaled by strength) */
   --sky-ring-label: 0.42; /* chart ring labels, --text-3 */
@@ -183,6 +185,10 @@
      graph/sky.ts; a setting change fades opacity only (--t, 0 under reduced motion); the compositor runs the opt-in drift */
   .sky-layers { position: fixed; inset: -24px; z-index: -1; pointer-events: none; }
   .sky-layer { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity var(--t) var(--ease-out); }
+  /* the band and its stars dim behind the graph's live screen box (sky.ts skyGraph sets --hole-*); unset, the ellipse is
+     empty and the layer shows whole */
+  .sky-layer[data-layer="band"] { mask-image: radial-gradient(var(--hole-rx, 0px) var(--hole-ry, 0px) at var(--hole-x, 50%) var(--hole-y, 50%), rgb(0 0 0 / var(--sky-hole)) 55%, #000 100%); }
+  .sky-layer[data-layer="dust"] { mask-image: radial-gradient(var(--hole-rx, 0px) var(--hole-ry, 0px) at var(--hole-x, 50%) var(--hole-y, 50%), rgb(0 0 0 / var(--sky-hole-stars)) 55%, #000 100%); }
   [data-drift] .sky-layers { animation: sky-drift 180s ease-in-out infinite alternate; }
   @media (prefers-reduced-motion: reduce) { [data-drift] .sky-layers { animation: none; } }
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }

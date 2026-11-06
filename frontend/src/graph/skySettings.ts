@@ -7,8 +7,8 @@ export type Layer = Exclude<keyof SkySettings, "strength">;
 
 export const LAYERS: [Layer, string][] = [["band", "Milky Way band"], ["dust", "Star dust"], ["anchors", "Bright stars"], ["graticule", "Chart rings"], ["grain", "Grain"]];
 export const STRENGTHS = ["Off", "Subtle", "Rich"] as const;
-// the recommended subtle blend: chart rings stay off because they are lines behind the Relation lines
-export const DEFAULTS: SkySettings = { band: true, dust: true, anchors: true, graticule: false, grain: true, strength: 1 };
+// the recommended subtle blend, chart rings included (the owner's pick; they stay faint, below the Relation lines)
+export const DEFAULTS: SkySettings = { band: true, dust: true, anchors: true, graticule: true, grain: true, strength: 1 };
 export const KEY = "constellation.sky.v1";
 
 // how much each strength multiplies every layer's alpha token

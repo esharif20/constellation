@@ -6,6 +6,7 @@ import { flightMs, flightPath } from "@/graph/flight";
 import { applyForces, fitView, focusView, haloOf, type LLink, type LNode, type View } from "@/graph/layout";
 import { step, type Cluster, type GLink, type GNode, type Model } from "@/graph/model";
 import { FEEL, hoverRadius, makePainter, type Painter } from "@/graph/paint";
+import { skyGraph } from "@/graph/sky";
 import { onSky } from "@/graph/skySettings";
 import { Hover, type Tip } from "@/components/Hover";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,17 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
   const onClusterRef = useRef(onCluster);
   useEffect(() => { onClusterRef.current = onCluster; });
   const zoomK = useRef(1);
+  // The sky dims the band behind the graph's screen box (sky.ts skyGraph): sent at most every 120 ms while the camera
+  // moves and once when it rests; at the fitted view (load, resize, reset) the band may also move to the graph's far side.
+  const skyT = useRef({ last: 0, timer: 0 });
+  const skyBox = useCallback(() => {
+    const g = fg.current, ns = model.nodes;
+    if (!g || !ns.length) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const n of ns) { if (n.x! < x0) x0 = n.x!; if (n.x! > x1) x1 = n.x!; if (n.y! < y0) y0 = n.y!; if (n.y! > y1) y1 = n.y!; }
+    const a = g.graph2ScreenCoords(x0, y0), b = g.graph2ScreenCoords(x1, y1);
+    skyGraph({ x: a.x, y: a.y, w: b.x - a.x, h: b.y - a.y }, Math.abs(zoomK.current / painter.view.fitK - 1) < 0.05);
+  }, [model, painter]);
   const aimRef = useRef<(instant?: boolean) => void>(() => {});
   const focus = painter.focus;
 
@@ -470,6 +482,9 @@ export const StarMap = forwardRef<StarMapHandle, Props>(function StarMap({ model
             }, 150);
           }
           zoomK.current = t.k;
+          const st = skyT.current, now = performance.now();
+          if (now - st.last > 120) { st.last = now; skyBox(); }
+          clearTimeout(st.timer); st.timer = window.setTimeout(skyBox, 160);
           wake(); // names ease in and out over time now, so a zoom that has stopped may still have a fade to finish
           // pulling back past half the focus zoom leaves focus where the reader already is (no flight)
           if (cluster && !focus.flying && cam.current.kFocus && t.k < 0.5 * cam.current.kFocus) { noFlight.current = true; onCluster(null); }

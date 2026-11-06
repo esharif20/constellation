@@ -251,12 +251,13 @@ Sky-only hues, never data colours:
 - `--sky-arm: #8e93da`: lavender blue-violet arms and cool stars
 
 Alphas at Rich:
-- band glow: `--sky-band: 0.18`
+- band glow: `--sky-band: 0.32`
 - dust and the outside: `--sky-lane: 0.5`, `--sky-outside: 0.3` (`--surface-0`)
-- `--sky-haze: 0.09`
+- `--sky-haze: 0.18`
+- behind the graph's live screen box: `--sky-hole: 0.22` (band), `--sky-hole-stars: 0.45` (star dust), a CSS mask
 - stars: `--sky-star: 0.5`, `--sky-anchor: 0.7`
 - `--sky-grain: 0.03`
-- chart rings: `--sky-ring: 0.1`, `--sky-ring-label: 0.42`
+- chart rings: `--sky-ring: 0.1`, `--sky-ring-label: 0.42`; on by default (owner's pick)
 
 Strength: Off 0, Subtle 1/1.55 opacity (the default), Rich 1. Budget at Subtle: map-area p95 1.16:1 at 1440 on `--night-lift`, under the 1.18 ceiling and the 1.45 resting edge.
 

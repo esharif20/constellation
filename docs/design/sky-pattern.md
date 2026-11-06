@@ -2,6 +2,28 @@
 
 The #60 sky (night radial, vignette, indigo nebula) reads as depth but is flat. Two candidate rounds led to this: the owner chose the deep field's Milky Way band (round 2, `?sky=b`) and asked for it to look much more like the Milky Way while staying quiet behind the graph. The result is a Milky Way background with five layers and a Sky popover to tune it.
 
+## Round 5: a band, not clouds (owner: round 4 "doesn't really look like the Milky Way band")
+
+Round 4's blurred domain-warped noise made shapeless violet clouds: no band, no rift, no star texture, and the dimming assumed the graph sat in the middle of the screen. A photo reads as the Milky Way because of its geometry, so round 5 rebuilds it in one galaxy frame (u along the plane, v across) shared by every layer:
+
+1. **Shape:** brightness is a Gaussian across a tilted axis (sigma about 12% of the short side, varying a little along it), a brighter bulge at one end and a gentle fall-off toward the other. Along-axis values (width, wobble, rift centre and depth) are sampled once into a 1-D table.
+2. **Great Rift:** a dark lane running lengthwise through the band, continuous, its centre wandering and its edges ragged (fBm offset), with patchy dust and faint ridged-noise filaments around it, all masked to the band. Structure is stretched along the plane (anisotropic noise coordinates), as in a photo.
+3. **Stars:** about 600k candidates at 1440, rejection-sampled from the band density (so the band shows as stellar texture even where the glow is dim), u^5 magnitudes, warm in the bulge and cooler outside, dimmed behind dust.
+4. **Haze:** per-pixel cubed grain weighted by density, not a blur.
+5. **Colour:** near-black navy outside, salmon core (`--sky-core`), dusty rose, lavender-blue at the edges (`--sky-arm`).
+
+**Placement follows the graph.** `StarMap` sends the graph's screen box (node bounds through `graph2ScreenCoords`) to `skyGraph()` at most every 120 ms while the camera moves and once when it rests. That only moves a CSS radial mask on the band (to 0.22) and star dust (to 0.45) layers. At the fitted view (load, resize, reset) `placeFor()` may also move the plane to the graph's far side and the bulge to the far end, in coarse steps, so a pan never re-renders.
+
+The renderers are pure (numbers in, RGBA out). `node scripts/sky-render.ts out.png [w] [h] [subtle|rich] [x,y,w,h]` draws them to a PNG with the contrast behind a box. That loop (8 rounds, `milkyway-lab-rich.png`) replaced guessing.
+
+**Measured:** headless Chrome at 1440, dev build: fields and stars 130–150 ms, band 75–115 ms, as separate idle tasks (a cold first run was once 570 ms, before the JIT warmed up). At 390 they take 35–45 ms. Behind the graph (prototype, Subtle): a centred graph p95 **1.09**, a corner graph 1.00. Outside the graph the band is clearly visible (p95 1.35–1.44). aaMin **5.44, unchanged**.
+
+**Chart rings are on by default** (owner's pick). They stay at `--sky-ring` 0.1 and read over the band without touching node contrast.
+
+**Honest assessment:** at first glance it reads as a Milky Way band: diagonal, warm core, a dark rift along it, dense fine stars. Compared with the photo it is dimmer and less saturated on purpose, and its dust has less fine filament detail. With the graph fitted to the screen, most of the band is masked, and it shows mainly in the corners and once the reader pans.
+
+Screenshots: `screenshots/sky/milkyway-1440.png`, `milkyway-390.png`, `milkyway-corner.png` (graph panned to the bottom right), `milkyway-lab-rich.png`.
+
 ## Round 4: realism (owner: round 3 "looks weird")
 
 On the owner's data, round 3's ridged-noise lanes read as sharp dark cracks, the band was flat grey-violet, the core had no glow and the stars were too sparse. The owner's reference is a Milky Way photo: a diagonal band, a warm salmon-pink core, soft feathered dust clouds, thousands of fine stars densest in the band, small magenta, violet and blue hue shifts, and near-black sky around it.
