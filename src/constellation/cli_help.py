@@ -14,6 +14,11 @@ _VERBS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "unused": ("Look", "Items not used lately, with confidence.", ("constellation unused", "constellation unused --json")),
     "twins": ("Look", "Overlapping pairs and which one you use.", ("constellation twins", "constellation twins my-scan.json")),
     "why": ("Look", "Why one Item has its verdict, and what removing it frees.", ("constellation why my-skill",)),
+    "remove-preview": (
+        "Look",
+        "What refers to one Item and what loses coverage if you remove it. Read-only; nothing is deleted.",
+        ("constellation remove-preview my-skill",),
+    ),
     "hooks": ("Look", "Every hook, ranked by what it does to each prompt.", ("constellation hooks", "constellation hooks --json")),
     "clashes": ("Look", "Hook, MCP name and trigger-phrase collisions.", ("constellation clashes", "constellation clashes --json")),
     "triggers": ("Look", "Skills that never fire or fire too greedily.", ("constellation triggers", "constellation triggers --json")),
@@ -117,7 +122,7 @@ def help_groups(commands: dict[str, argparse.ArgumentParser]) -> str:
     for name, sub in commands.items():
         group = _VERBS[name][0] if name in _VERBS else "Manage"
         rows[group].append((name, (sub.description or "").split(". ")[0].rstrip(".")))
-    return "\n\n".join(f"{g}:\n" + "\n".join(f"  {n:<12}{h}" for n, h in r) for g, r in rows.items() if r)
+    return "\n\n".join(f"{g}:\n" + "\n".join(f"  {n:<{max(12, len(n) + 2)}}{h}" for n, h in r) for g, r in rows.items() if r)
 
 
 def scan_writes(out: Path, history: Path | None, habits: Path | None, weekly: Path | None) -> list[str]:

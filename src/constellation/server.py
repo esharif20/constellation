@@ -31,6 +31,7 @@ from .explain import explain, render_explain
 from .hook_safety import hook_safety
 from .models import Embedder
 from .receipt import receipt
+from .removal import removal_preview
 from .skill_search import find_skills
 from .suggestions import Suggestion
 from .triggers import trigger_audit
@@ -282,6 +283,13 @@ def create_app(
     def get_lenses() -> dict[str, Any]:
         data = read_scan()
         return {"receipt": receipt(data), "hooks": hook_safety(data), "conflicts": conflicts(data), "triggers": trigger_audit(data)}
+
+    @app.get("/api/removal", dependencies=[Depends(local_only)])
+    def get_removal(id: str) -> dict[str, Any]:
+        try:
+            return removal_preview(read_scan(), id)
+        except (KeyError, TypeError, AttributeError, ValueError):
+            raise HTTPException(404, "no such Item in the saved scan") from None
 
     @app.get("/api/explain", dependencies=[Depends(local_only)])
     def get_explain(public: bool = False) -> dict[str, Any]:

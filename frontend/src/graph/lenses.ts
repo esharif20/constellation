@@ -7,3 +7,11 @@ export type Lenses = { receipt: Receipt; hooks?: HookRow[]; triggers?: Triggers;
 export type TriggerRow = { id: string; name: string; count: number; last_used: string | null; flags: ("never" | "vague" | "greedy")[] };
 export type Triggers = { files: number; rows: TriggerRow[] };
 export type Conflict = { kind: "hook" | "mcp_name" | "trigger"; key: string; item_ids: string[]; reason: string };
+
+// GET /api/removal?id=: the safe-removal preview for one Item (read-only; nothing is deleted).
+export type RemovalRow = { id: string; name: string; kind: string; why: string; verdict?: string };
+export type Removal = {
+  id: string; name: string; kind: string; safe: boolean; verdict: string; reasons: string[]; loses_coverage: boolean;
+  covered_by: RemovalRow[]; cluster: { name: string; others: string[]; more: number } | null;
+  referenced_by: RemovalRow[]; hooks: RemovalRow[]; contains: RemovalRow[]; used: number | null; last_used: string | null;
+};

@@ -24,6 +24,7 @@ from .explain import explain, render_explain
 from .hook_safety import hook_safety
 from .receipt import receipt
 from .redact import redact
+from .removal import removal_preview
 from .report import render_cleanup, write_private
 from .triggers import trigger_audit
 
@@ -47,6 +48,7 @@ COMMANDS = (
     Command("unused", "Items not used lately, with confidence", "Analyse"),
     Command("twins", "overlapping pairs and which one you use", "Analyse"),
     Command("why", "why one Item has its verdict, and what removing it frees", "Analyse", "name"),
+    Command("remove-preview", "what refers to one Item and what loses coverage if you remove it", "Analyse", "name"),
     Command("hooks", "every hook, ranked by what it does to each prompt", "Analyse"),
     Command("clashes", "hook, MCP name and trigger-phrase collisions", "Analyse"),
     Command("triggers", "skills that never fire or fire too greedily", "Analyse"),
@@ -338,6 +340,35 @@ def _r_why(d: dict[str, Any], st: Style) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _remove_preview(s: Scan, query: str | None) -> dict[str, Any]:
+    return removal_preview(s.data, find_item(s, query or "")["id"])
+
+
+def _r_remove_preview(d: dict[str, Any], st: Style) -> str:
+    lines = [
+        st.title(f"{d['name']} ({d['kind']})"),
+        "",
+        f"  {st.mark(OK if d['safe'] else WARN)} {d['verdict']}",
+        *(f"  - {r}" for r in d["reasons"]),
+    ]
+    for label, key in (
+        ("Also covered by", "covered_by"),
+        ("Referred to by", "referenced_by"),
+        ("Hooks", "hooks"),
+        ("Goes with it", "contains"),
+    ):
+        if d[key]:
+            lines.append(f"  {label}: " + ", ".join(f"{r['name']} ({r['why']})" if key != "covered_by" else r["name"] for r in d[key]))
+    if d["cluster"]:
+        lines.append(
+            f"  Same group ({d['cluster']['name']}): "
+            + ", ".join(d["cluster"]["others"])
+            + (f" and {d['cluster']['more']} more" if d["cluster"]["more"] else "")
+        )
+    lines.append("  Nothing was changed; remove it by hand.")
+    return "\n".join(lines) + "\n"
+
+
 def _r_hooks(d: dict[str, Any], st: Style) -> str:
     if not d["hooks"]:
         return f"  {st.mark(OK)} No hooks.\n"
@@ -371,11 +402,13 @@ def _r_text(d: dict[str, Any], st: Style) -> str:
 
 
 RENDER: dict[str, Callable[[dict[str, Any], Style], str]] = {
-    "doctor": _r_doctor, "cost": _r_cost, "unused": _r_unused, "twins": _r_twins, "why": _r_why, "hooks": _r_hooks,
+    "doctor": _r_doctor, "cost": _r_cost, "unused": _r_unused, "twins": _r_twins, "why": _r_why,
+    "remove-preview": _r_remove_preview, "hooks": _r_hooks,
     "clashes": _r_clashes, "triggers": _r_triggers, "explain": _r_text, "ask": _r_text,
 }  # fmt: skip
 BUILD: dict[str, Callable[[Scan, str | None], dict[str, Any]]] = {
-    "doctor": _doctor, "cost": _cost, "unused": _unused, "twins": _twins, "why": _why, "hooks": _hooks,
+    "doctor": _doctor, "cost": _cost, "unused": _unused, "twins": _twins, "why": _why,
+    "remove-preview": _remove_preview, "hooks": _hooks,
     "clashes": _clashes, "triggers": _triggers, "explain": _explain, "ask": _ask,
 }  # fmt: skip
 
