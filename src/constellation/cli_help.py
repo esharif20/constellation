@@ -68,6 +68,11 @@ _VERBS: dict[str, tuple[str, str, tuple[str, ...]]] = {
         "Serve a constellation JSON file as a graph in the browser (`open demo` shows the packaged demo).",
         ("constellation open", "constellation open demo --no-browser"),
     ),
+    "find": (
+        "Look",
+        "Find an installed skill by what it does, from local names, descriptions and headings. Nothing is sent anywhere.",
+        ("constellation find review pull request", "constellation find pdf --config-dir ~/.claude"),
+    ),
     "update": (
         "Manage",
         "Print the upgrade command for how Constellation was installed. Makes no network call and runs nothing.",

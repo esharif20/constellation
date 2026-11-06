@@ -32,6 +32,7 @@ from .public_export import LIMITS, NOTICE, write_snapshot
 from .redact import redact
 from .report import render_cleanup, render_report, write_private
 from .review import build_review_graph, open_checkpointer, thread_id
+from .skill_search import find_skills
 from .suggestions import Suggestion, suggest
 
 Serve = Callable[[Any, int, bool], None]  # app, port, open the browser
@@ -176,12 +177,22 @@ def main(
         "uninstall", help="explain how to remove Constellation; deletes its cache only after you type a confirmation"
     )
     uninstall_command.add_argument("--dry-run", action="store_true", help="show what would be deleted and delete nothing")
+    find_command = commands.add_parser("find", help="find an installed skill from local names, descriptions and content")
+    find_command.add_argument("query")
+    find_command.add_argument("--config-dir", type=Path, default=Path.home() / ".claude")
     completion_command = commands.add_parser("completion")
     completion_command.add_argument("shell", choices=completion.SHELLS)
     cli_help.decorate(parser, commands.choices)
     args = parser.parse_args(argv)
     if args.command == "completion":
         print(completion.render(parser, args.shell), end="")
+        return 0
+    if args.command == "find":
+        hits, warnings = find_skills(args.query, args.config_dir)
+        for warning in warnings:
+            print(warning, file=sys.stderr)
+        for hit in hits:
+            print(f"{hit['name']}: {hit['description']}\n  {hit['invoke']} — {hit['why']}")
         return 0
     if args.command == "update":
         print(selfcheck.update_text(selfcheck.detect_method(sys.prefix)))
@@ -340,6 +351,7 @@ _SCAN_COMMANDS = {
     "report": "print a plain-text report of a saved scan",
     "assess": "print every Item's verdict as JSON",
     "weekly": "what changed since the last scan, what went quiet",
+    "find": "find an installed skill by what it does",
     "export": "write a read-only public Snapshot",
     "review": "go through Suggestions one at a time into a checklist",
     "diff": "Items added, removed or changed between two scans",

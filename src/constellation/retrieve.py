@@ -25,6 +25,9 @@ RRF_K = 60
 SIMILAR = 0.65  # raw bge-small cosine: unrelated Items sit at 0.5-0.65, matches above it; picked on tests/eval/test_search_quality.py
 SPREAD = 0.03  # keep only hits this close to the best one, so one real match is not buried in weaker lookalikes
 _FILLER = set("where is are the my find show me a an of to for do i which what skill skills plugin plugins agent agents hook hooks".split())
+CONTENT_SCHEMA = "CREATE VIRTUAL TABLE contents USING fts5(id UNINDEXED, kind UNINDEXED, text, tokenize='porter')"
+CONTENT_INSERT = "INSERT INTO contents VALUES (?, ?, ?)"
+CONTENT_QUERY = "SELECT id, kind, text FROM contents WHERE contents MATCH ? ORDER BY bm25(contents), id, kind, text"
 
 
 def _words(text: str) -> list[str]:
@@ -107,7 +110,7 @@ def _key(text: str) -> str:
 
 
 class Index:
-    def __init__(self, items: list[dict[str, Any]]) -> None:
+    def __init__(self, items: list[dict[str, Any]], *, skill_content: dict[str, list[tuple[str, str]]] | None = None) -> None:
         self.items = items
         self.note: str | None = None  # why meaning-based search is off, when it is
         self.vectors: dict[str, list[float]] | None = None
@@ -119,9 +122,22 @@ class Index:
             columns = "id UNINDEXED, name, description, kind"  # pragma: no mutate
             self._connection.execute(f"CREATE VIRTUAL TABLE {table} USING fts5({columns}, tokenize='{tokenizer}')")  # pragma: no mutate
             self._connection.executemany(f"INSERT INTO {table} VALUES (?, ?, ?, ?)", rows)  # pragma: no mutate
+        self._connection.execute(CONTENT_SCHEMA)
+        self._connection.executemany(
+            CONTENT_INSERT,
+            [(i["id"], kind, text) for i in items if i["kind"] == "skill" for kind, text in (skill_content or {}).get(i["id"], [])],
+        )
 
     def close(self) -> None:
         self._connection.close()
+
+    def _content_matches(self, toks: Sequence[str]) -> dict[str, str]:
+        with self._lock:
+            rows = self._connection.execute(CONTENT_QUERY, (_match(toks),)).fetchall()
+        hits: dict[str, str] = {}
+        for id_, kind, text in rows:
+            hits.setdefault(id_, f"{kind}: {text}")
+        return hits
 
     def fts(self, toks: Sequence[str], limit: int = LIMIT, trigram: bool = False) -> list[str]:
         table = "trigrams" if trigram else "words"  # pragma: no mutate (SQL names are case-insensitive)
@@ -203,7 +219,9 @@ class Index:
             whys.setdefault(id_, "name" if any(t in _words(item["name"]) for t in toks) else "in description")
         for id_, _ in similar:
             whys.setdefault(id_, "similar meaning")
-        score = _rrf([[t[2] for t in tiers], words, grams, [s[0] for s in similar]])
+        content = self._content_matches(toks)
+        whys.update(content)
+        score = _rrf([[t[2] for t in tiers], words, grams, [s[0] for s in similar], list(content)])
         exact = {t[2] for t in tiers if t[0] == 0}  # an exact name is always first
         ranked = sorted(score, key=lambda id_: (id_ not in exact, -score[id_], by_id[id_]["name"], id_))
         return [{"id": id_, "why": whys[id_]} for id_ in ranked[:limit]]
