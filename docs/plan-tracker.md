@@ -1025,3 +1025,11 @@ No deviation from the plan. Fixed on the demo at 1440x900 and 390px: Ask answer 
 ## #9 Inspector UI (2026-11-06, branch `claude/expandui`)
 
 - `inspector/Tools.tsx`: closed-by-default section for `mcp_server` (local) and `connector` Items; Expansion only starts on an explicit "List tools" click, with the honest local-only note. State is local to the section (no Inspector re-render, no Presence/Pane duplication; checked in the browser). Remote/`not_expandable` shows "Tools can only be listed for local servers"; failures show fixed-word "Could not reach this server: ..." text, never server text or paths. No API change. `/api/expand` returns no token counts, so none are shown. Verified on the demo (not_expandable path) and with mocked unreachable/expanded replies; no real local server was started.
+## `constellation purge` (2026-11-06, branch `claude/purge`)
+
+- Built: `constellation purge [scan.json] [--habits F] [--json] [--dry-run]`, read-only and local; it never deletes anything (`--dry-run` is accepted and changes nothing). New pure module `purge.py` (in `only_mutate`). A global, enabled, tracked Item (skill, agent, MCP server, connector) is a candidate when its habit-ledger uses all come from projects with no session in the last 60 days and it has no use in any other project. Items first seen within 30 days, with no ledger record, with no uses at all, pinned, disabled or project-scoped are never candidates. A project hash with no ledger activity day counts as active (the cautious reading).
+- Output: Item name, kind, always-on tokens (or "unknown tokens"), total tokens saved, and a plain reason ("only used in 2 idle projects, none active since 2026-08-01"). Project labels, hashes, salt and paths are never printed (a test asserts it). No provider call, no cost.
+- Limits: commands and hooks are not use-tracked by the ledger (`usage.TRACKED`), so they have no per-project counts and can never be candidates yet. Tokens come from the saved scan, so run `scan` first.
+- Wiring: one parser block and one dispatch line in `cli.py`, a `_VERBS` entry (Manage) in `cli_help.py`; `menu.py` untouched.
+- No deviation from the plan.
+- Mutation: `purge.py` only, 227/227 killed, zero survivors (run with `tests/test_install_script.py` deselected via a temporary pyproject edit, restored).
