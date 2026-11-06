@@ -109,6 +109,8 @@ Not done or not verified:
 Safety note: a bare `scan` or `open` uses `./constellation.json` only if it is your own file with mode 600; otherwise it
 is ignored with a one-line note (`chmod 600` it to use it), so a file from a cloned repo is never trusted as your scan.
 
+The short version of how it works and what went wrong along the way: [`docs/overview.md`](docs/overview.md).
+
 ## Reference
 
 Details below are for contributors and for the deeper features (report, snapshot, plugin, review).
