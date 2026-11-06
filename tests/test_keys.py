@@ -1,6 +1,6 @@
 import pytest
 
-from constellation.keys import Action, key_stream, parse_key, split_keys
+from constellation.keys import Action, edit, key_stream, parse_key, split_keys
 
 
 @pytest.mark.parametrize(
@@ -18,11 +18,12 @@ from constellation.keys import Action, key_stream, parse_key, split_keys
         (b"Q", "q"),
         (b"3", "3"),
         (b" ", " "),
-        (b"\x1b[D", ""),
+        (b"\x1b[D", "left"),
         (b"\x80", ""),
         (b"\xff", ""),
         (b"ab", ""),
-        (b"\x7f", "\x7f"),
+        (b"\x7f", "backspace"),
+        (b"\x08", "backspace"),
     ],
 )
 def test_parse_key(data, key):
@@ -44,3 +45,27 @@ def test_key_stream_yields_each_key_and_quits_at_end_of_input():
     reads = iter([b"\x1b[B\x1b[A", b"x", b""])
     assert list(key_stream(lambda: next(reads))) == ["down", "up", "x", "q"]
     assert list(key_stream(lambda: b"")) == ["q"]
+
+
+def test_parse_key_without_folding_keeps_case_and_names_end_of_input():
+    assert parse_key(b"Q", fold=False) == "Q" and parse_key(b"q", fold=False) == "q"
+    assert parse_key(b"", fold=False) == "eof" and parse_key(b"\x04", fold=False) == "eof"
+    assert parse_key(b"\x1b", fold=False) == "esc" and parse_key(b"\xc3\xa9", fold=False) == ""
+    assert parse_key(b"\x04") == "q"
+
+
+def test_key_stream_without_folding_ends_with_eof():
+    reads = iter([b"Ab", b""])
+    assert list(key_stream(lambda: next(reads), fold=False)) == ["A", "b", "eof"]
+
+
+def test_edit_types_deletes_and_ends_the_prompt():
+    assert edit("ab", "C") == ("abC", None)
+    assert edit("ab", " ") == ("ab ", None)
+    assert edit("ab", "backspace") == ("a", None)
+    assert edit("", "backspace") == ("", None)
+    assert edit("ab", "enter") == ("ab", "done")
+    for key in ("esc", "ctrl-c", "eof"):
+        assert edit("ab", key) == ("ab", "cancel")
+    for key in ("up", "down", "left", "", "\x00"):
+        assert edit("ab", key) == ("ab", None)

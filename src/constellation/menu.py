@@ -49,8 +49,8 @@ def step(index: int, key: str, count: int = len(ENTRIES), top: bool = True) -> i
     if key == "q":
         return Action("quit")
     if key == "ctrl-c":
-        return Action("interrupt")
-    if key == "esc" and not top:
+        return Action("interrupt" if top else "back")
+    if key in ("esc", "left", "b") and not top:
         return Action("back")
     if top and key in ("m", "v", "u"):
         return Action({"m": "more", "v": "version", "u": "update"}[key])

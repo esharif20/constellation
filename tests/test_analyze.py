@@ -37,7 +37,9 @@ def test_step_actions_carry_the_selected_row(key, kind):
 
 
 def test_step_ctrl_c_and_empty_lists():
-    assert analyze.step(1, "ctrl-c", 3) == Action("interrupt")
+    assert analyze.step(1, "ctrl-c", 3) == Action("back")
+    assert analyze.step(1, "left", 3) == Action("back", 1) and analyze.step(1, "b", 3) == Action("back", 1)
+    assert analyze.step(0, "left", 0) == Action("back", 0) and analyze.step(0, "b", 0) == Action("back", 0)
     assert analyze.step(0, "r", 0) == Action("refresh", 0)
     assert analyze.step(0, "q", 0) == Action("back", 0)
     for key in ("enter", "o", "p", "f", "right"):
@@ -70,7 +72,7 @@ def test_render_exact_frame():
         "▶  2. " + "█" * 8 + " " * 16 + "   2% | flashcard        136 tok\n"
         "   3. █" + " " * 23 + "   0% | yaml              20 tok\n"
         "\n"
-        "↑↓→ | Enter | R Refresh | O Open | P Preview | F File | Esc/Q Quit"
+        "↑↓→ | Enter | R Refresh | O Open | P Preview | F File | Esc/Q Back"
     )
 
 
@@ -84,7 +86,7 @@ def test_render_unknown_total_empty_and_narrow():
         "What loads at the start of every session, biggest first:  Scanning…",
         "",
         "",
-        "↑↓→ | Enter | R Refresh | O Open | P Preview | F File | Esc/Q Quit",
+        "↑↓→ | Enter | R Refresh | O Open | P Preview | F File | Esc/Q Back",
     ]
     narrow = analyze.render(ROWS, 0, Style(False, 40), 5503, "3 Items")
     assert all(len(line) <= 40 for line in narrow)
