@@ -22,6 +22,7 @@
     "chat:check": "node scripts/chat-accessibility.mjs",
     "triggers:check": "node scripts/triggers-check.mjs",
     "conflicts:check": "node scripts/conflicts-check.mjs",
+    "removal:check": "node scripts/removal-check.mjs",
     "weekly:check": "node scripts/weekly-check.mjs",
     "chat:cluster:check": "node scripts/chat-cluster-check.mjs",
     "motion:check": "node scripts/motion-check.ts",

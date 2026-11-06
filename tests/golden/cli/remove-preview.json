@@ -1,0 +1,44 @@
+{
+  "id": "skill:sentinel:review-diff",
+  "name": "review-diff",
+  "kind": "skill",
+  "safe": false,
+  "verdict": "Check these first",
+  "reasons": [
+    "1 other Item refers to it."
+  ],
+  "loses_coverage": false,
+  "covered_by": [
+    {
+      "id": "skill:extra:quarterly-ledger-reconciliation-helper",
+      "name": "quarterly-ledger-reconciliation-helper",
+      "kind": "skill",
+      "why": "Same steps and trigger wording; one could go.",
+      "verdict": "duplicate"
+    }
+  ],
+  "cluster": {
+    "name": "Reviewing pull requests",
+    "others": [
+      "auditor",
+      "block-force-push",
+      "check-naming",
+      "flag-dead-code",
+      "lighthouse-lamp-maintenance-scheduler",
+      "port-finder"
+    ],
+    "more": 3
+  },
+  "referenced_by": [
+    {
+      "id": "agent:critic",
+      "name": "critic",
+      "kind": "agent",
+      "why": "calls it"
+    }
+  ],
+  "hooks": [],
+  "contains": [],
+  "used": null,
+  "last_used": null
+}

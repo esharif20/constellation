@@ -13,7 +13,7 @@ from constellation.cli import main
 ROOT = Path(__file__).parent.parent
 DEMO = ROOT / "docs" / "design" / "demo.json"
 GOLDEN = Path(__file__).parent / "golden" / "cli"
-ARGS = {"why": ["review-diff"], "ask": ["what costs the most?"]}
+ARGS = {"why": ["review-diff"], "remove-preview": ["review-diff"], "ask": ["what costs the most?"]}
 PLAIN, COLOUR = cr.Style(), cr.Style(color=True)
 NAMES = [c.name for c in cr.COMMANDS if c.name not in ("clean", "share")]
 

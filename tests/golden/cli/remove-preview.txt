@@ -1,0 +1,8 @@
+review-diff (skill)
+
+  ! Check these first
+  - 1 other Item refers to it.
+  Also covered by: quarterly-ledger-reconciliation-helper
+  Referred to by: critic (calls it)
+  Same group (Reviewing pull requests): auditor, block-force-push, check-naming, flag-dead-code, lighthouse-lamp-maintenance-scheduler, port-finder and 3 more
+  Nothing was changed; remove it by hand.

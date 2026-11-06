@@ -10,7 +10,7 @@ from constellation.cli import main
 DEMO = Path(__file__).parent.parent / "docs" / "design" / "demo.json"
 SECRET = "".join(["ghp_", "aB3dE5gH" * 4, "7jK9"])  # assembled at runtime so no token-shaped string sits in the repo
 READ_ONLY = [c.name for c in cli_reports.COMMANDS if c.name not in ("clean", "share")]
-ARGS = {"why": ["review-diff"], "ask": ["what costs the most?"]}
+ARGS = {"why": ["review-diff"], "remove-preview": ["review-diff"], "ask": ["what costs the most?"]}
 
 
 @pytest.fixture(autouse=True)
@@ -143,7 +143,7 @@ def test_a_planted_secret_never_appears_in_any_command(secret_scan, tmp_path, ca
     names = [scan["items"][0]["name"], scan["items"][1]["name"], "review-diff"]
     flag = ["--json"] if as_json else []
     for name in READ_ONLY:
-        for arg in ARGS.get(name, []) if name != "why" else names:
+        for arg in ARGS.get(name, []) if name not in ("why", "remove-preview") else names:
             code, out, err = run(capsys, name, *([arg] if name in ARGS else []), str(path), *flag)
             assert SECRET not in out + err, name
             assert code in (0, 2)
