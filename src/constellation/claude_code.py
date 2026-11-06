@@ -4,6 +4,7 @@ import json
 import re
 from collections.abc import Iterator
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path, PurePath
 from typing import Any
 from urllib.parse import urlsplit
@@ -19,6 +20,14 @@ SOURCE = "claude-code"
 LOCAL_SCOPE = True  # approved deviation from plan A item 8: read project/local-scope servers from .claude.json; False drops them
 DESCRIPTION_CAP = 200  # a command's first line can be a whole paragraph
 _SCHEMES = {"http", "https", "ws", "wss"}
+
+
+def _changed_on(path: Path) -> str | None:
+    """The day the file was last modified, from stat alone (the file is not read for this)."""
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime, UTC).date().isoformat()
+    except OSError:
+        return None
 
 
 def _shown(path: Path) -> str:
@@ -216,7 +225,9 @@ def _read_root(
             origin = (
                 None if lock is None or scope else "claude.ai" if extra else find(Found(path.parent, config_dir, kind, meta, lock, secrets))
             )
-            items.append(Item(f"{SOURCE}:{kind}:{scope}{extra}{name}", kind, name, description, SOURCE, origin=origin))
+            items.append(
+                Item(f"{SOURCE}:{kind}:{scope}{extra}{name}", kind, name, description, SOURCE, origin=origin, changed_on=_changed_on(path))
+            )
             bodies[items[-1].id] = path.read_text().split("---", 2)[2].strip()  # loaded only when invoked: the on-use text
     for path in _inside(root, "commands/*.md", scope, warnings):
         parsed = _command(path, warnings)
@@ -226,7 +237,7 @@ def _read_root(
         if not description:
             warnings.append(f"skipped command '{name}': no description ({_shown(path)})")
             continue
-        items.append(Item(f"{SOURCE}:command:{scope}{name}", "command", name, description, SOURCE))
+        items.append(Item(f"{SOURCE}:command:{scope}{name}", "command", name, description, SOURCE, changed_on=_changed_on(path)))
     mcp_file = root / ".mcp.json"
     if mcp_file.exists() and _contained(mcp_file, root, scope, warnings):
         data = _load(mcp_file, warnings, f"{scope or 'config'}.mcp.json")
